@@ -1886,14 +1886,15 @@ Expected: sdist + wheel build; `twine check` reports `PASSED` for both. Confirm 
 
 - [ ] **Step 5: Add the verification changelog fragment and commit**
 
-Create `changelog/2.documentation.rst`:
+Create `changelog/1.documentation.rst` (same PR number as the existing
+`1.internal.rst` — both fragments belong to the foundation PR):
 
 ```
 Added the developer documentation-style guide (title style and glossary rules).
 ```
 
 ```bash
-git add changelog/2.documentation.rst
+git add changelog/1.documentation.rst
 git commit -m "docs: add documentation-style developer guide fragment"
 ```
 
