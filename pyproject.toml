@@ -1,16 +1,9 @@
 [build-system]
-requires = ["setuptools>=77.0.3", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.3", "setuptools_scm>=8"]
 
 [project]
-name = "tephpy"
-description = "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
 authors = [{ name = "tephpy Contributors" }]
-license = "BSD-3-Clause"
-license-files = ["LICENSE"]
-requires-python = ">=3.12"
-dynamic = ["dependencies", "optional-dependencies", "readme", "version"]
-keywords = ["tephigram", "meteorology", "thermodynamics", "sounding", "matplotlib"]
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -21,41 +14,60 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Atmospheric Science",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
+description = "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
+dynamic = ["dependencies", "optional-dependencies", "readme", "version"]
+keywords = [
+  "tephigram",
+  "meteorology",
+  "thermodynamics",
+  "sounding",
+  "matplotlib",
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+name = "tephpy"
+requires-python = ">=3.12"
 
 [project.urls]
-Repository = "https://github.com/bjlittle/tephpy"
 Issues = "https://github.com/bjlittle/tephpy/issues"
+Repository = "https://github.com/bjlittle/tephpy"
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements/pypi-core.txt"] }
 readme = { file = "README.md", content-type = "text/markdown" }
 
 [tool.setuptools.dynamic.optional-dependencies]
-test = { file = ["requirements/pypi-optional-test.txt"] }
-docs = { file = ["requirements/pypi-optional-docs.txt"] }
 devs = { file = ["requirements/pypi-optional-devs.txt"] }
+docs = { file = ["requirements/pypi-optional-docs.txt"] }
+test = { file = ["requirements/pypi-optional-test.txt"] }
 
 [tool.setuptools.packages.find]
-where = ["src"]
 include = ["tephpy*"]
+where = ["src"]
 
 [tool.setuptools_scm]
-version_scheme = "release-branch-semver"
 local_scheme = "dirty-tag"
+version_scheme = "release-branch-semver"
 write_to = "src/tephpy/_version.py"
 
 [tool.pytest.ini_options]
-addopts = ["--import-mode=importlib", "--strict-config", "--strict-markers", "-ra"]
+addopts = [
+  "--import-mode=importlib",
+  "--strict-config",
+  "--strict-markers",
+  "-ra",
+]
+filterwarnings = ["error"]
+log_level = "INFO"
+markers = ["mpl_image_compare: matplotlib image comparison tests"]
 minversion = "8.0"
 testpaths = ["tests"]
 xfail_strict = true
-filterwarnings = ["error"]
-markers = ["mpl_image_compare: matplotlib image comparison tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["tephpy"]
 omit = ["*/_version.py"]
+source = ["tephpy"]
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
@@ -69,10 +81,8 @@ src = ["src", "tests", "docs/src"]
 docstring-code-format = true
 
 [tool.ruff.lint]
-extend-select = ["CPY001"]
-preview = true
 explicit-preview-rules = true
-select = ["ALL", "D212"]
+extend-select = ["CPY001"]
 ignore = [
   "COM812",  # trailing comma missing (conflicts with formatter)
   "COM819",  # trailing comma prohibited
@@ -85,6 +95,8 @@ ignore = [
   "S101",    # use of assert (pytest)
   "TD003",   # missing issue link after TODO
 ]
+preview = true
+select = ["ALL", "D212"]
 
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = '''
@@ -103,19 +115,25 @@ required-imports = ["from __future__ import annotations"]
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
 "docs/src/conf.py" = ["INP001", "A001"]
+"tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
 
 [tool.mypy]
-strict = true
-warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 files = ["src/tephpy"]
+strict = true
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # MetPy and pint ship partial/absent stubs; do not fail on their imports.
-module = ["metpy.*", "pint.*"]
 ignore_missing_imports = true
+module = ["metpy.*", "pint.*"]
+
+[tool.repo-review]
+ignore = [
+  "PC180", # prettier (not used)
+  "PP006", # dev dependency group
+]
 
 [tool.numpydoc_validation]
 checks = ["all", "GL01", "GL02", "GL03", "SA01", "ES01", "EX01", "YD01"]
