@@ -60,3 +60,48 @@ omit = ["*/_version.py"]
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
 show_missing = true
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests", "docs/src"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+extend-select = ["CPY001"]
+preview = true
+explicit-preview-rules = true
+select = ["ALL", "D212"]
+ignore = [
+  "COM812",  # trailing comma missing (conflicts with formatter)
+  "COM819",  # trailing comma prohibited
+  "D105",    # missing docstring in magic method
+  "FBT002",  # boolean default positional argument
+  "FIX002",  # line contains TODO
+  "ISC001",  # implicit string concat (conflicts with formatter)
+  "N806",    # variable in function should be lowercase (T, P are physics symbols)
+  "PLR2004", # magic value in comparison
+  "S101",    # use of assert (pytest)
+  "TD003",   # missing issue link after TODO
+]
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = '''
+# Copyright \(c\) 2026, tephpy Contributors\.
+#
+# This file is part of tephpy and is distributed under the 3-Clause BSD license\.
+# See the LICENSE file in the package root directory for licensing details\.
+'''
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["tephpy"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
+"docs/src/conf.py" = ["INP001", "A001"]
