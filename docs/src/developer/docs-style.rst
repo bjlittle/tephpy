@@ -1,7 +1,7 @@
 Documentation Style
 ====================
 
-Title style
+Title Style
 -----------
 
 Hand-authored page and section titles use Chicago Manual of Style headline

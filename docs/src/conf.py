@@ -39,6 +39,9 @@ autoapi_options = [
     "show-inheritance",
     "show-module-summary",
 ]
+autoapi_add_toctree_entry = (
+    False  # nav is the five Diátaxis entries; API lives under Reference
+)
 autoapi_keep_files = False
 suppress_warnings = ["autoapi.python_import_resolution"]
 
