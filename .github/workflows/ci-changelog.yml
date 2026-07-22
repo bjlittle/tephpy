@@ -1,0 +1,28 @@
+name: ci-changelog
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  changelog:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a news fragment for this PR
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          shopt -s nullglob
+          files=(changelog/${PR}.*.rst)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No changelog fragment changelog/${PR}.<type>.rst found. Add one or apply the 'skip-changelog' label."
+            exit 1
+          fi
+          echo "Found: ${files[*]}"
