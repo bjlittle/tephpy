@@ -203,7 +203,6 @@ keywords = ["tephigram", "meteorology", "thermodynamics", "sounding", "matplotli
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: BSD License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
