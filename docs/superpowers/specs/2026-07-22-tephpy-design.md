@@ -87,7 +87,8 @@ Differences from tephi:
 
 - Background isopleths are **on by default**, individually removable/configurable via
   accessor methods (`ax.isobars(...)`, `ax.wet_adiabats(...)`, `ax.mixing_ratios(...)`).
-- `ax.plot_profile(pressure, temperature, **mpl_kwargs)` accepts pint quantities;
+- `ax.plot_profile(...)` accepts either (pressure, temperature) pint quantities or a
+  `Profile` object (e.g. the return of `calc.parcel_path`);
   `ax.plot_sounding(snd)` plots T + Td with conventional colours and a legend entry
   of station + UTC time.
 - `ax.plot_barbs(...)` — right-hand gutter staff, Met Office symbology, 5 kt binning.
@@ -101,9 +102,12 @@ Differences from tephi:
 Every function takes and returns pint quantities and delegates physics to
 `metpy.calc`. Only tephigram-native compositions live here:
 
-- `parcel_path(sounding_or_arrays, *, cloud_base_correction=None)` → plottable
-  `Profile` (dry adiabat → Normand's point → saturated adiabat). The −25 mb
-  operational correction is applied only when explicitly requested.
+- `parcel_path(sounding_or_arrays, *, parcel="surface", cloud_base_correction=None)`
+  → plottable `Profile` (dry adiabat → Normand's point → saturated adiabat).
+  `parcel` selects the lifted parcel: `"surface"` (default) or `"mixed-layer"`
+  (mean properties of the lowest 100 hPa, per operational practice). The −25 mb
+  operational cloud-base correction is applied only when explicitly requested.
+  `indices()` takes the same `parcel` option.
 - `normand_point(pressure, temperature, dewpoint)` → (p, T) of the LCL.
 - `indices(sounding)` → typed `SoundingIndices` dataclass: CAPE, CIN, LCL, LFC, EL,
   θw, lifted index. Fields are pint quantities; "does not exist" cases (e.g. no LFC)
@@ -114,7 +118,9 @@ Every function takes and returns pint quantities and delegates physics to
 
 `Sounding`: a frozen dataclass holding pressure/temperature/dewpoint/wind-speed/
 wind-direction arrays as pint quantities, plus `station`, `time`, and a derived
-`label` used for legends. Constructors: `Sounding(...)` from quantities,
+`label` used for legends. Pressure and temperature are required; dewpoint and wind
+are optional (a Sounding without wind plots profiles but raises on `plot_barbs`;
+one without dewpoint raises on parcel analysis). Constructors: `Sounding(...)` from quantities,
 `Sounding.from_dataframe(df, **column_map)`, `Sounding.from_dataset(ds, **var_map)`.
 Validation at construction (§6). Readers (`io.wyoming.fetch`, `io.igra.read`) return
 `Sounding` objects.
@@ -174,7 +180,7 @@ quantities. This is a deliberate fix for tephi's hard-wired hPa/°C/knots.
 - **Transforms:** hypothesis round-trip property tests ((p,T) → (x,y) → (p,T) ≡
   identity), fixed known values cross-checked against tephi's test data, and a direct
   assertion of the isotherm ⊥ dry-adiabat invariant in display space.
-- **Plotting:** matplotlib `image_comparison` baseline tests (small in-repo PNGs,
+- **Plotting:** image-baseline tests via pytest-mpl (small in-repo PNGs,
   tolerance-tuned) for each isopleth family, profiles, barbs, shading, and the
   composed §4 figure. Deliberately not tephi's external image-hash repo, which is a
   contributor-hostile maintenance burden.
