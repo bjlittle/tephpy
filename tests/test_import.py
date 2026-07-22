@@ -20,3 +20,12 @@ def test_version_is_pep440() -> None:
     from packaging.version import Version
 
     Version(tephpy.__version__)
+
+
+def test_runtime_dependencies_importable() -> None:
+    """The declared runtime dependencies import."""
+    import matplotlib  # noqa: F401
+    import metpy  # noqa: F401
+    import numpy  # noqa: F401
+    import pint  # noqa: F401
+    import scipy  # noqa: F401

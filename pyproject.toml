@@ -27,7 +27,13 @@ Repository = "https://github.com/bjlittle/tephpy"
 Issues = "https://github.com/bjlittle/tephpy/issues"
 
 [tool.setuptools.dynamic]
+dependencies = { file = ["requirements/pypi-core.txt"] }
 readme = { file = "README.md", content-type = "text/markdown" }
+
+[tool.setuptools.dynamic.optional-dependencies]
+test = { file = ["requirements/pypi-optional-test.txt"] }
+docs = { file = ["requirements/pypi-optional-docs.txt"] }
+devs = { file = ["requirements/pypi-optional-devs.txt"] }
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,0 +1,12 @@
+myst-nb>=1.1
+numpydoc>=1.8
+pydata-sphinx-theme>=0.16
+sphinx>=8.0
+sphinx-autoapi>=3.3
+sphinx-copybutton>=0.5
+sphinx-design>=0.6
+sphinx-gallery>=0.17
+sphinx-togglebutton>=0.3
+sphinx_changelog>=1.6
+sphinxcontrib-bibtex>=2.6
+towncrier>=24.8
