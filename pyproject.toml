@@ -184,3 +184,85 @@ showcontent = true
 directory = "misc"
 name = "🧰 Miscellaneous"
 showcontent = true
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+tephpy = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+matplotlib-base = ">=3.9"
+metpy = ">=1.6"
+numpy = ">=2.0"
+pint = ">=0.24"
+scipy = ">=1.13"
+setuptools = ">=77.0.3"
+setuptools-scm = ">=8"
+
+[tool.pixi.environments]
+default = { features = ["test", "devs", "py313"], solve-group = "default" }
+devs = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
+docs = { features = ["docs", "devs", "py313"], solve-group = "default" }
+test = { features = ["test", "devs", "py313"], solve-group = "default" }
+test-py312 = { features = ["test", "devs", "py312"], solve-group = "py312" }
+test-py313 = { features = ["test", "devs", "py313"], solve-group = "py313" }
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.test.dependencies]
+hypothesis = ">=6.100"
+pytest = ">=8.0"
+pytest-cov = ">=5.0"
+pytest-mpl = ">=0.17"
+
+[tool.pixi.feature.test.tasks.tests]
+cmd = "pytest --cov --cov-report=xml"
+description = "Run the unit test suite with coverage"
+
+[tool.pixi.feature.test.tasks.tests-mpl-generate]
+cmd = "pytest --mpl-generate-path=tests/baseline"
+description = "Regenerate matplotlib image-comparison baselines"
+
+[tool.pixi.feature.devs.dependencies]
+pre-commit = ">=4.0"
+ruff = ">=0.15"
+
+[tool.pixi.feature.devs.tasks.lint]
+cmd = "pre-commit run --all-files"
+description = "Run all pre-commit hooks"
+
+[tool.pixi.feature.docs.dependencies]
+make = ">=4.3"
+myst-nb = ">=1.1"
+numpydoc = ">=1.8"
+pydata-sphinx-theme = ">=0.16"
+sphinx = ">=8.0"
+sphinx-autoapi = ">=3.3"
+sphinx-copybutton = ">=0.5"
+sphinx-design = ">=0.6"
+sphinx-gallery = ">=0.17"
+sphinx-togglebutton = ">=0.3"
+sphinx_changelog = ">=1.6"
+sphinxcontrib-bibtex = ">=2.6"
+towncrier = ">=24.8"
+
+[tool.pixi.feature.docs.tasks.docs]
+cmd = "make html"
+cwd = "docs"
+description = "Build the HTML documentation"
+
+[tool.pixi.feature.docs.tasks.docs-clean]
+cmd = "make clean"
+cwd = "docs"
+description = "Remove built documentation artifacts"
+
+[tool.pixi.feature.docs.tasks.serve-html]
+cmd = "python -m http.server 11000 --directory _build/html"
+cwd = "docs"
+description = "Serve built docs on http://localhost:11000"
