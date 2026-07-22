@@ -237,6 +237,8 @@ cmd = "pytest --mpl-generate-path=tests/baseline"
 description = "Regenerate matplotlib image-comparison baselines"
 
 [tool.pixi.feature.devs.dependencies]
+check-manifest = ">=0.49"
+mypy = ">=1.13"
 pre-commit = ">=4.0"
 ruff = ">=0.15"
 

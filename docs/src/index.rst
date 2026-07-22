@@ -1,7 +1,7 @@
 tephpy
 ======
 
-Plot and analyse tephigrams.
+Plot and analyse :term:`tephigrams <tephigram>`.
 
 .. grid:: 2
 
