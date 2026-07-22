@@ -217,3 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .superpowers/
+
+# setuptools_scm generated version file
+src/tephpy/_version.py
+
+# pixi
+.pixi/

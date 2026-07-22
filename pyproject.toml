@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tephpy"
+description = "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
+authors = [{ name = "tephpy Contributors" }]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dynamic = ["dependencies", "optional-dependencies", "readme", "version"]
+keywords = ["tephigram", "meteorology", "thermodynamics", "sounding", "matplotlib"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
+
+[project.urls]
+Repository = "https://github.com/bjlittle/tephpy"
+Issues = "https://github.com/bjlittle/tephpy/issues"
+
+[tool.setuptools.dynamic]
+readme = { file = "README.md", content-type = "text/markdown" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tephpy*"]
+
+[tool.setuptools_scm]
+version_scheme = "release-branch-semver"
+local_scheme = "dirty-tag"
+write_to = "src/tephpy/_version.py"

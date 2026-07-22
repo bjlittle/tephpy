@@ -1,0 +1,4 @@
+include LICENSE README.md CHANGELOG.rst CITATION.cff
+include src/tephpy/py.typed
+recursive-include requirements *.txt
+exclude src/tephpy/_version.py
