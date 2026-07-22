@@ -43,3 +43,20 @@ include = ["tephpy*"]
 version_scheme = "release-branch-semver"
 local_scheme = "dirty-tag"
 write_to = "src/tephpy/_version.py"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib", "--strict-config", "--strict-markers", "-ra"]
+minversion = "8.0"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = ["error"]
+markers = ["mpl_image_compare: matplotlib image comparison tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["tephpy"]
+omit = ["*/_version.py"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
+show_missing = true
