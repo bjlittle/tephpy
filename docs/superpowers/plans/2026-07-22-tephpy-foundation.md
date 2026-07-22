@@ -1377,6 +1377,8 @@ updates:
     directory: "/"
     schedule:
       interval: daily
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -1387,6 +1389,8 @@ updates:
     directory: "/requirements"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       pip:
         patterns: ["*"]
