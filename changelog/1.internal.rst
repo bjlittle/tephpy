@@ -1,0 +1,1 @@
+Established the project foundation: packaging, pixi workflow, linting, typing, tests, documentation skeleton, and CI.

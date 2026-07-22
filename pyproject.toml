@@ -116,3 +116,53 @@ files = ["src/tephpy"]
 # MetPy and pint ship partial/absent stubs; do not fail on their imports.
 module = ["metpy.*", "pint.*"]
 ignore_missing_imports = true
+
+[tool.numpydoc_validation]
+checks = ["all", "GL01", "GL02", "GL03", "SA01", "ES01", "EX01", "YD01"]
+
+[tool.towncrier]
+directory = "changelog"
+filename = "CHANGELOG.rst"
+package = "tephpy"
+package_dir = "src"
+template = "changelog/template.rst"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "💣 Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "✨ New Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "enhancement"
+name = "🚀 Enhancements"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "🐛 Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "dependency"
+name = "🔗 Dependencies"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "documentation"
+name = "📚 Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "internal"
+name = "💼 Internal"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "🧰 Miscellaneous"
+showcontent = true
