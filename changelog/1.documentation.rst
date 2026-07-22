@@ -1,0 +1,1 @@
+Added the developer documentation-style guide (title style and glossary rules).
