@@ -1022,6 +1022,7 @@ autoapi_options = [
     "show-module-summary",
 ]
 autoapi_keep_files = False
+autoapi_add_toctree_entry = False  # nav is the five Diátaxis entries; API lives under Reference
 suppress_warnings = ["autoapi.python_import_resolution"]
 
 # -- numpydoc ----------------------------------------------------------------
@@ -1235,7 +1236,7 @@ Developer Guide
 Documentation Style
 ====================
 
-Title style
+Title Style
 -----------
 
 Hand-authored page and section titles use Chicago Manual of Style headline
