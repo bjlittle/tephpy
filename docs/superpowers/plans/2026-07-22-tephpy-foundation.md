@@ -225,7 +225,7 @@ include = ["tephpy*"]
 [tool.setuptools_scm]
 version_scheme = "release-branch-semver"
 local_scheme = "dirty-tag"
-write_to = "src/tephpy/_version.py"
+version_file = "src/tephpy/_version.py"
 ```
 
 Create `.git_archival.txt`:
@@ -250,6 +250,8 @@ include LICENSE README.md CHANGELOG.rst CITATION.cff
 include src/tephpy/py.typed
 recursive-include requirements *.txt
 exclude src/tephpy/_version.py
+prune .github
+prune docs/superpowers
 ```
 
 Append to `.gitignore`:
@@ -647,7 +649,7 @@ Create `changelog/template.rst`:
 {% for section, _ in sections.items() %}
 {% for category, val in definitions.items() if category in sections[section] %}
 {{ definitions[category]['name'] }}
-{{ "^" * definitions[category]['name']|length }}
+{{ "^" * (definitions[category]['name']|length + 2) }}
 
 {% for text, values in sections[section][category].items() %}
 - {{ text }} ({{ values|join(', ') }})
@@ -897,6 +899,8 @@ cmd = "pytest --mpl-generate-path=tests/baseline"
 description = "Regenerate matplotlib image-comparison baselines"
 
 [tool.pixi.feature.devs.dependencies]
+check-manifest = ">=0.49"
+mypy = ">=1.13"
 pre-commit = ">=4.0"
 ruff = ">=0.15"
 
@@ -1103,7 +1107,7 @@ set SPHINXOPTS=--fail-on-warning --keep-going
 tephpy
 ======
 
-Plot and analyse tephigrams.
+Plot and analyse :term:`tephigrams <tephigram>`.
 
 .. grid:: 2
 
@@ -1165,7 +1169,7 @@ Task-focused recipes will appear here as the package grows.
 Explanation
 ===========
 
-Background on the tephigram, its rotated temperature-entropy coordinate
+Background on the :term:`tephigram`, its rotated temperature-entropy coordinate
 system, and parcel analysis will appear here as the package grows.
 ```
 
@@ -1294,12 +1298,15 @@ build:
     post_checkout:
       - git fetch --unshallow || true
     create_environment:
-      - pip install pixi
+      # pixi is NOT on PyPI (the `pixi` PyPI name is an unrelated project) —
+      # install the real binary and invoke it by absolute path (PATH does not
+      # persist between RTD job steps; $HOME does).
+      - curl -fsSL https://pixi.sh/install.sh | PIXI_VERSION=v0.72.1 bash
     install:
-      - pixi install --frozen --environment docs
+      - $HOME/.pixi/bin/pixi install --frozen --environment docs
     build:
       html:
-        - pixi run --frozen --environment docs sphinx-build -T -b html docs/src $READTHEDOCS_OUTPUT/html
+        - $HOME/.pixi/bin/pixi run --frozen --environment docs sphinx-build -T -b html docs/src $READTHEDOCS_OUTPUT/html
 ```
 
 - [ ] **Step 5: Build the docs**
@@ -1722,6 +1729,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1  # pin to SHA
         with:
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
 
   publish-pypi:
     needs: build
@@ -1924,7 +1932,7 @@ Expected: PR opens; CI (`ci-tests` matrix, `ci-docs`, `ci-wheels` build, `ci-cha
 
 **Type/name consistency:** `tephpy.__version__` (Tasks 1, 10, tests) consistent. pixi environment names (`test-py312`, `test-py313`, `docs`) consistent between Task 8 and Task 11. Task names (`tests`, `lint`, `docs`) consistent between Task 8 and Tasks 11–12. Copyright regex identical in Task 4 and every file header.
 
-**Deliberate deviations recorded:** pytest-mpl vs pytest-pyvista (spec §8.5); multi-platform pixi (spec §8.2); pydata-sphinx-theme (spec §8.6); sphinx-tags deferred to Plan 7 (above).
+**Deliberate deviations recorded:** pytest-mpl vs pytest-pyvista (spec §8.5); multi-platform pixi (spec §8.2); pydata-sphinx-theme (spec §8.6); sphinx-tags deferred to Plan 7 (above); doctest run in ci-docs deferred until doctests exist (spec §8.7); wheel-install smoke test in ci-wheels deferred while the wheel is pure-Python scaffolding (spec §8.7); labeler workflow deferred to the fast-follow bots wave — `.github/labeler.yml` ships inert until then (spec §8.7/§8.8).
 
 ---
 
