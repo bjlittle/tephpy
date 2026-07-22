@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: tephpy
+abstract: "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
+authors:
+  - name: "tephpy Contributors"
+license: BSD-3-Clause
+repository-code: "https://github.com/bjlittle/tephpy"
+type: software

@@ -1,0 +1,8 @@
+"type: documentation":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**"]
+"type: spec-0":
+  - head-branch: ["^spec", "^spec0"]
+"type: ci":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
