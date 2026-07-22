@@ -23,7 +23,7 @@ Every task's requirements implicitly include these, copied verbatim from the spe
 - **Lint/format:** ruff `select = ["ALL"]` with the curated ignore list; numpy docstring convention; isort `required-imports = ["from __future__ import annotations"]`; `CPY001` copyright-header enforcement.
 - **Copyright header (every source file, verbatim regex target):**
   ```
-  # Copyright (c) 2026, Bill Little.
+  # Copyright (c) 2026, tephpy Contributors.
   #
   # This file is part of tephpy and is distributed under the 3-Clause BSD license.
   # See the LICENSE file in the package root directory for licensing details.
@@ -33,7 +33,7 @@ Every task's requirements implicitly include these, copied verbatim from the spe
 - **Docs titles:** Chicago Manual of Style headline style with the documented exceptions (§8.6). Review-enforced; no build gate.
 - **Changelog:** towncrier fragments in `changelog/<PR>.<type>.rst`; the geovista type taxonomy.
 - **CI hygiene:** SHA-pinned actions, `permissions: {}` default, `persist-credentials: false`, `concurrency` cancel-in-progress, pixi via `prefix-dev/setup-pixi` with `frozen: true`.
-- **License:** BSD-3-Clause; holder "Bill Little" (matches existing `LICENSE`).
+- **License:** BSD-3-Clause; holder "tephpy Contributors" (matches the `LICENSE`).
 
 **Version pins below** are copied from a fresh geovista checkout (2026-07). Where a pin may have moved, the pre-commit `autoupdate` and pixi solve will refresh it; treat them as known-good starting points, not hard requirements.
 
@@ -128,7 +128,7 @@ docs/
 Create `tests/__init__.py` (empty) and `tests/test_import.py`:
 
 ```python
-# Copyright (c) 2026, Bill Little.
+# Copyright (c) 2026, tephpy Contributors.
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
@@ -164,7 +164,7 @@ Create `src/tephpy/py.typed` as an empty file.
 Create `src/tephpy/__init__.py`:
 
 ```python
-# Copyright (c) 2026, Bill Little.
+# Copyright (c) 2026, tephpy Contributors.
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
@@ -194,7 +194,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tephpy"
 description = "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
-authors = [{ name = "Bill Little" }]
+authors = [{ name = "tephpy Contributors" }]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
@@ -493,7 +493,7 @@ ignore = [
 
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = '''
-# Copyright \(c\) 2026, Bill Little\.
+# Copyright \(c\) 2026, tephpy Contributors\.
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license\.
 # See the LICENSE file in the package root directory for licensing details\.
@@ -979,7 +979,7 @@ git commit -m "feat: add multi-platform pixi environments, tasks, and lockfile"
 `docs/src/conf.py`:
 
 ```python
-# Copyright (c) 2026, Bill Little.
+# Copyright (c) 2026, tephpy Contributors.
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
@@ -990,8 +990,8 @@ from __future__ import annotations
 from importlib.metadata import version as _dist_version
 
 project = "tephpy"
-author = "Bill Little"
-copyright = "2026, Bill Little"  # noqa: A001
+author = "tephpy Contributors"
+copyright = "2026, tephpy Contributors"  # noqa: A001
 release = _dist_version("tephpy")
 version = ".".join(release.split(".")[:2])
 
@@ -1356,8 +1356,7 @@ message: "If you use this software, please cite it using these metadata."
 title: tephpy
 abstract: "Plot and analyse tephigrams, with MetPy-powered thermodynamic analysis."
 authors:
-  - family-names: Little
-    given-names: Bill
+  - name: "tephpy Contributors"
 license: BSD-3-Clause
 repository-code: "https://github.com/bjlittle/tephpy"
 type: software
