@@ -281,7 +281,8 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   scientific library)*, sources under `docs/src/`.
 - Four Diátaxis quadrants as real directories with landing `sphinx-design` grid cards:
   `tutorials/` (myst-nb notebooks), `howtos/`, `explanation/` (tephigram theory, the
-  T–ln θ construction, parcel/Normand's-point derivations), `reference/`.
+  T–ln θ construction, parcel/Normand's-point derivations), `reference/` (autoapi API +
+  glossary — see "Glossary" below).
 - Extensions per geovista: **`sphinx-autoapi`** (API reference generated from `src/`),
   **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
   scraped from `src/tephpy/examples`), `sphinx-design`, `sphinx-copybutton`,
@@ -291,6 +292,56 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   at release. A `ci-changelog` check enforces a fragment per PR (escape hatch: `skip-changelog`
   label).
 - **ReadTheDocs** versioned hosting, built through `pixi run --frozen --environment docs`.
+
+**Title style.** All hand-authored page and section titles follow Chicago Manual of Style
+headline style: capitalize the first and last words and all major words; lowercase articles
+(a/an/the), coordinating conjunctions (and/but/or/nor/for/so/yet), prepositions, and the
+infinitive "to". Hyphenated compounds capitalize both significant elements ("Wet-Bulb
+Potential Temperature", "How-To Guides") while preserving a technical token's literal case
+("Skew-T"). Documented exceptions — literal case is preserved even at the start or end of a
+title:
+
+- Code and API identifiers, filenames, config keys, CLI commands, env vars, and paths
+  (`plot_sounding`, `TephigramAxes`, `pyproject.toml`).
+- Project/library names in their own canonical casing (matplotlib, numpy, pint, metpy, pixi,
+  tephpy); where such a name would otherwise lead a title, reword rather than re-case it.
+- Acronyms, initialisms, and scientific symbols (CAPE, CIN, LCL, WMO, SPEC 0, θ, "T–ln θ").
+
+Fully exempt from the rule: sphinx-autoapi-generated API pages (titles are object names),
+numpydoc section headers ("Parameters", "Returns", …), towncrier changelog category and
+fragment titles, and anything that is a full sentence — figure captions, admonition body
+text, tooltips, alt text, and docstring summary lines — which use sentence case. Bibliography
+entries reproduce each source's published title. Enforced by a developer-docs review
+checklist; an optional, **non-blocking** `titlecase` wordlist check (encoding the identifier
+and project-name exceptions) may assist over hand-authored `.rst`/`.md` headings, but must not
+gate the build given the volume of legitimate exceptions.
+
+**Glossary (reference quadrant).** Built with the Sphinx `glossary` directive and cited in
+prose with `:term:`. It exists to make the meteorology legible to the package's actual
+audience — scientific software engineers — so its rules are audience-first:
+
+- **Audience.** Definitions are written for software engineers, not meteorologists. Each entry
+  gives the concept in one plain sentence, then says how it appears in tephpy — the data it
+  involves, its units, and the API type or argument that carries it (e.g. "*Sounding* — a
+  vertical profile of atmospheric measurements; in tephpy the `Sounding` dataclass holding
+  pressure/temperature/dewpoint arrays as pint quantities"). Deeper physics is linked to the
+  Explanation quadrant, not derived inline. No thermodynamics background is assumed.
+- **What earns an entry.** Domain jargon and project coinages an engineer would not already
+  know: tephigram, sounding, radiosonde, parcel, adiabat (dry/saturated), lapse rate
+  (DALR/SALR), isopleth, isotherm/isobar/isohume, humidity mixing ratio, potential temperature
+  (θ), wet-bulb potential temperature, dewpoint, LCL/LFC/EL/CAPE/CIN, Normand's point, wind
+  barb — plus any term tephpy uses in a specific sense (e.g. "projection" in the matplotlib
+  sense versus a map projection; "profile"). Common software terms are not glossed. Every
+  acronym gets an entry and is expanded on first use per page.
+- **When to cross-reference.** Link the *first* mention of a term per page (or per major
+  section on long pages), not every occurrence. Link only in narrative prose
+  (tutorials/how-tos/explanation/narrative reference) — never in titles, code blocks, API
+  signatures, or admonition labels. Within a glossary definition, link *related* terms but
+  never the term itself. Keep one canonical spelling per concept, with `:term:` aliases for
+  plural and variant forms.
+- **Sourcing.** An entry may cite an authoritative external reference (e.g. the AMS *Glossary
+  of Meteorology*, Met Office) via `sphinxcontrib-bibtex`, but the definition must stand
+  alone without following the link.
 
 ### 8.7 CI/CD (GitHub Actions)
 
@@ -320,7 +371,8 @@ with a 0.x honesty period.
 Everything in §1 items 1–3 and the core of item 4: full diagram, profiles, barbs,
 multi-sounding overlay + anchoring, parcel path, Normand's point, CAPE/CIN with
 shading, LCL/LFC/EL, θw, lifted index, indices panel, Wyoming/IGRA readers, vector
-output.
+output. Documentation ships all four Diátaxis quadrants with a seeded glossary (§8.6)
+covering the domain terms above.
 
 ### Non-goals for v1 (decisions, not omissions — stated in the README)
 
