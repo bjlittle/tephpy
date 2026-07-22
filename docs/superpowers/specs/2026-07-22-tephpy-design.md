@@ -201,8 +201,9 @@ quantities. This is a deliberate fix for tephi's hard-wired hPa/°C/knots.
 ## 8. Engineering standards (geovista as the minimum bar)
 
 geovista is the reference for how this repo is built, tested, documented, and released.
-tephpy mirrors it, deviating only where tephpy's matplotlib nature or greenfield status
-makes a geovista choice inapplicable (those deviations are called out explicitly).
+tephpy mirrors it, deviating only where tephpy's matplotlib nature, greenfield status, or a
+deliberate documentation-UX preference makes a different choice better (those deviations are
+called out explicitly).
 
 ### 8.1 Packaging and layout
 
@@ -275,8 +276,9 @@ pixi is the primary interface for environments, tasks, and CI, configured in
 
 ### 8.6 Documentation — Diátaxis
 
-- **Sphinx** on **`sphinx-book-theme`** *(matching geovista; corrects the earlier
-  pydata-sphinx-theme sketch)*, sources under `docs/src/`.
+- **Sphinx** on **`pydata-sphinx-theme`** *(deviation: geovista uses `sphinx-book-theme`;
+  tephpy prefers the pydata theme's top-navbar + section layout for an API-reference-heavy
+  scientific library)*, sources under `docs/src/`.
 - Four Diátaxis quadrants as real directories with landing `sphinx-design` grid cards:
   `tutorials/` (myst-nb notebooks), `howtos/`, `explanation/` (tephigram theory, the
   T–ln θ construction, parcel/Normand's-point derivations), `reference/`.
