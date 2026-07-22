@@ -47,8 +47,8 @@ where = ["src"]
 
 [tool.setuptools_scm]
 local_scheme = "dirty-tag"
+version_file = "src/tephpy/_version.py"
 version_scheme = "release-branch-semver"
-write_to = "src/tephpy/_version.py"
 
 [tool.pytest.ini_options]
 addopts = [

@@ -8,9 +8,9 @@ build:
     post_checkout:
       - git fetch --unshallow || true
     create_environment:
-      - pip install pixi
+      - curl -fsSL https://pixi.sh/install.sh | PIXI_VERSION=v0.72.1 bash
     install:
-      - pixi install --frozen --environment docs
+      - $HOME/.pixi/bin/pixi install --frozen --environment docs
     build:
       html:
-        - pixi run --frozen --environment docs sphinx-build -T -b html docs/src $READTHEDOCS_OUTPUT/html
+        - $HOME/.pixi/bin/pixi run --frozen --environment docs sphinx-build -T -b html docs/src $READTHEDOCS_OUTPUT/html
