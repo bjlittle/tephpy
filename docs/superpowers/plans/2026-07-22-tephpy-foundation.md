@@ -867,7 +867,9 @@ setuptools = ">=77.0.3"
 setuptools-scm = ">=8"
 
 [tool.pixi.environments]
-default = { features = ["py313"], solve-group = "default" }
+# default carries the tooling features so unqualified `pixi run <task>`
+# resolves without ambiguity (pixi errors when a task exists in 2+ non-default envs).
+default = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
 test = { features = ["test", "devs", "py313"], solve-group = "default" }
 docs = { features = ["docs", "devs", "py313"], solve-group = "default" }
 devs = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
