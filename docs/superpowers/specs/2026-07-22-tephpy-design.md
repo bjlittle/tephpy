@@ -4,6 +4,9 @@
 - **Status:** approved design, pre-implementation
 - **License:** BSD-3-Clause (repo already carries it)
 - **Repository:** https://github.com/bjlittle/tephpy (PyPI name `tephpy` verified free on 2026-07-22)
+- **Engineering standards baseline:** [bjlittle/geovista](https://github.com/bjlittle/geovista)
+  is the minimum bar — pixi-led workflow, SPEC 0 support window, Diátaxis docs, and the
+  geovista pre-commit/CI conventions. See §8.
 
 ## 1. Purpose
 
@@ -47,11 +50,14 @@ bespoke text-file ingest. tephpy exists to cover all four.
 | Data ingest | Arrays + light readers | Core accepts numpy/pandas/xarray with pint units; small `io` module for University of Wyoming and IGRA v2. No TEMP/BUFR decoding — documented recipes point at eccodes |
 | Primary audience | Research scientists | Jupyter/scripting-first, composable API, publication output. Forecaster features are built as capabilities, not the organizing principle |
 | Architecture | Layered library around a matplotlib projection | See §3. Chosen over a sounding-centric god object and over a MetPy-`SkewT`-style figure manager |
+| Engineering standards | Mirror geovista (§8) | pixi-led, SPEC 0, Diátaxis, geovista pre-commit/ruff/mypy/CI conventions. geovista is the explicit minimum bar |
+| Build backend | `setuptools` + `setuptools_scm` | Matches geovista; dynamic version written to `_version.py` (not hatchling as first sketched) |
+| CI scope at v1 | Core gates now, maintenance bots as fast-follow | Load-bearing quality gates from day one; lockfile/canary/linkcheck/stale/JOSS bots deferred so a new repo isn't buried in bot noise (§8.6) |
 
 ## 3. Architecture
 
 ```
-tephpy/
+src/tephpy/
 ├── transforms.py     # T–lnθ math + matplotlib "tephigram" projection
 ├── plotting/
 │   ├── axes.py       # TephigramAxes (the projection's axes class)
@@ -63,7 +69,9 @@ tephpy/
 ├── io/
 │   ├── wyoming.py    # University of Wyoming text reader
 │   └── igra.py       # IGRA v2 reader
-└── _constants.py     # conventions: intervals, extents, colours (overridable)
+├── examples/         # sphinx-gallery sources (one per use case)
+├── _constants.py     # conventions: intervals, extents, colours (overridable)
+└── _version.py       # written by setuptools_scm (not committed)
 ```
 
 **Dependency rule:** `transforms` ← `plotting` ← (`calc`, `sounding`, `io`).
@@ -190,19 +198,120 @@ quantities. This is a deliberate fix for tephi's hard-wired hPa/°C/knots.
   against a published worked example with known CAPE/LCL.
 - **IO:** recorded-fixture tests (no live network in CI).
 
-## 8. Tooling and packaging
+## 8. Engineering standards (geovista as the minimum bar)
 
-- `pyproject.toml`-only; hatchling backend; `src/` layout; SPEC 0 support window
-  (Python 3.11+ at launch).
-- Required dependencies: matplotlib, numpy, scipy, pint, metpy.
-- Ruff (lint + format); mypy strict on `transforms` and `calc`; full type hints with
-  `py.typed`; pre-commit mirroring CI.
-- pytest + hypothesis + pytest-mpl; coverage gate in CI.
-- GitHub Actions: test matrix (3 Python versions × oldest-pinned/latest MetPy), docs
-  build, trusted-publishing wheel/sdist release on tag.
-- Docs: Sphinx + pydata-sphinx-theme + MyST; sphinx-gallery with one example per
-  identified use case; ReadTheDocs versioned hosting.
-- SemVer with a 0.x honesty period; CHANGELOG from day one.
+geovista is the reference for how this repo is built, tested, documented, and released.
+tephpy mirrors it, deviating only where tephpy's matplotlib nature or greenfield status
+makes a geovista choice inapplicable (those deviations are called out explicitly).
+
+### 8.1 Packaging and layout
+
+- `src/tephpy/` layout; single `pyproject.toml`; `py.typed` shipped.
+- Build backend **`setuptools` + `setuptools_scm`** (`version_scheme = "release-branch-semver"`,
+  `local_scheme = "dirty-tag"`, `write_to = "src/tephpy/_version.py"`), matching geovista.
+  `.git_archival.txt` + `.gitattributes export-subst` for archive versioning; `MANIFEST.in`
+  + `check-manifest` in CI.
+- Runtime dependencies: matplotlib, numpy, scipy, pint, metpy. All are conda-forge
+  packages, so pixi resolves them cleanly.
+- `requirements/` split mirrors geovista: `pypi-core.txt` + `pypi-optional-{docs,test,devs}.txt`
+  feeding `[tool.setuptools.dynamic]`, so PyPI extras and pixi features stay in sync.
+
+### 8.2 pixi-led workflow (leading tool)
+
+pixi is the primary interface for environments, tasks, and CI, configured in
+`[tool.pixi.*]` within `pyproject.toml` (no standalone `pixi.toml`).
+
+- **Platforms:** `linux-64`, `osx-arm64`, `osx-64`, `win-64`. *(Deviation from geovista's
+  linux-64-only — tephpy is pure matplotlib with no headless-GL constraint, so it is
+  portable and CI can run all three OSes.)*
+- **Features:** `test`, `docs`, `devs`, plus per-Python `py312`/`py313`.
+- **Environments / solve-groups:** a `default` group and per-Python groups (`py312`,
+  `py313`), each composing `test`/`docs`/`devs` — the geovista pattern.
+- **Tasks** (pixi `[tool.pixi.feature.*.tasks]`): `tests` / `tests-clean`, `docs` (build),
+  `serve-html`, `doctest`, `lint` (pre-commit run). Matplotlib image baselines regenerated
+  via a `tests --mpl-generate-path` task.
+- **Lockfile:** `pixi.lock` committed; `.gitattributes` marks it
+  `merge=binary linguist-generated=true`; `check-added-large-files` excludes it. All CI and
+  RTD invocations use `pixi run --frozen`.
+
+### 8.3 SPEC 0 support policy
+
+- Follows [Scientific Python SPEC 0](https://scientific-python.org/specs/spec-0000/):
+  Python **3.12 and 3.13** at launch (3.11 is outside the window as of 2026-07). Dependency
+  minimums tracked to the SPEC 0 schedule; the support window is revisited at implementation
+  time and on each SPEC 0 rotation.
+- Enforced by: README SPEC 0 badge, a docs statement in the developer/packaging guide, the
+  CI Python matrix (`py312`/`py313`), the per-Python pixi solve-groups, and the
+  `sp-repo-review` pre-commit hook.
+
+### 8.4 Code quality (pre-commit + lint + types)
+
+- **Ruff** as linter + formatter: `select = ["ALL"]` with a curated ignore list (the
+  geovista set, trimmed to tephpy), numpy docstring convention, isort with
+  `required-imports = ["from __future__ import annotations"]`, and **`CPY001` copyright-header
+  enforcement** (every source file carries the 4-line BSD header with tephpy's notice regex).
+- **mypy `strict`** over `src/tephpy`, `warn_unreachable = true`. The numeric core
+  (`transforms`, `calc`) must be clean with no per-module relaxations.
+- **numpydoc validation** (same rule-set exceptions as geovista) — all public API carries
+  numpy-style docstrings.
+- **Pre-commit hooks** (mirroring geovista, same `ci:` block — `autofix_prs: false`,
+  weekly `autoupdate`): `validate-pyproject`, `blacken-docs`, `ruff-check` (`--fix`) +
+  `ruff-format`, `codespell`, `mypy`, `numpydoc-validation`, the `pre-commit-hooks` battery
+  (check-ast/-toml/-yaml, end-of-file-fixer, trailing-whitespace, no-commit-to-branch,
+  check-added-large-files, …), `pygrep-hooks`, `check-jsonschema` (dependabot / workflows /
+  readthedocs), `sp-repo-review`, `taplo-format`, `sphinx-lint`, and `zizmor` (GitHub Actions
+  security audit).
+
+### 8.5 Testing
+
+- **pytest** (`--strict-config --strict-markers --import-mode=importlib`, `xfail_strict`,
+  `filterwarnings = ["error", …]`) + **hypothesis** + **pytest-cov** + **codecov** (project
+  `target: auto`, `threshold: 5%`, patch off).
+- **Image baselines via pytest-mpl** *(deviation: geovista uses pytest-pyvista for VTK
+  scenes; pytest-mpl is the matplotlib equivalent)* — small tolerance-tuned PNGs in-repo for
+  each isopleth family, profiles, barbs, shading, and the composed §4 figure.
+- Test content per §7 (transforms round-trips, calc composition against `metpy.calc`,
+  recorded-fixture IO tests, one worked-example integration test).
+
+### 8.6 Documentation — Diátaxis
+
+- **Sphinx** on **`sphinx-book-theme`** *(matching geovista; corrects the earlier
+  pydata-sphinx-theme sketch)*, sources under `docs/src/`.
+- Four Diátaxis quadrants as real directories with landing `sphinx-design` grid cards:
+  `tutorials/` (myst-nb notebooks), `howtos/`, `explanation/` (tephigram theory, the
+  T–ln θ construction, parcel/Normand's-point derivations), `reference/`.
+- Extensions per geovista: **`sphinx-autoapi`** (API reference generated from `src/`),
+  **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
+  scraped from `src/tephpy/examples`), `sphinx-design`, `sphinx-copybutton`,
+  `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references), `sphinx-tags`.
+- **Changelog:** **towncrier** news fragments in `changelog/<PR>.<type>.rst` (same type
+  taxonomy as geovista), rendered live via `sphinx_changelog`; assembled into `CHANGELOG.rst`
+  at release. A `ci-changelog` check enforces a fragment per PR (escape hatch: `skip-changelog`
+  label).
+- **ReadTheDocs** versioned hosting, built through `pixi run --frozen --environment docs`.
+
+### 8.7 CI/CD (GitHub Actions)
+
+All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentials: false`,
+`concurrency` cancel-in-progress, pixi via `prefix-dev/setup-pixi` with `frozen: true`.
+
+- **v1 core gates:** `ci-tests` (matrix `py312`/`py313` × OS, coverage → codecov),
+  `ci-docs` (build + doctest), `ci-wheels` (build sdist/wheel, test in pixi envs, publish to
+  Test PyPI on main and PyPI on `v*` tags via **Trusted Publishing OIDC**), `ci-changelog`,
+  `ci-citation` (validate `CITATION.cff`), **CodeQL**, pre-commit.ci, dependabot
+  (github-actions + pip, grouped).
+- **Fast-follow (documented, not built at v1):** `ci-locks` (weekly lockfile-update bot),
+  `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily pip-only install
+  canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS paper build. The
+  spec records these so the gap is a deliberate schedule, not an omission.
+
+### 8.8 Repo hygiene and community files
+
+`CITATION.cff` (validated in CI), `codecov.yml`, `.github/dependabot.yml`,
+`CODE_OF_CONDUCT.md` (Contributor Covenant), `CONTRIBUTING.md` (points at the developer
+docs), `SECURITY.md`, issue/PR templates, `.github/labeler.yml` (incl. a `spec-0` label
+rule), `CODEOWNERS`, and per-directory `AGENTS.md` files (root, `docs/`, `tests/`). SemVer
+with a 0.x honesty period.
 
 ## 9. v1 scope
 
