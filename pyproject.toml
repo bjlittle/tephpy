@@ -105,3 +105,14 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
 "docs/src/conf.py" = ["INP001", "A001"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+files = ["src/tephpy"]
+
+[[tool.mypy.overrides]]
+# MetPy and pint ship partial/absent stubs; do not fail on their imports.
+module = ["metpy.*", "pint.*"]
+ignore_missing_imports = true
