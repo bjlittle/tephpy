@@ -11,4 +11,4 @@ temperature-entropy coordinate system and delegates thermodynamic analysis
 Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 > **Status:** early development — the plotting and analysis API is being built
-> out plan by plan. See `docs/superpowers/specs/` for the design.
+> out plan by plan. See https://github.com/bjlittle/tephpy/tree/main/docs/superpowers/specs for the design.
