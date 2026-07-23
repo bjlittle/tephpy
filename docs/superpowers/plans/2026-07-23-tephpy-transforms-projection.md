@@ -62,7 +62,6 @@ changelog/<PR>.feature.rst      # NEW: news fragment (named after the PR, Task 7
 
 Naming used throughout (Interfaces contract):
 
-```python
 tephpy._constants:  KELVIN_ZERO, RD, CPD, KAPPA, P_REF, MA, DEFAULT_ANCHOR
 tephpy.transforms:
     theta_from_pressure_temperature(pressure, temperature) -> NDArray[float64]
