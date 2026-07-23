@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, setuptools_scm, pixi, ruff, mypy, pytest + pytest-cov + hypothesis + pytest-mpl, Sphinx (pydata-sphinx-theme, sphinx-autoapi, numpydoc, myst-nb, sphinx-gallery), towncrier, pre-commit, GitHub Actions.
 
-This is **Plan 1 of 7** (see the spec's plan roadmap). It produces working software: `pip install -e .` succeeds, `import tephpy` exposes a `setuptools_scm` version, `pixi run tests` and `pixi run docs` pass, and pre-commit is green. No tephigram functionality yet — that begins in Plan 2.
+This is **Plan 1 of 7** (see the spec's plan roadmap, §10). It produces working software: `pip install -e .` succeeds, `import tephpy` exposes a `setuptools_scm` version, `pixi run tests` and `pixi run docs` pass, and pre-commit is green. No tephigram functionality yet — that begins in Plan 2.
 
 **Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` (§8 is the authority for this plan).
 
@@ -1944,4 +1944,4 @@ Expected: PR opens; CI (`ci-tests` matrix, `ci-docs`, `ci-wheels` build, `ci-cha
 
 ## Execution handoff
 
-This is Plan 1 of 7. On completion, the next plan is **transforms & the tephigram projection**, which will get its own spec-derived plan.
+This is Plan 1 of 7 (spec §10). On completion, the next plan is **Plan 2: transforms & the tephigram projection**, which will get its own spec-derived plan.
