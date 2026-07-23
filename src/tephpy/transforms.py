@@ -28,7 +28,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from tephpy._constants import KAPPA, KELVIN_ZERO, P_REF
+from tephpy._constants import KAPPA, KELVIN_ZERO, MA, P_REF
 
 __all__ = [
     "pressure_from_temperature_theta",
@@ -93,3 +93,68 @@ def pressure_from_temperature_theta(
         theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
         p = P_REF * ((t + KELVIN_ZERO) / theta_k) ** (1.0 / KAPPA)
     return np.asarray(p, dtype=np.float64)
+
+
+def xy_from_temperature_theta(
+    temperature: npt.ArrayLike, theta: npt.ArrayLike
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Convert temperature and potential temperature to display coordinates.
+
+    The rotated tephigram mapping: ``x = MA * ln(theta_K) + T`` and
+    ``y = MA * ln(theta_K) - T``, which renders isotherms and dry adiabats
+    as exactly perpendicular straight lines.
+
+    Parameters
+    ----------
+    temperature : array_like
+        Temperature in degrees Celsius.
+    theta : array_like
+        Potential temperature in degrees Celsius. Values at or below
+        absolute zero yield NaN.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        The ``(x, y)`` display coordinates, ``float64``, broadcast over
+        the inputs.
+    """
+    t = np.asarray(temperature, dtype=np.float64)
+    th = np.asarray(theta, dtype=np.float64)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
+        scaled = MA * np.log(theta_k)
+    return (
+        np.asarray(scaled + t, dtype=np.float64),
+        np.asarray(scaled - t, dtype=np.float64),
+    )
+
+
+def temperature_theta_from_xy(
+    x: npt.ArrayLike, y: npt.ArrayLike
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Convert display coordinates back to temperature and theta.
+
+    Inverse of :func:`xy_from_temperature_theta`: ``T = (x - y) / 2`` and
+    ``theta_K = exp((x + y) / (2 * MA))``.
+
+    Parameters
+    ----------
+    x : array_like
+        Display x coordinate (dimensionless).
+    y : array_like
+        Display y coordinate (dimensionless).
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(temperature, theta)`` in degrees Celsius, ``float64``,
+        broadcast over the inputs.
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    y_arr = np.asarray(y, dtype=np.float64)
+    temperature = (x_arr - y_arr) / 2.0
+    theta = np.exp((x_arr + y_arr) / (2.0 * MA)) - KELVIN_ZERO
+    return (
+        np.asarray(temperature, dtype=np.float64),
+        np.asarray(theta, dtype=np.float64),
+    )
