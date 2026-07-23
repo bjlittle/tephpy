@@ -136,6 +136,11 @@ warn_unreachable = true
 ignore_missing_imports = true
 module = ["metpy.*", "pint.*"]
 
+[[tool.mypy.overrides]]
+# matplotlib.transforms.Transform lacks proper type stubs; can't be subclassed with strict mypy.
+disable_error_code = ["misc"]
+module = ["tephpy.plotting.*"]
+
 [tool.repo-review]
 ignore = [
   "PC180", # prettier (not used)
