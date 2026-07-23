@@ -845,15 +845,13 @@ class TephigramTransform(mtransforms.Transform):
     is_separable = False
     has_inverse = True
 
-    def transform_non_affine(
-        self, values: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Transform ``(N, 2)`` (temperature, theta) columns to (x, y).
 
         Parameters
         ----------
-        values : numpy.ndarray
-            Array of shape ``(N, 2)``: temperature, theta in degrees
+        values : array_like
+            Array-like of shape ``(N, 2)``: temperature, theta in degrees
             Celsius.
 
         Returns
@@ -878,15 +876,13 @@ class TephigramInvertedTransform(mtransforms.Transform):
     is_separable = False
     has_inverse = True
 
-    def transform_non_affine(
-        self, values: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Transform ``(N, 2)`` (x, y) columns to (temperature, theta).
 
         Parameters
         ----------
-        values : numpy.ndarray
-            Array of shape ``(N, 2)``: x, y display coordinates.
+        values : array_like
+            Array-like of shape ``(N, 2)``: x, y display coordinates.
 
         Returns
         -------
