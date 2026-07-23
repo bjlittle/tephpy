@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest"]
-        environment: ["test-py312", "test-py313"]
+        os: ["ubuntu-latest"]  # linux-64 only — the initial platform support
+        environment: ["test-py312", "test-py313", "test-py314"]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
         with:
@@ -31,6 +31,6 @@ jobs:
           frozen: true
       - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5
-        if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py313'
+        if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py314'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

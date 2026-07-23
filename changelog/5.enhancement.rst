@@ -1,0 +1,1 @@
+Added Python 3.14 support per the SPEC 0 window; the default development environments now run the latest supported Python.

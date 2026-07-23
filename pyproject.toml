@@ -11,6 +11,7 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Atmospheric Science",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
@@ -208,13 +209,14 @@ default = { features = [
   "test",
   "docs",
   "devs",
-  "py313",
+  "py314",
 ], solve-group = "default" }
-devs = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
-docs = { features = ["docs", "devs", "py313"], solve-group = "default" }
-test = { features = ["test", "devs", "py313"], solve-group = "default" }
+devs = { features = ["test", "docs", "devs", "py314"], solve-group = "default" }
+docs = { features = ["docs", "devs", "py314"], solve-group = "default" }
+test = { features = ["test", "devs", "py314"], solve-group = "default" }
 test-py312 = { features = ["test", "devs", "py312"], solve-group = "py312" }
 test-py313 = { features = ["test", "devs", "py313"], solve-group = "py313" }
+test-py314 = { features = ["test", "devs", "py314"], solve-group = "py314" }
 
 [tool.pixi.feature.py312.dependencies]
 pip = ">=25.0"
@@ -223,6 +225,10 @@ python = "3.12.*"
 [tool.pixi.feature.py313.dependencies]
 pip = ">=25.0"
 python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+pip = ">=25.0"
+python = "3.14.*"
 
 [tool.pixi.feature.test.dependencies]
 hypothesis = ">=6.100"
