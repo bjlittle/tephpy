@@ -6,4 +6,6 @@
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from tephpy.plotting.axes import TephigramAxes
+
+__all__ = ["TephigramAxes"]

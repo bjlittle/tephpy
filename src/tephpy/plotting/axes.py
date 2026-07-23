@@ -12,13 +12,16 @@ Plan 3 extends this class in place with the isopleth machinery.
 
 from __future__ import annotations
 
+from matplotlib.axes import Axes
+from matplotlib.projections import register_projection
 import matplotlib.transforms as mtransforms
 import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
+from tephpy._constants import DEFAULT_ANCHOR
 
-__all__ = ["TephigramInvertedTransform", "TephigramTransform"]
+__all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
 
 
 class TephigramTransform(mtransforms.Transform):
@@ -98,3 +101,57 @@ class TephigramInvertedTransform(mtransforms.Transform):
             The forward transform.
         """
         return TephigramTransform()
+
+
+class TephigramAxes(Axes):
+    """Matplotlib axes for the ``"tephigram"`` projection.
+
+    The data space is the native rotated x-y plane (dimensionless), with
+    equal aspect so the isotherm/dry-adiabat grid stays exactly
+    perpendicular on screen. The temperature/theta mapping is exposed as
+    :attr:`tephigram_transform`; artists plot in (temperature, theta)
+    space via ``transform=ax.tephigram_transform + ax.transData``. Native
+    x/y ticks carry no meteorological meaning and are hidden — meaningful
+    labelling arrives with the Plan 3 isopleths.
+
+    Parameters
+    ----------
+    *args : object
+        Positional arguments forwarded to :class:`matplotlib.axes.Axes`.
+    **kwargs : object
+        Keyword arguments forwarded to :class:`matplotlib.axes.Axes`.
+    """
+
+    name = "tephigram"
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialise the axes and apply the tephigram view defaults.
+
+        Parameters
+        ----------
+        *args : object
+            Positional arguments forwarded to :class:`matplotlib.axes.Axes`.
+        **kwargs : object
+            Keyword arguments forwarded to :class:`matplotlib.axes.Axes`.
+        """
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.tephigram_transform = TephigramTransform()
+        self.set_aspect(1.0, adjustable="box")
+        self.xaxis.set_visible(False)
+        self.yaxis.set_visible(False)
+        self._set_default_extent()
+
+    def _set_default_extent(self) -> None:
+        """Frame the default view from the ``DEFAULT_ANCHOR`` corners."""
+        (p_bottom, t_left), (p_top, t_right) = DEFAULT_ANCHOR
+        corner_pressures = np.array([p_bottom, p_top])
+        corner_temperatures = np.array([t_left, t_right])
+        thetas = transforms.theta_from_pressure_temperature(
+            corner_pressures, corner_temperatures
+        )
+        x, y = transforms.xy_from_temperature_theta(corner_temperatures, thetas)
+        self.set_xlim(float(np.min(x)), float(np.max(x)))
+        self.set_ylim(float(np.min(y)), float(np.max(y)))
+
+
+register_projection(TephigramAxes)
