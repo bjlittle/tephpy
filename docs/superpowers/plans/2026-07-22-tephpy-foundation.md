@@ -6,7 +6,7 @@
 
 **Architecture:** `src/` layout package built with `setuptools` + `setuptools_scm`; pixi is the primary environment/workflow tool (config in `pyproject.toml`); quality enforced by ruff (`ALL`), mypy `strict`, numpydoc, and the geovista pre-commit suite; docs are a Diátaxis skeleton on `pydata-sphinx-theme` with `sphinx-autoapi` and towncrier; CI runs the v1 core gates.
 
-**Tech Stack:** Python 3.12/3.13, setuptools_scm, pixi, ruff, mypy, pytest + pytest-cov + hypothesis + pytest-mpl, Sphinx (pydata-sphinx-theme, sphinx-autoapi, numpydoc, myst-nb, sphinx-gallery), towncrier, pre-commit, GitHub Actions.
+**Tech Stack:** Python 3.12/3.13/3.14, setuptools_scm, pixi, ruff, mypy, pytest + pytest-cov + hypothesis + pytest-mpl, Sphinx (pydata-sphinx-theme, sphinx-autoapi, numpydoc, myst-nb, sphinx-gallery), towncrier, pre-commit, GitHub Actions.
 
 This is **Plan 1 of 7** (see the spec's plan roadmap). It produces working software: `pip install -e .` succeeds, `import tephpy` exposes a `setuptools_scm` version, `pixi run tests` and `pixi run docs` pass, and pre-commit is green. No tephigram functionality yet — that begins in Plan 2.
 
@@ -16,8 +16,8 @@ This is **Plan 1 of 7** (see the spec's plan roadmap). It produces working softw
 
 Every task's requirements implicitly include these, copied verbatim from the spec:
 
-- **Python support (SPEC 0):** 3.12 and 3.13. `requires-python = ">=3.12"`.
-- **Platforms (pixi):** `linux-64`, `osx-arm64`, `osx-64`, `win-64`.
+- **Python support (SPEC 0):** 3.12, 3.13, and 3.14 — the full SPEC 0 window as of 2026-07. `requires-python = ">=3.12"`.
+- **Platforms (pixi):** `linux-64` only — the initial platform support. Multi-OS (`osx-arm64`, `osx-64`, `win-64`) is a deliberate future expansion, not an omission.
 - **Build backend:** `setuptools` + `setuptools_scm`; version written to `src/tephpy/_version.py` (git-ignored, never committed).
 - **Runtime dependencies:** `matplotlib`, `numpy`, `scipy`, `pint`, `metpy` (all conda-forge).
 - **Lint/format:** ruff `select = ["ALL"]` with the curated ignore list; numpy docstring convention; isort `required-imports = ["from __future__ import annotations"]`; `CPY001` copyright-header enforcement.
@@ -207,6 +207,7 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Atmospheric Science",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
@@ -854,7 +855,7 @@ git commit -m "feat: add geovista-standard pre-commit suite"
 ```toml
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
 tephpy = { path = ".", editable = true }
@@ -871,18 +872,22 @@ setuptools-scm = ">=8"
 [tool.pixi.environments]
 # default carries the tooling features so unqualified `pixi run <task>`
 # resolves without ambiguity (pixi errors when a task exists in 2+ non-default envs).
-default = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
-test = { features = ["test", "devs", "py313"], solve-group = "default" }
-docs = { features = ["docs", "devs", "py313"], solve-group = "default" }
-devs = { features = ["test", "docs", "devs", "py313"], solve-group = "default" }
+default = { features = ["test", "docs", "devs", "py314"], solve-group = "default" }
+test = { features = ["test", "devs", "py314"], solve-group = "default" }
+docs = { features = ["docs", "devs", "py314"], solve-group = "default" }
+devs = { features = ["test", "docs", "devs", "py314"], solve-group = "default" }
 test-py312 = { features = ["test", "devs", "py312"], solve-group = "py312" }
 test-py313 = { features = ["test", "devs", "py313"], solve-group = "py313" }
+test-py314 = { features = ["test", "devs", "py314"], solve-group = "py314" }
 
 [tool.pixi.feature.py312.dependencies]
 python = "3.12.*"
 
 [tool.pixi.feature.py313.dependencies]
 python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
 
 [tool.pixi.feature.test.dependencies]
 hypothesis = ">=6.100"
@@ -957,7 +962,7 @@ Expected: `pixi.lock: merge: binary`.
 
 ```bash
 git add pyproject.toml pixi.lock
-git commit -m "feat: add multi-platform pixi environments, tasks, and lockfile"
+git commit -m "feat: add pixi environments, tasks, and lockfile"
 ```
 
 ---
@@ -1631,8 +1636,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-        environment: ["test-py312", "test-py313"]
+        os: ["ubuntu-latest"]  # linux-64 only — the initial platform support
+        environment: ["test-py312", "test-py313", "test-py314"]
     steps:
       - uses: actions/checkout@v5  # pin to SHA
         with:
@@ -1644,7 +1649,7 @@ jobs:
           frozen: true
       - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml
       - uses: codecov/codecov-action@v5  # pin to SHA
-        if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py313'
+        if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py314'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 ```
@@ -1869,14 +1874,15 @@ git commit -m "feat: add v1 core CI gates (tests, docs, wheels, changelog, citat
 Run: `pixi run lint`
 Expected: every hook passes, including `check-github-workflows`, `check-dependabot`, `check-readthedocs`, `sp-repo-review`, and `zizmor`.
 
-- [ ] **Step 2: Run the test task on both Python versions**
+- [ ] **Step 2: Run the test task on every supported Python version**
 
 Run:
 ```bash
 pixi run -e test-py312 pytest -q
 pixi run -e test-py313 pytest -q
+pixi run -e test-py314 pytest -q
 ```
-Expected: PASS on both — 3 passed each.
+Expected: PASS on all three — 3 passed each.
 
 - [ ] **Step 3: Build the docs clean**
 
@@ -1921,7 +1927,7 @@ Expected: PR opens; CI (`ci-tests` matrix, `ci-docs`, `ci-wheels` build, `ci-cha
 **Spec coverage (§8):**
 - §8.1 packaging/layout/setuptools_scm/MANIFEST/check-manifest → Tasks 1, 2 (check-manifest is in the `devs` requirements; a `ci-manifest` gate is a fast-follow, noted in spec §8.7).
 - §8.2 pixi platforms/features/environments/tasks/lockfile → Task 8.
-- §8.3 SPEC 0 (3.12/3.13, badge, sp-repo-review, matrix) → Tasks 1 (`requires-python`), 8 (per-py envs), 10 (badge), 7 (sp-repo-review), 11 (matrix).
+- §8.3 SPEC 0 (3.12/3.13/3.14, badge, sp-repo-review, matrix) → Tasks 1 (`requires-python`), 8 (per-py envs), 10 (badge), 7 (sp-repo-review), 11 (matrix).
 - §8.4 ruff ALL + CPY001, mypy strict, numpydoc, pre-commit suite → Tasks 4, 5, 6, 7.
 - §8.5 pytest strict + filterwarnings, hypothesis, pytest-cov, codecov, pytest-mpl → Tasks 3, 2 (deps), 8 (mpl task). *(Actual image tests arrive with plotting code in Plan 3.)*
 - §8.6 Diátaxis, pydata theme, autoapi, numpydoc, myst-nb, sphinx-gallery, sphinx-design/copybutton/togglebutton/bibtex, towncrier, RTD, title style, glossary → Tasks 6, 9. *(sphinx-tags omitted from v1 skeleton — low value until there are gallery/tutorial pages to tag; add in Plan 7. Noted so the omission is deliberate.)*
@@ -1930,9 +1936,9 @@ Expected: PR opens; CI (`ci-tests` matrix, `ci-docs`, `ci-wheels` build, `ci-cha
 
 **Placeholder scan:** No "TBD"/"handle edge cases"/"similar to Task N". Empty `sphinx_gallery_conf` dirs and empty `examples_dirs` are explicitly explained as Plan 7 seams, not placeholders. SHA pins are an explicit substitution step with the exact `gh api` command, not a vague instruction.
 
-**Type/name consistency:** `tephpy.__version__` (Tasks 1, 10, tests) consistent. pixi environment names (`test-py312`, `test-py313`, `docs`) consistent between Task 8 and Task 11. Task names (`tests`, `lint`, `docs`) consistent between Task 8 and Tasks 11–12. Copyright regex identical in Task 4 and every file header.
+**Type/name consistency:** `tephpy.__version__` (Tasks 1, 10, tests) consistent. pixi environment names (`test-py312`, `test-py313`, `test-py314`, `docs`) consistent between Task 8 and Task 11. Task names (`tests`, `lint`, `docs`) consistent between Task 8 and Tasks 11–12. Copyright regex identical in Task 4 and every file header.
 
-**Deliberate deviations recorded:** pytest-mpl vs pytest-pyvista (spec §8.5); multi-platform pixi (spec §8.2); pydata-sphinx-theme (spec §8.6); sphinx-tags deferred to Plan 7 (above); doctest run in ci-docs deferred until doctests exist (spec §8.7); wheel-install smoke test in ci-wheels deferred while the wheel is pure-Python scaffolding (spec §8.7); labeler workflow deferred to the fast-follow bots wave — `.github/labeler.yml` ships inert until then (spec §8.7/§8.8).
+**Deliberate deviations recorded:** pytest-mpl vs pytest-pyvista (spec §8.5); pydata-sphinx-theme (spec §8.6); sphinx-tags deferred to Plan 7 (above); doctest run in ci-docs deferred until doctests exist (spec §8.7); wheel-install smoke test in ci-wheels deferred while the wheel is pure-Python scaffolding (spec §8.7); labeler workflow deferred to the fast-follow bots wave — `.github/labeler.yml` ships inert until then (spec §8.7/§8.8).
 
 ---
 

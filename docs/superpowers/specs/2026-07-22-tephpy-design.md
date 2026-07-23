@@ -222,12 +222,14 @@ called out explicitly).
 pixi is the primary interface for environments, tasks, and CI, configured in
 `[tool.pixi.*]` within `pyproject.toml` (no standalone `pixi.toml`).
 
-- **Platforms:** `linux-64`, `osx-arm64`, `osx-64`, `win-64`. *(Deviation from geovista's
-  linux-64-only — tephpy is pure matplotlib with no headless-GL constraint, so it is
-  portable and CI can run all three OSes.)*
-- **Features:** `test`, `docs`, `devs`, plus per-Python `py312`/`py313`.
-- **Environments / solve-groups:** a `default` group and per-Python groups (`py312`,
-  `py313`), each composing `test`/`docs`/`devs` — the geovista pattern.
+- **Platforms:** `linux-64` only — the initial platform support, matching geovista.
+  tephpy is pure matplotlib with no headless-GL constraint, so it is portable in
+  principle; widening to `osx-arm64`, `osx-64`, and `win-64` is a deliberate future
+  expansion (revisited once the package has domain functionality), not an omission.
+- **Features:** `test`, `docs`, `devs`, plus per-Python `py312`/`py313`/`py314`.
+- **Environments / solve-groups:** a `default` group (pinned to the latest supported
+  Python, currently 3.14) and per-Python groups (`py312`, `py313`, `py314`), each
+  composing `test`/`docs`/`devs` — the geovista pattern.
 - **Tasks** (pixi `[tool.pixi.feature.*.tasks]`): `tests` / `tests-clean`, `docs` (build),
   `serve-html`, `doctest`, `lint` (pre-commit run). Matplotlib image baselines regenerated
   via a `tests --mpl-generate-path` task.
@@ -238,11 +240,11 @@ pixi is the primary interface for environments, tasks, and CI, configured in
 ### 8.3 SPEC 0 support policy
 
 - Follows [Scientific Python SPEC 0](https://scientific-python.org/specs/spec-0000/):
-  Python **3.12 and 3.13** at launch (3.11 is outside the window as of 2026-07). Dependency
-  minimums tracked to the SPEC 0 schedule; the support window is revisited at implementation
-  time and on each SPEC 0 rotation.
+  Python **3.12, 3.13, and 3.14** at launch — the full SPEC 0 window as of 2026-07
+  (3.11 is outside it). Dependency minimums tracked to the SPEC 0 schedule; the support
+  window is revisited at implementation time and on each SPEC 0 rotation.
 - Enforced by: README SPEC 0 badge, a docs statement in the developer/packaging guide, the
-  CI Python matrix (`py312`/`py313`), the per-Python pixi solve-groups, and the
+  CI Python matrix (`py312`/`py313`/`py314`), the per-Python pixi solve-groups, and the
   `sp-repo-review` pre-commit hook.
 
 ### 8.4 Code quality (pre-commit + lint + types)
@@ -348,7 +350,8 @@ audience — scientific software engineers — so its rules are audience-first:
 All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentials: false`,
 `concurrency` cancel-in-progress, pixi via `prefix-dev/setup-pixi` with `frozen: true`.
 
-- **v1 core gates:** `ci-tests` (matrix `py312`/`py313` × OS, coverage → codecov),
+- **v1 core gates:** `ci-tests` (matrix `py312`/`py313`/`py314` on `linux-64`,
+  coverage → codecov),
   `ci-docs` (build + doctest), `ci-wheels` (build sdist/wheel, test in pixi envs, publish to
   Test PyPI on main and PyPI on `v*` tags via **Trusted Publishing OIDC**), `ci-changelog`,
   `ci-citation` (validate `CITATION.cff`), **CodeQL**, pre-commit.ci, dependabot
