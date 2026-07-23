@@ -148,10 +148,10 @@ import matplotlib.pyplot as plt
 import tephpy
 from tephpy.io import wyoming
 
-snd = wyoming.fetch("03808", "2026-07-21 12:00")      # → Sounding
+snd = wyoming.fetch("03808", "2026-07-21 12:00")  # → Sounding
 
 fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-ax.plot_sounding(snd)                                  # T + Td, legend "03808 2026-07-21 12Z"
+ax.plot_sounding(snd)  # T + Td, legend "03808 2026-07-21 12Z"
 ax.plot_barbs(snd)
 
 parcel = tephpy.calc.parcel_path(snd)

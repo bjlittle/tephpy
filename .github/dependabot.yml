@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: ["bot", "skip-changelog"]
+    commit-message:
+      prefix: "chore: "
+  - package-ecosystem: pip
+    directory: "/requirements"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      pip:
+        patterns: ["*"]
+    labels: ["bot", "skip-changelog"]

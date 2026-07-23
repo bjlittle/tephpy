@@ -1,0 +1,36 @@
+name: ci-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        environment: ["test-py312", "test-py313"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@194d461b21b6c5717c722ffc597fa91ed2ff29fa  # v0.9.1
+        with:
+          environments: ${{ matrix.environment }}
+          frozen: true
+      - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml
+      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5
+        if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py313'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

@@ -1,0 +1,27 @@
+name: ci-docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@194d461b21b6c5717c722ffc597fa91ed2ff29fa  # v0.9.1
+        with:
+          environments: docs
+          frozen: true
+      - run: pixi run --frozen --environment docs make -C docs html
