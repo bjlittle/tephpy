@@ -11,7 +11,7 @@ Run in a THROWAWAY environment so tephi never touches the project envs:
     /tmp/tephi-oracle/bin/python tests/fixtures/generate_tephi_oracle.py
 
 Writes ``tephi_oracle.json`` beside this script: input grids, tephi's
-outputs for the equivalent conversions, tephi's constants, and provenance.
+outputs for the equivalent conversions, and provenance.
 The values are OUTPUTS of running tephi (BSD-3-Clause), not copied source;
 provenance is recorded in the fixture (spec §3.1/§10 item 5).
 """

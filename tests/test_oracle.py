@@ -9,9 +9,11 @@ within tolerance corroborates both implementations; disagreement beyond it
 means STOP and investigate (first principles win, divergences get
 documented here).
 
-Known, accepted divergence: none yet. If regeneration or investigation
-reveals one (e.g. a differing kappa), document it in this docstring with
-the affected tolerance.
+Known, accepted divergence: tephi uses a rounded kappa = 0.286, tephpy
+uses KAPPA = 287.05 / 1004.68 ~= 0.28571. Across the recorded grid the
+maximum relative theta deviation is 6.6e-4 (compared in Kelvin, at the
+10x pressure ratio, 100 hPa), well inside THETA_RTOL = 2e-3, so the
+tolerance stands.
 """
 
 from __future__ import annotations
@@ -30,9 +32,9 @@ FIXTURE = json.loads(
 
 # The x-y mapping shares MA and KELVIN exactly with tephi: tight tolerance.
 XY_RTOL = 1e-10
-# Poisson's equation involves each library's kappa; small constant
-# differences amplify through the exponent. Loose-but-meaningful tolerance;
-# tighten after investigation if tephi's kappa matches ours.
+# Poisson's equation involves each library's kappa; the investigated
+# kappa difference (see the module docstring) amplifies through the
+# exponent to at most 6.6e-4 on this grid, so this tolerance stands.
 THETA_RTOL = 2e-3
 
 
