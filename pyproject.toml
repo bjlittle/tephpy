@@ -65,6 +65,9 @@ minversion = "8.0"
 testpaths = ["tests"]
 xfail_strict = true
 
+[tool.codespell]
+ignore-words-list = "accreting"
+
 [tool.coverage.run]
 branch = true
 omit = ["*/_version.py"]
