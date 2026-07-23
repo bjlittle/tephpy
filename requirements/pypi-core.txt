@@ -1,5 +1,5 @@
-matplotlib>=3.9
-metpy>=1.6
-numpy>=2.0
-pint>=0.24
-scipy>=1.13
+matplotlib>=3.11.0
+metpy>=1.7.1
+numpy>=2.5.1
+pint>=0.25.3
+scipy>=1.18.0
