@@ -62,6 +62,7 @@ changelog/<PR>.feature.rst      # NEW: news fragment (named after the PR, Task 7
 
 Naming used throughout (Interfaces contract):
 
+```
 tephpy._constants:  KELVIN_ZERO, RD, CPD, KAPPA, P_REF, MA, DEFAULT_ANCHOR
 tephpy.transforms:
     theta_from_pressure_temperature(pressure, temperature) -> NDArray[float64]
@@ -576,13 +577,8 @@ def main() -> None:
     # names have moved): convert_pT2Tt maps (pressure, temperature) to
     # (temperature, theta); convert_Tt2xy and convert_xy2Tt map between
     # (temperature, theta) and display (x, y).
-    theta_out = [
-        float(ttr.convert_pT2Tt([p], [t])[1][0]) for p, t in pt_grid
-    ]
-    xy_out = [
-        [float(v[0]) for v in ttr.convert_Tt2xy([t], [th])]
-        for t, th in tt_grid
-    ]
+    theta_out = [float(ttr.convert_pT2Tt([p], [t])[1][0]) for p, t in pt_grid]
+    xy_out = [[float(v[0]) for v in ttr.convert_Tt2xy([t], [th])] for t, th in tt_grid]
 
     fixture = {
         "provenance": {
@@ -984,7 +980,7 @@ def test_axes_exposes_invertible_tephigram_transform(tephigram_axes):
 
 def test_plot_in_temperature_theta_space(tephigram_axes):
     """Plotting through the exposed transform draws within the default view."""
-    line, = tephigram_axes.plot(
+    (line,) = tephigram_axes.plot(
         [0.0, 10.0],
         [10.0, 40.0],
         transform=tephigram_axes.tephigram_transform + tephigram_axes.transData,
