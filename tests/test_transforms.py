@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from tephpy import transforms
-from tephpy._constants import CPD, KAPPA, KELVIN_ZERO, MA, P_REF, RD
+from tephpy._constants import CPD, KAPPA, KELVIN_ZERO, P_REF, RD
 
 # Physical domains for property tests: pressures from the stratosphere to
 # below sea level, temperatures well past any atmospheric extreme.
@@ -23,9 +23,9 @@ TEMPERATURES = st.floats(min_value=-150.0, max_value=100.0, allow_nan=False)
 
 
 def test_kappa_is_dry_air_ratio():
-    """kappa is R_d / c_pd, approximately the 2/7 of Poisson's equation."""
+    """Kappa is R_d / c_pd, approximately the 2/7 of Poisson's equation."""
     assert KAPPA == RD / CPD
-    assert KAPPA == pytest.approx(2.0 / 7.0, rel=2e-3)
+    assert pytest.approx(2.0 / 7.0, rel=2e-3) == KAPPA
 
 
 def test_theta_identity_at_reference_pressure():

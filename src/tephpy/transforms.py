@@ -28,7 +28,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from tephpy._constants import KAPPA, KELVIN_ZERO, MA, P_REF
+from tephpy._constants import KAPPA, KELVIN_ZERO, P_REF
 
 __all__ = [
     "pressure_from_temperature_theta",
