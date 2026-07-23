@@ -386,7 +386,118 @@ covering the domain terms above.
 - No fog-point or layer-cloud constructions (v1.x candidates).
 - No aviation overlays (icing, MINTRA contrail curves) — flagged open question below.
 
-## 10. Open questions (carried from research)
+## 10. Plan roadmap
+
+Seven plans deliver the v1 scope (§9). Each plan gets its own spec-derived implementation
+plan in `docs/superpowers/plans/`, and a plan is executed and merged before any plan that
+*depends on it* is written. The dependencies form a partial order, not a chain: Plans 5
+and 6 are mutually independent and may proceed in parallel once Plan 4 has merged. The
+ordering follows the §3 layering (`transforms` ← `plotting` ← (`calc`, `sounding`, `io`)):
+geometry first, then the drawing machinery, then the data model, then the analysis and
+ingest layers above them. (`calc` itself stays headless per §3 — its pairing with shading
+and the indices panel in Plan 5 is delivery convenience, not an import dependency.)
+
+| # | Plan | Scope (spec §) | Depends on | Status |
+|---|------|----------------|------------|--------|
+| 1 | Foundation & scaffolding | §8 end to end: packaging, pixi, lint/type/test tooling, docs skeleton, CI core gates (residual deferrals: item 15 below) | — | ✅ complete (PR #1; SPEC 0 / platform updates PR #4, #5) |
+| 2 | Transforms & the tephigram projection | §3.1: T–ln θ math ported from tephi; matplotlib projection `"tephigram"` (axes seam: item 3 below); transform tests per §7 | 1 | **next** |
+| 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_anchor`; §3.5 `_constants` + config object; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | |
+| 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | |
+| 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type; analysis-time §6 errors (e.g. profile too short); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7) | 3, 4 | |
+| 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | |
+| 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | |
+
+Cross-cutting rules (apply to every plan rather than one row):
+
+- **Image baselines ship with their feature.** §7/§8.5 enumerate baselines for the
+  isopleth families, profiles, shading, barbs, and the composed §4 figure; each lands in
+  the plan that builds the feature (3, 4, 5, 6, and 7 respectively, as tabled above).
+- **Glossary entries ship with their terms.** The docs build is fail-on-warning, so a
+  `:term:` reference written in Plan N breaks the build unless Plan N seeds the entry;
+  "glossary completion" in Plan 7 is a sweep, not the sole delivery.
+- **`_constants` accretes per feature.** Plan 3 establishes the module and config object;
+  later plans add their own conventions (e.g. gutter width arrives with Plan 6's barbs).
+
+Outside the roadmap:
+
+- The §8.7 fast-follow CI bots (lockfile updates, resolve/pip canaries, linkcheck, stale,
+  first-contribution, JOSS build) are post-v1 continuous work, adopted on need rather than
+  assigned to a plan.
+- Release execution — towncrier assembly into `CHANGELOG.rst`, the `v0.x` tag that
+  triggers PyPI Trusted Publishing, RTD version activation, `CITATION.cff` release
+  metadata — follows Plan 7 as release ops, not a plan.
+- Service provisioning is operational, not planned. Test PyPI Trusted Publishing,
+  codecov, and pre-commit.ci are verified live (green on `main` as of 2026-07-23); the
+  production PyPI Trusted Publisher (first exercised by a `v*` tag), the RTD project, and
+  the GitHub Discussions link in the issue templates remain to be verified.
+
+### Assumptions and open decisions
+
+Enumerated so they are visible decisions, not silent drift. Items 1–2 are decisions this
+roadmap makes; the remainder are open questions assigned to the plan that must answer
+them, ordered by owning plan.
+
+1. **The Plan 4–6 slicing is inferred, not inherited.** Only Plans 1–3 and 7 were anchored
+   in writing when Plan 1 shipped ("Plan 3" for image tests, "Plan 7" for the gallery).
+   The split above keeps one subsystem per plan along the §3 layering; viable alternatives
+   (barbs inside Plan 4; `io` as its own plan; examples accreting per-plan instead of
+   batching in Plan 7) were consciously not taken.
+2. **`Profile` is defined in Plan 5 but referenced by Plan 4.** §3.2 says `plot_profile`
+   accepts pint quantities *or* a `Profile`; Plan 4 ships the quantities signature, and
+   Plan 5 adds the `Profile` overload together with `calc.parcel_path`.
+3. **Plan 2 — the TephigramAxes seam.** Registering a matplotlib projection requires an
+   Axes class, yet §3.2 places `TephigramAxes` in `plotting/axes.py` (Plan 3's scope)
+   while §3.1 places registration in `transforms.py`, which must not import `plotting`.
+   Plan 2's design must resolve this (e.g. a minimal axes class Plan 3 extends, or
+   registration hosted in `plotting`) without inverting the §3 layering.
+4. **Plan 2 — units at the transforms boundary.** §5 ("every public boundary accepts pint
+   quantities") conflicts with §3.1 ("depends only on numpy and matplotlib"). Decide
+   whether `transforms` is exempt (documented bare-float API) or grows a thin pint shim.
+5. **Plan 2 — tephi provenance and attribution.** Both the ported code (§3.1 `transforms`,
+   §3.2 locator/refresh design) and copied test values are BSD-3-Clause from
+   SciTools/tephi, whose license requires retaining the copyright notice — but the
+   CPY001-enforced header names only "tephpy Contributors". Decide the mechanism (extra
+   notice lines, a NOTICE file, or a per-file exception) in Plan 2.
+6. **Plan 3 — config object and accessor naming.** The §3.5 `tephpy.rcparams`-style object
+   is named but not designed. §3.2 names accessors for only three of the five isopleth
+   families, and the spec alternates between "saturated" and "wet" adiabats — pick
+   canonical names (the glossary rule: one spelling per concept).
+7. **Plan 3 — side-of-axes layout seam.** The barb gutter (Plan 6) and the indices panel
+   (Plan 5) both need space beside the diagram; Plan 3 decides whether the axes pre-builds
+   that layout or each consumer manages its own.
+8. **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
+   `"03808 2026-07-21 12Z"`), station/time optionality (§3.4 states requiredness only for
+   the data arrays), and how forecast-vs-observed overlays of the same station/time stay
+   distinguishable in a legend.
+9. **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
+   and the §2 ingest decision need pandas/xarray, but §8.1's runtime list omits them
+   (today they arrive transitively via MetPy). Decide: direct declaration, optional
+   extra, or typing-only treatment.
+10. **Plan 4/5 — top-level namespace policy.** §4 requires `tephpy.calc.parcel_path` to
+    work after `import tephpy`, implying eager subpackage import (and MetPy's import cost)
+    or lazy loading; also which names (e.g. `Sounding`) re-export at top level.
+11. **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
+    returns 0 (not NaN) for zero CAPE and warns on some degenerate profiles — and pytest's
+    `filterwarnings = ["error"]` turns those warnings into failures. Verify the §6
+    contract and the availability of `wet_bulb_potential_temperature`/`lifted_index`/
+    `mixed_parcel` against the pinned floor (`metpy>=1.6`), adjusting §6 or the pin.
+12. **Plan 5 — "layer highlights".** The §3 tree comment on `shading.py` names layer
+    highlights, but no API, §9 scope item, or plan covers them; treated as not-in-v1
+    unless Plan 5's design deliberately includes them.
+13. **Plans 2/5/6 — third-party data provenance.** tephi test values (item 5), the §7
+    published worked example (which publication, and is its data redistributable?), and
+    recorded Wyoming/IGRA fixtures all embed external data; each owning plan records
+    source, capture method, and attribution.
+14. **scipy is declared but unowned.** §8.1 lists scipy as a runtime dependency, yet no §3
+    module names it (plausible first consumers: interpolation in Plan 2 or Plan 5). If
+    Plan 5 completes without it, drop the dependency.
+15. **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
+    `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2, never
+    implemented) → reconcile in Plan 3 when baselines make a clean/regenerate cycle real;
+    wheel-install smoke test + check-manifest CI gate → revisit from Plan 2, once the
+    wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs statement → Plan 7.
+
+## 11. Open questions (carried from research)
 
 - Which aviation-specific overlays (icing layers, MINTRA) do operational users
   actually need built in, versus composing themselves?
@@ -394,7 +505,7 @@ covering the domain terms above.
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 - Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
 
-## 11. References
+## 12. References
 
 - Met Office Factsheet 13 — Upper air observations (2023)
 - Stull, *Practical Meteorology*, ch. 5 (thermo-diagram construction, stability)
