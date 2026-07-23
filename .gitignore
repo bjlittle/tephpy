@@ -225,3 +225,6 @@ src/tephpy/_version.py
 
 # pixi
 .pixi/
+
+# CodeGraph index
+.codegraph/
