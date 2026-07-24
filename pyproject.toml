@@ -121,6 +121,9 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "docs/src/conf.py" = ["INP001", "A001"]
 "tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
+# One-shot generator script (spec §7 layer 4), not a package module; its
+# print is the script's user feedback.
+"tests/fixtures/generate_tephi_oracle.py" = ["INP001", "T201"]
 
 [tool.mypy]
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
