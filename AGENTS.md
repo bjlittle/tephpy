@@ -6,5 +6,5 @@
 
 - Environments and tasks: pixi (`pixi run tests`, `pixi run lint`, `pixi run docs`).
 - Every source file carries the BSD copyright header (ruff `CPY001`).
-- Every PR adds a `changelog/<PR>.<type>.rst` fragment.
+- Every PR adds a `changelog/<PR>.<type>.rst` fragment, ending with ``(:user:`<github-username>`)`` attribution.
 - Docs follow Diátaxis; titles use CMOS headline style (`docs/src/developer/docs-style.rst`).
