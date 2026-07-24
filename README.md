@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-    <source media="(prefers-color-scheme: light)" srcset="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-light.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-dark.svg">
-    <img alt="tephpy", src="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-light.png" width="180">
+    <source media="(prefers-color-scheme: light)" srcset="docs/src/_static/brand/logo-stacked-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_static/brand/logo-stacked-dark.svg">
+    <img alt="tephpy" src="docs/src/_static/brand/logo-stacked-light.png" width="180">
     </picture>
 </p>
 
