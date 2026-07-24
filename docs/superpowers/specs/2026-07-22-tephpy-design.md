@@ -23,13 +23,13 @@ COMET/UCAR training, and NWS/HKO operational guides, cross-checked against the t
 1. **The diagram**: true rotated temperature–entropy axes (isotherms and dry adiabats
    exactly perpendicular; pressure a derived curve, not an axis) with five isopleth
    families — isotherms, isobars, humidity mixing-ratio lines, dry adiabats,
-   saturated adiabats. All intervals/extents/truncations are conventions and must be
+   moist adiabats. All intervals/extents/truncations are conventions and must be
    configurable.
 2. **Sounding plotting**: temperature and dewpoint profiles against pressure in
    distinguishable colours, and wind barbs on a right-hand vertical staff using
    standard symbology (flag 50 kt, full barb 10 kt, half barb 5 kt).
 3. **Analysis**: parcel ascent (dry adiabat from surface T meets the mixing-ratio line
-   from surface Td at Normand's point/LCL, then saturated adiabat to the EL), with
+   from surface Td at Normand's point/LCL, then moist adiabat to the EL), with
    automatic CAPE, CIN, LCL, LFC, EL, wet-bulb potential temperature, and stability
    indices; the −25 mb operational cloud-base correction available explicitly.
 4. **Operational practice**: overlaying multiple soundings (times, forecast vs
@@ -70,6 +70,7 @@ src/tephpy/
 │   ├── wyoming.py    # University of Wyoming text reader
 │   └── igra.py       # IGRA v2 reader
 ├── examples/         # sphinx-gallery sources (one per use case)
+├── _config.py        # tephpy.config: typed runtime configuration (§3.5)
 ├── _constants.py     # conventions: intervals, extents, colours (overridable)
 └── _version.py       # written by setuptools_scm (not committed)
 ```
@@ -106,12 +107,26 @@ version) — generated outputs, not copied source.
 ### 3.2 `plotting`
 
 `TephigramAxes` draws the exactly-orthogonal isotherm/dry-adiabat grid and the three
-curved families as zoom-aware artists (reimplementing tephi's locator/refresh design: isopleth
-geometry intersected with the view polygon each draw, labels re-placed on zoom).
+curved families as zoom-aware artists, reimplementing tephi's locator/refresh design
+as one custom `IsoplethFamily` artist per family (`plotting/isopleths.py`). Member
+polylines are precomputed as bare numpy arrays over a generous physical domain — the
+straight families and isobars from `transforms`, moist adiabats and mixing-ratio
+lines via `metpy.calc` (function-local imports keep `import tephpy` light; item 10) —
+cached on the artist, and rebuilt only when family parameters or the domain change.
+Each `draw()` clips the cached geometry to the current view rectangle, selects the
+members appropriate to the zoom level, and re-places the family's labels: pure numpy
+per draw, with pan/zoom/resize/`set_extent` automatically current because matplotlib
+calls `draw` on every render. Computing the curved families with MetPy keeps one
+source of moist-thermodynamic truth — the background moist adiabats are exactly the
+curves Plan 5's parcel paths follow.
+
 Differences from tephi:
 
 - Background isopleths are **on by default**, individually removable/configurable via
-  accessor methods (`ax.isobars(...)`, `ax.wet_adiabats(...)`, `ax.mixing_ratios(...)`).
+  accessor methods — `ax.isotherms(...)`, `ax.isobars(...)`, `ax.dry_adiabats(...)`,
+  `ax.moist_adiabats(...)`, `ax.mixing_ratios(...)`. With no arguments an accessor
+  returns the family artist; with kwargs (`values=`/`interval=`, `color=`, `labels=`,
+  `visible=`, …) it reconfigures and returns it.
 - `ax.plot_profile(...)` accepts either (pressure, temperature) pint quantities or a
   `Profile` object (e.g. the return of `calc.parcel_path`);
   `ax.plot_sounding(snd)` plots T + Td with conventional colours and a legend entry
@@ -120,7 +135,16 @@ Differences from tephi:
 - `ax.shade_cape(env, parcel)` / `ax.shade_cin(env, parcel)` — area fills between
   environment and parcel curves.
 - `ax.annotate_indices(indices)` — a text panel of derived parameters beside the plot.
-- `ax.set_anchor(...)` — fixed extents so successive figures are directly comparable.
+- `ax.set_extent(...)` — fixed extents from ((p, T), (p, T)) corners so successive
+  figures are directly comparable; disables autoscaling so overlays don't drift the
+  window. (The cartopy idiom — the earlier `set_anchor` name collided with
+  matplotlib's own `Axes.set_anchor`.)
+
+Side-of-axes layout contract (decided in Plan 3, built by the consuming plans):
+panels beside the diagram are appended with `mpl_toolkits.axes_grid1`'s axes
+divider, which tracks the equal-aspect box height — right side, inside-out: Plan 6's
+barb gutter, then Plan 5's indices panel. Panel widths join `_constants` with their
+plans.
 
 ### 3.3 `calc`
 
@@ -128,7 +152,7 @@ Every function takes and returns pint quantities and delegates physics to
 `metpy.calc`. Only tephigram-native compositions live here:
 
 - `parcel_path(sounding_or_arrays, *, parcel="surface", cloud_base_correction=None)`
-  → plottable `Profile` (dry adiabat → Normand's point → saturated adiabat).
+  → plottable `Profile` (dry adiabat → Normand's point → moist adiabat).
   `parcel` selects the lifted parcel: `"surface"` (default) or `"mixed-layer"`
   (mean properties of the lowest 100 hPa, per operational practice). The −25 mb
   operational cloud-base correction is applied only when explicitly requested.
@@ -150,13 +174,19 @@ one without dewpoint raises on parcel analysis). Constructors: `Sounding(...)` f
 Validation at construction (§6). Readers (`io.wyoming.fetch`, `io.igra.read`) return
 `Sounding` objects.
 
-### 3.5 `_constants`
+### 3.5 `_constants` + `tephpy.config`
 
-All conventions — 10 °C isotherm interval, 10 mb isobar interval, wet-adiabat
-truncation temperature, gutter width, colours — live here as defaults, overridable
-per-call and via a `tephpy.rcparams`-style config object. Nothing numeric is
-hard-coded at point of use; docstrings cite the source convention (e.g. Met Office
-Factsheet 13).
+All conventions — 10 °C isotherm interval, 10 mb isobar interval, moist-adiabat
+truncation temperature, gutter width, colours — live in `_constants.py` as defaults;
+nothing numeric is hard-coded at point of use, and docstrings cite the source
+convention (e.g. Met Office Factsheet 13). The mutable runtime layer over them is
+`tephpy.config` (`_config.py`): a typed singleton of per-family dataclass sections
+plus a diagram-wide section (e.g. `config.isobars.interval`,
+`config.moist_adiabats.truncation`, `config.diagram.extent`), with a
+`config.context(...)` manager for temporary overrides. Precedence: accessor kwargs >
+`tephpy.config` > `_constants`. Config is read when a family is created or
+reconfigured; changing it does not retroactively restyle existing axes (matplotlib
+rcParams semantics).
 
 ## 4. Canonical usage
 
@@ -179,7 +209,7 @@ ax.annotate_indices(tephpy.calc.indices(snd))
 fig.savefig("sounding.pdf")
 ```
 
-Comparing soundings is two `plot_sounding` calls with different styles; `set_anchor`
+Comparing soundings is two `plot_sounding` calls with different styles; `set_extent`
 keeps extents identical across figures.
 
 ## 5. Units policy
@@ -218,7 +248,10 @@ pipeline consumes bare arrays; every layer above it converts before calling down
 - **Plotting:** image-baseline tests via pytest-mpl (small in-repo PNGs,
   tolerance-tuned) for each isopleth family, profiles, barbs, shading, and the
   composed §4 figure. Deliberately not tephi's external image-hash repo, which is a
-  contributor-hostile maintenance burden.
+  contributor-hostile maintenance burden. Curved-family geometry is additionally
+  cross-checked against recorded tephi outputs *informationally* — MetPy's and
+  tephi's moist-thermo formulations differ, so divergences are investigated and
+  documented, not forced to zero.
 - **Calc:** test composition, not thermodynamics — parcel path passes through
   Normand's point; `indices()` fields equal direct `metpy.calc` calls on the same
   profile; the −25 mb correction applies only when requested. One integration test
@@ -258,8 +291,9 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   Python, currently 3.14) and per-Python groups (`py312`, `py313`, `py314`), each
   composing `test`/`docs`/`devs` — the geovista pattern.
 - **Tasks** (pixi `[tool.pixi.feature.*.tasks]`): `tests` / `tests-clean`, `docs` (build),
-  `serve-html`, `doctest`, `lint` (pre-commit run). Matplotlib image baselines regenerated
-  via a `tests --mpl-generate-path` task.
+  `serve-html`, `doctest`, `lint` (pre-commit run). Matplotlib image baselines are
+  regenerated via a `baselines` task (pytest-mpl `--mpl-generate-path`); `tests-clean`
+  removes pytest-mpl and coverage artifacts.
 - **Lockfile:** `pixi.lock` committed; `.gitattributes` marks it
   `merge=binary linguist-generated=true`; `check-added-large-files` excludes it. All CI and
   RTD invocations use `pixi run --frozen`.
@@ -356,7 +390,7 @@ audience — scientific software engineers — so its rules are audience-first:
   pressure/temperature/dewpoint arrays as pint quantities"). Deeper physics is linked to the
   Explanation quadrant, not derived inline. No thermodynamics background is assumed.
 - **What earns an entry.** Domain jargon and project coinages an engineer would not already
-  know: tephigram, sounding, radiosonde, parcel, adiabat (dry/saturated), lapse rate
+  know: tephigram, sounding, radiosonde, parcel, adiabat (dry/moist), lapse rate
   (DALR/SALR), isopleth, isotherm/isobar/isohume, humidity mixing ratio, potential temperature
   (θ), wet-bulb potential temperature, dewpoint, LCL/LFC/EL/CAPE/CIN, Normand's point, wind
   barb — plus any term tephpy uses in a specific sense (e.g. "projection" in the matplotlib
@@ -427,8 +461,8 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | # | Plan | Scope (spec §) | Depends on | Status |
 |---|------|----------------|------------|--------|
 | 1 | Foundation & scaffolding | §8 end to end: packaging, pixi, lint/type/test tooling, docs skeleton, CI core gates (residual deferrals: item 15 below) | — | ✅ complete (PR #1; SPEC 0 / platform updates PR #4, #5) |
-| 2 | Transforms & the tephigram projection | §3.1: T–ln θ math derived from published sources with tephi as oracle; minimal `TephigramAxes` + `"tephigram"` registration in `plotting/axes.py`; seeds `_constants` (MA, θ reference pressure, default extents); transform tests per §7; wheel-install smoke test in `ci-wheels` (item 15) | 1 | **next** |
-| 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_anchor`; §3.5 `_constants` + config object; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | |
+| 2 | Transforms & the tephigram projection | §3.1: T–ln θ math derived from published sources with tephi as oracle; minimal `TephigramAxes` + `"tephigram"` registration in `plotting/axes.py`; seeds `_constants` (MA, θ reference pressure, default extents); transform tests per §7; wheel-install smoke test in `ci-wheels` (item 15) | 1 | ✅ complete (PR #9) |
+| 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_extent`; §3.5 `_constants` + `tephpy.config`; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | **next** |
 | 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | |
 | 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type; analysis-time §6 errors (e.g. profile too short); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7) | 3, 4 | |
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | |
@@ -442,8 +476,9 @@ Cross-cutting rules (apply to every plan rather than one row):
 - **Glossary entries ship with their terms.** The docs build is fail-on-warning, so a
   `:term:` reference written in Plan N breaks the build unless Plan N seeds the entry;
   "glossary completion" in Plan 7 is a sweep, not the sole delivery.
-- **`_constants` accretes per feature.** Plan 3 establishes the module and config object;
-  later plans add their own conventions (e.g. gutter width arrives with Plan 6's barbs).
+- **`_constants` accretes per feature.** Plan 2 seeded the module; Plan 3 establishes
+  `tephpy.config` over it; later plans add their own conventions (e.g. gutter width
+  arrives with Plan 6's barbs).
 
 Outside the roadmap:
 
@@ -488,10 +523,20 @@ them, ordered by owning plan.
 6. **Plan 3 — config object and accessor naming.** The §3.5 `tephpy.rcparams`-style object
    is named but not designed. §3.2 names accessors for only three of the five isopleth
    families, and the spec alternates between "saturated" and "wet" adiabats — pick
-   canonical names (the glossary rule: one spelling per concept).
+   canonical names (the glossary rule: one spelling per concept). *Resolved
+   2026-07-24:* the canonical family name is **moist adiabat** — the AMS Glossary
+   headword and MetPy's own vocabulary — with saturation/saturated/wet adiabat as
+   glossary aliases; the five accessors are `isotherms`/`isobars`/`dry_adiabats`/
+   `moist_adiabats`/`mixing_ratios`; the config object is the typed `tephpy.config`
+   singleton (§3.5). The fixed-extents API is `set_extent` — the earlier `set_anchor`
+   collided with matplotlib's own `Axes.set_anchor` (`DEFAULT_ANCHOR` renames to
+   `DEFAULT_EXTENT`). §1/§3.2/§3.5/§4 updated accordingly.
 7. **Plan 3 — side-of-axes layout seam.** The barb gutter (Plan 6) and the indices panel
    (Plan 5) both need space beside the diagram; Plan 3 decides whether the axes pre-builds
-   that layout or each consumer manages its own.
+   that layout or each consumer manages its own. *Resolved 2026-07-24:* decide the
+   contract, build later — §3.2 fixes the mechanism (`axes_grid1` divider) and the
+   right-side inside-out ordering (barb gutter, then indices panel); no layout code
+   ships until Plans 5/6 consume it.
 8. **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
    `"03808 2026-07-21 12Z"`), station/time optionality (§3.4 states requiredness only for
    the data arrays), and how forecast-vs-observed overlays of the same station/time stay
@@ -502,7 +547,11 @@ them, ordered by owning plan.
    extra, or typing-only treatment.
 10. **Plan 4/5 — top-level namespace policy.** §4 requires `tephpy.calc.parcel_path` to
     work after `import tephpy`, implying eager subpackage import (and MetPy's import cost)
-    or lazy loading; also which names (e.g. `Sounding`) re-export at top level.
+    or lazy loading; also which names (e.g. `Sounding`) re-export at top level. Plan 3
+    keeps MetPy behind function-local imports in the isopleth builders, leaving this
+    item open; candidate mechanism: scientific-python `lazy-loader` (SPEC 1), with
+    PEP 810 explicit lazy imports as the native successor once the SPEC 0 floor
+    reaches Python 3.15.
 11. **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
     returns 0 (not NaN) for zero CAPE and warns on some degenerate profiles — and pytest's
     `filterwarnings = ["error"]` turns those warnings into failures. Verify the §6
@@ -520,8 +569,9 @@ them, ordered by owning plan.
     module names it (plausible first consumers: interpolation in Plan 2 or Plan 5). If
     Plan 5 completes without it, drop the dependency.
 15. **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
-    `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2, never
-    implemented) → reconcile in Plan 3 when baselines make a clean/regenerate cycle real;
+    `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2) → reconciled
+    in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
+    task regenerates the pytest-mpl baselines);
     wheel-install smoke test → Plan 2 (decided 2026-07-23); check-manifest CI gate →
     revisit once the wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs
     statement → Plan 7.
