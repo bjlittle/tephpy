@@ -32,6 +32,36 @@ def test_transform_round_trip_via_inverted():
     np.testing.assert_allclose(back, points, rtol=1e-9, atol=1e-9)
 
 
+def test_transform_non_affine_accepts_1d_point():
+    """A length-2 1-D input returns a shape (2,) result (base-class contract)."""
+    tr = TephigramTransform()
+    out = tr.transform_non_affine(np.array([15.0, 15.0]))
+    assert out.shape == (2,)
+    assert out.dtype == np.float64
+    x, y = transforms.xy_from_temperature_theta(15.0, 15.0)
+    np.testing.assert_allclose(out, [x, y], rtol=1e-12)
+    points = np.array([[15.0, 15.0], [-40.0, 20.0], [0.0, 100.0]])
+    xs, ys = transforms.xy_from_temperature_theta(points[:, 0], points[:, 1])
+    np.testing.assert_allclose(
+        tr.transform_non_affine(points), np.column_stack([xs, ys]), rtol=1e-12
+    )
+
+
+def test_inverted_transform_non_affine_accepts_1d_point():
+    """The inverse also honours the 1-D form, shape-preserving both ways."""
+    tr = TephigramTransform().inverted()
+    out = tr.transform_non_affine(np.array([0.5, 200.0]))
+    assert out.shape == (2,)
+    assert out.dtype == np.float64
+    t1, theta1 = transforms.temperature_theta_from_xy(0.5, 200.0)
+    np.testing.assert_allclose(out, [t1, theta1], rtol=1e-12)
+    points = np.array([[15.0, 15.0], [-40.0, 20.0], [0.0, 100.0]])
+    t, theta = transforms.temperature_theta_from_xy(points[:, 0], points[:, 1])
+    np.testing.assert_allclose(
+        tr.transform_non_affine(points), np.column_stack([t, theta]), rtol=1e-12
+    )
+
+
 def test_transform_dimensions():
     """2-in, 2-out, non-separable, declared invertible."""
     tr = TephigramTransform()

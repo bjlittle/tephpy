@@ -851,23 +851,27 @@ class TephigramTransform(mtransforms.Transform):
     has_inverse = True
 
     def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Transform ``(N, 2)`` (temperature, theta) columns to (x, y).
+        """Transform (temperature, theta) pairs to (x, y).
 
         Parameters
         ----------
         values : array_like
-            Array-like of shape ``(N, 2)``: temperature, theta in degrees
-            Celsius.
+            Array-like of shape ``(N, 2)`` or length ``2``: temperature,
+            theta in degrees Celsius.
 
         Returns
         -------
         numpy.ndarray
-            Array of shape ``(N, 2)``: the tephigram x, y coordinates
-            (the axes' data space).
+            The tephigram x, y coordinates (the axes' data space), with
+            the input's dimensionality preserved: shape ``(N, 2)`` for
+            ``(N, 2)`` input, shape ``(2,)`` for length-2 input.
         """
         arr = np.asarray(values, dtype=np.float64)
+        ndim = arr.ndim
+        arr = np.atleast_2d(arr)
         x, y = transforms.xy_from_temperature_theta(arr[:, 0], arr[:, 1])
-        return np.column_stack([x, y])
+        out = np.column_stack([x, y])
+        return out if ndim > 1 else out.reshape(-1)
 
     def inverted(self) -> TephigramInvertedTransform:
         """Return the inverse (x, y) -> (temperature, theta) transform."""
@@ -883,23 +887,27 @@ class TephigramInvertedTransform(mtransforms.Transform):
     has_inverse = True
 
     def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Transform ``(N, 2)`` (x, y) columns to (temperature, theta).
+        """Transform (x, y) pairs to (temperature, theta).
 
         Parameters
         ----------
         values : array_like
-            Array-like of shape ``(N, 2)``: tephigram x, y coordinates
-            (the axes' data space).
+            Array-like of shape ``(N, 2)`` or length ``2``: tephigram
+            x, y coordinates (the axes' data space).
 
         Returns
         -------
         numpy.ndarray
-            Array of shape ``(N, 2)``: temperature, theta in degrees
-            Celsius.
+            Temperature, theta in degrees Celsius, with the input's
+            dimensionality preserved: shape ``(N, 2)`` for ``(N, 2)``
+            input, shape ``(2,)`` for length-2 input.
         """
         arr = np.asarray(values, dtype=np.float64)
+        ndim = arr.ndim
+        arr = np.atleast_2d(arr)
         t, theta = transforms.temperature_theta_from_xy(arr[:, 0], arr[:, 1])
-        return np.column_stack([t, theta])
+        out = np.column_stack([t, theta])
+        return out if ndim > 1 else out.reshape(-1)
 
     def inverted(self) -> TephigramTransform:
         """Return the forward (temperature, theta) -> (x, y) transform."""
