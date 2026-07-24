@@ -149,3 +149,41 @@ def test_xy_out_of_domain_is_nan():
     x, y = transforms.xy_from_temperature_theta(0.0, -KELVIN_ZERO - 1.0)
     assert np.isnan(x)
     assert np.isnan(y)
+
+
+def test_xy_domain_boundary_exactly_at_absolute_zero():
+    """The domain guard flips exactly at theta = absolute zero: still NaN."""
+    x, y = transforms.xy_from_temperature_theta(0.0, -KELVIN_ZERO)
+    assert np.isnan(x)
+    assert np.isnan(y)
+
+
+def test_inverse_extreme_input_is_silent():
+    """Hostile x/y returns silently — no RuntimeWarning escapes (spec §3.1).
+
+    The suite's ``filterwarnings = ["error"]`` promotes any unsilenced
+    numpy warning to a failure, so returning at all proves silence.
+    Regression: ``np.exp`` overflow and ``inf + -inf`` previously escaped
+    from ``temperature_theta_from_xy``.
+    """
+    temperature, theta = transforms.temperature_theta_from_xy(3e5, 3e5)
+    assert float(temperature) == 0.0
+    assert np.isposinf(theta)
+    temperature, theta = transforms.temperature_theta_from_xy(np.inf, -np.inf)
+    assert np.isposinf(temperature)
+    assert np.isnan(theta)
+
+
+def test_xy_vectorized_shapes():
+    """Array inputs broadcast; scalar inputs give 0-d float64 arrays."""
+    x, y = transforms.xy_from_temperature_theta(
+        np.array([15.0, -40.0]), np.array([15.0, 20.0])
+    )
+    t_back, theta_back = transforms.temperature_theta_from_xy(x, y)
+    for result in (x, y, t_back, theta_back):
+        assert result.shape == (2,)
+        assert result.dtype == np.float64
+    x_scalar, y_scalar = transforms.xy_from_temperature_theta(15.0, 15.0)
+    t_scalar, theta_scalar = transforms.temperature_theta_from_xy(x_scalar, y_scalar)
+    for result in (x_scalar, y_scalar, t_scalar, theta_scalar):
+        assert result.shape == ()

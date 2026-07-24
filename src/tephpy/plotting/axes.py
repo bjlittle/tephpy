@@ -4,10 +4,10 @@
 # See the LICENSE file in the package root directory for licensing details.
 """The tephigram matplotlib projection.
 
-``TephigramAxes`` (registered as the ``"tephigram"`` projection, Task 5)
-uses the native rotated x-y plane as its data space, with the
-temperature/theta mapping exposed as an invertible matplotlib transform.
-Plan 3 extends this class in place with the isopleth machinery.
+``TephigramAxes`` (registered as the ``"tephigram"`` projection) uses the
+native rotated x-y plane as its data space, with the temperature/theta
+mapping exposed as an invertible matplotlib transform. A future release
+extends this class in place with the isopleth machinery.
 """
 
 from __future__ import annotations
@@ -49,7 +49,8 @@ class TephigramTransform(mtransforms.Transform):
         Returns
         -------
         numpy.ndarray
-            Array of shape ``(N, 2)``: the x, y display coordinates.
+            Array of shape ``(N, 2)``: the tephigram x, y coordinates
+            (the axes' data space).
         """
         arr = np.asarray(values, dtype=np.float64)
         x, y = transforms.xy_from_temperature_theta(arr[:, 0], arr[:, 1])
@@ -80,7 +81,8 @@ class TephigramInvertedTransform(mtransforms.Transform):
         Parameters
         ----------
         values : array_like
-            Array-like of shape ``(N, 2)``: x, y display coordinates.
+            Array-like of shape ``(N, 2)``: tephigram x, y coordinates
+            (the axes' data space).
 
         Returns
         -------
@@ -112,7 +114,7 @@ class TephigramAxes(Axes):
     :attr:`tephigram_transform`; artists plot in (temperature, theta)
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
     x/y ticks carry no meteorological meaning and are hidden — meaningful
-    labelling arrives with the Plan 3 isopleths.
+    labelling arrives with the isopleth machinery in a future release.
 
     Parameters
     ----------

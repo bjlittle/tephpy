@@ -79,13 +79,24 @@ def test_axes_exposes_invertible_tephigram_transform(tephigram_axes):
 
 
 def test_plot_in_temperature_theta_space(tephigram_axes):
-    """Plotting through the exposed transform draws within the default view."""
+    """Plotting through the exposed transform draws within the default view.
+
+    The line is added to the axes and its mapped (x, y) endpoints land
+    inside the default xlim/ylim, so it is genuinely in view.
+    """
     (line,) = tephigram_axes.plot(
         [0.0, 10.0],
         [10.0, 40.0],
         transform=tephigram_axes.tephigram_transform + tephigram_axes.transData,
     )
     assert line in tephigram_axes.lines
+    x, y = transforms.xy_from_temperature_theta(
+        np.array([0.0, 10.0]), np.array([10.0, 40.0])
+    )
+    x0, x1 = tephigram_axes.get_xlim()
+    y0, y1 = tephigram_axes.get_ylim()
+    assert np.all((x0 <= x) & (x <= x1))
+    assert np.all((y0 <= y) & (y <= y1))
 
 
 def test_top_level_namespace():

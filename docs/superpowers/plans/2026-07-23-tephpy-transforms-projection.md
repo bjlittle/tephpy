@@ -58,6 +58,8 @@ tests/
 docs/src/reference/glossary.rst # MODIFIED: + potential temperature, dry adiabat, isotherm
 .github/workflows/ci-wheels.yml # MODIFIED: wheel-install smoke test step
 changelog/<PR>.feature.rst      # NEW: news fragment (named after the PR, Task 7)
+pyproject.toml                  # MODIFIED: ruff per-file-ignores for the oracle generator (Task 3)
+.pre-commit-config.yaml         # MODIFIED: matplotlib added to the mirrors-mypy hook deps (Task 4)
 ```
 
 Naming used throughout (Interfaces contract):
@@ -246,7 +248,7 @@ Create `src/tephpy/transforms.py`:
 
 Pure numpy functions between the three coordinate frames of the tephigram
 (spec §3.1): pressure/temperature (p, T), temperature/potential-temperature
-(T, theta), and the rotated display plane (x, y), where
+(T, theta), and the rotated tephigram (x, y) plane, where
 
     x = MA * ln(theta_K) + T        y = MA * ln(theta_K) - T
 
@@ -258,9 +260,9 @@ oracle (``tests/test_oracle.py``) — not ported from it.
 This module is the documented exemption to the pint units policy (spec §5):
 bare ``float64`` arrays in diagram-native units — pressure in hPa,
 temperatures in degrees Celsius, x/y dimensionless. Out-of-domain input
-(non-positive pressure, temperatures at or below absolute zero) propagates
-NaN; exception-carrying validation lives at the quantified boundaries
-above this module (spec §6).
+(non-positive pressure, potential temperatures theta at or below absolute
+zero) propagates NaN; exception-carrying validation lives at the
+quantified boundaries above this module (spec §6).
 """
 
 from __future__ import annotations
@@ -442,7 +444,7 @@ Append to `src/tephpy/transforms.py`:
 def xy_from_temperature_theta(
     temperature: npt.ArrayLike, theta: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Convert temperature and potential temperature to display coordinates.
+    """Convert temperature and potential temperature to tephigram (x, y).
 
     The rotated tephigram mapping: ``x = MA * ln(theta_K) + T`` and
     ``y = MA * ln(theta_K) - T``, which renders isotherms and dry adiabats
@@ -459,8 +461,8 @@ def xy_from_temperature_theta(
     Returns
     -------
     tuple of numpy.ndarray
-        The ``(x, y)`` display coordinates, ``float64``, broadcast over
-        the inputs.
+        The tephigram ``(x, y)`` coordinates (the axes' data space),
+        ``float64``, broadcast over the inputs.
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
@@ -476,7 +478,7 @@ def xy_from_temperature_theta(
 def temperature_theta_from_xy(
     x: npt.ArrayLike, y: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Convert display coordinates back to temperature and theta.
+    """Convert tephigram (x, y) coordinates back to temperature and theta.
 
     Inverse of :func:`xy_from_temperature_theta`: ``T = (x - y) / 2`` and
     ``theta_K = exp((x + y) / (2 * MA))``.
@@ -484,9 +486,9 @@ def temperature_theta_from_xy(
     Parameters
     ----------
     x : array_like
-        Display x coordinate (dimensionless).
+        Tephigram x coordinate (dimensionless, the axes' data space).
     y : array_like
-        Display y coordinate (dimensionless).
+        Tephigram y coordinate (dimensionless, the axes' data space).
 
     Returns
     -------
@@ -815,10 +817,10 @@ Create `src/tephpy/plotting/axes.py`:
 # See the LICENSE file in the package root directory for licensing details.
 """The tephigram matplotlib projection.
 
-``TephigramAxes`` (registered as the ``"tephigram"`` projection, Task 5)
-uses the native rotated x-y plane as its data space, with the
-temperature/theta mapping exposed as an invertible matplotlib transform.
-Plan 3 extends this class in place with the isopleth machinery.
+``TephigramAxes`` (registered as the ``"tephigram"`` projection) uses the
+native rotated x-y plane as its data space, with the temperature/theta
+mapping exposed as an invertible matplotlib transform. A future release
+extends this class in place with the isopleth machinery.
 """
 
 from __future__ import annotations
@@ -857,7 +859,8 @@ class TephigramTransform(mtransforms.Transform):
         Returns
         -------
         numpy.ndarray
-            Array of shape ``(N, 2)``: the x, y display coordinates.
+            Array of shape ``(N, 2)``: the tephigram x, y coordinates
+            (the axes' data space).
         """
         arr = np.asarray(values, dtype=np.float64)
         x, y = transforms.xy_from_temperature_theta(arr[:, 0], arr[:, 1])
@@ -882,7 +885,8 @@ class TephigramInvertedTransform(mtransforms.Transform):
         Parameters
         ----------
         values : array_like
-            Array-like of shape ``(N, 2)``: x, y display coordinates.
+            Array-like of shape ``(N, 2)``: tephigram x, y coordinates
+            (the axes' data space).
 
         Returns
         -------
@@ -1017,7 +1021,7 @@ class TephigramAxes(Axes):
     :attr:`tephigram_transform`; artists plot in (temperature, theta)
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
     x/y ticks carry no meteorological meaning and are hidden — meaningful
-    labelling arrives with the Plan 3 isopleths.
+    labelling arrives with the isopleth machinery in a future release.
     """
 
     name = "tephigram"
@@ -1074,7 +1078,7 @@ Expected: PASS — every test from Tasks 1–5 (import smoke tests from Plan 1 i
 
 - [ ] **Step 5: mypy note, lint, and commit**
 
-If `pixi run lint` surfaces mypy errors *originating from matplotlib's stubs* (not from tephpy code), extend the existing override table in `pyproject.toml`'s `[[tool.mypy.overrides]]` with `"matplotlib.*"` — but only for `ignore_missing_imports`; do not relax strictness for `tephpy` modules (spec §8.4 forbids it for the numeric core).
+If `pixi run lint` surfaces mypy errors *originating from matplotlib's stubs* (not from tephpy code), extend the existing override table in `pyproject.toml`'s `[[tool.mypy.overrides]]` with `"matplotlib.*"` — but only for `ignore_missing_imports`; do not relax strictness for `tephpy` modules (spec §8.4 forbids it for the numeric core). As built: matplotlib was instead added to the mirrors-mypy hook's `additional_dependencies` in `.pre-commit-config.yaml`, so mypy sees matplotlib's own type information and no `matplotlib.*` override was needed.
 
 ```bash
 pixi run lint
