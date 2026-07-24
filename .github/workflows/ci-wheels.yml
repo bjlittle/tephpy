@@ -57,6 +57,7 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+          print-hash: true
 
   publish-pypi:
     needs: build
@@ -71,3 +72,5 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # release/v1
+        with:
+          print-hash: true
