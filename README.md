@@ -1,4 +1,16 @@
-# tephpy
+<p align="center">
+    <picture>
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-dark.svg">
+    <img alt="tephpy", src="https://github.com/bjlittle/tephpy/blob/main/docs/src/_static/brand/logo-stacked-light.png" width="180">
+    </picture>
+</p>
+
+<h3 align="center">
+    Tephigram rendering with <a href="https://unidata.github.io/MetPy/latest/">MetPy</a>-powered thermodynamic analysis
+</h3>
+
+----
 
 [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CB85C)](https://scientific-python.org/specs/spec-0000/)
 [![pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
@@ -11,5 +23,6 @@ temperature-entropy coordinate system and delegates thermodynamic analysis
 
 Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
+> [!NOTE]
 > **Status:** early development — the plotting and analysis API is being built
 > out plan by plan. See https://github.com/bjlittle/tephpy/tree/main/docs/superpowers/specs for the design.
