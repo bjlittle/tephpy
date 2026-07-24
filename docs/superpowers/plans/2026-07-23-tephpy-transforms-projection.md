@@ -230,7 +230,7 @@ MA: Final[float] = 300.0
 
 #: Default diagram extent as ((pressure, temperature), (pressure, temperature))
 #: anchor corners in hPa / degrees Celsius: bottom-left and top-right of the
-#: default view. Refined into the full anchoring API by Plan 3.
+#: default view. Refined into the full anchoring API by a future release.
 DEFAULT_ANCHOR: Final[tuple[tuple[float, float], tuple[float, float]]] = (
     (1050.0, -40.0),
     (200.0, 40.0),
@@ -302,7 +302,7 @@ def theta_from_pressure_temperature(
     """
     p = np.asarray(pressure, dtype=np.float64)
     t = np.asarray(temperature, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         p_valid = np.where(p > 0.0, p, np.nan)
         theta_k = (t + KELVIN_ZERO) * (P_REF / p_valid) ** KAPPA
     return np.asarray(theta_k - KELVIN_ZERO, dtype=np.float64)
@@ -331,7 +331,7 @@ def pressure_from_temperature_theta(
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
         p = P_REF * ((t + KELVIN_ZERO) / theta_k) ** (1.0 / KAPPA)
     return np.asarray(p, dtype=np.float64)
@@ -466,12 +466,14 @@ def xy_from_temperature_theta(
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
         scaled = MA * np.log(theta_k)
+        x = scaled + t
+        y = scaled - t
     return (
-        np.asarray(scaled + t, dtype=np.float64),
-        np.asarray(scaled - t, dtype=np.float64),
+        np.asarray(x, dtype=np.float64),
+        np.asarray(y, dtype=np.float64),
     )
 
 
@@ -498,8 +500,9 @@ def temperature_theta_from_xy(
     """
     x_arr = np.asarray(x, dtype=np.float64)
     y_arr = np.asarray(y, dtype=np.float64)
-    temperature = (x_arr - y_arr) / 2.0
-    theta = np.exp((x_arr + y_arr) / (2.0 * MA)) - KELVIN_ZERO
+    with np.errstate(over="ignore", invalid="ignore"):
+        temperature = (x_arr - y_arr) / 2.0
+        theta = np.exp((x_arr + y_arr) / (2.0 * MA)) - KELVIN_ZERO
     return (
         np.asarray(temperature, dtype=np.float64),
         np.asarray(theta, dtype=np.float64),
@@ -797,7 +800,7 @@ Create `src/tephpy/plotting/__init__.py`:
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Tephigram plotting: the matplotlib projection and (from Plan 3) artists."""
+"""Tephigram plotting: the matplotlib projection and, in a future release, artists."""
 
 from __future__ import annotations
 
@@ -1238,7 +1241,7 @@ Expected: the `ci-changelog` check passes on the PR; all other checks (tests ×3
 
 **Type/name consistency:** `theta_from_pressure_temperature` / `pressure_from_temperature_theta` / `xy_from_temperature_theta` / `temperature_theta_from_xy` used identically in Tasks 1–5 and the Interfaces contract; `TephigramTransform`/`TephigramInvertedTransform`/`TephigramAxes` consistent across Tasks 4–5 and the smoke test; constants names consistent with `_constants.py`.
 
-**Known judgment calls (documented, not hidden):** data space is native x-y with the mapping exposed as `tephigram_transform` (the approved "invertible Transform wrapping the transforms functions" design — full (T, θ) data-space projection was rejected as needless complexity before Plan 3's artists exist); `KAPPA = 287.05/1004.68` from first principles with the oracle tolerance (`THETA_RTOL = 2e-3`) sized for a possible tephi kappa difference and an explicit investigate-don't-widen rule; `import tephpy` now imports matplotlib (a plotting library — acceptable; the heavier MetPy question stays with Plans 4/5 per spec §10 item 10).
+**Known judgment calls (documented, not hidden):** data space is native x-y with the mapping exposed as `tephigram_transform` (the approved "invertible Transform wrapping the transforms functions" design — full (T, θ) data-space projection was rejected as needless complexity before Plan 3's artists exist); `KAPPA = 287.05/1004.68` from first principles with the oracle tolerance (`THETA_RTOL = 2e-3`) sized for a possible tephi kappa difference and an explicit investigate-don't-widen rule; `import tephpy` now imports matplotlib (a plotting library — acceptable; the heavier MetPy question stays with Plans 4/5 per spec §10 item 10). Post-review hardening: all four transform functions carry np.errstate guards (over/invalid) so hostile inputs stay silent under warnings-as-errors, locked by three added regression tests (test_inverse_extreme_input_is_silent, test_xy_domain_boundary_exactly_at_absolute_zero, test_xy_vectorized_shapes).
 
 ---
 

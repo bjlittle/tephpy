@@ -34,7 +34,7 @@ MA: Final[float] = 300.0
 
 #: Default diagram extent as ((pressure, temperature), (pressure, temperature))
 #: anchor corners in hPa / degrees Celsius: bottom-left and top-right of the
-#: default view. Refined into the full anchoring API by Plan 3.
+#: default view. Refined into the full anchoring API by a future release.
 DEFAULT_ANCHOR: Final[tuple[tuple[float, float], tuple[float, float]]] = (
     (1050.0, -40.0),
     (200.0, 40.0),
