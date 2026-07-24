@@ -15,4 +15,6 @@ try:
 except ImportError:  # pragma: no cover
     __version__ = "unknown"
 
-__all__ = ["__version__"]
+from tephpy import plotting, transforms
+
+__all__ = ["__version__", "plotting", "transforms"]

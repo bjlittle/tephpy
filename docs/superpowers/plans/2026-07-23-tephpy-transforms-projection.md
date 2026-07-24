@@ -58,6 +58,8 @@ tests/
 docs/src/reference/glossary.rst # MODIFIED: + potential temperature, dry adiabat, isotherm
 .github/workflows/ci-wheels.yml # MODIFIED: wheel-install smoke test step
 changelog/<PR>.feature.rst      # NEW: news fragment (named after the PR, Task 7)
+pyproject.toml                  # MODIFIED: ruff per-file-ignores for the oracle generator (Task 3)
+.pre-commit-config.yaml         # MODIFIED: matplotlib added to the mirrors-mypy hook deps (Task 4)
 ```
 
 Naming used throughout (Interfaces contract):
@@ -228,7 +230,7 @@ MA: Final[float] = 300.0
 
 #: Default diagram extent as ((pressure, temperature), (pressure, temperature))
 #: anchor corners in hPa / degrees Celsius: bottom-left and top-right of the
-#: default view. Refined into the full anchoring API by Plan 3.
+#: default view. Refined into the full anchoring API by a future release.
 DEFAULT_ANCHOR: Final[tuple[tuple[float, float], tuple[float, float]]] = (
     (1050.0, -40.0),
     (200.0, 40.0),
@@ -246,7 +248,7 @@ Create `src/tephpy/transforms.py`:
 
 Pure numpy functions between the three coordinate frames of the tephigram
 (spec §3.1): pressure/temperature (p, T), temperature/potential-temperature
-(T, theta), and the rotated display plane (x, y), where
+(T, theta), and the rotated tephigram (x, y) plane, where
 
     x = MA * ln(theta_K) + T        y = MA * ln(theta_K) - T
 
@@ -258,9 +260,9 @@ oracle (``tests/test_oracle.py``) — not ported from it.
 This module is the documented exemption to the pint units policy (spec §5):
 bare ``float64`` arrays in diagram-native units — pressure in hPa,
 temperatures in degrees Celsius, x/y dimensionless. Out-of-domain input
-(non-positive pressure, temperatures at or below absolute zero) propagates
-NaN; exception-carrying validation lives at the quantified boundaries
-above this module (spec §6).
+(non-positive pressure, potential temperatures theta at or below absolute
+zero) propagates NaN; exception-carrying validation lives at the
+quantified boundaries above this module (spec §6).
 """
 
 from __future__ import annotations
@@ -300,7 +302,7 @@ def theta_from_pressure_temperature(
     """
     p = np.asarray(pressure, dtype=np.float64)
     t = np.asarray(temperature, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         p_valid = np.where(p > 0.0, p, np.nan)
         theta_k = (t + KELVIN_ZERO) * (P_REF / p_valid) ** KAPPA
     return np.asarray(theta_k - KELVIN_ZERO, dtype=np.float64)
@@ -329,7 +331,7 @@ def pressure_from_temperature_theta(
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
         p = P_REF * ((t + KELVIN_ZERO) / theta_k) ** (1.0 / KAPPA)
     return np.asarray(p, dtype=np.float64)
@@ -442,7 +444,7 @@ Append to `src/tephpy/transforms.py`:
 def xy_from_temperature_theta(
     temperature: npt.ArrayLike, theta: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Convert temperature and potential temperature to display coordinates.
+    """Convert temperature and potential temperature to tephigram (x, y).
 
     The rotated tephigram mapping: ``x = MA * ln(theta_K) + T`` and
     ``y = MA * ln(theta_K) - T``, which renders isotherms and dry adiabats
@@ -459,24 +461,26 @@ def xy_from_temperature_theta(
     Returns
     -------
     tuple of numpy.ndarray
-        The ``(x, y)`` display coordinates, ``float64``, broadcast over
-        the inputs.
+        The tephigram ``(x, y)`` coordinates (the axes' data space),
+        ``float64``, broadcast over the inputs.
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         theta_k = np.where(th + KELVIN_ZERO > 0.0, th + KELVIN_ZERO, np.nan)
         scaled = MA * np.log(theta_k)
+        x = scaled + t
+        y = scaled - t
     return (
-        np.asarray(scaled + t, dtype=np.float64),
-        np.asarray(scaled - t, dtype=np.float64),
+        np.asarray(x, dtype=np.float64),
+        np.asarray(y, dtype=np.float64),
     )
 
 
 def temperature_theta_from_xy(
     x: npt.ArrayLike, y: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Convert display coordinates back to temperature and theta.
+    """Convert tephigram (x, y) coordinates back to temperature and theta.
 
     Inverse of :func:`xy_from_temperature_theta`: ``T = (x - y) / 2`` and
     ``theta_K = exp((x + y) / (2 * MA))``.
@@ -484,9 +488,9 @@ def temperature_theta_from_xy(
     Parameters
     ----------
     x : array_like
-        Display x coordinate (dimensionless).
+        Tephigram x coordinate (dimensionless, the axes' data space).
     y : array_like
-        Display y coordinate (dimensionless).
+        Tephigram y coordinate (dimensionless, the axes' data space).
 
     Returns
     -------
@@ -496,8 +500,9 @@ def temperature_theta_from_xy(
     """
     x_arr = np.asarray(x, dtype=np.float64)
     y_arr = np.asarray(y, dtype=np.float64)
-    temperature = (x_arr - y_arr) / 2.0
-    theta = np.exp((x_arr + y_arr) / (2.0 * MA)) - KELVIN_ZERO
+    with np.errstate(over="ignore", invalid="ignore"):
+        temperature = (x_arr - y_arr) / 2.0
+        theta = np.exp((x_arr + y_arr) / (2.0 * MA)) - KELVIN_ZERO
     return (
         np.asarray(temperature, dtype=np.float64),
         np.asarray(theta, dtype=np.float64),
@@ -548,7 +553,7 @@ Run in a THROWAWAY environment so tephi never touches the project envs:
     /tmp/tephi-oracle/bin/python tests/fixtures/generate_tephi_oracle.py
 
 Writes ``tephi_oracle.json`` beside this script: input grids, tephi's
-outputs for the equivalent conversions, tephi's constants, and provenance.
+outputs for the equivalent conversions, and provenance.
 The values are OUTPUTS of running tephi (BSD-3-Clause), not copied source;
 provenance is recorded in the fixture (spec §3.1/§10 item 5).
 """
@@ -795,7 +800,7 @@ Create `src/tephpy/plotting/__init__.py`:
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Tephigram plotting: the matplotlib projection and (from Plan 3) artists."""
+"""Tephigram plotting: the matplotlib projection and, in a future release, artists."""
 
 from __future__ import annotations
 
@@ -815,10 +820,10 @@ Create `src/tephpy/plotting/axes.py`:
 # See the LICENSE file in the package root directory for licensing details.
 """The tephigram matplotlib projection.
 
-``TephigramAxes`` (registered as the ``"tephigram"`` projection, Task 5)
-uses the native rotated x-y plane as its data space, with the
-temperature/theta mapping exposed as an invertible matplotlib transform.
-Plan 3 extends this class in place with the isopleth machinery.
+``TephigramAxes`` (registered as the ``"tephigram"`` projection) uses the
+native rotated x-y plane as its data space, with the temperature/theta
+mapping exposed as an invertible matplotlib transform. A future release
+extends this class in place with the isopleth machinery.
 """
 
 from __future__ import annotations
@@ -845,21 +850,20 @@ class TephigramTransform(mtransforms.Transform):
     is_separable = False
     has_inverse = True
 
-    def transform_non_affine(
-        self, values: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Transform ``(N, 2)`` (temperature, theta) columns to (x, y).
 
         Parameters
         ----------
-        values : numpy.ndarray
-            Array of shape ``(N, 2)``: temperature, theta in degrees
+        values : array_like
+            Array-like of shape ``(N, 2)``: temperature, theta in degrees
             Celsius.
 
         Returns
         -------
         numpy.ndarray
-            Array of shape ``(N, 2)``: the x, y display coordinates.
+            Array of shape ``(N, 2)``: the tephigram x, y coordinates
+            (the axes' data space).
         """
         arr = np.asarray(values, dtype=np.float64)
         x, y = transforms.xy_from_temperature_theta(arr[:, 0], arr[:, 1])
@@ -878,15 +882,14 @@ class TephigramInvertedTransform(mtransforms.Transform):
     is_separable = False
     has_inverse = True
 
-    def transform_non_affine(
-        self, values: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def transform_non_affine(self, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Transform ``(N, 2)`` (x, y) columns to (temperature, theta).
 
         Parameters
         ----------
-        values : numpy.ndarray
-            Array of shape ``(N, 2)``: x, y display coordinates.
+        values : array_like
+            Array-like of shape ``(N, 2)``: tephigram x, y coordinates
+            (the axes' data space).
 
         Returns
         -------
@@ -1021,7 +1024,7 @@ class TephigramAxes(Axes):
     :attr:`tephigram_transform`; artists plot in (temperature, theta)
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
     x/y ticks carry no meteorological meaning and are hidden — meaningful
-    labelling arrives with the Plan 3 isopleths.
+    labelling arrives with the isopleth machinery in a future release.
     """
 
     name = "tephigram"
@@ -1078,7 +1081,7 @@ Expected: PASS — every test from Tasks 1–5 (import smoke tests from Plan 1 i
 
 - [ ] **Step 5: mypy note, lint, and commit**
 
-If `pixi run lint` surfaces mypy errors *originating from matplotlib's stubs* (not from tephpy code), extend the existing override table in `pyproject.toml`'s `[[tool.mypy.overrides]]` with `"matplotlib.*"` — but only for `ignore_missing_imports`; do not relax strictness for `tephpy` modules (spec §8.4 forbids it for the numeric core).
+If `pixi run lint` surfaces mypy errors *originating from matplotlib's stubs* (not from tephpy code), extend the existing override table in `pyproject.toml`'s `[[tool.mypy.overrides]]` with `"matplotlib.*"` — but only for `ignore_missing_imports`; do not relax strictness for `tephpy` modules (spec §8.4 forbids it for the numeric core). As built: matplotlib was instead added to the mirrors-mypy hook's `additional_dependencies` in `.pre-commit-config.yaml`, so mypy sees matplotlib's own type information and no `matplotlib.*` override was needed.
 
 ```bash
 pixi run lint
@@ -1238,7 +1241,7 @@ Expected: the `ci-changelog` check passes on the PR; all other checks (tests ×3
 
 **Type/name consistency:** `theta_from_pressure_temperature` / `pressure_from_temperature_theta` / `xy_from_temperature_theta` / `temperature_theta_from_xy` used identically in Tasks 1–5 and the Interfaces contract; `TephigramTransform`/`TephigramInvertedTransform`/`TephigramAxes` consistent across Tasks 4–5 and the smoke test; constants names consistent with `_constants.py`.
 
-**Known judgment calls (documented, not hidden):** data space is native x-y with the mapping exposed as `tephigram_transform` (the approved "invertible Transform wrapping the transforms functions" design — full (T, θ) data-space projection was rejected as needless complexity before Plan 3's artists exist); `KAPPA = 287.05/1004.68` from first principles with the oracle tolerance (`THETA_RTOL = 2e-3`) sized for a possible tephi kappa difference and an explicit investigate-don't-widen rule; `import tephpy` now imports matplotlib (a plotting library — acceptable; the heavier MetPy question stays with Plans 4/5 per spec §10 item 10).
+**Known judgment calls (documented, not hidden):** data space is native x-y with the mapping exposed as `tephigram_transform` (the approved "invertible Transform wrapping the transforms functions" design — full (T, θ) data-space projection was rejected as needless complexity before Plan 3's artists exist); `KAPPA = 287.05/1004.68` from first principles with the oracle tolerance (`THETA_RTOL = 2e-3`) sized for a possible tephi kappa difference and an explicit investigate-don't-widen rule; `import tephpy` now imports matplotlib (a plotting library — acceptable; the heavier MetPy question stays with Plans 4/5 per spec §10 item 10). Post-review hardening: all four transform functions carry np.errstate guards (over/invalid) so hostile inputs stay silent under warnings-as-errors, locked by three added regression tests (test_inverse_extreme_input_is_silent, test_xy_domain_boundary_exactly_at_absolute_zero, test_xy_vectorized_shapes).
 
 ---
 
