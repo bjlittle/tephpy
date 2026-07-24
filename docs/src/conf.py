@@ -18,6 +18,7 @@ extensions = [
     "autoapi.extension",
     "myst_nb",
     "numpydoc",
+    "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx_changelog",
@@ -45,6 +46,13 @@ autoapi_add_toctree_entry = (
 autoapi_keep_files = False
 suppress_warnings = ["autoapi.python_import_resolution"]
 
+# -- extlinks ----------------------------------------------------------------
+extlinks = {
+    "issue": ("https://github.com/bjlittle/tephpy/issues/%s", "#%s"),
+    "pull": ("https://github.com/bjlittle/tephpy/pull/%s", "#%s"),
+    "user": ("https://github.com/%s", "@%s"),
+}
+
 # -- numpydoc ----------------------------------------------------------------
 numpydoc_show_class_members = False
 
@@ -70,7 +78,6 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
-# html_title = "tephpy"
 html_favicon = "_static/brand/favicon.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",
