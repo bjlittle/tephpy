@@ -5,7 +5,7 @@ coverage:
         target: auto
         threshold: 5%
     patch: false
-comment: false
+comment: true
 ignore:
   - "src/tephpy/examples/**"
   - "src/tephpy/_version.py"
