@@ -70,8 +70,10 @@ src/tephpy/
 │   ├── wyoming.py    # University of Wyoming text reader
 │   └── igra.py       # IGRA v2 reader
 ├── examples/         # sphinx-gallery sources (one per use case)
+├── exceptions.py     # public shared exception hierarchy (§6)
 ├── _config.py        # tephpy.config: typed runtime configuration (§3.5)
 ├── _constants.py     # conventions: intervals, extents, colours (overridable)
+├── _units.py         # boundary units coercion over MetPy's registry (§5)
 └── _version.py       # written by setuptools_scm (not committed)
 ```
 
@@ -127,10 +129,19 @@ Differences from tephi:
   `ax.moist_adiabats(...)`, `ax.mixing_ratios(...)`. With no arguments an accessor
   returns the family artist; with kwargs (`values=`/`interval=`, `color=`, `labels=`,
   `visible=`, …) it reconfigures and returns it.
-- `ax.plot_profile(...)` accepts either (pressure, temperature) pint quantities or a
-  `Profile` object (e.g. the return of `calc.parcel_path`);
-  `ax.plot_sounding(snd)` plots T + Td with conventional colours and a legend entry
-  of station + UTC time.
+- `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
+  accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
+  to diagram-native units, plots through the tephigram transform machinery, and
+  returns the `Line2D`; matplotlib kwargs pass through untouched. Plan 5 adds a
+  `Profile` overload (e.g. the return of `calc.parcel_path`) to the same signature.
+- `ax.plot_sounding(snd, *, label=None, **kwargs)` plots temperature plus
+  dewpoint-when-present as two profile lines in the conventional colours
+  (temperature red, dewpoint green — the operational/MetPy convention; colours,
+  linewidth, and a zorder above the isopleth families all live in `_constants`).
+  One legend entry per sounding, attached to the temperature line (the dewpoint
+  line is `"_nolegend_"`); label precedence is `label=` argument > `snd.label` >
+  no entry. Returns `(temperature_line, dewpoint_line | None)`. Legends stay
+  stock matplotlib — tephpy sets labels, the user calls `ax.legend()`.
 - `ax.plot_barbs(...)` — right-hand gutter staff, Met Office symbology, 5 kt binning.
 - `ax.shade_cape(env, parcel)` / `ax.shade_cin(env, parcel)` — area fills between
   environment and parcel curves.
@@ -166,12 +177,36 @@ Every function takes and returns pint quantities and delegates physics to
 ### 3.4 `sounding` + `io`
 
 `Sounding`: a frozen dataclass holding pressure/temperature/dewpoint/wind-speed/
-wind-direction arrays as pint quantities, plus `station`, `time`, and a derived
-`label` used for legends. Pressure and temperature are required; dewpoint and wind
-are optional (a Sounding without wind plots profiles but raises on `plot_barbs`;
-one without dewpoint raises on parcel analysis). Constructors: `Sounding(...)` from quantities,
-`Sounding.from_dataframe(df, **column_map)`, `Sounding.from_dataset(ds, **var_map)`.
-Validation at construction (§6). Readers (`io.wyoming.fetch`, `io.igra.read`) return
+wind-direction arrays as pint quantities. Pressure and temperature are required;
+dewpoint and wind are optional (a Sounding without wind plots profiles but raises on
+`plot_barbs`; one without dewpoint raises on parcel analysis), and the two wind
+fields must arrive together. Inputs are coerced in `__post_init__` — bare arrays
+need the §5 `units=` mapping — so a constructed Sounding always holds quantities.
+
+`station` and `time` are optional metadata; `label` is the legend text. An explicit
+`label=` stands as-is; otherwise it derives as `"03808 2026-07-21 12Z"` when both
+station and time are present (naive datetimes read as UTC, aware ones converted to
+UTC; format string in `_constants` per §3.5), otherwise `None` — and `None` means
+no legend entry. Distinguishing forecast-vs-observed overlays of one station/time
+is the label override's job; there is no dedicated field for it.
+
+Validation at construction (§6 — fail at ingest, not mid-plot): 1-D equal-length
+arrays of at least two levels; finite, strictly monotonic pressure accepted in
+either direction and normalized to decreasing (surface-first) storage with all
+arrays reversed together, so downstream `metpy.calc` sees one orientation; where
+dewpoint and temperature are both non-NaN, Td > T is rejected (equality —
+saturation — is physical). NaN gaps are data everywhere except pressure.
+
+Constructors: `Sounding(...)` from quantities or bare arrays + `units=`;
+`Sounding.from_dataframe(df, **column_map)` — column names default to field names,
+`column_map` overrides, bare columns take the `units=` mapping, and
+`pd.Timestamp`/`datetime64` are accepted for `time`;
+`Sounding.from_dataset(ds, **var_map)` — units read from each variable's
+`attrs["units"]` (the xarray/CF convention) parsed through the registry, `units=`
+as the explicit override, `TephpyUnitsError` when neither exists. pandas and
+xarray are declared runtime dependencies imported inside these constructors only
+(item 9). `Sounding` re-exports eagerly at the top level — `from tephpy import
+Sounding` (item 10). Readers (`io.wyoming.fetch`, `io.igra.read`) return
 `Sounding` objects.
 
 ### 3.5 `_constants` + `tephpy.config`
@@ -223,6 +258,18 @@ One documented exemption: the `transforms` geometry layer (§3.1) trades in bare
 arrays in diagram-native units (hPa/°C), because matplotlib's per-draw transform
 pipeline consumes bare arrays; every layer above it converts before calling down.
 
+The machinery (`_units.py`, private): tephpy standardizes on **MetPy's pint
+registry** — one registry across tephpy, MetPy, and user code, so quantities flow
+into `metpy.calc` without cross-registry errors (MetPy imported function-locally to
+keep `import tephpy` light). A single boundary helper
+`as_quantity(value, *, name, units=None, dimension)` checks a quantity's
+dimensionality, wraps a bare array (`units=` required), and raises
+`TephpyUnitsError` naming the argument and the one-line fix — for unit-less input,
+wrong dimensionality, or the ambiguous quantity-plus-`units=` case alike. At
+multi-argument boundaries `units=` is a mapping keyed by argument/field name
+(`units={"pressure": "hPa", "temperature": "degC"}`) — one mechanism at every
+signature rather than per-signature positional conventions.
+
 ## 6. Error handling
 
 - Unit-less input without `units=` → `TephpyUnitsError` naming the argument and the
@@ -233,6 +280,11 @@ pipeline consumes bare arrays; every layer above it converts before calling down
 - MetPy NaN results (no LFC, zero CAPE) pass through as NaN, documented per field.
 - Reader failures (network, unrecognised station, malformed archive) → `TephpyIOError`
   with the upstream response summarised.
+- The shared hierarchy lives in public `tephpy/exceptions.py` (users catch these):
+  `TephpyError` at the root; `TephpyUnitsError`; `TephpyValidationError` carrying
+  `levels: tuple[int, ...]` of offending indices, specialized by
+  `NonMonotonicPressureError` and `DewpointExceedsTemperatureError` (Plan 4). Plan 5
+  adds the profile-too-short analysis error; Plan 6 adds `TephpyIOError`.
 
 ## 7. Testing
 
@@ -272,8 +324,11 @@ called out explicitly).
   `local_scheme = "dirty-tag"`, `write_to = "src/tephpy/_version.py"`), matching geovista.
   `.git_archival.txt` + `.gitattributes export-subst` for archive versioning; `MANIFEST.in`
   + `check-manifest` in CI.
-- Runtime dependencies: matplotlib, numpy, scipy, pint, metpy. All are conda-forge
-  packages, so pixi resolves them cleanly.
+- Runtime dependencies: matplotlib, numpy, scipy, pint, metpy, pandas, xarray —
+  pandas/xarray declared directly because the `Sounding` constructors' public API
+  consumes their types (item 9); MetPy already requires both, so the declaration
+  adds no install weight. All are conda-forge packages, so pixi resolves them
+  cleanly.
 - `requirements/` split mirrors geovista: `pypi-core.txt` + `pypi-optional-{docs,test,devs}.txt`
   feeding `[tool.setuptools.dynamic]`, so PyPI extras and pixi features stay in sync.
 
@@ -547,18 +602,30 @@ them, ordered by owning plan.
 8. **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
    `"03808 2026-07-21 12Z"`), station/time optionality (§3.4 states requiredness only for
    the data arrays), and how forecast-vs-observed overlays of the same station/time stay
-   distinguishable in a legend.
+   distinguishable in a legend. *Resolved 2026-07-25:* station and time are optional
+   metadata — ad-hoc arrays plot without ceremony, operational users get comparable
+   legends for free. `label` derives as `"03808 2026-07-21 12Z"` when both are present,
+   an explicit `label=` always wins, and with neither there is no legend entry.
+   Forecast-vs-observed distinguishability is the label override's job — no dedicated
+   field. §3.2/§3.4 updated accordingly.
 9. **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
    and the §2 ingest decision need pandas/xarray, but §8.1's runtime list omits them
    (today they arrive transitively via MetPy). Decide: direct declaration, optional
-   extra, or typing-only treatment.
+   extra, or typing-only treatment. *Resolved 2026-07-25:* declared directly — the
+   constructors' public API consumes pandas/xarray types, so leaning on MetPy's
+   transitive guarantee would be a silent contract, and the declaration adds no install
+   weight. Imported function-locally inside the constructors to keep `import tephpy`
+   light. §8.1 updated accordingly.
 10. **Plan 4/5 — top-level namespace policy.** §4 requires `tephpy.calc.parcel_path` to
     work after `import tephpy`, implying eager subpackage import (and MetPy's import cost)
     or lazy loading; also which names (e.g. `Sounding`) re-export at top level. Plan 3
     keeps MetPy behind function-local imports in the isopleth builders, leaving this
     item open; candidate mechanism: scientific-python `lazy-loader` (SPEC 1), with
     PEP 810 explicit lazy imports as the native successor once the SPEC 0 floor
-    reaches Python 3.15.
+    reaches Python 3.15. *Plan 4 slice resolved 2026-07-25:* `Sounding` re-exports
+    eagerly at the top level — cheap because `sounding.py` keeps MetPy/pandas/xarray
+    imports function-local. The lazy-loading mechanism decision stays with Plan 5,
+    where `calc` makes the import cost real.
 11. **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
     returns 0 (not NaN) for zero CAPE and warns on some degenerate profiles — and pytest's
     `filterwarnings = ["error"]` turns those warnings into failures. Verify the §6
