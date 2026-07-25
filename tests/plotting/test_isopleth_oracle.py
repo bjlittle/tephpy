@@ -33,7 +33,7 @@ from tephpy import transforms
 from tephpy.plotting import isopleths
 
 FIXTURE = json.loads(
-    (Path(__file__).parent / "fixtures" / "tephi_isopleth_oracle.json").read_text()
+    (Path(__file__).parents[1] / "fixtures" / "tephi_isopleth_oracle.json").read_text()
 )
 
 #: Loose-but-meaningful tolerances (°C), sized from the worst measured

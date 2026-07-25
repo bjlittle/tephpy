@@ -28,3 +28,10 @@ def test_runtime_dependencies_importable() -> None:
     """The declared runtime dependencies import."""
     for package in ("matplotlib", "metpy", "numpy", "pint", "scipy"):
         importlib.import_module(package)
+
+
+def test_top_level_namespace():
+    """Submodules are reachable from the package root (spec §4 idiom)."""
+    assert tephpy.transforms is not None
+    assert tephpy.plotting is not None
+    assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}

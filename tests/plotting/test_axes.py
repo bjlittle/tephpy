@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-import tephpy
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import DEFAULT_EXTENT
@@ -130,13 +129,6 @@ def test_plot_in_temperature_theta_space(tephigram_axes):
     y0, y1 = tephigram_axes.get_ylim()
     assert np.all((x0 <= x) & (x <= x1))
     assert np.all((y0 <= y) & (y <= y1))
-
-
-def test_top_level_namespace():
-    """Submodules are reachable from the package root (spec §4 idiom)."""
-    assert tephpy.transforms is not None
-    assert tephpy.plotting is not None
-    assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}
 
 
 FAMILY_NAMES = (
