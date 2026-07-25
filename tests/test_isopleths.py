@@ -336,6 +336,15 @@ def test_visible_option_maps_to_artist_visibility():
     assert family.options.visible is False
 
 
+def test_configure_values_iterator_materialized():
+    """A one-shot iterator for values must survive later reconfigures."""
+    family = _make_family("isotherms")
+    family.configure(values=iter([0.0, 10.0]))
+    assert family.options.values == (0.0, 10.0)
+    family.configure(color="red")
+    assert family.options.values == (0.0, 10.0)
+
+
 def test_labels_drawn_and_upright(plain_axes):
     family = _make_family("isobars")
     plain_axes.add_artist(family)

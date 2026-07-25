@@ -568,7 +568,15 @@ class IsoplethFamily(martist.Artist):
             if value is None:
                 self._overrides.pop(key, None)
             else:
-                self._overrides[key] = value
+                # Materialize one-shot iterables (e.g., generators) to tuple
+                # so they survive later reconfigures (spec §3.5, §7 item 1).
+                if key == "values":
+                    override_value: object = tuple(
+                        float(v) for v in cast("Iterable[SupportsFloat]", value)
+                    )
+                else:
+                    override_value = value
+                self._overrides[key] = override_value
         self._options = self._resolve()
         self.set_visible(self._options.visible)
         if _GEOMETRY_KEYS & set(kwargs):
