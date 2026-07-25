@@ -29,7 +29,7 @@ jobs:
         with:
           environments: ${{ matrix.environment }}
           frozen: true
-      - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml
+      - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml --mpl
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5
         if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py314'
         with:

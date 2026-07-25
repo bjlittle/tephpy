@@ -33,9 +33,137 @@ P_REF: Final[float] = 1000.0
 MA: Final[float] = 300.0
 
 #: Default diagram extent as ((pressure, temperature), (pressure, temperature))
-#: anchor corners in hPa / degrees Celsius: bottom-left and top-right of the
-#: default view. Refined into the full anchoring API by a future release.
-DEFAULT_ANCHOR: Final[tuple[tuple[float, float], tuple[float, float]]] = (
+#: corners in hPa / degrees Celsius: bottom-left and top-right of the default
+#: view (see ``TephigramAxes.set_extent``).
+DEFAULT_EXTENT: Final[tuple[tuple[float, float], tuple[float, float]]] = (
     (1050.0, -40.0),
     (200.0, 40.0),
 )
+
+#: Pressure domain the isopleth geometry is computed over (hPa).
+PRESSURE_DOMAIN: Final[tuple[float, float]] = (50.0, 1050.0)
+
+#: Temperature domain the isopleth geometry is computed over (°C).
+TEMPERATURE_DOMAIN: Final[tuple[float, float]] = (-120.0, 60.0)
+
+#: Potential-temperature domain the isopleth geometry is computed over (°C).
+THETA_DOMAIN: Final[tuple[float, float]] = (-100.0, 520.0)
+
+#: Wet-bulb potential-temperature domain for the moist adiabats (°C).
+MOIST_ADIABAT_DOMAIN: Final[tuple[float, float]] = (-40.0, 60.0)
+
+#: Vertices per isopleth member polyline.
+ISOPLETH_SAMPLES: Final[int] = 101
+
+#: Pressure sampling step for the moist-adiabat integration (hPa).
+MOIST_ADIABAT_PRESSURE_STEP: Final[float] = 5.0
+
+#: Temperature below which moist adiabats are truncated (°C) — the curves
+#: converge onto the dry adiabats (Met Office Factsheet 13 convention).
+MOIST_ADIABAT_TRUNCATION: Final[float] = -50.0
+
+#: Isotherm zoom ladder: (min view width, member interval in °C) pairs,
+#: widest first (10 °C at the default view width of ~311 units).
+ISOTHERM_STEPS: Final[tuple[tuple[float, float], ...]] = (
+    (500.0, 20.0),
+    (100.0, 10.0),
+    (0.0, 5.0),
+)
+
+#: Dry-adiabat zoom ladder (°C of potential temperature); the grid is
+#: symmetric with the isotherms.
+DRY_ADIABAT_STEPS: Final[tuple[tuple[float, float], ...]] = ISOTHERM_STEPS
+
+#: Isobar zoom ladder (hPa): 50 hPa at the default view width, refining to
+#: the 10 hPa printed-chart interval (Met Office Factsheet 13; spec §3.5)
+#: at deep zoom.
+ISOBAR_STEPS: Final[tuple[tuple[float, float], ...]] = (
+    (500.0, 100.0),
+    (150.0, 50.0),
+    (75.0, 20.0),
+    (0.0, 10.0),
+)
+
+#: Moist-adiabat zoom ladder (°C of wet-bulb potential temperature).
+MOIST_ADIABAT_STEPS: Final[tuple[tuple[float, float], ...]] = (
+    (500.0, 10.0),
+    (150.0, 5.0),
+    (50.0, 2.0),
+    (0.0, 1.0),
+)
+
+#: Humidity mixing-ratio zoom ladder: (min view width, stride into
+#: ``MIXING_RATIO_VALUES``) pairs, widest first.
+MIXING_RATIO_STRIDES: Final[tuple[tuple[float, int], ...]] = (
+    (500.0, 4),
+    (150.0, 2),
+    (0.0, 1),
+)
+
+#: Humidity mixing-ratio member values (g/kg).
+MIXING_RATIO_VALUES: Final[tuple[float, ...]] = (
+    0.05,
+    0.1,
+    0.2,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    3.0,
+    4.0,
+    5.0,
+    7.0,
+    10.0,
+    14.0,
+    20.0,
+    28.0,
+    40.0,
+)
+
+#: Isotherm line colour.
+ISOTHERM_COLOR: Final[str] = "dimgrey"
+
+#: Dry-adiabat line colour.
+DRY_ADIABAT_COLOR: Final[str] = "darkgrey"
+
+#: Isobar line colour.
+ISOBAR_COLOR: Final[str] = "tab:blue"
+
+#: Moist-adiabat line colour.
+MOIST_ADIABAT_COLOR: Final[str] = "tab:orange"
+
+#: Humidity mixing-ratio line colour.
+MIXING_RATIO_COLOR: Final[str] = "tab:green"
+
+#: Isopleth line width in points.
+ISOPLETH_LINEWIDTH: Final[float] = 0.5
+
+#: Isopleth line and label alpha.
+ISOPLETH_ALPHA: Final[float] = 1.0
+
+#: Isotherm draw order.
+ISOTHERM_ZORDER: Final[float] = 1.1
+
+#: Dry-adiabat draw order.
+DRY_ADIABAT_ZORDER: Final[float] = 1.2
+
+#: Isobar draw order.
+ISOBAR_ZORDER: Final[float] = 1.3
+
+#: Humidity mixing-ratio draw order.
+MIXING_RATIO_ZORDER: Final[float] = 1.4
+
+#: Moist-adiabat draw order.
+MOIST_ADIABAT_ZORDER: Final[float] = 1.5
+
+#: Isopleth label font size in points.
+LABEL_FONTSIZE: Final[float] = 8.0
+
+#: Isopleth label box style.
+LABEL_BOXSTYLE: Final[str] = "round,pad=0.3"
+
+#: Isopleth label box colour.
+LABEL_BOX_COLOR: Final[str] = "white"
+
+#: Isopleth label box alpha.
+LABEL_BOX_ALPHA: Final[float] = 0.6

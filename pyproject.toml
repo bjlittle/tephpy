@@ -62,6 +62,8 @@ filterwarnings = ["error"]
 log_level = "INFO"
 markers = ["mpl_image_compare: matplotlib image comparison tests"]
 minversion = "8.0"
+mpl-baseline-path = "tests/baseline"
+mpl-results-path = ".mpl-results"
 testpaths = ["tests"]
 xfail_strict = true
 
@@ -120,10 +122,10 @@ convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "docs/src/conf.py" = ["INP001", "A001"]
-"tests/*" = ["ANN001", "ANN201", "SLF001", "D103"]
-# One-shot generator script (spec §7 layer 4), not a package module; its
+"tests/*" = ["ANN001", "ANN201", "ANN202", "SLF001", "D103"]
+# One-shot generator scripts (spec §7 layer 4), not package modules; their
 # print is the script's user feedback.
-"tests/fixtures/generate_tephi_oracle.py" = ["INP001", "T201"]
+"tests/fixtures/generate_tephi_*.py" = ["INP001", "T201", "SLF001"]
 
 [tool.mypy]
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -243,12 +245,16 @@ pytest-cov = ">=5.0"
 pytest-mpl = ">=0.17"
 
 [tool.pixi.feature.test.tasks.tests]
-cmd = "pytest --cov --cov-report=xml"
+cmd = "pytest --cov --cov-report=xml --mpl"
 description = "Run the unit test suite with coverage"
 
-[tool.pixi.feature.test.tasks.tests-mpl-generate]
+[tool.pixi.feature.test.tasks.baselines]
 cmd = "pytest --mpl-generate-path=tests/baseline"
 description = "Regenerate matplotlib image-comparison baselines"
+
+[tool.pixi.feature.test.tasks.tests-clean]
+cmd = "rm -rf .coverage coverage.xml .pytest_cache .mpl-results .hypothesis"
+description = "Remove coverage, pytest, pytest-mpl, and hypothesis artifacts"
 
 [tool.pixi.feature.devs.dependencies]
 check-manifest = ">=0.49"

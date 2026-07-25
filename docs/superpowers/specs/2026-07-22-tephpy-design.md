@@ -331,6 +331,13 @@ pixi is the primary interface for environments, tasks, and CI, configured in
 - **pytest** (`--strict-config --strict-markers --import-mode=importlib`, `xfail_strict`,
   `filterwarnings = ["error", …]`) + **hypothesis** + **pytest-cov** + **codecov** (project
   `target: auto`, `threshold: 5%`, patch off).
+- **Test tree mirrors the package** — `tests/` reproduces the `src/tephpy` layout:
+  tests for top-level modules live at the `tests/` root (`test_transforms.py` and
+  `test_config.py` today; `test_calc.py`/`test_sounding.py` as those modules land)
+  and each subpackage gets a matching directory (`tests/plotting/` today;
+  `tests/io/` when that layer lands). New test modules are placed at the level of
+  the module they exercise. Shared `tests/fixtures/` and `tests/baseline/` stay at
+  the root.
 - **Image baselines via pytest-mpl** *(deviation: geovista uses pytest-pyvista for VTK
   scenes; pytest-mpl is the matplotlib equivalent)* — small tolerance-tuned PNGs in-repo for
   each isopleth family, profiles, barbs, shading, and the composed §4 figure.
