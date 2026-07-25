@@ -485,7 +485,7 @@ Also, in `tests/test_axes.py`, update the final assertion of
 `test_top_level_namespace` to:
 
 ```python
-    assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}
+assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -2895,7 +2895,9 @@ def main() -> None:
     }
     out = Path(__file__).parent / "tephi_isopleth_oracle.json"
     out.write_text(json.dumps(fixture, indent=2) + "\n")
-    print(f"wrote {out} ({len(THETA_WS)} pseudoadiabats, {len(MIXING_RATIOS)} isohumes)")
+    print(
+        f"wrote {out} ({len(THETA_WS)} pseudoadiabats, {len(MIXING_RATIOS)} isohumes)"
+    )
 
 
 if __name__ == "__main__":
@@ -3448,6 +3450,3 @@ units machinery and shared exception module, `plot_profile`/`plot_sounding`
 with overlays and legends, and profile image baselines on top of this plan's
 axes and pytest-mpl infrastructure. Plans 5 and 6 follow Plan 4 and may then
 proceed in parallel.
-
-
-
