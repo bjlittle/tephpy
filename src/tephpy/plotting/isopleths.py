@@ -547,7 +547,8 @@ class IsoplethFamily(martist.Artist):
 
         Re-reads ``tephpy.config`` now (spec §3.5 semantics). Passing
         ``None`` for an option removes any prior override so the value
-        falls back to ``tephpy.config`` and then ``_constants``.
+        falls back to ``tephpy.config`` and then ``_constants``. A call
+        that raises leaves the family unchanged.
 
         Parameters
         ----------
@@ -567,9 +568,11 @@ class IsoplethFamily(martist.Artist):
         if unknown:
             msg = f"unknown option(s) {sorted(unknown)!r} for {self._spec.name!r}"
             raise TypeError(msg)
+        # Stage the update on a copy so a rejected call rolls back cleanly.
+        overrides = dict(self._overrides)
         for key, value in kwargs.items():
             if value is None:
-                self._overrides.pop(key, None)
+                overrides.pop(key, None)
             else:
                 # Materialize one-shot iterables (e.g., generators) to tuple
                 # so they survive later reconfigures (spec §3.5, §7 item 1).
@@ -579,8 +582,14 @@ class IsoplethFamily(martist.Artist):
                     )
                 else:
                     override_value = value
-                self._overrides[key] = override_value
-        self._options = self._resolve()
+                overrides[key] = override_value
+        prior = self._overrides
+        self._overrides = overrides
+        try:
+            self._options = self._resolve()
+        except Exception:
+            self._overrides = prior
+            raise
         self.set_visible(self._options.visible)
         if _GEOMETRY_KEYS & set(kwargs):
             self._members = None
@@ -664,7 +673,7 @@ class IsoplethFamily(martist.Artist):
         Raises
         ------
         ValueError
-            If the resolved ``interval`` is not strictly positive.
+            If the resolved ``interval`` is not a positive, finite number.
         """
         spec = self._spec
         pick = self._pick
@@ -678,8 +687,11 @@ class IsoplethFamily(martist.Artist):
         interval = (
             None if raw_interval is None else float(cast("SupportsFloat", raw_interval))
         )
-        if interval is not None and not interval > 0:
-            msg = f"{spec.name!r} interval must be positive: {interval!r}"
+        if interval is not None and not (interval > 0 and math.isfinite(interval)):
+            msg = (
+                f"{spec.name!r} interval must be a positive, finite number: "
+                f"{interval!r}"
+            )
             raise ValueError(msg)
         raw_truncation = pick("truncation")
         truncation = (

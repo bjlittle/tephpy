@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 import subprocess
 import sys
 
@@ -389,3 +390,19 @@ def test_config_sourced_invalid_interval_raises_at_creation():
         pytest.raises(ValueError, match="positive"),
     ):
         _make_family("isotherms")
+
+
+def test_configure_interval_must_be_finite():
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="positive"):
+        family.configure(interval=math.inf)
+
+
+def test_configure_failure_leaves_family_unchanged():
+    """A rejected configure() rolls back, so later calls are unaffected."""
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="positive"):
+        family.configure(interval=0.0)
+    family.configure(color="red")
+    assert family.options.color == "red"
+    assert family.options.interval is None
