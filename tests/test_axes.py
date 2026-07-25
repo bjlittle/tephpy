@@ -12,7 +12,10 @@ import pytest
 
 import tephpy
 from tephpy import transforms
+from tephpy._config import config
+from tephpy._constants import DEFAULT_EXTENT
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
+from tephpy.plotting.isopleths import IsoplethFamily
 
 
 def test_transform_matches_functions():
@@ -134,3 +137,134 @@ def test_top_level_namespace():
     assert tephpy.transforms is not None
     assert tephpy.plotting is not None
     assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}
+
+
+FAMILY_NAMES = (
+    "isotherms",
+    "isobars",
+    "dry_adiabats",
+    "moist_adiabats",
+    "mixing_ratios",
+)
+
+
+def _expected_limits(extent):
+    """Map extent corners through the transforms to expected x/y limits."""
+    (p0, t0), (p1, t1) = extent
+    thetas = transforms.theta_from_pressure_temperature(
+        np.array([p0, p1]), np.array([t0, t1])
+    )
+    x, y = transforms.xy_from_temperature_theta(np.array([t0, t1]), thetas)
+    return (float(np.min(x)), float(np.max(x))), (float(np.min(y)), float(np.max(y)))
+
+
+def test_families_present_and_on_by_default(tephigram_axes):
+    families = [
+        artist
+        for artist in tephigram_axes.get_children()
+        if isinstance(artist, IsoplethFamily)
+    ]
+    assert len(families) == 5
+    for name in FAMILY_NAMES:
+        family = getattr(tephigram_axes, name)()
+        assert isinstance(family, IsoplethFamily)
+        assert family in families
+        assert family.get_visible()
+
+
+def test_default_draw_populates_every_family(tephigram_axes):
+    tephigram_axes.figure.canvas.draw()
+    for name in FAMILY_NAMES:
+        family = getattr(tephigram_axes, name)()
+        assert len(family._lines.get_segments()) > 0
+
+
+def test_accessors_reconfigure_and_return(tephigram_axes):
+    family = tephigram_axes.isobars(color="black", labels=False)
+    assert family is tephigram_axes.isobars()
+    assert family.options.color == "black"
+    assert family.options.labels is False
+
+
+def test_accessor_visibility_toggle(tephigram_axes):
+    family = tephigram_axes.mixing_ratios(visible=False)
+    assert not family.get_visible()
+
+
+def test_accessor_rejects_unknown_kwarg(tephigram_axes):
+    with pytest.raises(TypeError):
+        tephigram_axes.isotherms(steps=3)
+    with pytest.raises(TypeError):
+        tephigram_axes.mixing_ratios(interval=5.0)
+
+
+def test_moist_adiabats_truncation_kwarg(tephigram_axes):
+    family = tephigram_axes.moist_adiabats(truncation=-30.0)
+    assert family.options.truncation == -30.0
+
+
+def test_default_extent_applied(tephigram_axes):
+    (x0, x1), (y0, y1) = _expected_limits(DEFAULT_EXTENT)
+    assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
+    assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
+
+
+def test_set_extent_moves_the_view(tephigram_axes):
+    extent = ((1050.0, -10.0), (700.0, 30.0))
+    tephigram_axes.set_extent(extent)
+    (x0, x1), (y0, y1) = _expected_limits(extent)
+    assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
+    assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
+
+
+def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
+    tephigram_axes.set_extent(DEFAULT_EXTENT)
+    before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
+    assert not tephigram_axes.get_autoscale_on()
+    tephigram_axes.plot(
+        [0.0, 200.0],
+        [10.0, 400.0],
+        transform=tephigram_axes.tephigram_transform + tephigram_axes.transData,
+    )
+    tephigram_axes.figure.canvas.draw()
+    assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
+
+
+def test_set_extent_rejects_unphysical_corners(tephigram_axes):
+    with pytest.raises(ValueError, match="physical"):
+        tephigram_axes.set_extent(((0.0, -40.0), (200.0, 40.0)))
+    with pytest.raises(ValueError, match="degenerate"):
+        tephigram_axes.set_extent(((850.0, 10.0), (850.0, 10.0)))
+
+
+def test_clear_restores_projection_defaults(tephigram_axes):
+    old_family = tephigram_axes.isobars()
+    tephigram_axes.plot([1700.0, 1750.0], [1700.0, 1750.0])
+    tephigram_axes.clear()
+    assert old_family.axes is None
+    fresh = [
+        artist
+        for artist in tephigram_axes.get_children()
+        if isinstance(artist, IsoplethFamily)
+    ]
+    assert len(fresh) == 5
+    assert old_family not in fresh
+    assert not tephigram_axes.lines
+    assert tephigram_axes.get_aspect() == 1.0
+    assert not tephigram_axes.xaxis.get_visible()
+    assert not tephigram_axes.yaxis.get_visible()
+    (x0, x1), (y0, y1) = _expected_limits(DEFAULT_EXTENT)
+    assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
+    assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
+
+
+def test_config_diagram_extent_honoured_at_creation():
+    extent = ((1000.0, -20.0), (500.0, 20.0))
+    with config.context(diagram={"extent": extent}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        (x0, x1), (y0, y1) = _expected_limits(extent)
+        assert ax.get_xlim() == pytest.approx((x0, x1))
+        assert ax.get_ylim() == pytest.approx((y0, y1))
+    finally:
+        plt.close(fig)
