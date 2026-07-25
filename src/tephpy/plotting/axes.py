@@ -19,7 +19,7 @@ import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
-from tephpy._constants import DEFAULT_ANCHOR
+from tephpy._constants import DEFAULT_EXTENT
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
 
@@ -152,8 +152,8 @@ class TephigramAxes(Axes):
         self._set_default_extent()
 
     def _set_default_extent(self) -> None:
-        """Frame the default view from the ``DEFAULT_ANCHOR`` corners."""
-        (p_bottom, t_left), (p_top, t_right) = DEFAULT_ANCHOR
+        """Frame the default view from the ``DEFAULT_EXTENT`` corners."""
+        (p_bottom, t_left), (p_top, t_right) = DEFAULT_EXTENT
         corner_pressures = np.array([p_bottom, p_top])
         corner_temperatures = np.array([t_left, t_right])
         thetas = transforms.theta_from_pressure_temperature(
