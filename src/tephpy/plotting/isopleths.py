@@ -559,6 +559,9 @@ class IsoplethFamily(martist.Artist):
         ------
         TypeError
             If an option name is unknown for this family.
+        ValueError
+            If an option value is invalid, e.g. a non-positive
+            ``interval``.
         """
         unknown = set(kwargs) - self._spec.allowed
         if unknown:
@@ -657,6 +660,11 @@ class IsoplethFamily(martist.Artist):
         -------
         ResolvedOptions
             The frozen snapshot the family builds and draws from.
+
+        Raises
+        ------
+        ValueError
+            If the resolved ``interval`` is not strictly positive.
         """
         spec = self._spec
         pick = self._pick
@@ -670,6 +678,9 @@ class IsoplethFamily(martist.Artist):
         interval = (
             None if raw_interval is None else float(cast("SupportsFloat", raw_interval))
         )
+        if interval is not None and not interval > 0:
+            msg = f"{spec.name!r} interval must be positive: {interval!r}"
+            raise ValueError(msg)
         raw_truncation = pick("truncation")
         truncation = (
             spec.truncation

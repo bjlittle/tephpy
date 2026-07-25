@@ -14,12 +14,13 @@ rcParams semantics).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 import dataclasses
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator
 
 __all__ = [
     "Config",
@@ -137,7 +138,8 @@ class Config:
         Raises
         ------
         TypeError
-            If a section or option name is unknown.
+            If a section or option name is unknown, or if a section
+            override is not a mapping.
         """
         section_names = {field.name for field in dataclasses.fields(self)}
         snapshots: dict[str, object] = {}
@@ -145,6 +147,14 @@ class Config:
             for section_name, options in overrides.items():
                 if section_name not in section_names:
                     msg = f"unknown config section {section_name!r}"
+                    raise TypeError(msg)
+                if not isinstance(options, Mapping):
+                    # The annotation promises a mapping, but unchecked
+                    # callers can still pass anything (hence the guard).
+                    msg = (  # type: ignore[unreachable]
+                        f"override for config section {section_name!r} must "
+                        "be a mapping of option names to values"
+                    )
                     raise TypeError(msg)
                 section = getattr(self, section_name)
                 valid = {field.name for field in dataclasses.fields(section)}

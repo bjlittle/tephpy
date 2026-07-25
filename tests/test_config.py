@@ -79,3 +79,21 @@ def test_context_unknown_option_raises_and_restores_prior_sections():
     ):
         pass  # pragma: no cover
     assert tephpy.config.isobars.interval is None
+
+
+def test_context_non_mapping_override_raises():
+    with (
+        pytest.raises(TypeError, match="mapping"),
+        tephpy.config.context(isobars=1),
+    ):
+        pass  # pragma: no cover
+
+
+def test_context_non_mapping_override_restores_prior_sections():
+    """A non-mapping override must roll back sections already applied."""
+    with (
+        pytest.raises(TypeError, match="mapping"),
+        tephpy.config.context(isotherms={"interval": 25.0}, isobars=1),
+    ):
+        pass  # pragma: no cover
+    assert tephpy.config.isotherms.interval is None

@@ -368,3 +368,24 @@ def test_moist_adiabat_truncation_configurable():
     family = _make_family("moist_adiabats")
     family.configure(truncation=-30.0)
     assert family.options.truncation == -30.0
+
+
+def test_configure_zero_interval_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="positive"):
+        family.configure(interval=0.0)
+
+
+def test_configure_negative_interval_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="positive"):
+        family.configure(interval=-10.0)
+
+
+def test_config_sourced_invalid_interval_raises_at_creation():
+    """A bad config-tier interval must fail at creation, not at draw."""
+    with (
+        config.context(isotherms={"interval": 0.0}),
+        pytest.raises(ValueError, match="positive"),
+    ):
+        _make_family("isotherms")
