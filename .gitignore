@@ -228,3 +228,6 @@ src/tephpy/_version.py
 
 # CodeGraph index
 .codegraph/
+
+# pytest-mpl results
+.mpl-results/
