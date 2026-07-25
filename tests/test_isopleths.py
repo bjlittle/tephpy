@@ -11,14 +11,18 @@ import sys
 
 from hypothesis import given
 from hypothesis import strategies as st
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
 from metpy.calc import saturation_mixing_ratio, wet_bulb_potential_temperature
 from metpy.units import units
 import numpy as np
 import pytest
 
 from tephpy import transforms
+from tephpy._config import config
 from tephpy._constants import (
     ISOPLETH_SAMPLES,
+    ISOTHERM_COLOR,
     MIXING_RATIO_VALUES,
     MOIST_ADIABAT_TRUNCATION,
 )
@@ -181,3 +185,177 @@ def test_import_tephpy_does_not_import_metpy():
     """
     code = "import sys, tephpy; raise SystemExit(1 if 'metpy' in sys.modules else 0)"
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
+
+
+@pytest.fixture
+def plain_axes():
+    """Provide a stock Axes framed on the tephigram default view.
+
+    IsoplethFamily only needs `axes.viewLim`/`transData`, so testing on a
+    plain Axes proves the artist stands alone before it is wired into
+    TephigramAxes.
+    """
+    fig, ax = plt.subplots()
+    ax.set(xlim=(1591.0, 1902.0), ylim=(1671.0, 1822.0))
+    yield ax
+    plt.close(fig)
+
+
+def _make_family(name):
+    spec = isopleths._FAMILY_SPECS[name]
+    return isopleths.IsoplethFamily(spec, getattr(config, name))
+
+
+def test_family_specs_cover_the_five_families():
+    assert set(isopleths._FAMILY_SPECS) == {
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    }
+
+
+def test_family_builds_lazily_and_draws(plain_axes):
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    assert family._members is None
+    plain_axes.figure.canvas.draw()
+    assert family._members is not None
+    assert len(family._lines.get_segments()) > 0
+
+
+def test_every_family_draws_on_the_default_view(plain_axes):
+    for name in isopleths._FAMILY_SPECS:
+        plain_axes.add_artist(_make_family(name))
+    plain_axes.figure.canvas.draw()
+    for artist in plain_axes.get_children():
+        if isinstance(artist, isopleths.IsoplethFamily):
+            assert len(artist._lines.get_segments()) > 0
+
+
+def test_family_does_not_participate_in_autoscale(plain_axes):
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    assert not np.isfinite(plain_axes.dataLim.x0)
+
+
+def test_isobar_zoom_ladder_masks():
+    """The ladder picks 100/50/20/10 hPa members by view width, value-anchored."""
+    family = _make_family("isobars")
+    family._build()
+    wide = family._member_values[family._zoom_mask(600.0)]
+    mid = family._member_values[family._zoom_mask(300.0)]
+    fine = family._member_values[family._zoom_mask(100.0)]
+    finest = family._member_values[family._zoom_mask(50.0)]
+    np.testing.assert_array_equal(wide, np.arange(100.0, 1001.0, 100.0))
+    np.testing.assert_array_equal(mid, np.arange(50.0, 1051.0, 50.0))
+    np.testing.assert_array_equal(fine, np.arange(60.0, 1041.0, 20.0))
+    np.testing.assert_array_equal(finest, np.arange(50.0, 1051.0, 10.0))
+
+
+def test_mixing_ratio_stride_masks():
+    """List families stride from index 0, so panning never shifts members."""
+    family = _make_family("mixing_ratios")
+    family._build()
+    wide = family._member_values[family._zoom_mask(600.0)]
+    fine = family._member_values[family._zoom_mask(100.0)]
+    np.testing.assert_allclose(wide, MIXING_RATIO_VALUES[::4])
+    np.testing.assert_allclose(fine, MIXING_RATIO_VALUES)
+
+
+def test_view_mask_selects_overlapping_bboxes():
+    family = _make_family("isotherms")
+    family._member_values = np.array([0.0, 1.0])
+    family._member_bboxes = np.array([[0.0, 0.0, 1.0, 1.0], [5.0, 5.0, 6.0, 6.0]])
+    view = mtransforms.Bbox.from_extents(0.5, 0.5, 2.0, 2.0)
+    np.testing.assert_array_equal(family._view_mask(view), [True, False])
+
+
+def test_zoom_changes_the_drawn_subset(plain_axes):
+    """Zooming in switches the isobar ladder from 50 hPa to 20 hPa members."""
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    fig = plain_axes.figure
+    fig.canvas.draw()
+    wide_count = len(family._lines.get_segments())
+    plain_axes.set(xlim=(1700.0, 1800.0), ylim=(1700.0, 1800.0))
+    fig.canvas.draw()
+    fine_count = len(family._lines.get_segments())
+    assert fine_count > 0
+    assert fine_count != wide_count
+
+
+def test_configure_values_override_disables_ladder(plain_axes):
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    family.configure(values=(0.0, 10.0), color="red")
+    plain_axes.figure.canvas.draw()
+    assert family.options.color == "red"
+    assert family.options.values == (0.0, 10.0)
+    assert len(family._lines.get_segments()) <= 2
+
+
+def test_configure_unknown_option_raises():
+    with pytest.raises(TypeError, match="unknown option"):
+        _make_family("isotherms").configure(bogus=1)
+    with pytest.raises(TypeError, match="unknown option"):
+        _make_family("mixing_ratios").configure(interval=5.0)
+    with pytest.raises(TypeError, match="unknown option"):
+        _make_family("isotherms").configure(truncation=-30.0)
+
+
+def test_configure_none_resets_override():
+    family = _make_family("isotherms")
+    family.configure(color="red")
+    assert family.options.color == "red"
+    family.configure(color=None)
+    assert family.options.color == ISOTHERM_COLOR
+
+
+def test_config_precedence_and_snapshot_semantics():
+    """Verify kwargs > config > constants and the snapshot semantics."""
+    with config.context(isotherms={"color": "purple", "interval": 20.0}):
+        family = _make_family("isotherms")
+        assert family.options.color == "purple"
+        assert family.options.interval == 20.0
+        family.configure(color="black")
+        assert family.options.color == "black"
+        assert family.options.interval == 20.0
+    # Exiting the context must not restyle the existing snapshot (spec §3.5).
+    assert family.options.interval == 20.0
+    assert family.options.color == "black"
+
+
+def test_visible_option_maps_to_artist_visibility():
+    family = _make_family("isobars")
+    assert family.get_visible()
+    family.configure(visible=False)
+    assert not family.get_visible()
+    assert family.options.visible is False
+
+
+def test_labels_drawn_and_upright(plain_axes):
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    labelled = [text for text in family._texts if text.get_text()]
+    assert labelled
+    for text in labelled:
+        rotation = text.get_rotation()  # normalised to [0, 360)
+        assert rotation <= 90.0 or rotation >= 270.0
+
+
+def test_labels_disabled(plain_axes):
+    family = _make_family("isobars")
+    family.configure(labels=False)
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    assert family._texts == []
+
+
+def test_moist_adiabat_truncation_configurable():
+    family = _make_family("moist_adiabats")
+    family.configure(truncation=-30.0)
+    assert family.options.truncation == -30.0
