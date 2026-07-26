@@ -63,7 +63,7 @@ src/tephpy/
 │   ├── axes.py       # TephigramAxes + "tephigram" projection registration
 │   ├── isopleths.py  # 5 line families as zoom-aware artists
 │   ├── barbs.py      # wind-staff gutter, Met Office symbology
-│   └── shading.py    # CAPE/CIN area fills, layer highlights
+│   └── shading.py    # CAPE/CIN area fills
 ├── calc.py           # tephigram-native wrappers over metpy.calc
 ├── sounding.py       # Sounding dataclass (data + metadata, pint units)
 ├── io/
@@ -77,8 +77,10 @@ src/tephpy/
 └── _version.py       # written by setuptools_scm (not committed)
 ```
 
-**Dependency rule:** `transforms` ← `plotting` ← (`calc`, `sounding`, `io`).
-`calc` never imports `plotting`; indices can be computed headless, and plotting works
+**Dependency rule:** `transforms` ← `plotting`, and `transforms`/`sounding` ←
+(`calc`, `io`) — `sounding` sits below the analysis and ingest layers that consume
+it. `calc` never imports `plotting` (`plotting` sees `calc`/`sounding` types only
+under `TYPE_CHECKING`); indices can be computed headless, and plotting works
 without ever touching `calc`.
 
 ### 3.1 `transforms`
@@ -132,8 +134,22 @@ Differences from tephi:
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and
-  returns the `Line2D`; matplotlib kwargs pass through untouched. Plan 5 adds a
-  `Profile` overload (e.g. the return of `calc.parcel_path`) to the same signature.
+  returns the `Line2D`; matplotlib kwargs pass through untouched. The same
+  signature also accepts a `calc.Profile` (e.g. the return of `calc.parcel_path`)
+  as its only positional argument (the first parameter keeps its Plan 4 name;
+  the `Profile` form is positional). Dispatch is duck-typed on the `Profile`
+  shape — the `temperature` parameter omitted and array
+  `pressure`/`temperature` attributes plus `lcl_pressure` present (`Sounding`
+  lacks `lcl_pressure`; `SoundingIndices` lacks the arrays) — so `plotting`
+  never imports `calc` (the §3 layering; the same `TYPE_CHECKING` trick
+  `plot_sounding` uses for `Sounding`), typed with `@overload`. Label
+  precedence: `label=` argument > `profile.label` > no entry. Wrong argument
+  combinations stay `TypeError`s, never units errors: a `Profile` together
+  with `temperature` or `units=`, and equally `temperature` omitted when the
+  sole argument is not `Profile`-shaped (a bare pressure array, or a
+  `Sounding` passed by mistake). In both forms `plot_profile` sets no style
+  defaults — it is the low-level primitive (§4 styles parcel paths explicitly
+  at the call site).
 - `ax.plot_sounding(snd, *, label=None, **kwargs)` plots temperature plus
   dewpoint-when-present as two profile lines in the conventional colours
   (temperature red, dewpoint green — the operational/MetPy convention; colours,
@@ -143,9 +159,30 @@ Differences from tephi:
   no entry. Returns `(temperature_line, dewpoint_line | None)`. Legends stay
   stock matplotlib — tephpy sets labels, the user calls `ax.legend()`.
 - `ax.plot_barbs(...)` — right-hand gutter staff, Met Office symbology, 5 kt binning.
-- `ax.shade_cape(env, parcel)` / `ax.shade_cin(env, parcel)` — area fills between
-  environment and parcel curves.
-- `ax.annotate_indices(indices)` — a text panel of derived parameters beside the plot.
+- `ax.shade_cape(snd, parcel)` / `ax.shade_cin(snd, parcel)` — area fills between
+  the environment temperature and the parcel path, bounded exactly as MetPy's
+  `cape_cin` integrates so the shading always matches the annotated numbers:
+  CAPE is the positive-buoyancy region from the LFC to the EL (to the profile
+  top when EL is NaN with CAPE > 0, §6), CIN the negative-buoyancy region from
+  the parcel start to the LFC. Pure builders in `plotting/shading.py`
+  interpolate both curves onto their merged pressure grid (linear in ln p),
+  locate the buoyancy sign-change crossings, and return the region's closed
+  polygons in (T, θ) space — plural when the region is interrupted — the
+  `isopleths.py` free-builder pattern, headlessly testable. The axes methods
+  draw them through the tephigram transform as one compound-path `PathPatch`
+  per call; zero area returns `None` — 0 is an answer, not an error (§6).
+  Styling is matplotlib kwargs over `_constants` conventions (colours, alpha,
+  a zorder between the isopleth families and the profile lines); no
+  `tephpy.config` section at v1, matching the profile-line treatment.
+- `ax.annotate_indices(indices)` — a text panel of derived parameters beside the
+  diagram: the first consumer of the side-of-axes contract below, appended with
+  the `axes_grid1` divider, one formatted line per `SoundingIndices` field (NaN
+  renders as an em dash); field formats and the panel width live in `_constants`.
+  Returns the panel axes so users can restyle; calling it again updates the
+  panel in place rather than stacking a second one. With `axes_grid1`, append
+  order is position order, so once Plan 6's gutter exists, `plot_barbs` must be
+  called before `annotate_indices` for the contracted inside-out order —
+  documented in the docstring; enforcement, if ever needed, is Plan 6's call.
 - `ax.set_extent(...)` — fixed extents from ((p, T), (p, T)) corners so successive
   figures are directly comparable; disables autoscaling so overlays don't drift the
   window. (The cartopy idiom — the earlier `set_anchor` name collided with
@@ -159,20 +196,75 @@ plans.
 
 ### 3.3 `calc`
 
-Every function takes and returns pint quantities and delegates physics to
-`metpy.calc`. Only tephigram-native compositions live here:
+Physics is delegated to `metpy.calc`; only tephigram-native compositions live
+here, and everything returns pint quantities on the shared registry (§5).
+Sounding-level functions take a `Sounding` — constructing one is the §3.4
+one-liner that already validates units, monotonic pressure, and Td ≤ T, so
+`calc` keeps a single validation path — while `normand_point` is the one
+quantity-level function. `calc` imports `transforms` and `sounding`, never
+`plotting`; MetPy stays behind function-local imports (the established idiom,
+policed by the import-cost guard test), so `calc` re-exports eagerly at the
+top level and `import tephpy` stays light (item 10). Two frozen dataclasses
+(the `Sounding` idiom: coerced and validated at construction) carry results:
 
-- `parcel_path(sounding_or_arrays, *, parcel="surface", cloud_base_correction=None)`
-  → plottable `Profile` (dry adiabat → Normand's point → moist adiabat).
-  `parcel` selects the lifted parcel: `"surface"` (default) or `"mixed-layer"`
-  (mean properties of the lowest 100 hPa, per operational practice). The −25 mb
-  operational cloud-base correction is applied only when explicitly requested.
-  `indices()` takes the same `parcel` option.
-- `normand_point(pressure, temperature, dewpoint)` → (p, T) of the LCL.
-- `indices(sounding)` → typed `SoundingIndices` dataclass: CAPE, CIN, LCL, LFC, EL,
-  θw, lifted index. Fields are pint quantities; "does not exist" cases (e.g. no LFC)
-  are NaN with the meaning documented per field — a meteorological answer, not an
-  error.
+- `Profile`: `pressure`/`temperature` quantities for the full ascent
+  (surface-first), scalar `lcl_pressure`/`lcl_temperature` (the Normand's
+  point the path actually uses — i.e. the corrected one when a correction was
+  requested), `parcel` (`"surface"` | `"mixed-layer"`), and `label` (legend
+  text; `None` = no entry). Construction mirrors `Sounding`: bare arrays take
+  the §5 `units=` mapping, fields are dimension-checked quantities on the
+  shared registry, and `__post_init__` validates 1-D equal-length arrays of
+  at least two levels with strictly decreasing pressure
+  (`TephpyValidationError`), the LCL inside the path's pressure span, and the
+  `parcel` literal (`ValueError`). Plain plottable data: `plot_profile` draws
+  it and the shading builders consume it, and neither re-derives the LCL.
+- `SoundingIndices`: ten scalar quantity fields — `cape`, `cin`,
+  `lcl_pressure`, `lcl_temperature`, `lfc_pressure`, `lfc_temperature`,
+  `el_pressure`, `el_temperature`, `theta_w`, `lifted_index` — each
+  dimension-checked at construction and documented with the §6
+  NaN-versus-zero semantics (no cross-field validation: NaN fields are
+  answers). `theta_w` is the lifted parcel's wet-bulb potential temperature,
+  evaluated at the parcel start (p, T, Td), so it follows the `parcel=`
+  option. The v1 set is a decision (§11): Showalter, K-index, and Total
+  Totals stay one-line `metpy.calc` calls for users, shown in a docs example
+  rather than wrapped.
+
+Functions:
+
+- `parcel_path(snd, *, parcel="surface", cloud_base_correction=None,
+  label=None)` → `Profile` (dry adiabat → Normand's point → moist adiabat,
+  spanning parcel start pressure to profile top; requires `snd.dewpoint`,
+  §6). `parcel` selects the lifted parcel: `"surface"` (default) or
+  `"mixed-layer"` (`metpy.calc.mixed_parcel`; its 100 hPa default depth is
+  the operational convention); an unknown value is a `ValueError` (bad code,
+  not bad data). `cloud_base_correction` is a pressure-dimension quantity
+  applied to the LCL only when explicitly requested — the operational −25 mb
+  value lives in `_constants` with its source convention cited, and the
+  corrected LCL temperature is re-read from the dry adiabat at the corrected
+  pressure. The moist leg is integrated with
+  `metpy.calc.moist_lapse(..., reference_pressure=p_lcl)` at the background
+  family's 5 hPa step — same integrator, same sampling, same anchoring as
+  §3.2's moist adiabats — so a parcel whose θw equals a member value lies
+  exactly on that background curve; the LCL vertex is spliced in exactly.
+  The dry leg samples the same 5 hPa step (a dry adiabat is straight in
+  (T, θ), but uniform sampling keeps the §3.2 shading interpolation faithful).
+  (θw *reported* by `indices()` uses `wet_bulb_potential_temperature`, whose
+  Davies-Jones formulation differs from the ODE by ≲0.1 °C; the path is
+  drawn by the integrator, the number by the named function, and the
+  divergence is documented.)
+- `normand_point(pressure, temperature, dewpoint)` → (p, T) of the LCL —
+  scalar quantities (bare values take the §5 `units=` mapping), always the
+  uncorrected geometric construction. `parcel_path` composes it.
+- `indices(snd, *, parcel="surface", cloud_base_correction=None)` →
+  `SoundingIndices`, with the same parcel options as `parcel_path`. The
+  mechanism: derive the parcel curve on the environment levels under the
+  same parcel-selection and correction rules as `parcel_path`, then feed it
+  to the generic `metpy.calc` functions that take a parcel-profile argument
+  (`cape_cin`, `lfc`, `el`, `lifted_index`); the `lcl_*` fields report the
+  point the path uses (corrected when requested) and `theta_w` the parcel
+  start, mirroring `Profile`. With the defaults this reduces to plain
+  surface-parcel delegation — which is what §7's field-equality test
+  targets — and composition, not thermodynamics, is what tephpy tests (§7).
 
 ### 3.4 `sounding` + `io`
 
@@ -274,17 +366,35 @@ signature rather than per-signature positional conventions.
 
 - Unit-less input without `units=` → `TephpyUnitsError` naming the argument and the
   one-line fix.
-- Physically impossible input (Td > T, non-monotonic pressure, profile too short for
-  parcel analysis) → specific exception types identifying the offending levels.
-  `Sounding` validates at construction so bad data fails at ingest, not mid-plot.
-- MetPy NaN results (no LFC, zero CAPE) pass through as NaN, documented per field.
+- Physically impossible input (Td > T, non-monotonic pressure) → specific
+  exception types identifying the offending levels; `Sounding` validates at
+  construction so bad data fails at ingest, not mid-plot. Analysis-time data
+  errors (missing dewpoint, a profile too short for the requested parcel
+  ascent) raise at the `calc` boundary instead — the earliest point they are
+  knowable, since they depend on the `parcel=`/correction options.
+- Analysis results distinguish "does not exist" from "zero" (verified against
+  MetPy 1.7.1 — item 11): `metpy.calc` returns NaN quantities for a missing
+  LFC/EL and `0 J/kg` — never NaN — for zero CAPE/CIN, and tephpy passes both
+  through, documented per `SoundingIndices` field. EL can be NaN while
+  CAPE > 0 (the parcel is still buoyant at the profile top). A profile topping
+  out below 500 hPa makes `lifted_index` NaN *with* a MetPy `UserWarning`;
+  tephpy suppresses that specific warning at the call site and returns the NaN
+  field — a meteorological answer that keeps `filterwarnings = ["error"]` test
+  suites (including tephpy's own) green. Interior NaN gaps in
+  temperature/dewpoint pass through to MetPy, which tolerates them.
 - Reader failures (network, unrecognised station, malformed archive) → `TephpyIOError`
   with the upstream response summarised.
 - The shared hierarchy lives in public `tephpy/exceptions.py` (users catch these):
   `TephpyError` at the root; `TephpyUnitsError`; `TephpyValidationError` carrying
   `levels: tuple[int, ...]` of offending indices, specialized by
-  `NonMonotonicPressureError` and `DewpointExceedsTemperatureError` (Plan 4). Plan 5
-  adds the profile-too-short analysis error; Plan 6 adds `TephpyIOError`.
+  `NonMonotonicPressureError` and `DewpointExceedsTemperatureError` (Plan 4),
+  `MissingDataError` — a sounding lacking the field an operation needs, e.g.
+  dewpoint for parcel analysis; Plan 6's `plot_barbs` reuses it for absent
+  wind — and `ProfileTooShortError` — the profile tops out at or below the
+  LCL the path would use (the corrected one when a correction is requested),
+  so no moist ascent exists; `parcel_path` and `indices` both raise it, since
+  every parcel-derived field would be meaningless (both exceptions Plan 5).
+  Plan 6 adds `TephpyIOError`.
 
 ## 7. Testing
 
@@ -306,7 +416,9 @@ signature rather than per-signature positional conventions.
   documented, not forced to zero.
 - **Calc:** test composition, not thermodynamics — parcel path passes through
   Normand's point; `indices()` fields equal direct `metpy.calc` calls on the same
-  profile; the −25 mb correction applies only when requested. One integration test
+  profile (the uncorrected surface-parcel default; corrected and mixed-layer runs
+  assert against the hand-built parcel curve fed to the generic functions); the
+  −25 mb correction applies only when requested. One integration test
   against a published worked example with known CAPE/LCL.
 - **IO:** recorded-fixture tests (no live network in CI).
 
@@ -324,11 +436,12 @@ called out explicitly).
   `local_scheme = "dirty-tag"`, `write_to = "src/tephpy/_version.py"`), matching geovista.
   `.git_archival.txt` + `.gitattributes export-subst` for archive versioning; `MANIFEST.in`
   + `check-manifest` in CI.
-- Runtime dependencies: matplotlib, numpy, scipy, pint, metpy, pandas, xarray —
+- Runtime dependencies: matplotlib, numpy, pint, metpy, pandas, xarray —
   pandas/xarray declared directly because the `Sounding` constructors' public API
   consumes their types (item 9); MetPy already requires both, so the declaration
-  adds no install weight. All are conda-forge packages, so pixi resolves them
-  cleanly.
+  adds no install weight. scipy was declared speculatively and dropped in Plan 5
+  when no direct consumer materialized (item 14; MetPy keeps it transitively).
+  All are conda-forge packages, so pixi resolves them cleanly.
 - `requirements/` split mirrors geovista: `pypi-core.txt` + `pypi-optional-{docs,test,devs}.txt`
   feeding `[tool.setuptools.dynamic]`, so PyPI extras and pixi features stay in sync.
 
@@ -387,8 +500,8 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   `filterwarnings = ["error", …]`) + **hypothesis** + **pytest-cov** + **codecov** (project
   `target: auto`, `threshold: 5%`, patch off).
 - **Test tree mirrors the package** — `tests/` reproduces the `src/tephpy` layout:
-  tests for top-level modules live at the `tests/` root (`test_transforms.py` and
-  `test_config.py` today; `test_calc.py`/`test_sounding.py` as those modules land)
+  tests for top-level modules live at the `tests/` root (`test_transforms.py`
+  through `test_sounding.py` today; `test_calc.py` lands with Plan 5)
   and each subpackage gets a matching directory (`tests/plotting/` today;
   `tests/io/` when that layer lands). New test modules are placed at the level of
   the module they exercise. Shared `tests/fixtures/` and `tests/baseline/` stay at
@@ -526,7 +639,7 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 2 | Transforms & the tephigram projection | §3.1: T–ln θ math derived from published sources with tephi as oracle; minimal `TephigramAxes` + `"tephigram"` registration in `plotting/axes.py`; seeds `_constants` (MA, θ reference pressure, default extents); transform tests per §7; wheel-install smoke test in `ci-wheels` (item 15) | 1 | ✅ complete (PR #9) |
 | 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_extent`; §3.5 `_constants` + `tephpy.config`; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | ✅ complete (PR #15) |
 | 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR #19) |
-| 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type; analysis-time §6 errors (e.g. profile too short); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7) | 3, 4 | **next** |
+| 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | **next** |
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | |
 | 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | |
 
@@ -568,7 +681,9 @@ them, ordered by owning plan.
    batching in Plan 7) were consciously not taken.
 2. **`Profile` is defined in Plan 5 but referenced by Plan 4.** §3.2 says `plot_profile`
    accepts pint quantities *or* a `Profile`; Plan 4 ships the quantities signature, and
-   Plan 5 adds the `Profile` overload together with `calc.parcel_path`.
+   Plan 5 adds the `Profile` overload together with `calc.parcel_path`. *Resolved
+   2026-07-26:* `Profile` is a frozen dataclass in `calc` (§3.3); the overload
+   dispatches by duck-typing so `plotting` never imports `calc` (§3.2).
 3. **Plan 2 — the TephigramAxes seam.** *Resolved 2026-07-23:* the `"tephigram"`
    projection and a minimal `TephigramAxes` live in `plotting/axes.py` from Plan 2
    (Plan 3 extends the same class in place); `transforms.py` stays pure numpy math.
@@ -625,23 +740,54 @@ them, ordered by owning plan.
     reaches Python 3.15. *Plan 4 slice resolved 2026-07-25:* `Sounding` re-exports
     eagerly at the top level — cheap because `sounding.py` keeps MetPy/pandas/xarray
     imports function-local. The lazy-loading mechanism decision stays with Plan 5,
-    where `calc` makes the import cost real.
+    where `calc` makes the import cost real. *Resolved 2026-07-26:* no lazy-loading
+    machinery at all. `calc.py` adds no heavy module-level imports — its internal
+    `transforms`/`sounding` imports are cheap by construction, and every
+    `metpy.calc` call sites its import function-locally (the idiom the
+    import-cost guard test polices) — so `calc` re-exports eagerly alongside
+    `Sounding` and `tephpy.calc.parcel_path` works per §4 at no import cost.
+    `lazy-loader`/PEP 810 are not adopted; Plan 6 applies the same pattern to `io`.
 11. **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
     returns 0 (not NaN) for zero CAPE and warns on some degenerate profiles — and pytest's
     `filterwarnings = ["error"]` turns those warnings into failures. Verify the §6
     contract and the availability of `wet_bulb_potential_temperature`/`lifted_index`/
     `mixed_parcel` against the pinned floor (`metpy>=1.6`), adjusting §6 or the pin.
+    *Resolved 2026-07-26:* verified empirically against the locked metpy 1.7.1 (the
+    floor stays `>=1.6`; all three names exist there per the MetPy release history).
+    All fourteen functions the design needs exist. Zero CAPE/CIN returns `0 J/kg`,
+    never NaN; LFC/EL return NaN quantities; EL can be NaN while CAPE > 0. Warning
+    tripwires: duplicate pressure levels (unreachable — `Sounding` enforces strict
+    monotonicity) and out-of-bounds interpolation from `lifted_index` on profiles
+    topping out below 500 hPa (suppressed at the call site, returning the NaN
+    field). §6 amended accordingly. The floor-vs-verified gap is explicit: the
+    Plan 5 implementation plan verifies the §6 semantics (not just name
+    availability) against a `metpy==1.6.*` resolve and raises the floor if
+    they diverge.
 12. **Plan 5 — "layer highlights".** The §3 tree comment on `shading.py` names layer
     highlights, but no API, §9 scope item, or plan covers them; treated as not-in-v1
-    unless Plan 5's design deliberately includes them.
+    unless Plan 5's design deliberately includes them. *Resolved 2026-07-26:* not in
+    v1 — Plan 5 ships `shade_cape`/`shade_cin` only and the §3 tree comment is
+    corrected; layer highlights remain a v1.x candidate.
 13. **Plans 2/5/6 — third-party data provenance.** Any tephi artifacts actually copied
     (item 5), the §7
     published worked example (which publication, and is its data redistributable?), and
     recorded Wyoming/IGRA fixtures all embed external data; each owning plan records
-    source, capture method, and attribution.
+    source, capture method, and attribution. *Plan 5 slice:* the worked example's
+    primary candidate is a CAPE/LCL example from Stull, *Practical Meteorology*
+    (CC BY-NC-SA 4.0 — a handful of fixture numbers with full citation); the final
+    source, capture method, and attribution are pinned in the Plan 5 implementation
+    plan and recorded alongside the fixture. Redistribution stance: the fixture is
+    a few cited numeric values used as facts, not licensed expression; if that
+    comfort fails for the pinned source, fall back to a public-domain (NWS/NOAA)
+    profile.
 14. **scipy is declared but unowned.** §8.1 lists scipy as a runtime dependency, yet no §3
     module names it (plausible first consumers: interpolation in Plan 2 or Plan 5). If
-    Plan 5 completes without it, drop the dependency.
+    Plan 5 completes without it, drop the dependency. *Resolved 2026-07-26:* Plan 5's
+    design needs no direct scipy (the shading interpolation is plain numpy; MetPy
+    keeps scipy transitively), and `src/tephpy` has no scipy import today — the
+    direct declaration is dropped in Plan 5 (§8.1 updated; the implementation plan
+    also removes scipy from the declared-dependencies tuple in
+    `tests/test_import.py`).
 15. **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
     `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2) → reconciled
     in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
