@@ -136,9 +136,10 @@ strict = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-# MetPy and pint ship partial/absent stubs; do not fail on their imports.
+# MetPy, pint, and pandas ship partial/absent stubs; do not fail on their
+# imports.
 ignore_missing_imports = true
-module = ["metpy.*", "pint.*"]
+module = ["metpy.*", "pandas.*", "pint.*"]
 
 [tool.repo-review]
 ignore = [
@@ -207,10 +208,12 @@ tephpy = { path = ".", editable = true }
 matplotlib-base = ">=3.9"
 metpy = ">=1.6"
 numpy = ">=2.0"
+pandas = ">=2.3"
 pint = ">=0.24"
 scipy = ">=1.13"
 setuptools = ">=77.0.3"
 setuptools-scm = ">=8"
+xarray = ">=2024.10"
 
 [tool.pixi.environments]
 # "default" deliberately carries the tooling features so unqualified

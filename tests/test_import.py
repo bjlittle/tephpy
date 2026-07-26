@@ -26,7 +26,15 @@ def test_version_is_pep440() -> None:
 
 def test_runtime_dependencies_importable() -> None:
     """The declared runtime dependencies import."""
-    for package in ("matplotlib", "metpy", "numpy", "pint", "scipy"):
+    for package in (
+        "matplotlib",
+        "metpy",
+        "numpy",
+        "pandas",
+        "pint",
+        "scipy",
+        "xarray",
+    ):
         importlib.import_module(package)
 
 

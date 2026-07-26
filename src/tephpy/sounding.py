@@ -30,13 +30,16 @@ from tephpy._units import as_quantity, check_units_mapping
 from tephpy.exceptions import (
     DewpointExceedsTemperatureError,
     NonMonotonicPressureError,
+    TephpyUnitsError,
     TephpyValidationError,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    import pandas as pd
     import pint
+    import xarray as xr
 
 __all__ = ["Sounding"]
 
@@ -236,3 +239,155 @@ class Sounding:
         if self.label is None and self.station is not None and self.time is not None:
             label = SOUNDING_LABEL_FORMAT.format(station=self.station, time=self.time)
             object.__setattr__(self, "label", label)
+
+    @classmethod
+    def from_dataframe(
+        cls,
+        df: pd.DataFrame,
+        *,
+        units: Mapping[str, str] | None = None,
+        station: str | None = None,
+        time: datetime | None = None,
+        label: str | None = None,
+        **column_map: str,
+    ) -> Sounding:
+        """Build a sounding from a pandas DataFrame (spec §3.4).
+
+        Column names default to the field names; `column_map` overrides
+        per field (e.g. ``dewpoint="dwpt"``). Columns are bare arrays, so
+        the present fields need the ``units=`` mapping.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The profile table; must contain pressure and temperature
+            columns.
+        units : mapping of str to str, optional
+            Unit strings keyed by field name (spec §5).
+        station : str, optional
+            Station identifier.
+        time : datetime.datetime, optional
+            Launch time; ``pandas.Timestamp`` and ``numpy.datetime64``
+            are accepted.
+        label : str, optional
+            Legend text override.
+        **column_map : str
+            Field names mapped to their column names in `df`.
+
+        Returns
+        -------
+        Sounding
+            The validated sounding.
+
+        Raises
+        ------
+        KeyError
+            If a required or explicitly mapped column is missing.
+        TypeError
+            If `column_map` names an unknown field.
+        """
+        cls._check_field_map(column_map)
+        data: dict[str, np.ndarray] = {}
+        for name in _FIELD_DIMENSIONS:
+            column = column_map.get(name, name)
+            if column in df.columns:
+                data[name] = df[column].to_numpy()
+            elif name in column_map or name in ("pressure", "temperature"):
+                msg = f"column {column!r} (field {name!r}) is not in the DataFrame"
+                raise KeyError(msg)
+        return cls(units=units, station=station, time=time, label=label, **data)
+
+    @classmethod
+    def from_dataset(
+        cls,
+        ds: xr.Dataset,
+        *,
+        units: Mapping[str, str] | None = None,
+        station: str | None = None,
+        time: datetime | None = None,
+        label: str | None = None,
+        **var_map: str,
+    ) -> Sounding:
+        """Build a sounding from an xarray Dataset (spec §3.4).
+
+        Variable names default to the field names; `var_map` overrides per
+        field. Units are read from each variable's ``attrs["units"]`` (the
+        xarray/CF convention); the ``units=`` mapping is the explicit
+        override.
+
+        Parameters
+        ----------
+        ds : xarray.Dataset
+            The profile dataset; must contain pressure and temperature
+            variables.
+        units : mapping of str to str, optional
+            Unit strings keyed by field name, overriding
+            ``attrs["units"]``.
+        station : str, optional
+            Station identifier.
+        time : datetime.datetime, optional
+            Launch time; ``pandas.Timestamp`` and ``numpy.datetime64``
+            are accepted.
+        label : str, optional
+            Legend text override.
+        **var_map : str
+            Field names mapped to their variable names in `ds`.
+
+        Returns
+        -------
+        Sounding
+            The validated sounding.
+
+        Raises
+        ------
+        KeyError
+            If a required or explicitly mapped variable is missing.
+        TephpyUnitsError
+            If a field has neither ``attrs["units"]`` nor a ``units=``
+            entry.
+        TypeError
+            If `var_map` names an unknown field.
+        """
+        cls._check_field_map(var_map)
+        mapping = check_units_mapping(units, allowed=_FIELD_DIMENSIONS)
+        data: dict[str, np.ndarray] = {}
+        resolved: dict[str, str] = {}
+        for name in _FIELD_DIMENSIONS:
+            variable = var_map.get(name, name)
+            if variable not in ds.variables:
+                if name in var_map or name in ("pressure", "temperature"):
+                    msg = f"variable {variable!r} (field {name!r}) not in the Dataset"
+                    raise KeyError(msg)
+                continue
+            unit = mapping.get(name) or ds[variable].attrs.get("units")
+            if not unit:
+                msg = (
+                    f"{name!r} (variable {variable!r}) has no attrs['units'] "
+                    f'and no override: add units={{"{name}": "<unit>"}}'
+                )
+                raise TephpyUnitsError(msg)
+            data[name] = ds[variable].to_numpy()
+            resolved[name] = unit
+        return cls(units=resolved, station=station, time=time, label=label, **data)
+
+    @staticmethod
+    def _check_field_map(field_map: Mapping[str, str]) -> None:
+        """Reject unknown field names in a constructor's field mapping.
+
+        Parameters
+        ----------
+        field_map : mapping of str to str
+            Field names mapped to column or variable names.
+
+        Raises
+        ------
+        TypeError
+            If the mapping names an unknown field.
+        """
+        unknown = set(field_map) - set(_FIELD_DIMENSIONS)
+        if unknown:
+            msg = (
+                f"unknown field(s) {sorted(unknown)!r}; "
+                f"expected {sorted(_FIELD_DIMENSIONS)!r}"
+            )
+            raise TypeError(msg)

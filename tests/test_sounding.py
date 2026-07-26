@@ -12,7 +12,9 @@ from hypothesis import given
 from hypothesis import strategies as st
 from metpy.units import units
 import numpy as np
+import pandas as pd
 import pytest
+import xarray as xr
 
 import tephpy
 from tephpy import Sounding
@@ -246,3 +248,87 @@ def test_datetime64_time_accepted():
 def test_bad_time_type_raises():
     with pytest.raises(TypeError, match="time must be"):
         Sounding(PRESSURE, TEMPERATURE, time="2026-07-21")
+
+
+def test_from_dataframe():
+    df = pd.DataFrame(
+        {
+            "pressure": [1000.0, 850.0],
+            "temperature": [20.0, 12.0],
+            "dwpt": [15.0, 8.0],
+        }
+    )
+    snd = Sounding.from_dataframe(
+        df,
+        units={"pressure": "hPa", "temperature": "degC", "dewpoint": "degC"},
+        dewpoint="dwpt",
+        station="03808",
+        time=pd.Timestamp("2026-07-21 12:00"),
+    )
+    assert snd.label == "03808 2026-07-21 12Z"
+    np.testing.assert_array_equal(snd.dewpoint.m_as("degC"), [15.0, 8.0])
+
+
+def test_from_dataframe_missing_required_column():
+    df = pd.DataFrame({"temperature": [20.0, 12.0]})
+    with pytest.raises(KeyError, match="pressure"):
+        Sounding.from_dataframe(df, units={"temperature": "degC"})
+
+
+def test_from_dataframe_missing_mapped_column():
+    df = pd.DataFrame({"pressure": [1000.0, 850.0], "temperature": [20.0, 12.0]})
+    with pytest.raises(KeyError, match="dwpt"):
+        Sounding.from_dataframe(
+            df,
+            units={"pressure": "hPa", "temperature": "degC"},
+            dewpoint="dwpt",
+        )
+
+
+def test_from_dataframe_unknown_field():
+    df = pd.DataFrame({"pressure": [1000.0, 850.0], "temperature": [20.0, 12.0]})
+    with pytest.raises(TypeError, match="unknown field"):
+        Sounding.from_dataframe(df, bogus="x")
+
+
+def test_from_dataset_reads_attrs_units():
+    ds = xr.Dataset(
+        {
+            "pressure": ("level", np.array([1000.0, 850.0]), {"units": "hPa"}),
+            "temperature": ("level", np.array([293.15, 285.15]), {"units": "K"}),
+        }
+    )
+    snd = Sounding.from_dataset(ds)
+    np.testing.assert_allclose(snd.temperature.m_as("degC"), [20.0, 12.0])
+
+
+def test_from_dataset_units_override_and_var_map():
+    ds = xr.Dataset(
+        {
+            "p": ("level", np.array([1000.0, 850.0]), {"units": "hPa"}),
+            "t": ("level", np.array([20.0, 12.0]), {"units": "K"}),
+        }
+    )
+    snd = Sounding.from_dataset(
+        ds, units={"temperature": "degC"}, pressure="p", temperature="t"
+    )
+    np.testing.assert_allclose(snd.temperature.m_as("degC"), [20.0, 12.0])
+
+
+def test_from_dataset_missing_units_raises():
+    ds = xr.Dataset(
+        {
+            "pressure": ("level", np.array([1000.0, 850.0]), {"units": "hPa"}),
+            "temperature": ("level", np.array([20.0, 12.0])),
+        }
+    )
+    with pytest.raises(TephpyUnitsError, match="attrs"):
+        Sounding.from_dataset(ds)
+
+
+def test_from_dataset_missing_required_variable():
+    ds = xr.Dataset(
+        {"temperature": ("level", np.array([20.0, 12.0]), {"units": "degC"})}
+    )
+    with pytest.raises(KeyError, match="pressure"):
+        Sounding.from_dataset(ds)
