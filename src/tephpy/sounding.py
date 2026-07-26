@@ -115,6 +115,10 @@ class Sounding:
         units : mapping of str to str or None
             The ``units=`` mapping for bare-array fields.
         """
+        for name in ("pressure", "temperature"):
+            if getattr(self, name) is None:
+                msg = f"pressure and temperature are required: {name!r} is None"
+                raise TypeError(msg)
         mapping = check_units_mapping(units, allowed=_FIELD_DIMENSIONS)
         for name, dimension in _FIELD_DIMENSIONS.items():
             value = getattr(self, name)

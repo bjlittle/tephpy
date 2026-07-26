@@ -250,6 +250,16 @@ def test_bad_time_type_raises():
         Sounding(PRESSURE, TEMPERATURE, time="2026-07-21")
 
 
+def test_none_pressure_or_temperature_raises():
+    """Required fields passed as None fail fast (bad code, spec §6)."""
+    with pytest.raises(TypeError, match="'pressure' is None"):
+        Sounding(None, TEMPERATURE)
+    with pytest.raises(TypeError, match="'temperature' is None"):
+        Sounding(PRESSURE, None)
+    with pytest.raises(TypeError, match="required"):
+        Sounding(None, None)
+
+
 def test_from_dataframe():
     df = pd.DataFrame(
         {
