@@ -11,9 +11,15 @@ from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy import transforms
+from tephpy import Sounding, transforms
 from tephpy._config import config
-from tephpy._constants import DEFAULT_EXTENT
+from tephpy._constants import (
+    DEFAULT_EXTENT,
+    PROFILE_DEWPOINT_COLOR,
+    PROFILE_LINEWIDTH,
+    PROFILE_TEMPERATURE_COLOR,
+    PROFILE_ZORDER,
+)
 from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import IsoplethFamily
@@ -266,6 +272,7 @@ def test_config_diagram_extent_honoured_at_creation():
 
 PROFILE_PRESSURE = units.Quantity(np.array([1000.0, 850.0, 700.0, 500.0]), "hPa")
 PROFILE_TEMPERATURE = units.Quantity(np.array([20.0, 12.0, 4.0, -12.0]), "degC")
+PROFILE_DEWPOINT = units.Quantity(np.array([15.0, 8.0, np.nan, -30.0]), "degC")
 
 
 def test_plot_profile_maps_through_the_transforms(tephigram_axes):
@@ -322,3 +329,70 @@ def test_plot_profile_does_not_drift_the_view(tephigram_axes):
     tephigram_axes.plot_profile(PROFILE_PRESSURE, PROFILE_TEMPERATURE)
     tephigram_axes.figure.canvas.draw()
     assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
+
+
+def _sounding(**kwargs):
+    """Build the module's reference sounding with metadata overrides."""
+    return Sounding(
+        PROFILE_PRESSURE, PROFILE_TEMPERATURE, dewpoint=PROFILE_DEWPOINT, **kwargs
+    )
+
+
+def test_plot_sounding_conventional_colours_and_zorder(tephigram_axes):
+    temperature_line, dewpoint_line = tephigram_axes.plot_sounding(_sounding())
+    assert temperature_line.get_color() == PROFILE_TEMPERATURE_COLOR
+    assert dewpoint_line.get_color() == PROFILE_DEWPOINT_COLOR
+    assert temperature_line.get_linewidth() == PROFILE_LINEWIDTH
+    for line in (temperature_line, dewpoint_line):
+        assert line.get_zorder() == PROFILE_ZORDER
+        assert line.get_zorder() > max(
+            family.get_zorder() for family in tephigram_axes._families.values()
+        )
+
+
+def test_plot_sounding_without_dewpoint(tephigram_axes):
+    snd = Sounding(PROFILE_PRESSURE, PROFILE_TEMPERATURE)
+    temperature_line, dewpoint_line = tephigram_axes.plot_sounding(snd)
+    assert temperature_line is not None
+    assert dewpoint_line is None
+
+
+def test_plot_sounding_label_precedence(tephigram_axes):
+    """label= argument > snd.label > no legend entry (spec §3.2)."""
+    labelled = _sounding(label="observed")
+    temperature_line, _ = tephigram_axes.plot_sounding(labelled)
+    assert temperature_line.get_label() == "observed"
+    overridden, _ = tephigram_axes.plot_sounding(labelled, label="forecast")
+    assert overridden.get_label() == "forecast"
+    anonymous, _ = tephigram_axes.plot_sounding(_sounding())
+    assert anonymous.get_label().startswith("_")
+
+
+def test_plot_sounding_one_legend_entry_per_sounding(tephigram_axes):
+    """The dewpoint line is _nolegend_; unlabelled soundings add nothing."""
+    _, dewpoint_line = tephigram_axes.plot_sounding(_sounding(label="obs"))
+    assert dewpoint_line.get_label() == "_nolegend_"
+    tephigram_axes.plot_sounding(_sounding())
+    legend = tephigram_axes.legend()
+    assert [text.get_text() for text in legend.get_texts()] == ["obs"]
+
+
+def test_plot_sounding_overlay_with_distinguishable_styles(tephigram_axes):
+    """Two soundings overlay with per-call styles and legend entries."""
+    first, _ = tephigram_axes.plot_sounding(_sounding(label="00Z"))
+    second, _ = tephigram_axes.plot_sounding(
+        _sounding(label="12Z"), linestyle="--", alpha=0.6
+    )
+    assert second.get_linestyle() == "--"
+    assert second.get_alpha() == 0.6
+    assert first.get_linestyle() == "-"
+    legend = tephigram_axes.legend()
+    assert [text.get_text() for text in legend.get_texts()] == ["00Z", "12Z"]
+
+
+def test_plot_sounding_kwargs_override_convention_colours(tephigram_axes):
+    temperature_line, dewpoint_line = tephigram_axes.plot_sounding(
+        _sounding(), color="purple"
+    )
+    assert temperature_line.get_color() == "purple"
+    assert dewpoint_line.get_color() == "purple"
