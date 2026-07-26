@@ -156,6 +156,23 @@ MIXING_RATIO_ZORDER: Final[float] = 1.4
 #: Moist-adiabat draw order.
 MOIST_ADIABAT_ZORDER: Final[float] = 1.5
 
+#: Temperature profile line colour (the operational/MetPy convention:
+#: temperature red, dewpoint green; spec §3.2).
+PROFILE_TEMPERATURE_COLOR: Final[str] = "red"
+
+#: Dewpoint profile line colour (the operational/MetPy convention).
+PROFILE_DEWPOINT_COLOR: Final[str] = "green"
+
+#: Profile line width in points.
+PROFILE_LINEWIDTH: Final[float] = 1.5
+
+#: Profile draw order: above every isopleth family and above matplotlib's
+#: default ``Line2D`` zorder of 2.
+PROFILE_ZORDER: Final[float] = 2.5
+
+#: Derived sounding legend label (spec §3.4), e.g. ``"03808 2026-07-21 12Z"``.
+SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
+
 #: Isopleth label font size in points.
 LABEL_FONTSIZE: Final[float] = 8.0
 
