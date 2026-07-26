@@ -16,8 +16,25 @@ cross-reference rules.
 
     sounding
         A vertical profile of atmospheric measurements (pressure, temperature,
-        dewpoint, wind) from a single ascent. In ``tephpy`` a sounding is
-        carried by the ``Sounding`` data model (added in a later release).
+        :term:`dewpoint`, wind) from a single ascent. In ``tephpy`` a sounding
+        is carried by the ``Sounding`` dataclass — pressure and temperature
+        arrays (plus optional dewpoint and wind) held as pint quantities with
+        station/time metadata — and drawn with ``ax.plot_sounding(...)`` as
+        red temperature and green dewpoint :term:`profiles <profile>`.
+
+    dewpoint
+        The temperature air must cool to, at constant pressure and moisture
+        content, to become saturated; it is never above the air temperature
+        (equality means saturation). In ``tephpy`` it is the optional
+        ``dewpoint`` field of a ``Sounding`` (°C internally, any pint
+        temperature unit accepted), plotted green alongside the red
+        temperature line.
+
+    profile
+        One curve of a temperature-like quantity against pressure — a
+        :term:`sounding`'s temperature or dewpoint trace, or a computed
+        parcel path (added in a later release). ``ax.plot_profile(pressure,
+        temperature)`` draws one through the tephigram transform machinery.
 
     potential temperature
         The temperature an air parcel would have if moved dry-adiabatically
