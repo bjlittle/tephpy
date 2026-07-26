@@ -1,0 +1,2 @@
+Added the ``Sounding`` data model with ingest-time validation and pandas/xarray constructors, the pint units machinery over MetPy's registry with the public ``tephpy.exceptions`` hierarchy, and ``TephigramAxes.plot_profile``/``plot_sounding`` with multi-sounding overlays, derived legends, and profile image baselines.
+(:user:`claude`)

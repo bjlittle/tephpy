@@ -14,9 +14,12 @@ pytest-mpl closes returned figures itself.
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+from metpy.units import units
+import numpy as np
 import pytest
 
-import tephpy  # noqa: F401 -- registers the "tephigram" projection
+# Importing tephpy (via any of its names) registers the "tephigram" projection.
+from tephpy import Sounding
 
 FAMILIES = ("isotherms", "isobars", "dry_adiabats", "moist_adiabats", "mixing_ratios")
 
@@ -93,3 +96,42 @@ def test_savefig_vector_formats(tmp_path):
         plt.close(fig)
     assert pdf.read_bytes().startswith(b"%PDF-")
     assert b"</svg>" in svg.read_bytes()
+
+
+def _reference_sounding(**kwargs):
+    """Build a small, plausible mid-latitude sounding for the baselines."""
+    return Sounding(
+        units.Quantity(
+            np.array([1006.0, 925.0, 850.0, 700.0, 500.0, 400.0, 300.0]), "hPa"
+        ),
+        units.Quantity(np.array([26.0, 20.0, 15.4, 7.0, -8.5, -18.5, -31.0]), "degC"),
+        dewpoint=units.Quantity(
+            np.array([22.0, 18.0, 14.0, 2.0, -20.0, -35.0, -50.0]), "degC"
+        ),
+        **kwargs,
+    )
+
+
+@pytest.mark.mpl_image_compare
+def test_profile_sounding():
+    """One sounding: red temperature and green dewpoint over the grid."""
+    fig, ax = _tephigram_figure()
+    ax.plot_sounding(_reference_sounding(label="03808 2026-07-21 12Z"))
+    ax.legend(loc="upper right", fontsize=6)
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_sounding_overlay():
+    """Two soundings overlay with distinguishable styles and a legend."""
+    fig, ax = _tephigram_figure()
+    ax.plot_sounding(_reference_sounding(label="00Z"))
+    cooler = Sounding(
+        units.Quantity(np.array([1006.0, 850.0, 700.0, 500.0, 300.0]), "hPa"),
+        units.Quantity(np.array([18.0, 9.0, 0.0, -16.0, -40.0]), "degC"),
+        dewpoint=units.Quantity(np.array([12.0, 6.0, -8.0, -30.0, -55.0]), "degC"),
+        label="12Z",
+    )
+    ax.plot_sounding(cooler, linestyle="--", alpha=0.7)
+    ax.legend(loc="upper right", fontsize=6)
+    return fig

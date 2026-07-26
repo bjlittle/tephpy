@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import numpy as np
 
 from tephpy import _constants as constants
@@ -66,3 +68,26 @@ def test_mixing_ratio_values_sorted_and_positive():
 def test_truncation_below_moist_adiabat_domain():
     """Truncation must bite: below every labelled theta_w start value."""
     assert constants.MOIST_ADIABAT_DOMAIN[0] > constants.MOIST_ADIABAT_TRUNCATION
+
+
+def test_profile_conventions():
+    """Profiles draw above every family and matplotlib's default lines."""
+    family_zorders = (
+        constants.ISOTHERM_ZORDER,
+        constants.DRY_ADIABAT_ZORDER,
+        constants.ISOBAR_ZORDER,
+        constants.MIXING_RATIO_ZORDER,
+        constants.MOIST_ADIABAT_ZORDER,
+    )
+    assert max(family_zorders) < constants.PROFILE_ZORDER
+    assert constants.PROFILE_ZORDER > 2.0
+    assert constants.PROFILE_TEMPERATURE_COLOR != constants.PROFILE_DEWPOINT_COLOR
+    assert constants.PROFILE_LINEWIDTH > constants.ISOPLETH_LINEWIDTH
+
+
+def test_sounding_label_format():
+    """The derived-label convention renders as station then UTC time."""
+    label = constants.SOUNDING_LABEL_FORMAT.format(
+        station="03808", time=datetime(2026, 7, 21, 12, tzinfo=UTC)
+    )
+    assert label == "03808 2026-07-21 12Z"

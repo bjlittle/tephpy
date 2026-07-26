@@ -1,0 +1,75 @@
+# Copyright (c) 2026, tephpy Contributors.
+#
+# This file is part of tephpy and is distributed under the 3-Clause BSD license.
+# See the LICENSE file in the package root directory for licensing details.
+"""The public tephpy exception hierarchy (spec §6).
+
+Every exception tephpy raises for user-correctable input derives from
+:class:`TephpyError`, so ``except TephpyError`` catches them all. Units
+problems raise :class:`TephpyUnitsError`; physically impossible data raises
+a :class:`TephpyValidationError` subclass carrying the offending level
+indices. Validation happens at ingest (``Sounding`` construction), not
+mid-plot.
+"""
+
+from __future__ import annotations
+
+__all__ = [
+    "DewpointExceedsTemperatureError",
+    "NonMonotonicPressureError",
+    "TephpyError",
+    "TephpyUnitsError",
+    "TephpyValidationError",
+]
+
+
+class TephpyError(Exception):
+    """Root of the tephpy exception hierarchy."""
+
+
+class TephpyUnitsError(TephpyError):
+    """Missing, ambiguous, unparsable, or wrong-dimension units (spec §5)."""
+
+
+class TephpyValidationError(TephpyError):
+    """Physically impossible input, identified by level indices (spec §6).
+
+    Parameters
+    ----------
+    message : str
+        Description of the failed validation.
+    levels : tuple of int, optional
+        Zero-based indices of the offending levels, when the failure is
+        attributable to specific levels.
+
+    Attributes
+    ----------
+    levels : tuple of int
+        Zero-based indices of the offending levels; empty when the failure
+        is not attributable to specific levels.
+    """
+
+    def __init__(self, message: str, *, levels: tuple[int, ...] = ()) -> None:
+        """Store the message and the offending level indices.
+
+        Parameters
+        ----------
+        message : str
+            Description of the failed validation.
+        levels : tuple of int, optional
+            Zero-based indices of the offending levels.
+        """
+        super().__init__(message)
+        self.levels = levels
+
+
+class NonMonotonicPressureError(TephpyValidationError):
+    """Pressure is not strictly monotonic (spec §3.4)."""
+
+
+class DewpointExceedsTemperatureError(TephpyValidationError):
+    """Dewpoint exceeds temperature at one or more levels (spec §3.4).
+
+    Equality — saturation — is physical and accepted; only strict excess
+    is rejected.
+    """
