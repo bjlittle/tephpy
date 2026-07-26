@@ -34,4 +34,12 @@ def test_top_level_namespace():
     """Submodules are reachable from the package root (spec §4 idiom)."""
     assert tephpy.transforms is not None
     assert tephpy.plotting is not None
-    assert set(tephpy.__all__) == {"__version__", "config", "plotting", "transforms"}
+    expected = {
+        "Sounding",
+        "__version__",
+        "config",
+        "exceptions",
+        "plotting",
+        "transforms",
+    }
+    assert set(tephpy.__all__) == expected
