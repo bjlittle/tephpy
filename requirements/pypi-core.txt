@@ -1,7 +1,7 @@
-matplotlib>=3.9
-metpy>=1.6
-numpy>=2.0
-pandas>=2.3
-pint>=0.24
-scipy>=1.13
-xarray>=2024.10
+matplotlib>=3.11.1
+metpy>=1.7.1
+numpy>=2.5.1
+pandas>=3.0.3
+pint>=0.25.3
+scipy>=1.18.0
+xarray>=2026.7.0
