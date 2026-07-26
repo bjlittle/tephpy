@@ -20,7 +20,7 @@ plans. No layout code ships in this release.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
@@ -31,10 +31,13 @@ import numpy.typing as npt
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import DEFAULT_EXTENT
+from tephpy._units import as_quantity, check_units_mapping
 from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
+
+    from matplotlib.lines import Line2D
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
 
@@ -206,6 +209,73 @@ class TephigramAxes(Axes):
         self.set_xlim(float(np.min(x)), float(np.max(x)))
         self.set_ylim(float(np.min(y)), float(np.max(y)))
         self.set_autoscale_on(False)
+
+    def plot_profile(
+        self,
+        pressure: object,
+        temperature: object,
+        *,
+        units: Mapping[str, str] | None = None,
+        label: str | None = None,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Line2D:
+        """Plot one profile of temperature against pressure (spec §3.2).
+
+        Both arrays are pint quantities — or bare arrays with the
+        ``units=`` mapping (spec §5) — converted to diagram-native units
+        and plotted through the tephigram transform machinery. Matplotlib
+        keywords pass through untouched, and out-of-domain values
+        (pressure <= 0 hPa) propagate NaN, breaking the line (spec §3.1).
+
+        Parameters
+        ----------
+        pressure : pint.Quantity or array_like
+            Level pressures.
+        temperature : pint.Quantity or array_like
+            Level temperatures.
+        units : mapping of str to str, optional
+            Unit strings for bare arrays, keyed by argument name, e.g.
+            ``units={"pressure": "hPa", "temperature": "degC"}``.
+        label : str, optional
+            Legend label for the line.
+        **kwargs : Any
+            Passed through to :meth:`matplotlib.axes.Axes.plot`.
+
+        Returns
+        -------
+        matplotlib.lines.Line2D
+            The profile line.
+
+        Raises
+        ------
+        TephpyUnitsError
+            For unit-less bare arrays, ambiguous or unparsable units, or
+            the wrong dimensionality.
+        """
+        mapping = check_units_mapping(units, allowed=("pressure", "temperature"))
+        p = as_quantity(
+            pressure,
+            name="pressure",
+            units=mapping.get("pressure"),
+            dimension="[pressure]",
+        )
+        t = as_quantity(
+            temperature,
+            name="temperature",
+            units=mapping.get("temperature"),
+            dimension="[temperature]",
+        )
+        pressure_hpa = p.m_as("hPa")
+        temperature_c = t.m_as("degC")
+        theta = transforms.theta_from_pressure_temperature(pressure_hpa, temperature_c)
+        (line,) = self.plot(
+            temperature_c,
+            theta,
+            transform=self.tephigram_transform + self.transData,
+            label=label,
+            **kwargs,
+        )
+        return line
 
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.

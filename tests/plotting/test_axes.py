@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+from metpy.units import units
 import numpy as np
 import pytest
 
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import DEFAULT_EXTENT
+from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import IsoplethFamily
 
@@ -260,3 +262,63 @@ def test_config_diagram_extent_honoured_at_creation():
         assert ax.get_ylim() == pytest.approx((y0, y1))
     finally:
         plt.close(fig)
+
+
+PROFILE_PRESSURE = units.Quantity(np.array([1000.0, 850.0, 700.0, 500.0]), "hPa")
+PROFILE_TEMPERATURE = units.Quantity(np.array([20.0, 12.0, 4.0, -12.0]), "degC")
+
+
+def test_plot_profile_maps_through_the_transforms(tephigram_axes):
+    line = tephigram_axes.plot_profile(PROFILE_PRESSURE, PROFILE_TEMPERATURE)
+    expected_theta = transforms.theta_from_pressure_temperature(
+        PROFILE_PRESSURE.m_as("hPa"), PROFILE_TEMPERATURE.m_as("degC")
+    )
+    np.testing.assert_allclose(line.get_xdata(), PROFILE_TEMPERATURE.m_as("degC"))
+    np.testing.assert_allclose(line.get_ydata(), expected_theta)
+    expected_transform = tephigram_axes.tephigram_transform + tephigram_axes.transData
+    assert line.get_transform() == expected_transform
+
+
+def test_plot_profile_any_units_just_work(tephigram_axes):
+    """K/Pa quantities plot identically to their hPa/degC equivalents."""
+    native = tephigram_axes.plot_profile(PROFILE_PRESSURE, PROFILE_TEMPERATURE)
+    converted = tephigram_axes.plot_profile(
+        PROFILE_PRESSURE.to("Pa"), PROFILE_TEMPERATURE.to("K")
+    )
+    np.testing.assert_allclose(converted.get_xdata(), native.get_xdata())
+    np.testing.assert_allclose(converted.get_ydata(), native.get_ydata())
+
+
+def test_plot_profile_bare_arrays_with_units(tephigram_axes):
+    line = tephigram_axes.plot_profile(
+        [1000.0, 850.0],
+        [20.0, 12.0],
+        units={"pressure": "hPa", "temperature": "degC"},
+    )
+    np.testing.assert_allclose(line.get_xdata(), [20.0, 12.0])
+
+
+def test_plot_profile_bare_arrays_without_units_raise(tephigram_axes):
+    with pytest.raises(TephpyUnitsError, match="'pressure' has no units"):
+        tephigram_axes.plot_profile([1000.0, 850.0], [20.0, 12.0])
+
+
+def test_plot_profile_kwargs_and_label_pass_through(tephigram_axes):
+    line = tephigram_axes.plot_profile(
+        PROFILE_PRESSURE,
+        PROFILE_TEMPERATURE,
+        label="parcel",
+        color="black",
+        linestyle="--",
+    )
+    assert line.get_label() == "parcel"
+    assert line.get_color() == "black"
+    assert line.get_linestyle() == "--"
+
+
+def test_plot_profile_does_not_drift_the_view(tephigram_axes):
+    """Profiles never autoscale the fixed extent (spec §3.2)."""
+    before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
+    tephigram_axes.plot_profile(PROFILE_PRESSURE, PROFILE_TEMPERATURE)
+    tephigram_axes.figure.canvas.draw()
+    assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
