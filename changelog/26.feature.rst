@@ -1,0 +1,2 @@
+Added the ``tephpy.calc`` thermodynamic analysis layer — ``parcel_path`` with surface and mixed-layer parcels and the operational cloud-base correction, ``normand_point``, ``indices``, and the ``Profile``/``SoundingIndices`` dataclasses — together with ``plot_profile`` accepting a parcel ``Profile``, CAPE/CIN shading via ``shade_cape``/``shade_cin``, the ``annotate_indices`` side panel, and their image baselines; dropped the unconsumed scipy dependency declaration.
+(:user:`claude`)
