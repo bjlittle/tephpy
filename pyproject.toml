@@ -290,6 +290,7 @@ towncrier = ">=24.8"
 [tool.pixi.feature.docs.tasks.docs]
 cmd = "make html"
 cwd = "docs"
+depends-on = ["docs-clean"]
 description = "Build the HTML documentation"
 
 [tool.pixi.feature.docs.tasks.docs-clean]
