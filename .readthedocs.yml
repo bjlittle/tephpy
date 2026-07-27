@@ -15,7 +15,7 @@ build:
       - git fetch --all --tags || true
     pre_install:
       # keep checkout untainted from RTD to ensure correct setuptools-scm version
-      - git stash || true    
+      - git stash || true
     install:
       - pixi install --frozen --environment docs
     build:
