@@ -20,7 +20,7 @@ plans. No layout code ships in this release.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
     from matplotlib.lines import Line2D
 
+    from tephpy.calc import Profile
     from tephpy.sounding import Sounding
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
@@ -218,7 +219,17 @@ class TephigramAxes(Axes):
         self.set_ylim(float(np.min(y)), float(np.max(y)))
         self.set_autoscale_on(False)
 
-    def plot_profile(
+    @overload
+    def plot_profile(  # numpydoc ignore=GL08
+        self,
+        pressure: Profile,
+        *,
+        label: str | None = None,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Line2D: ...
+
+    @overload
+    def plot_profile(  # numpydoc ignore=GL08
         self,
         pressure: object,
         temperature: object,
@@ -226,6 +237,16 @@ class TephigramAxes(Axes):
         units: Mapping[str, str] | None = None,
         label: str | None = None,
         **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Line2D: ...
+
+    def plot_profile(
+        self,
+        pressure: object,
+        temperature: object | None = None,
+        *,
+        units: Mapping[str, str] | None = None,
+        label: str | None = None,
+        **kwargs: Any,
     ) -> Line2D:
         """Plot one profile of temperature against pressure (spec §3.2).
 
@@ -235,15 +256,25 @@ class TephigramAxes(Axes):
         keywords pass through untouched, and out-of-domain values
         (pressure <= 0 hPa) propagate NaN, breaking the line (spec §3.1).
 
+        The same signature also accepts a ``calc.Profile`` (e.g. the
+        return of ``calc.parcel_path``) as its only positional argument;
+        dispatch is duck-typed on the ``Profile`` shape — `temperature`
+        omitted and ``pressure``/``temperature``/``lcl_pressure``
+        attributes present. Label precedence in that form: `label`
+        argument > ``profile.label`` > no entry. In both forms no style
+        defaults are set — this is the low-level primitive (spec §4
+        styles parcel paths explicitly at the call site).
+
         Parameters
         ----------
-        pressure : pint.Quantity or array_like
-            Level pressures.
-        temperature : pint.Quantity or array_like
-            Level temperatures.
+        pressure : pint.Quantity, array_like, or Profile
+            Level pressures, or the profile to plot.
+        temperature : pint.Quantity or array_like, optional
+            Level temperatures; omitted in the ``Profile`` form.
         units : mapping of str to str, optional
             Unit strings for bare arrays, keyed by argument name, e.g.
-            ``units={"pressure": "hPa", "temperature": "degC"}``.
+            ``units={"pressure": "hPa", "temperature": "degC"}``; not
+            accepted in the ``Profile`` form.
         label : str, optional
             Legend label for the line.
         **kwargs : Any
@@ -259,7 +290,34 @@ class TephigramAxes(Axes):
         TephpyUnitsError
             For unit-less bare arrays, ambiguous or unparsable units, or
             the wrong dimensionality.
+        TypeError
+            For wrong argument combinations: a ``Profile`` together with
+            `temperature` or ``units=``, or `temperature` omitted when
+            the sole argument is not ``Profile``-shaped (a bare pressure
+            array, or a ``Sounding`` passed by mistake).
         """
+        profile_shaped = all(
+            hasattr(pressure, attr)
+            for attr in ("pressure", "temperature", "lcl_pressure")
+        )
+        if profile_shaped:
+            if temperature is not None:
+                msg = "plot_profile() takes no separate temperature with a Profile"
+                raise TypeError(msg)
+            if units is not None:
+                msg = "plot_profile() takes no units= with a Profile"
+                raise TypeError(msg)
+            profile = cast("Profile", pressure)
+            pressure = profile.pressure
+            temperature = profile.temperature
+            if label is None:
+                label = profile.label
+        elif temperature is None:
+            msg = (
+                "plot_profile() needs pressure and temperature, or a single "
+                "Profile as its only positional argument"
+            )
+            raise TypeError(msg)
         mapping = check_units_mapping(units, allowed=("pressure", "temperature"))
         p = as_quantity(
             pressure,

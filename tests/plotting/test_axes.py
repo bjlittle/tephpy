@@ -11,7 +11,7 @@ from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy import Sounding, transforms
+from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
     DEFAULT_EXTENT,
@@ -396,3 +396,65 @@ def test_plot_sounding_kwargs_override_convention_colours(tephigram_axes):
     )
     assert temperature_line.get_color() == "purple"
     assert dewpoint_line.get_color() == "purple"
+
+
+# --- Profile plotting, shading, and the indices panel (spec §3.2/§3.3) ----
+
+CAPPED_PRESSURE = units.Quantity(
+    np.array([1000.0, 950.0, 900.0, 850.0, 700.0, 500.0, 300.0, 200.0]), "hPa"
+)
+CAPPED_TEMPERATURE = units.Quantity(
+    np.array([26.0, 24.0, 23.0, 21.0, 10.0, -12.0, -40.0, -55.0]), "degC"
+)
+CAPPED_DEWPOINT = units.Quantity(
+    np.array([20.0, 17.0, 14.0, 10.0, 2.0, -15.0, -45.0, -60.0]), "degC"
+)
+
+
+def _capped_sounding():
+    """Build a capped convective sounding with both CAPE and CIN."""
+    return Sounding(CAPPED_PRESSURE, CAPPED_TEMPERATURE, dewpoint=CAPPED_DEWPOINT)
+
+
+def test_plot_profile_accepts_a_parcel_profile(tephigram_axes):
+    """The Profile form plots the path through the transform machinery."""
+    parcel = calc.parcel_path(_capped_sounding(), label="surface parcel")
+    line = tephigram_axes.plot_profile(parcel, color="black", linestyle="--")
+    np.testing.assert_allclose(line.get_xdata(), parcel.temperature.m_as("degC"))
+    expected_theta = transforms.theta_from_pressure_temperature(
+        parcel.pressure.m_as("hPa"), parcel.temperature.m_as("degC")
+    )
+    np.testing.assert_allclose(line.get_ydata(), expected_theta)
+    assert line.get_label() == "surface parcel"
+    assert line.get_color() == "black"
+
+
+def test_plot_profile_profile_label_precedence(tephigram_axes):
+    """label= argument > profile.label > no legend entry (spec §3.2)."""
+    labelled = calc.parcel_path(_capped_sounding(), label="from the profile")
+    assert tephigram_axes.plot_profile(labelled).get_label() == "from the profile"
+    overridden = tephigram_axes.plot_profile(labelled, label="argument wins")
+    assert overridden.get_label() == "argument wins"
+    anonymous = tephigram_axes.plot_profile(calc.parcel_path(_capped_sounding()))
+    assert anonymous.get_label().startswith("_")
+
+
+def test_plot_profile_profile_form_sets_no_style_defaults(tephigram_axes):
+    """The low-level primitive: matplotlib defaults, not conventions."""
+    line = tephigram_axes.plot_profile(calc.parcel_path(_capped_sounding()))
+    assert line.get_linewidth() == plt.rcParams["lines.linewidth"]
+    assert line.get_zorder() == 2
+
+
+def test_plot_profile_wrong_combinations_are_type_errors(tephigram_axes):
+    """Bad argument shapes are TypeErrors, never units errors (spec §3.2)."""
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    with pytest.raises(TypeError, match="no separate temperature"):
+        tephigram_axes.plot_profile(parcel, CAPPED_TEMPERATURE)
+    with pytest.raises(TypeError, match="no units="):
+        tephigram_axes.plot_profile(parcel, units={"pressure": "hPa"})
+    with pytest.raises(TypeError, match="needs pressure and temperature"):
+        tephigram_axes.plot_profile(CAPPED_PRESSURE)
+    with pytest.raises(TypeError, match="needs pressure and temperature"):
+        tephigram_axes.plot_profile(snd)
