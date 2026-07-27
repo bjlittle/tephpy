@@ -1,0 +1,2 @@
+Migrated ``readthedocs`` building infrastructure to use their ``pixi`` plugin.
+(:user:`bjlittle`)
