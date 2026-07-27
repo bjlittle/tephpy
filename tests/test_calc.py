@@ -12,12 +12,14 @@ composes.
 
 from __future__ import annotations
 
+import metpy.calc as mpcalc
 from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy.calc import Profile, SoundingIndices
+from tephpy.calc import Profile, SoundingIndices, normand_point
 from tephpy.exceptions import (
+    DewpointExceedsTemperatureError,
     TephpyUnitsError,
     TephpyValidationError,
 )
@@ -216,3 +218,58 @@ def test_sounding_indices_bare_values_take_units_mapping():
 def test_sounding_indices_bare_value_without_units_raises():
     with pytest.raises(TephpyUnitsError, match="'cape' has no units"):
         SoundingIndices(**_indices_kwargs(cape=1500.0))
+
+
+# --- normand_point ---------------------------------------------------------
+
+
+def test_normand_point_is_the_metpy_lcl():
+    result = normand_point(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0])
+    expected = mpcalc.lcl(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0])
+    assert result[0].m_as("hPa") == expected[0].m_as("hPa")
+    assert result[1].m_as("degC") == pytest.approx(expected[1].m_as("degC"))
+    assert result[0].units == units.hPa
+    assert result[1].units == units.degC
+
+
+def test_normand_point_bare_values_with_units():
+    result = normand_point(
+        1000.0,
+        30.0,
+        21.0,
+        units={"pressure": "hPa", "temperature": "degC", "dewpoint": "degC"},
+    )
+    expected = normand_point(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0])
+    assert result[0].m_as("hPa") == pytest.approx(expected[0].m_as("hPa"))
+
+
+def test_normand_point_bare_values_without_units_raise():
+    with pytest.raises(TephpyUnitsError, match="'pressure' has no units"):
+        normand_point(1000.0, TEMPERATURE[0], DEWPOINT[0])
+
+
+def test_normand_point_unknown_units_key_raises():
+    with pytest.raises(TephpyUnitsError, match="unknown argument"):
+        normand_point(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0], units={"bogus": "hPa"})
+
+
+def test_normand_point_wrong_dimension_raises():
+    with pytest.raises(TephpyUnitsError, match="'pressure' has dimensionality"):
+        normand_point(TEMPERATURE[0], PRESSURE[0], DEWPOINT[0])
+
+
+def test_normand_point_non_scalar_raises():
+    with pytest.raises(TephpyValidationError, match="must be a scalar"):
+        normand_point(PRESSURE, TEMPERATURE[0], DEWPOINT[0])
+
+
+def test_normand_point_dewpoint_above_temperature_raises():
+    with pytest.raises(DewpointExceedsTemperatureError):
+        normand_point(PRESSURE[0], TEMPERATURE[0], Q(31.0, "degC"))
+
+
+def test_normand_point_saturation_is_the_parcel():
+    """At saturation the Normand's point is the parcel itself."""
+    pressure, temperature = normand_point(PRESSURE[0], TEMPERATURE[0], TEMPERATURE[0])
+    assert pressure.m_as("hPa") == pytest.approx(1000.0)
+    assert temperature.m_as("degC") == pytest.approx(30.0)

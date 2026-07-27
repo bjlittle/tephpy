@@ -27,6 +27,7 @@ import numpy as np
 
 from tephpy._units import as_quantity, check_units_mapping
 from tephpy.exceptions import (
+    DewpointExceedsTemperatureError,
     TephpyValidationError,
 )
 
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
 
     import pint
 
-__all__ = ["Profile", "SoundingIndices"]
+__all__ = ["Profile", "SoundingIndices", "normand_point"]
 
 #: The parcel-selection options (spec §3.3).
 _PARCELS: Final[tuple[str, ...]] = ("surface", "mixed-layer")
@@ -248,3 +249,105 @@ class SoundingIndices:
                 msg = f"{name!r} must be a scalar, got shape {quantity.magnitude.shape}"
                 raise TephpyValidationError(msg)
             object.__setattr__(self, name, quantity)
+
+
+def normand_point(
+    pressure: object,
+    temperature: object,
+    dewpoint: object,
+    *,
+    units: Mapping[str, str] | None = None,
+) -> tuple[pint.Quantity, pint.Quantity]:
+    """Construct Normand's point — the LCL — for one parcel (spec §3.3).
+
+    The geometric construction: the dry adiabat through (`pressure`,
+    `temperature`) meets the humidity mixing-ratio line through
+    (`pressure`, `dewpoint`) at the lifting condensation level. This is
+    always the uncorrected construction; the operational cloud-base
+    correction is :func:`parcel_path`'s concern.
+
+    Parameters
+    ----------
+    pressure : pint.Quantity or float
+        Scalar parcel pressure; a bare value takes the ``units=`` mapping.
+    temperature : pint.Quantity or float
+        Scalar parcel temperature.
+    dewpoint : pint.Quantity or float
+        Scalar parcel dewpoint; must not exceed `temperature` (equality —
+        saturation — is physical, and puts Normand's point at the parcel).
+    units : mapping of str to str, optional
+        Unit strings for bare values, keyed by argument name, e.g.
+        ``units={"pressure": "hPa", "temperature": "degC"}`` (spec §5).
+
+    Returns
+    -------
+    tuple of pint.Quantity
+        The scalar ``(pressure, temperature)`` of Normand's point, in
+        hPa and degrees Celsius.
+
+    Raises
+    ------
+    TephpyUnitsError
+        For unit-less bare values, ambiguous or unparsable units, or the
+        wrong dimensionality.
+    DewpointExceedsTemperatureError
+        If `dewpoint` exceeds `temperature`.
+    TephpyValidationError
+        If an argument is not a scalar.
+    """
+    mapping = check_units_mapping(
+        units, allowed=("pressure", "temperature", "dewpoint")
+    )
+    p = _scalar_quantity(pressure, "pressure", mapping, "[pressure]")
+    t = _scalar_quantity(temperature, "temperature", mapping, "[temperature]")
+    td = _scalar_quantity(dewpoint, "dewpoint", mapping, "[temperature]")
+    if float(td.m_as("degC")) > float(t.m_as("degC")):
+        msg = (
+            "dewpoint exceeds temperature (equality is saturation and "
+            "accepted); no Normand's point exists"
+        )
+        raise DewpointExceedsTemperatureError(msg)
+    # Function-local so `import tephpy` stays light (spec §3.3, §10 item 10).
+    from metpy.calc import lcl  # noqa: PLC0415
+
+    lcl_pressure, lcl_temperature = lcl(p, t, td)
+    return lcl_pressure.to("hPa"), lcl_temperature.to("degC")
+
+
+def _scalar_quantity(
+    value: object, name: str, mapping: Mapping[str, str], dimension: str
+) -> pint.Quantity:
+    """Coerce one scalar boundary argument (spec §5).
+
+    Parameters
+    ----------
+    value : object
+        The argument value: a pint quantity, or a bare value with a
+        `mapping` entry.
+    name : str
+        The argument name, used in error messages.
+    mapping : mapping of str to str
+        The boundary's validated ``units=`` mapping.
+    dimension : str
+        The required pint dimensionality.
+
+    Returns
+    -------
+    pint.Quantity
+        The scalar quantity on MetPy's registry.
+
+    Raises
+    ------
+    TephpyUnitsError
+        For unit-less bare values, ambiguous or unparsable units, or the
+        wrong dimensionality.
+    TephpyValidationError
+        If the value is not a scalar.
+    """
+    quantity = as_quantity(
+        value, name=name, units=mapping.get(name), dimension=dimension
+    )
+    if quantity.magnitude.ndim != 0:
+        msg = f"{name!r} must be a scalar, got shape {quantity.magnitude.shape}"
+        raise TephpyValidationError(msg)
+    return quantity
