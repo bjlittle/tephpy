@@ -17,32 +17,34 @@ cross-reference rules.
     sounding
         A vertical profile of atmospheric measurements (pressure, temperature,
         :term:`dewpoint`, wind) from a single ascent. In ``tephpy`` a sounding
-        is carried by the ``Sounding`` dataclass — pressure and temperature
-        arrays (plus optional dewpoint and wind) held as pint quantities with
-        station/time metadata — and drawn with ``ax.plot_sounding(...)`` as
-        red temperature and green dewpoint :term:`profiles <profile>`.
+        is carried by the :class:`Sounding <tephpy.sounding.Sounding>`
+        dataclass — pressure and temperature arrays (plus optional dewpoint and
+        wind) held as pint quantities with station/time metadata — and drawn
+        with :meth:`ax.plot_sounding(...) <tephpy.plotting.axes.TephigramAxes.plot_sounding>`
+        as red temperature and green dewpoint :term:`profiles <profile>`.
 
     dewpoint
         The temperature air must cool to, at constant pressure and moisture
         content, to become saturated; it is never above the air temperature
         (equality means saturation). In ``tephpy`` it is the optional
-        ``dewpoint`` field of a ``Sounding`` (°C internally, any pint
-        temperature unit accepted), plotted green alongside the red
-        temperature line.
+        ``dewpoint`` field of a :class:`Sounding <tephpy.sounding.Sounding>`
+        (°C internally, any pint temperature unit accepted), plotted green
+        alongside the red temperature line.
 
     profile
         One curve of a temperature-like quantity against pressure — a
         :term:`sounding`'s temperature or dewpoint trace, or a computed
-        :term:`parcel` path (the ``calc.Profile`` dataclass).
-        ``ax.plot_profile(...)`` draws it through the tephigram transform
-        machinery.
+        :term:`parcel` path (the :class:`calc.Profile <tephpy.calc.Profile>`
+        dataclass).
+        :meth:`ax.plot_profile(...) <tephpy.plotting.axes.TephigramAxes.plot_profile>`
+        draws it through the tephigram transform machinery.
 
     potential temperature
         The temperature an air parcel would have if moved dry-adiabatically
         to the 1000 hPa reference pressure; written θ (theta). In ``tephpy``
         it is the second native coordinate of the tephigram plane —
-        ``transforms.theta_from_pressure_temperature`` computes it (°C)
-        from pressure (hPa) and temperature (°C).
+        :func:`transforms.theta_from_pressure_temperature <tephpy.transforms.theta_from_pressure_temperature>`
+        computes it (°C) from pressure (hPa) and temperature (°C).
 
     dry adiabat
         A line of constant :term:`potential temperature` — the path an
@@ -62,14 +64,16 @@ cross-reference rules.
         <isotherm>`, :term:`isobars <isobar>`, :term:`dry adiabats
         <dry adiabat>`, :term:`moist adiabats <moist adiabat>`, and lines
         of constant :term:`humidity mixing ratio` — each drawn by one
-        zoom-aware Matplotlib artist (``IsoplethFamily``) that selects
-        the members appropriate to the current view.
+        zoom-aware Matplotlib artist
+        (:class:`IsoplethFamily <tephpy.plotting.isopleths.IsoplethFamily>`)
+        that selects the members appropriate to the current view.
 
     isobar
         A line of constant pressure. Pressure is not an axis of the
         tephigram, so each isobar is a gentle curve across the
         temperature/:term:`potential temperature` grid; ``tephpy`` labels
-        isobars in hPa and reconfigures them via ``ax.isobars(...)``.
+        isobars in hPa and reconfigures them via
+        :meth:`ax.isobars(...) <tephpy.plotting.axes.TephigramAxes.isobars>`.
 
     moist adiabat
     saturation adiabat
@@ -98,15 +102,17 @@ cross-reference rules.
         tephigram, a line of constant *saturation* mixing ratio (an
         isohume) marks where air of a given moisture content saturates;
         ``tephpy`` computes these lines with MetPy and labels them in
-        g/kg via ``ax.mixing_ratios(...)``.
+        g/kg via
+        :meth:`ax.mixing_ratios(...) <tephpy.plotting.axes.TephigramAxes.mixing_ratios>`.
 
     parcel
     air parcel
         An imagined small mass of air lifted through the surrounding
         environment without mixing with it — the tephigram's basic tool
         for reasoning about stability. In ``tephpy``,
-        ``calc.parcel_path(...)`` computes a parcel's ascent as a
-        ``calc.Profile``, and the ``parcel=`` option selects the starting
+        :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` computes a
+        parcel's ascent as a :class:`calc.Profile <tephpy.calc.Profile>`,
+        and the ``parcel=`` option selects the starting
         parcel: ``"surface"`` or ``"mixed-layer"`` (the lowest 100 hPa
         averaged).
 
@@ -117,8 +123,9 @@ cross-reference rules.
         saturates — on a tephigram it is Normand's construction: the
         :term:`dry adiabat` through the parcel's temperature meets the
         :term:`humidity mixing ratio` line through its :term:`dewpoint`.
-        ``calc.normand_point(...)`` returns it as scalar (pressure,
-        temperature) pint quantities, ``calc.parcel_path`` splices it
+        :func:`calc.normand_point(...) <tephpy.calc.normand_point>` returns
+        it as scalar (pressure, temperature) pint quantities,
+        :func:`calc.parcel_path <tephpy.calc.parcel_path>` splices it
         into the ascent exactly, and the operational -25 mb cloud-base
         correction is applied only when requested via
         ``cloud_base_correction=``.
@@ -128,27 +135,28 @@ cross-reference rules.
         The level above which a lifted :term:`parcel` becomes warmer than
         its environment and rises freely. In ``tephpy`` it is the
         ``lfc_pressure``/``lfc_temperature`` fields of
-        ``calc.SoundingIndices`` — NaN quantities when the parcel never
-        becomes positively buoyant ("does not exist" is an answer, not an
-        error).
+        :class:`calc.SoundingIndices <tephpy.calc.SoundingIndices>` — NaN
+        quantities when the parcel never becomes positively buoyant ("does
+        not exist" is an answer, not an error).
 
     equilibrium level
     EL
         The level above the :term:`LFC` where a rising :term:`parcel`
         cools back to the environment temperature — roughly the anvil
         top of a thunderstorm. The ``el_pressure``/``el_temperature``
-        fields of ``calc.SoundingIndices``; NaN when the parcel is still
-        buoyant at the profile top (:term:`CAPE` can be positive with no
-        EL).
+        fields of :class:`calc.SoundingIndices <tephpy.calc.SoundingIndices>`;
+        NaN when the parcel is still buoyant at the profile top
+        (:term:`CAPE` can be positive with no EL).
 
     CAPE
     convective available potential energy
         The energy per unit mass (J/kg) available to a :term:`parcel`
         between the :term:`LFC` and the :term:`EL`, where it is warmer
         than the environment — the fuel gauge for deep convection.
-        ``calc.indices(...)`` reports it (``0 J/kg`` — never NaN — when
-        there is none) and ``ax.shade_cape(snd, parcel)`` shades the
-        region.
+        :func:`calc.indices(...) <tephpy.calc.indices>` reports it
+        (``0 J/kg`` — never NaN — when there is none) and
+        :meth:`ax.shade_cape(snd, parcel) <tephpy.plotting.axes.TephigramAxes.shade_cape>`
+        shades the region.
 
     CIN
     convective inhibition
@@ -156,11 +164,12 @@ cross-reference rules.
         must be given to reach its :term:`LFC` through the layers where
         it is cooler than the environment — the lid that must break
         before :term:`CAPE` is released. Reported by
-        ``calc.indices(...)`` and shaded by ``ax.shade_cin(snd,
-        parcel)``.
+        :func:`calc.indices(...) <tephpy.calc.indices>` and shaded by
+        :meth:`ax.shade_cin(snd, parcel) <tephpy.plotting.axes.TephigramAxes.shade_cin>`.
 
     lifted index
         The environment-minus-parcel temperature difference at 500 hPa
         (°C); large negative values mean instability. The
-        ``lifted_index`` field of ``calc.SoundingIndices``; NaN when the
-        profile tops out below 500 hPa.
+        ``lifted_index`` field of
+        :class:`calc.SoundingIndices <tephpy.calc.SoundingIndices>`; NaN when
+        the profile tops out below 500 hPa.
