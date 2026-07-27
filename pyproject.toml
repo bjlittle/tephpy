@@ -68,7 +68,7 @@ testpaths = ["tests"]
 xfail_strict = true
 
 [tool.codespell]
-ignore-words-list = "accreting"
+ignore-words-list = "accreting,PRES"
 
 [tool.coverage.run]
 branch = true
