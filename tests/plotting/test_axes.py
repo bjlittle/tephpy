@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import matplotlib.colors as mcolors
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 import matplotlib.pyplot as plt
 from metpy.units import units
 import numpy as np
@@ -14,11 +17,15 @@ import pytest
 from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
+    CAPE_COLOR,
+    CIN_COLOR,
     DEFAULT_EXTENT,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
     PROFILE_ZORDER,
+    SHADING_ALPHA,
+    SHADING_ZORDER,
 )
 from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
@@ -458,3 +465,73 @@ def test_plot_profile_wrong_combinations_are_type_errors(tephigram_axes):
         tephigram_axes.plot_profile(CAPPED_PRESSURE)
     with pytest.raises(TypeError, match="needs pressure and temperature"):
         tephigram_axes.plot_profile(snd)
+
+
+def _stable_sounding():
+    """Build a stable sounding: no positive buoyancy anywhere."""
+    return Sounding(
+        units.Quantity(np.array([1000.0, 850.0, 700.0, 500.0, 300.0]), "hPa"),
+        units.Quantity(np.array([5.0, 3.0, 0.0, -14.0, -40.0]), "degC"),
+        dewpoint=units.Quantity(np.array([-5.0, -10.0, -15.0, -30.0, -55.0]), "degC"),
+    )
+
+
+def test_shade_cape_draws_one_compound_patch(tephigram_axes):
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    patch = tephigram_axes.shade_cape(snd, parcel)
+    assert isinstance(patch, PathPatch)
+    assert patch in tephigram_axes.patches
+    expected = tephigram_axes.tephigram_transform + tephigram_axes.transData
+    assert patch.get_data_transform() == expected
+    np.testing.assert_allclose(
+        patch.get_facecolor(), mcolors.to_rgba(CAPE_COLOR, SHADING_ALPHA)
+    )
+    assert (patch.get_path().codes == Path.MOVETO).sum() == 1
+
+
+def test_shade_cin_draws_below_the_lfc(tephigram_axes):
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    patch = tephigram_axes.shade_cin(snd, parcel)
+    assert isinstance(patch, PathPatch)
+    np.testing.assert_allclose(
+        patch.get_facecolor(), mcolors.to_rgba(CIN_COLOR, SHADING_ALPHA)
+    )
+
+
+def test_shading_zorder_between_families_and_profiles(tephigram_axes):
+    snd = _capped_sounding()
+    patch = tephigram_axes.shade_cape(snd, calc.parcel_path(snd))
+    family_zorders = [
+        family.get_zorder() for family in tephigram_axes._families.values()
+    ]
+    assert max(family_zorders) < patch.get_zorder() == SHADING_ZORDER
+    assert patch.get_zorder() < PROFILE_ZORDER
+
+
+def test_shade_kwargs_override_the_conventions(tephigram_axes):
+    snd = _capped_sounding()
+    patch = tephigram_axes.shade_cape(
+        snd, calc.parcel_path(snd), facecolor="purple", alpha=0.5
+    )
+    np.testing.assert_allclose(patch.get_facecolor(), mcolors.to_rgba("purple", 0.5))
+
+
+def test_shade_zero_area_returns_none(tephigram_axes):
+    """0 is an answer, not an error (spec §6)."""
+    snd = _stable_sounding()
+    parcel = calc.parcel_path(snd)
+    assert tephigram_axes.shade_cape(snd, parcel) is None
+    assert tephigram_axes.shade_cin(snd, parcel) is None
+
+
+def test_shading_does_not_drift_the_view(tephigram_axes):
+    """Patches never autoscale the fixed extent (spec §3.2)."""
+    before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    tephigram_axes.shade_cape(snd, parcel)
+    tephigram_axes.shade_cin(snd, parcel)
+    tephigram_axes.figure.canvas.draw()
+    assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before

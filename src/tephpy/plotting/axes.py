@@ -23,6 +23,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from matplotlib.axes import Axes
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 from matplotlib.projections import register_projection
 import matplotlib.transforms as mtransforms
 import numpy as np
@@ -31,17 +33,22 @@ import numpy.typing as npt
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import (
+    CAPE_COLOR,
+    CIN_COLOR,
     DEFAULT_EXTENT,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
     PROFILE_ZORDER,
+    SHADING_ALPHA,
+    SHADING_ZORDER,
 )
 from tephpy._units import as_quantity, check_units_mapping
+from tephpy.plotting import shading
 from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from matplotlib.lines import Line2D
 
@@ -396,6 +403,133 @@ class TephigramAxes(Axes):
                 **{"color": PROFILE_DEWPOINT_COLOR, **defaults, **kwargs},
             )
         return temperature_line, dewpoint_line
+
+    def shade_cape(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> PathPatch | None:
+        """Shade the CAPE area between the sounding and a parcel path.
+
+        The positive-buoyancy region between the environment temperature
+        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        integrates — from the LFC to the EL, to the profile top when the
+        parcel is still buoyant there — so the shading matches the
+        annotated numbers (spec §3.2). Drawn as one compound-path patch;
+        interrupted regions become multiple polygons in the same patch.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path, e.g. from ``calc.parcel_path``.
+        **kwargs : Any
+            Passed through to :class:`matplotlib.patches.PathPatch`,
+            overriding the ``_constants`` conventions.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area — 0 is an
+            answer, not an error (spec §6).
+        """
+        return self._shade(snd, parcel, shading.cape_polygons, CAPE_COLOR, kwargs)
+
+    def shade_cin(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> PathPatch | None:
+        """Shade the CIN area between the sounding and a parcel path.
+
+        The negative-buoyancy region between the environment temperature
+        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        integrates — from the parcel start to the LFC — so the shading
+        matches the annotated numbers (spec §3.2). Drawn as one
+        compound-path patch; with no LFC there is no CIN region.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path, e.g. from ``calc.parcel_path``.
+        **kwargs : Any
+            Passed through to :class:`matplotlib.patches.PathPatch`,
+            overriding the ``_constants`` conventions.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area — 0 is an
+            answer, not an error (spec §6).
+        """
+        return self._shade(snd, parcel, shading.cin_polygons, CIN_COLOR, kwargs)
+
+    def _shade(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        builder: Callable[..., list[npt.NDArray[np.float64]]],
+        facecolor: str,
+        kwargs: dict[str, Any],
+    ) -> PathPatch | None:
+        """Build one shading region and draw it as a compound-path patch.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path.
+        builder : callable
+            The ``plotting.shading`` polygon builder to delegate to.
+        facecolor : str
+            The region's conventional fill colour.
+        kwargs : dict
+            User overrides, passed through to the patch.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area.
+        """
+        polygons = builder(
+            snd.pressure.m_as("hPa"),
+            snd.temperature.m_as("degC"),
+            parcel.pressure.m_as("hPa"),
+            parcel.temperature.m_as("degC"),
+            lcl_pressure=float(parcel.lcl_pressure.m_as("hPa")),
+        )
+        if not polygons:
+            return None
+        vertices = []
+        codes = []
+        for polygon in polygons:
+            count = polygon.shape[0]
+            vertices.append(np.vstack([polygon, polygon[:1]]))
+            codes.append(
+                np.concatenate(
+                    [[Path.MOVETO], np.full(count - 1, Path.LINETO), [Path.CLOSEPOLY]]
+                )
+            )
+        path = Path(np.vstack(vertices), np.concatenate(codes))
+        patch = PathPatch(
+            path,
+            **{
+                "facecolor": facecolor,
+                "edgecolor": "none",
+                "alpha": SHADING_ALPHA,
+                "zorder": SHADING_ZORDER,
+                "transform": self.tephigram_transform + self.transData,
+                **kwargs,
+            },
+        )
+        self.add_patch(patch)
+        return patch
 
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.
