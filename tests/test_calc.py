@@ -20,7 +20,7 @@ import pytest
 import tephpy
 from tephpy import Sounding
 from tephpy._constants import MOIST_ADIABAT_PRESSURE_STEP
-from tephpy.calc import Profile, SoundingIndices, normand_point, parcel_path
+from tephpy.calc import Profile, SoundingIndices, indices, normand_point, parcel_path
 from tephpy.exceptions import (
     DewpointExceedsTemperatureError,
     MissingDataError,
@@ -431,3 +431,185 @@ def test_parcel_path_correction_below_start_raises():
 def test_parcel_path_correction_wrong_dimension_raises():
     with pytest.raises(TephpyUnitsError, match="'cloud_base_correction'"):
         parcel_path(_sounding(), cloud_base_correction=Q(-25.0, "degC"))
+
+
+# --- indices ---------------------------------------------------------------
+
+# A stable sounding: no positive buoyancy anywhere (zero CAPE).
+STABLE_TEMPERATURE = Q(
+    np.array([5.0, 4.0, 3.5, 3.0, 2.0, -2.0, -8.0, -16.0, -28.0, -44.0, -58.0]),
+    "degC",
+)
+STABLE_DEWPOINT = Q(
+    np.array([-5.0, -6.0, -7.0, -9.0, -12.0, -18.0, -25.0, -35.0, -45.0, -60.0, -75.0]),
+    "degC",
+)
+
+
+def _direct_indices(pressure, temperature, dewpoint, curve, start):
+    """Compute the ten fields by direct metpy.calc delegation (spec §7)."""
+    cape, cin = mpcalc.cape_cin(pressure, temperature, dewpoint, curve)
+    lfc_pressure, lfc_temperature = mpcalc.lfc(
+        pressure, temperature, dewpoint, parcel_temperature_profile=curve
+    )
+    el_pressure, el_temperature = mpcalc.el(
+        pressure, temperature, dewpoint, parcel_temperature_profile=curve
+    )
+    lifted = mpcalc.lifted_index(pressure, temperature, curve)[0]
+    theta_w = mpcalc.wet_bulb_potential_temperature(*start)
+    return (
+        cape,
+        cin,
+        lfc_pressure,
+        lfc_temperature,
+        el_pressure,
+        el_temperature,
+        lifted,
+        theta_w,
+    )
+
+
+def _assert_indices_equal(result, direct, lcl):
+    """Assert every SoundingIndices field equals its direct counterpart.
+
+    `assert_array_equal` treats NaN as equal — a NaN LFC/EL must match a
+    NaN field (spec §6).
+    """
+    cape, cin, lfc_p, lfc_t, el_p, el_t, lifted, theta_w = direct
+    lcl_pressure, lcl_temperature = lcl
+    equal = np.testing.assert_array_equal
+    equal(result.cape.m_as("J/kg"), cape.m_as("J/kg"))
+    equal(result.cin.m_as("J/kg"), cin.m_as("J/kg"))
+    equal(result.lcl_pressure.m_as("hPa"), lcl_pressure.m_as("hPa"))
+    equal(result.lcl_temperature.m_as("degC"), lcl_temperature.m_as("degC"))
+    equal(result.lfc_pressure.m_as("hPa"), lfc_p.m_as("hPa"))
+    equal(result.lfc_temperature.m_as("degC"), lfc_t.m_as("degC"))
+    equal(result.el_pressure.m_as("hPa"), el_p.m_as("hPa"))
+    equal(result.el_temperature.m_as("degC"), el_t.m_as("degC"))
+    equal(result.lifted_index.m_as("delta_degC"), lifted.m_as("delta_degC"))
+    equal(result.theta_w.m_as("degC"), theta_w.m_as("degC"))
+
+
+def test_indices_default_is_plain_surface_parcel_delegation():
+    """Every field equals the direct metpy.calc call (spec §7)."""
+    result = indices(_sounding())
+    curve = mpcalc.parcel_profile(PRESSURE, TEMPERATURE[0], DEWPOINT[0])
+    direct = _direct_indices(
+        PRESSURE,
+        TEMPERATURE,
+        DEWPOINT,
+        curve,
+        (PRESSURE[0], TEMPERATURE[0], DEWPOINT[0]),
+    )
+    _assert_indices_equal(
+        result, direct, mpcalc.lcl(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0])
+    )
+
+
+def test_indices_mixed_layer_delegates_to_the_mixed_parcel():
+    result = indices(_sounding(), parcel="mixed-layer")
+    start = mpcalc.mixed_parcel(PRESSURE, TEMPERATURE, DEWPOINT)
+    curve = mpcalc.parcel_profile(PRESSURE, start[1], start[2])
+    direct = _direct_indices(PRESSURE, TEMPERATURE, DEWPOINT, curve, start)
+    _assert_indices_equal(result, direct, mpcalc.lcl(*start))
+
+
+def test_indices_corrected_feeds_the_hand_built_curve():
+    """A corrected run feeds the generic functions the corrected curve."""
+    correction = Q(-25.0, "hPa")
+    result = indices(_sounding(), cloud_base_correction=correction)
+    lcl_pressure, _ = mpcalc.lcl(PRESSURE[0], TEMPERATURE[0], DEWPOINT[0])
+    corrected_pressure = lcl_pressure + correction
+    corrected_temperature = mpcalc.dry_lapse(
+        corrected_pressure, TEMPERATURE[0], reference_pressure=PRESSURE[0]
+    )
+    below = corrected_pressure <= PRESSURE
+    curve = np.empty(PRESSURE.size)
+    curve[below] = mpcalc.dry_lapse(
+        PRESSURE[below], TEMPERATURE[0], reference_pressure=PRESSURE[0]
+    ).m_as("degC")
+    curve[~below] = mpcalc.moist_lapse(
+        PRESSURE[~below],
+        corrected_temperature,
+        reference_pressure=corrected_pressure,
+    ).m_as("degC")
+    direct = _direct_indices(
+        PRESSURE,
+        TEMPERATURE,
+        DEWPOINT,
+        Q(curve, "degC"),
+        (PRESSURE[0], TEMPERATURE[0], DEWPOINT[0]),
+    )
+    _assert_indices_equal(
+        result,
+        direct,
+        (corrected_pressure.to("hPa"), corrected_temperature.to("degC")),
+    )
+
+
+def test_indices_zero_cape_is_zero_not_nan():
+    """Zero CAPE/CIN is 0 J/kg — never NaN (spec §6, item 11)."""
+    snd = Sounding(PRESSURE, STABLE_TEMPERATURE, dewpoint=STABLE_DEWPOINT)
+    result = indices(snd)
+    assert result.cape.m_as("J/kg") == 0.0
+    assert result.cin.m_as("J/kg") == 0.0
+    assert np.isnan(result.lfc_pressure.magnitude)
+    assert np.isnan(result.el_pressure.magnitude)
+    assert np.isfinite(result.lcl_pressure.magnitude)
+
+
+def test_indices_el_nan_while_cape_positive():
+    """The parcel can still be buoyant at the profile top (spec §6)."""
+    snd = Sounding(
+        Q([1000.0, 900.0, 800.0, 700.0], "hPa"),
+        Q([30.0, 19.0, 10.0, 0.0], "degC"),
+        dewpoint=Q([24.0, 15.0, 5.0, -5.0], "degC"),
+    )
+    result = indices(snd)
+    assert result.cape.m_as("J/kg") > 0.0
+    assert np.isnan(result.el_pressure.magnitude)
+
+
+def test_indices_lifted_index_nan_below_500():
+    """A profile topping out below 500 hPa reports NaN.
+
+    The MetPy warning is suppressed at the call site — the suite runs
+    ``filterwarnings = ["error"]``, so this test passing proves it.
+    """
+    snd = Sounding(
+        PRESSURE[:6], TEMPERATURE[:6], dewpoint=DEWPOINT[:6]
+    )  # tops at 700 hPa
+    result = indices(snd)
+    assert np.isnan(result.lifted_index.magnitude)
+    assert result.cape.m_as("J/kg") > 0.0
+
+
+def test_indices_interior_nan_gaps_pass_through():
+    """NaN gaps in temperature/dewpoint are data, tolerated by MetPy."""
+    temperature = TEMPERATURE.copy()
+    temperature[3] = Q(np.nan, "degC")
+    dewpoint = DEWPOINT.copy()
+    dewpoint[5] = Q(np.nan, "degC")
+    snd = Sounding(PRESSURE, temperature, dewpoint=dewpoint)
+    result = indices(snd)
+    assert np.isfinite(result.cape.magnitude)
+
+
+def test_indices_missing_dewpoint_raises():
+    with pytest.raises(MissingDataError, match="needs dewpoint"):
+        indices(Sounding(PRESSURE, TEMPERATURE))
+
+
+def test_indices_profile_too_short_raises():
+    snd = Sounding(PRESSURE[:2], TEMPERATURE[:2], dewpoint=DEWPOINT[:2])
+    with pytest.raises(ProfileTooShortError, match="no moist ascent"):
+        indices(snd)
+
+
+def test_indices_theta_w_follows_the_parcel_option():
+    surface = indices(_sounding())
+    mixed = indices(_sounding(), parcel="mixed-layer")
+    start = mpcalc.mixed_parcel(PRESSURE, TEMPERATURE, DEWPOINT)
+    expected = mpcalc.wet_bulb_potential_temperature(*start)
+    assert mixed.theta_w.m_as("degC") == expected.m_as("degC")
+    assert mixed.theta_w.m_as("degC") != surface.theta_w.m_as("degC")

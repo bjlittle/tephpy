@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import dataclasses
 from typing import TYPE_CHECKING, Final, Literal
+import warnings
 
 import numpy as np
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
 
     from tephpy.sounding import Sounding
 
-__all__ = ["Profile", "SoundingIndices", "normand_point", "parcel_path"]
+__all__ = ["Profile", "SoundingIndices", "indices", "normand_point", "parcel_path"]
 
 #: The parcel-selection options (spec §3.3).
 _PARCELS: Final[tuple[str, ...]] = ("surface", "mixed-layer")
@@ -69,6 +70,13 @@ _INDEX_DIMENSIONS: Final[dict[str, str]] = {
     "theta_w": "[temperature]",
     "lifted_index": "[temperature]",
 }
+
+#: The MetPy warning suppressed at the ``lifted_index`` call site: a profile
+#: topping out below 500 hPa makes the index NaN *with* a ``UserWarning``,
+#: and the NaN field is the meteorological answer (spec §6, §10 item 11).
+_OUT_OF_BOUNDS_MESSAGE: Final[str] = (
+    "Interpolation point out of data bounds encountered"
+)
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -575,3 +583,170 @@ def _require_moist_ascent(snd: Sounding, lcl_pressure: pint.Quantity) -> None:
             f"{lcl_hpa:g} hPa LCL: no moist ascent exists"
         )
         raise ProfileTooShortError(msg)
+
+
+def indices(
+    snd: Sounding,
+    *,
+    parcel: Literal["surface", "mixed-layer"] = "surface",
+    cloud_base_correction: object = None,
+) -> SoundingIndices:
+    """Compute the derived thermodynamic parameters (spec §3.3).
+
+    The mechanism: derive the parcel curve on the environment levels
+    under the same parcel-selection and correction rules as
+    :func:`parcel_path`, then feed it to the generic ``metpy.calc``
+    functions that take a parcel-profile argument (``cape_cin``, ``lfc``,
+    ``el``, ``lifted_index``). With the defaults this reduces to plain
+    surface-parcel delegation. The ``lcl_*`` fields report the point the
+    path uses (corrected when requested) and `theta_w` the parcel start,
+    mirroring :class:`Profile`.
+
+    `theta_w` is computed with ``wet_bulb_potential_temperature``, whose
+    Davies-Jones formulation differs from the moist-adiabat integrator by
+    ≲0.1 °C: the path is drawn by the integrator, the number by the named
+    function (spec §3.3).
+
+    Parameters
+    ----------
+    snd : Sounding
+        The environment sounding; must carry dewpoint.
+    parcel : str, default: "surface"
+        The lifted parcel, as for :func:`parcel_path`.
+    cloud_base_correction : pint.Quantity, optional
+        The LCL correction, as for :func:`parcel_path`.
+
+    Returns
+    -------
+    SoundingIndices
+        The ten derived parameters, with the spec §6 NaN-versus-zero
+        semantics documented per field.
+
+    Raises
+    ------
+    MissingDataError
+        If the sounding has no dewpoint.
+    ProfileTooShortError
+        If the profile tops out at or below the LCL the parcel would use.
+    TephpyUnitsError
+        If `cloud_base_correction` is not a pressure-dimension quantity.
+    TephpyValidationError
+        If the correction places the LCL below the parcel start.
+    ValueError
+        If `parcel` is not a known option.
+    """
+    start_pressure, start_temperature, start_dewpoint = _parcel_start(snd, parcel)
+    lcl_pressure, lcl_temperature = _lcl_used(
+        start_pressure, start_temperature, start_dewpoint, cloud_base_correction
+    )
+    _require_moist_ascent(snd, lcl_pressure)
+    curve = _parcel_curve(
+        snd,
+        start_pressure,
+        start_temperature,
+        start_dewpoint,
+        lcl_pressure,
+        lcl_temperature,
+        corrected=cloud_base_correction is not None,
+    )
+    # Function-local so `import tephpy` stays light (spec §3.3, §10 item 10).
+    from metpy.calc import (  # noqa: PLC0415
+        cape_cin,
+        el,
+        lfc,
+        lifted_index,
+        wet_bulb_potential_temperature,
+    )
+
+    cape, cin = cape_cin(snd.pressure, snd.temperature, snd.dewpoint, curve)
+    lfc_pressure, lfc_temperature = lfc(
+        snd.pressure, snd.temperature, snd.dewpoint, parcel_temperature_profile=curve
+    )
+    el_pressure, el_temperature = el(
+        snd.pressure, snd.temperature, snd.dewpoint, parcel_temperature_profile=curve
+    )
+    with warnings.catch_warnings():
+        # A profile topping out below 500 hPa makes the index NaN *with* a
+        # UserWarning; the NaN field is the answer (spec §6, §10 item 11).
+        warnings.filterwarnings(
+            "ignore", message=_OUT_OF_BOUNDS_MESSAGE, category=UserWarning
+        )
+        lifted = lifted_index(snd.pressure, snd.temperature, curve)[0]
+    theta_w = wet_bulb_potential_temperature(
+        start_pressure, start_temperature, start_dewpoint
+    )
+    return SoundingIndices(
+        cape=cape.to("J/kg"),
+        cin=cin.to("J/kg"),
+        lcl_pressure=lcl_pressure,
+        lcl_temperature=lcl_temperature,
+        lfc_pressure=lfc_pressure.to("hPa"),
+        lfc_temperature=lfc_temperature.to("degC"),
+        el_pressure=el_pressure.to("hPa"),
+        el_temperature=el_temperature.to("degC"),
+        theta_w=theta_w.to("degC"),
+        lifted_index=lifted.to("delta_degC"),
+    )
+
+
+def _parcel_curve(  # noqa: PLR0913
+    snd: Sounding,
+    start_pressure: pint.Quantity,
+    start_temperature: pint.Quantity,
+    start_dewpoint: pint.Quantity,
+    lcl_pressure: pint.Quantity,
+    lcl_temperature: pint.Quantity,
+    *,
+    corrected: bool,
+) -> pint.Quantity:
+    """Derive the parcel curve on the environment levels (spec §3.3).
+
+    Uncorrected ascents delegate to ``metpy.calc.parcel_profile`` — the
+    plain delegation the spec §7 field-equality test targets. A corrected
+    ascent has no MetPy one-liner: its curve is the dry adiabat from the
+    parcel start on the levels at or below the corrected LCL, and the
+    corrected-LCL-anchored moist adiabat above.
+
+    Parameters
+    ----------
+    snd : Sounding
+        The environment sounding.
+    start_pressure : pint.Quantity
+        Scalar parcel-start pressure.
+    start_temperature : pint.Quantity
+        Scalar parcel-start temperature.
+    start_dewpoint : pint.Quantity
+        Scalar parcel-start dewpoint.
+    lcl_pressure : pint.Quantity
+        Scalar pressure of the LCL the ascent uses.
+    lcl_temperature : pint.Quantity
+        Scalar temperature at that LCL.
+    corrected : bool
+        Whether a cloud-base correction was requested.
+
+    Returns
+    -------
+    pint.Quantity
+        Parcel temperatures on the environment pressure levels.
+    """
+    # Function-local so `import tephpy` stays light (spec §3.3, §10 item 10).
+    from metpy.calc import dry_lapse, moist_lapse, parcel_profile  # noqa: PLC0415
+    from metpy.units import units as registry  # noqa: PLC0415
+
+    if not corrected:
+        return parcel_profile(snd.pressure, start_temperature, start_dewpoint)
+    pressure = snd.pressure.m_as("hPa")
+    below = pressure >= float(lcl_pressure.m_as("hPa"))
+    curve = np.empty(pressure.size, dtype=np.float64)
+    if below.any():
+        curve[below] = dry_lapse(
+            registry.Quantity(pressure[below], "hPa"),
+            start_temperature,
+            reference_pressure=start_pressure,
+        ).m_as("degC")
+    curve[~below] = moist_lapse(
+        registry.Quantity(pressure[~below], "hPa"),
+        lcl_temperature,
+        reference_pressure=lcl_pressure,
+    ).m_as("degC")
+    return registry.Quantity(curve, "degC")
