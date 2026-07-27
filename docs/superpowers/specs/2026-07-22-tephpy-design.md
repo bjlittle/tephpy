@@ -158,7 +158,28 @@ Differences from tephi:
   line is `"_nolegend_"`); label precedence is `label=` argument > `snd.label` >
   no entry. Returns `(temperature_line, dewpoint_line | None)`. Legends stay
   stock matplotlib — tephpy sets labels, the user calls `ax.legend()`.
-- `ax.plot_barbs(...)` — right-hand gutter staff, Met Office symbology, 5 kt binning.
+- `ax.plot_barbs(snd, *, x=None, **kwargs)` — the sounding's wind barbs on a
+  right-hand gutter staff (Met Office symbology: flag 50 kt, full barb 10 kt,
+  half barb 5 kt, rounded to 5 kt bins), raising `MissingDataError` when the
+  sounding has no wind (§6). The staff is drawn by a zoom-aware artist in
+  `plotting/barbs.py` (the `isopleths.py` refresh pattern): each draw selects
+  the levels whose isobars cross the current view, thins them to the densest
+  subset at least a minimum vertical separation apart — zooming in reveals
+  more levels — and places each barb at the y where its level's isobar meets
+  the diagram's right edge (the printed-form staff convention, where the
+  staff's pressure marks sit where the isobars cross it), interpolated along
+  the isobar polyline in pure numpy. Wind speed converts to knots; u/v come
+  from `metpy.calc.wind_components` (function-local import — the §3.2/§3.3
+  one-source-of-truth idiom). Calm levels render as matplotlib's default
+  point; an open-circle calm glyph is a v1.x nicety. `x` positions the staff
+  as a fraction across the gutter (default in `_constants`): overlaid
+  soundings pick different positions and a colour — the explicit-styles
+  convention profile overlays already use — within one fixed-width gutter.
+  Returns the staff artist; matplotlib kwargs pass through to the barbs.
+  Gutter width and pad, staff position, minimum separation, and the barb
+  increments live in `_constants` with their source conventions cited
+  (Factsheet 13); like profile lines and shading, no `tephpy.config` section
+  at v1.
 - `ax.shade_cape(snd, parcel)` / `ax.shade_cin(snd, parcel)` — area fills between
   the environment temperature and the parcel path, bounded exactly as MetPy's
   `cape_cin` integrates so the shading always matches the annotated numbers:
@@ -180,9 +201,10 @@ Differences from tephi:
   renders as an em dash); field formats and the panel width live in `_constants`.
   Returns the panel axes so users can restyle; calling it again updates the
   panel in place rather than stacking a second one. With `axes_grid1`, append
-  order is position order, so once Plan 6's gutter exists, `plot_barbs` must be
-  called before `annotate_indices` for the contracted inside-out order —
-  documented in the docstring; enforcement, if ever needed, is Plan 6's call.
+  order is position order; Plan 6 makes call order irrelevant rather than
+  enforcing it — `annotate_indices` caches the indices it last rendered, and a
+  later `plot_barbs` re-appends and re-renders the panel outside the new
+  gutter (the auto-rebuild in the layout contract below).
 - `ax.set_extent(...)` — fixed extents from ((p, T), (p, T)) corners so successive
   figures are directly comparable; disables autoscaling so overlays don't drift the
   window. (The cartopy idiom — the earlier `set_anchor` name collided with
@@ -199,7 +221,14 @@ sole panel (`annotate_indices`), so it creates and owns the divider inline; when
 adds `plot_barbs` it must **reuse** that divider (cache it on the axes and share it
 across the side-panel methods), not call `make_axes_locatable` again. (Raised in the
 Plan 5 review; deferred here because the two-panel path is only reachable — and
-testable — once the barb gutter exists.)
+testable — once the barb gutter exists.) *Resolved 2026-07-27 (Plan 6):* the divider
+is created once, cached privately on the axes, and shared — `annotate_indices` is
+refactored onto it, `plot_barbs` appends the gutter through it, and
+`make_axes_locatable` is called exactly once per axes. Call order is made irrelevant
+rather than enforced: `annotate_indices` caches its last `SoundingIndices`, and when
+`plot_barbs` finds an existing panel it removes it, appends the gutter, then
+re-appends and re-renders the panel outside it, so the inside-out contract holds on
+every call path.
 
 ### 3.3 `calc`
 
@@ -308,7 +337,31 @@ runtime — the constructors are duck-typed over the objects handed to them, wit
 `TYPE_CHECKING`-only annotation imports (item 9). `Sounding` re-exports eagerly
 at the top level — `from tephpy import
 Sounding` (item 10). Readers (`io.wyoming.fetch`, `io.igra.read`) return
-`Sounding` objects.
+`Sounding` objects, so the §6 ingest validation applies to fetched data unchanged;
+both keep their network/archive imports function-local (the established idiom,
+policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 10).
+
+- `wyoming.fetch(station, time, *, timeout=None)` fetches one ascent from the
+  University of Wyoming archive over stdlib `urllib` — no new dependency; the
+  timeout default lives in `_constants` — and hands the TEXT:LIST body to a pure,
+  transport-free parser: PRES/TEMP/DWPT/DRCT/SKNT columns in their native units
+  (hPa, °C, degrees, knots), blank fields → NaN (NaN gaps are data, §3.4), and
+  exact-duplicate pressure rows dropped keeping the first (the archive emits
+  them; `Sounding` demands strictly monotonic pressure). `station` is the WMO
+  identifier (`"03808"`); `time` is a datetime or ISO string, naive read as UTC
+  (the `Sounding` convention). Station and time land as metadata, so the legend
+  label derives for free. Network failures, HTTP errors, and the CGI's "no
+  data" replies raise `TephpyIOError` summarising the upstream response (§6).
+- `igra.read(path, *, time=None)` reads one ascent from an IGRA v2 per-station
+  file — the as-distributed `.zip` or the extracted `.txt`, sniffed with
+  `zipfile.is_zipfile` rather than by suffix. The fixed-width records parse
+  with the IGRA sentinels (−9999/−8888) → NaN, dewpoint derived as
+  temperature − dewpoint depression, wind converted from tenths of m/s, and
+  records without a pressure value dropped (`Sounding` requires finite
+  pressure). `time=` selects the ascent and may be omitted only when the file
+  holds exactly one sounding (trimmed research subsets, fixtures); an
+  ambiguous read raises `TephpyIOError` reporting the file's sounding count,
+  time span, and the nearest ascents, as does malformed input (§6).
 
 ### 3.5 `_constants` + `tephpy.config`
 
@@ -791,7 +844,12 @@ them, ordered by owning plan.
     plan and recorded alongside the fixture. Redistribution stance: the fixture is
     a few cited numeric values used as facts, not licensed expression; if that
     comfort fails for the pinned source, fall back to a public-domain (NWS/NOAA)
-    profile.
+    profile. *Plan 6 slice resolved 2026-07-27:* the recorded fixtures are one
+    captured Wyoming ascent and one trimmed IGRA v2 station file under
+    `tests/fixtures/io/`, each with a sidecar provenance note recording source
+    URL, capture date and method, and attribution. IGRA is NOAA/NCEI public
+    domain; the Wyoming ascent is a single recorded sounding used as test
+    facts, with the archive credited in the provenance note.
 14. **scipy is declared but unowned.** §8.1 lists scipy as a runtime dependency, yet no §3
     module names it (plausible first consumers: interpolation in Plan 2 or Plan 5). If
     Plan 5 completes without it, drop the dependency. *Resolved 2026-07-26:* Plan 5's
