@@ -47,9 +47,9 @@ def theta_from_pressure_temperature(
 
     Parameters
     ----------
-    pressure : array_like
+    pressure : ArrayLike
         Pressure in hPa. Non-positive values yield NaN.
-    temperature : array_like
+    temperature : ArrayLike
         Temperature in degrees Celsius.
 
     Returns
@@ -76,9 +76,9 @@ def pressure_from_temperature_theta(
 
     Parameters
     ----------
-    temperature : array_like
+    temperature : ArrayLike
         Temperature in degrees Celsius.
-    theta : array_like
+    theta : ArrayLike
         Potential temperature in degrees Celsius. Values at or below
         absolute zero yield NaN.
 
@@ -106,9 +106,9 @@ def xy_from_temperature_theta(
 
     Parameters
     ----------
-    temperature : array_like
+    temperature : ArrayLike
         Temperature in degrees Celsius.
-    theta : array_like
+    theta : ArrayLike
         Potential temperature in degrees Celsius. Values at or below
         absolute zero yield NaN.
 
@@ -141,9 +141,9 @@ def temperature_theta_from_xy(
 
     Parameters
     ----------
-    x : array_like
+    x : ArrayLike
         Tephigram x coordinate (dimensionless, the axes' data space).
-    y : array_like
+    y : ArrayLike
         Tephigram y coordinate (dimensionless, the axes' data space).
 
     Returns

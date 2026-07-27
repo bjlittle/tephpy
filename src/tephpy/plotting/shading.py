@@ -54,14 +54,14 @@ def cape_polygons(
 
     Parameters
     ----------
-    pressure : array_like
+    pressure : ArrayLike
         Environment pressures in hPa, strictly decreasing.
-    temperature : array_like
+    temperature : ArrayLike
         Environment temperatures in degrees Celsius; NaN gaps break the
         region.
-    parcel_pressure : array_like
+    parcel_pressure : ArrayLike
         Parcel-path pressures in hPa, strictly decreasing.
-    parcel_temperature : array_like
+    parcel_temperature : ArrayLike
         Parcel-path temperatures in degrees Celsius.
     lcl_pressure : float
         Pressure of the LCL the parcel uses, in hPa; buoyancy below it
@@ -105,14 +105,14 @@ def cin_polygons(
 
     Parameters
     ----------
-    pressure : array_like
+    pressure : ArrayLike
         Environment pressures in hPa, strictly decreasing.
-    temperature : array_like
+    temperature : ArrayLike
         Environment temperatures in degrees Celsius; NaN gaps break the
         region.
-    parcel_pressure : array_like
+    parcel_pressure : ArrayLike
         Parcel-path pressures in hPa, strictly decreasing.
-    parcel_temperature : array_like
+    parcel_temperature : ArrayLike
         Parcel-path temperatures in degrees Celsius.
     lcl_pressure : float
         Pressure of the LCL the parcel uses, in hPa; it locates the LFC
@@ -161,13 +161,13 @@ def _merged_curves(
 
     Parameters
     ----------
-    pressure : array_like
+    pressure : ArrayLike
         Environment pressures in hPa, strictly decreasing.
-    temperature : array_like
+    temperature : ArrayLike
         Environment temperatures in degrees Celsius.
-    parcel_pressure : array_like
+    parcel_pressure : ArrayLike
         Parcel-path pressures in hPa, strictly decreasing.
-    parcel_temperature : array_like
+    parcel_temperature : ArrayLike
         Parcel-path temperatures in degrees Celsius.
 
     Returns

@@ -82,7 +82,7 @@ class TephigramTransform(mtransforms.Transform):
 
         Parameters
         ----------
-        values : array_like
+        values : ArrayLike
             Array-like of shape ``(N, 2)`` or length ``2``: temperature,
             theta in degrees Celsius.
 
@@ -124,7 +124,7 @@ class TephigramInvertedTransform(mtransforms.Transform):
 
         Parameters
         ----------
-        values : array_like
+        values : ArrayLike
             Array-like of shape ``(N, 2)`` or length ``2``: tephigram
             x, y coordinates (the axes' data space).
 
@@ -289,9 +289,9 @@ class TephigramAxes(Axes):
 
         Parameters
         ----------
-        pressure : pint.Quantity, array_like, or Profile
+        pressure : pint.Quantity, ArrayLike, or Profile
             Level pressures, or the profile to plot.
-        temperature : pint.Quantity or array_like, optional
+        temperature : pint.Quantity or ArrayLike, optional
             Level temperatures; omitted in the ``Profile`` form.
         units : mapping of str to str, optional
             Unit strings for bare arrays, keyed by argument name, e.g.

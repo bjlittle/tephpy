@@ -57,10 +57,12 @@ extlinks = {
 numpydoc_show_class_members = False
 # Cross-reference parameter/return types (see developer/docs-style). Full
 # dotted names (``pint.Quantity``, ``numpy.ndarray``, ``metpy.calc.*``) resolve
-# through intersphinx; map tephpy's own short type names to their
-# fully-qualified targets, and skip the descriptive connective words.
+# through intersphinx; map short type names — numpy's ``ArrayLike`` typing
+# alias and tephpy's own classes — to their fully-qualified targets, and skip
+# the descriptive connective words.
 numpydoc_xref_param_type = True
 numpydoc_xref_aliases = {
+    "ArrayLike": "numpy.typing.ArrayLike",
     "Sounding": "tephpy.sounding.Sounding",
     "Profile": "tephpy.calc.Profile",
     "SoundingIndices": "tephpy.calc.SoundingIndices",
