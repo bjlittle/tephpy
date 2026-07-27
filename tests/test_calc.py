@@ -17,9 +17,14 @@ from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy.calc import Profile, SoundingIndices, normand_point
+import tephpy
+from tephpy import Sounding
+from tephpy._constants import MOIST_ADIABAT_PRESSURE_STEP
+from tephpy.calc import Profile, SoundingIndices, normand_point, parcel_path
 from tephpy.exceptions import (
     DewpointExceedsTemperatureError,
+    MissingDataError,
+    ProfileTooShortError,
     TephpyUnitsError,
     TephpyValidationError,
 )
@@ -273,3 +278,156 @@ def test_normand_point_saturation_is_the_parcel():
     pressure, temperature = normand_point(PRESSURE[0], TEMPERATURE[0], TEMPERATURE[0])
     assert pressure.m_as("hPa") == pytest.approx(1000.0)
     assert temperature.m_as("degC") == pytest.approx(30.0)
+
+
+# --- parcel_path -----------------------------------------------------------
+
+
+def _sounding(**kwargs):
+    """Build the module's reference convective sounding."""
+    return Sounding(PRESSURE, TEMPERATURE, dewpoint=DEWPOINT, **kwargs)
+
+
+def test_calc_reexports_eagerly():
+    """`tephpy.calc.parcel_path` works after `import tephpy` (spec §4)."""
+    assert tephpy.calc.parcel_path is parcel_path
+    assert tephpy.calc.Profile is Profile
+
+
+def test_parcel_path_passes_through_normand_point():
+    """The LCL vertex is spliced into the path exactly (spec §3.3/§7)."""
+    profile = parcel_path(_sounding())
+    lcl_pressure, lcl_temperature = normand_point(
+        PRESSURE[0], TEMPERATURE[0], DEWPOINT[0]
+    )
+    assert profile.lcl_pressure.m_as("hPa") == lcl_pressure.m_as("hPa")
+    position = np.flatnonzero(profile.pressure.m_as("hPa") == lcl_pressure.m_as("hPa"))
+    assert position.size == 1
+    assert profile.temperature.m_as("degC")[position[0]] == pytest.approx(
+        lcl_temperature.m_as("degC")
+    )
+
+
+def test_parcel_path_spans_start_to_top():
+    profile = parcel_path(_sounding())
+    pressure = profile.pressure.m_as("hPa")
+    assert pressure[0] == PRESSURE[0].m_as("hPa")
+    assert pressure[-1] == PRESSURE[-1].m_as("hPa")
+    assert np.all(np.diff(pressure) < 0.0)
+
+
+def test_parcel_path_samples_the_background_step():
+    """Both legs sample the moist-adiabat family's 5 hPa step (spec §3.3)."""
+    profile = parcel_path(_sounding())
+    pressure = profile.pressure.m_as("hPa")
+    lcl = profile.lcl_pressure.m_as("hPa")
+    dry = pressure[pressure > lcl]
+    moist = pressure[pressure < lcl]
+    np.testing.assert_allclose(np.diff(dry), -MOIST_ADIABAT_PRESSURE_STEP)
+    np.testing.assert_allclose(np.diff(moist)[:-1], -MOIST_ADIABAT_PRESSURE_STEP)
+
+
+def test_parcel_path_dry_leg_follows_the_dry_adiabat():
+    profile = parcel_path(_sounding())
+    pressure = profile.pressure.m_as("hPa")
+    lcl = profile.lcl_pressure.m_as("hPa")
+    dry = pressure > lcl
+    expected = mpcalc.dry_lapse(
+        Q(pressure[dry], "hPa"), TEMPERATURE[0], reference_pressure=PRESSURE[0]
+    )
+    np.testing.assert_allclose(
+        profile.temperature.m_as("degC")[dry], expected.m_as("degC")
+    )
+
+
+def test_parcel_path_moist_leg_is_anchored_at_the_lcl():
+    """The moist leg is moist_lapse(..., reference_pressure=p_lcl) (spec §3.3)."""
+    profile = parcel_path(_sounding())
+    pressure = profile.pressure.m_as("hPa")
+    lcl = profile.lcl_pressure.m_as("hPa")
+    moist = pressure < lcl
+    expected = mpcalc.moist_lapse(
+        Q(pressure[moist], "hPa"),
+        profile.lcl_temperature,
+        reference_pressure=profile.lcl_pressure,
+    )
+    np.testing.assert_allclose(
+        profile.temperature.m_as("degC")[moist], expected.m_as("degC")
+    )
+
+
+def test_parcel_path_fields_and_label():
+    anonymous = parcel_path(_sounding())
+    assert anonymous.parcel == "surface"
+    assert anonymous.label is None
+    labelled = parcel_path(_sounding(), label="surface parcel")
+    assert labelled.label == "surface parcel"
+
+
+def test_parcel_path_mixed_layer_starts_at_the_mixed_parcel():
+    profile = parcel_path(_sounding(), parcel="mixed-layer")
+    start_pressure, start_temperature, _ = mpcalc.mixed_parcel(
+        PRESSURE, TEMPERATURE, DEWPOINT
+    )
+    assert profile.parcel == "mixed-layer"
+    assert profile.pressure[0].m_as("hPa") == start_pressure.m_as("hPa")
+    assert profile.temperature[0].m_as("degC") == pytest.approx(
+        start_temperature.m_as("degC")
+    )
+
+
+def test_parcel_path_correction_applied_only_when_requested():
+    """The -25 mb correction moves the LCL only when asked (spec §3.3)."""
+    plain = parcel_path(_sounding())
+    corrected = parcel_path(_sounding(), cloud_base_correction=Q(-25.0, "hPa"))
+    assert corrected.lcl_pressure.m_as("hPa") == pytest.approx(
+        plain.lcl_pressure.m_as("hPa") - 25.0
+    )
+    expected_temperature = mpcalc.dry_lapse(
+        corrected.lcl_pressure, TEMPERATURE[0], reference_pressure=PRESSURE[0]
+    )
+    assert corrected.lcl_temperature.m_as("degC") == pytest.approx(
+        expected_temperature.m_as("degC")
+    )
+
+
+def test_parcel_path_saturated_parcel_has_no_dry_leg():
+    """A saturated surface parcel ascends moist from its start."""
+    snd = Sounding(PRESSURE, TEMPERATURE, dewpoint=TEMPERATURE)
+    profile = parcel_path(snd)
+    assert profile.lcl_pressure.m_as("hPa") == pytest.approx(1000.0)
+    assert profile.pressure[0].m_as("hPa") == pytest.approx(1000.0)
+
+
+def test_parcel_path_missing_dewpoint_raises():
+    snd = Sounding(PRESSURE, TEMPERATURE)
+    with pytest.raises(MissingDataError, match="needs dewpoint"):
+        parcel_path(snd)
+
+
+def test_parcel_path_unknown_parcel_raises():
+    with pytest.raises(ValueError, match="parcel must be one of"):
+        parcel_path(_sounding(), parcel="bogus")
+
+
+def test_parcel_path_profile_too_short_raises():
+    """A profile topping out at or below the LCL has no moist ascent."""
+    snd = Sounding(PRESSURE[:2], TEMPERATURE[:2], dewpoint=DEWPOINT[:2])
+    with pytest.raises(ProfileTooShortError, match="no moist ascent"):
+        parcel_path(snd)
+
+
+def test_parcel_path_corrected_lcl_above_top_raises():
+    """The too-short test uses the corrected LCL when one is requested."""
+    with pytest.raises(ProfileTooShortError, match="no moist ascent"):
+        parcel_path(_sounding(), cloud_base_correction=Q(-700.0, "hPa"))
+
+
+def test_parcel_path_correction_below_start_raises():
+    with pytest.raises(TephpyValidationError, match=r"below the .* parcel start"):
+        parcel_path(_sounding(), cloud_base_correction=Q(200.0, "hPa"))
+
+
+def test_parcel_path_correction_wrong_dimension_raises():
+    with pytest.raises(TephpyUnitsError, match="'cloud_base_correction'"):
+        parcel_path(_sounding(), cloud_base_correction=Q(-25.0, "degC"))

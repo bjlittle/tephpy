@@ -25,9 +25,12 @@ from typing import TYPE_CHECKING, Final, Literal
 
 import numpy as np
 
+from tephpy._constants import MOIST_ADIABAT_PRESSURE_STEP
 from tephpy._units import as_quantity, check_units_mapping
 from tephpy.exceptions import (
     DewpointExceedsTemperatureError,
+    MissingDataError,
+    ProfileTooShortError,
     TephpyValidationError,
 )
 
@@ -36,7 +39,9 @@ if TYPE_CHECKING:
 
     import pint
 
-__all__ = ["Profile", "SoundingIndices", "normand_point"]
+    from tephpy.sounding import Sounding
+
+__all__ = ["Profile", "SoundingIndices", "normand_point", "parcel_path"]
 
 #: The parcel-selection options (spec §3.3).
 _PARCELS: Final[tuple[str, ...]] = ("surface", "mixed-layer")
@@ -351,3 +356,222 @@ def _scalar_quantity(
         msg = f"{name!r} must be a scalar, got shape {quantity.magnitude.shape}"
         raise TephpyValidationError(msg)
     return quantity
+
+
+def parcel_path(
+    snd: Sounding,
+    *,
+    parcel: Literal["surface", "mixed-layer"] = "surface",
+    cloud_base_correction: object = None,
+    label: str | None = None,
+) -> Profile:
+    """Compute a parcel's ascent path over the sounding's span (spec §3.3).
+
+    Dry adiabat from the parcel start to Normand's point, then moist
+    adiabat to the profile top. Both legs sample the background moist
+    adiabats' 5 hPa step, the moist leg is integrated with
+    ``metpy.calc.moist_lapse(..., reference_pressure=lcl_pressure)`` —
+    same integrator, same sampling, same anchoring as the background
+    family — and the LCL vertex is spliced in exactly.
+
+    Parameters
+    ----------
+    snd : Sounding
+        The environment sounding; must carry dewpoint.
+    parcel : str, default: "surface"
+        The lifted parcel: ``"surface"`` starts from the lowest level;
+        ``"mixed-layer"`` starts from ``metpy.calc.mixed_parcel`` (its
+        100 hPa default depth is the operational convention).
+    cloud_base_correction : pint.Quantity, optional
+        A pressure-dimension correction added to the LCL pressure, applied
+        only when explicitly requested; the operational -25 mb value lives
+        in ``tephpy._constants.CLOUD_BASE_CORRECTION``. The corrected LCL
+        temperature is re-read from the dry adiabat at the corrected
+        pressure.
+    label : str, optional
+        Legend text for the profile; ``None`` means no legend entry.
+
+    Returns
+    -------
+    Profile
+        The parcel path, surface-first, with the LCL it actually uses.
+
+    Raises
+    ------
+    MissingDataError
+        If the sounding has no dewpoint.
+    ProfileTooShortError
+        If the profile tops out at or below the LCL the path would use
+        (the corrected one when a correction is requested).
+    TephpyUnitsError
+        If `cloud_base_correction` is not a pressure-dimension quantity.
+    TephpyValidationError
+        If the correction places the LCL below the parcel start.
+    ValueError
+        If `parcel` is not a known option.
+    """
+    start_pressure, start_temperature, start_dewpoint = _parcel_start(snd, parcel)
+    lcl_pressure, lcl_temperature = _lcl_used(
+        start_pressure, start_temperature, start_dewpoint, cloud_base_correction
+    )
+    _require_moist_ascent(snd, lcl_pressure)
+    # Function-local so `import tephpy` stays light (spec §3.3, §10 item 10).
+    from metpy.calc import dry_lapse, moist_lapse  # noqa: PLC0415
+    from metpy.units import units as registry  # noqa: PLC0415
+
+    p0 = float(start_pressure.m_as("hPa"))
+    lcl_hpa = float(lcl_pressure.m_as("hPa"))
+    top = float(snd.pressure[-1].m_as("hPa"))
+    step = MOIST_ADIABAT_PRESSURE_STEP
+    dry_pressure = np.arange(p0, lcl_hpa, -step)
+    moist_pressure = np.concatenate([np.arange(lcl_hpa - step, top, -step), [top]])
+    if dry_pressure.size:
+        dry_temperature = dry_lapse(
+            registry.Quantity(dry_pressure, "hPa"),
+            start_temperature,
+            reference_pressure=start_pressure,
+        ).m_as("degC")
+    else:  # A saturated parcel: Normand's point is the parcel start.
+        dry_temperature = np.empty(0, dtype=np.float64)
+    moist_temperature = moist_lapse(
+        registry.Quantity(moist_pressure, "hPa"),
+        lcl_temperature,
+        reference_pressure=lcl_pressure,
+    ).m_as("degC")
+    pressure = np.concatenate([dry_pressure, [lcl_hpa], moist_pressure])
+    temperature = np.concatenate(
+        [dry_temperature, [float(lcl_temperature.m_as("degC"))], moist_temperature]
+    )
+    return Profile(
+        pressure=registry.Quantity(pressure, "hPa"),
+        temperature=registry.Quantity(temperature, "degC"),
+        lcl_pressure=lcl_pressure,
+        lcl_temperature=lcl_temperature,
+        parcel=parcel,
+        label=label,
+    )
+
+
+def _parcel_start(
+    snd: Sounding, parcel: str
+) -> tuple[pint.Quantity, pint.Quantity, pint.Quantity]:
+    """Select the lifted parcel's starting point (spec §3.3).
+
+    Parameters
+    ----------
+    snd : Sounding
+        The environment sounding.
+    parcel : str
+        The parcel option: ``"surface"`` or ``"mixed-layer"``.
+
+    Returns
+    -------
+    tuple of pint.Quantity
+        Scalar ``(pressure, temperature, dewpoint)`` of the parcel start.
+
+    Raises
+    ------
+    MissingDataError
+        If the sounding has no dewpoint.
+    ValueError
+        If `parcel` is not a known option.
+    """
+    if parcel not in _PARCELS:
+        msg = f"parcel must be one of {_PARCELS!r}, got {parcel!r}"
+        raise ValueError(msg)
+    if snd.dewpoint is None:
+        msg = "parcel analysis needs dewpoint: this sounding has none (spec §3.4)"
+        raise MissingDataError(msg)
+    if parcel == "mixed-layer":
+        # Function-local so `import tephpy` stays light (spec §10 item 10).
+        from metpy.calc import mixed_parcel  # noqa: PLC0415
+
+        pressure, temperature, dewpoint = mixed_parcel(
+            snd.pressure, snd.temperature, snd.dewpoint
+        )
+        return pressure.to("hPa"), temperature.to("degC"), dewpoint.to("degC")
+    return snd.pressure[0], snd.temperature[0], snd.dewpoint[0]
+
+
+def _lcl_used(
+    start_pressure: pint.Quantity,
+    start_temperature: pint.Quantity,
+    start_dewpoint: pint.Quantity,
+    cloud_base_correction: object,
+) -> tuple[pint.Quantity, pint.Quantity]:
+    """Locate the LCL the ascent uses, applying any requested correction.
+
+    Parameters
+    ----------
+    start_pressure : pint.Quantity
+        Scalar parcel-start pressure.
+    start_temperature : pint.Quantity
+        Scalar parcel-start temperature.
+    start_dewpoint : pint.Quantity
+        Scalar parcel-start dewpoint.
+    cloud_base_correction : pint.Quantity or None
+        The pressure-dimension correction, or ``None`` for the plain
+        Normand's point.
+
+    Returns
+    -------
+    tuple of pint.Quantity
+        The scalar ``(pressure, temperature)`` of the LCL the path uses,
+        in hPa and degrees Celsius. The corrected LCL temperature is
+        re-read from the dry adiabat at the corrected pressure.
+
+    Raises
+    ------
+    TephpyUnitsError
+        If the correction is not a pressure-dimension quantity.
+    TephpyValidationError
+        If the correction places the LCL below the parcel start.
+    """
+    lcl_pressure, lcl_temperature = normand_point(
+        start_pressure, start_temperature, start_dewpoint
+    )
+    if cloud_base_correction is None:
+        return lcl_pressure, lcl_temperature
+    correction = _scalar_quantity(
+        cloud_base_correction, "cloud_base_correction", {}, "[pressure]"
+    )
+    corrected = (lcl_pressure + correction).to("hPa")
+    if float(corrected.m_as("hPa")) > float(start_pressure.m_as("hPa")):
+        msg = (
+            f"cloud_base_correction ({correction:~P}) places the LCL at "
+            f"{corrected:~P}, below the {start_pressure:~P} parcel start"
+        )
+        raise TephpyValidationError(msg)
+    # Function-local so `import tephpy` stays light (spec §10 item 10).
+    from metpy.calc import dry_lapse  # noqa: PLC0415
+
+    corrected_temperature = dry_lapse(
+        corrected, start_temperature, reference_pressure=start_pressure
+    )
+    return corrected, corrected_temperature.to("degC")
+
+
+def _require_moist_ascent(snd: Sounding, lcl_pressure: pint.Quantity) -> None:
+    """Require the profile to extend above the LCL the ascent uses.
+
+    Parameters
+    ----------
+    snd : Sounding
+        The environment sounding.
+    lcl_pressure : pint.Quantity
+        Scalar pressure of the LCL the ascent uses.
+
+    Raises
+    ------
+    ProfileTooShortError
+        If the profile tops out at or below the LCL — no moist ascent
+        exists (spec §6).
+    """
+    top = float(snd.pressure[-1].m_as("hPa"))
+    lcl_hpa = float(lcl_pressure.m_as("hPa"))
+    if top >= lcl_hpa:
+        msg = (
+            f"the profile tops out at {top:g} hPa, at or below the parcel's "
+            f"{lcl_hpa:g} hPa LCL: no moist ascent exists"
+        )
+        raise ProfileTooShortError(msg)
