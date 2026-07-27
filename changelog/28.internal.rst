@@ -1,0 +1,2 @@
+The ``docs`` pixi task now depends on ``docs-clean``, so ``pixi run docs`` always rebuilds from a clean tree — avoiding stale incremental renders (e.g. the ``sphinx_changelog`` towncrier draft, whose fragment files Sphinx does not track as build dependencies).
+(:user:`claude`)
