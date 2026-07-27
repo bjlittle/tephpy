@@ -67,7 +67,17 @@ numpydoc_xref_aliases = {
     "Profile": "tephpy.calc.Profile",
     "SoundingIndices": "tephpy.calc.SoundingIndices",
     "FamilySpec": "tephpy.plotting.isopleths.FamilySpec",
+    "IsoplethFamily": "tephpy.plotting.isopleths.IsoplethFamily",
     "Member": "tephpy.plotting.isopleths.Member",
+    "TephpyError": "tephpy.exceptions.TephpyError",
+    "TephpyUnitsError": "tephpy.exceptions.TephpyUnitsError",
+    "TephpyValidationError": "tephpy.exceptions.TephpyValidationError",
+    "NonMonotonicPressureError": "tephpy.exceptions.NonMonotonicPressureError",
+    "DewpointExceedsTemperatureError": (
+        "tephpy.exceptions.DewpointExceedsTemperatureError"
+    ),
+    "MissingDataError": "tephpy.exceptions.MissingDataError",
+    "ProfileTooShortError": "tephpy.exceptions.ProfileTooShortError",
 }
 numpydoc_xref_ignore = {"default", "mapping", "of", "optional", "or", "to"}
 
@@ -107,4 +117,20 @@ html_theme_options = {
     "navbar_align": "left",
 }
 
-nitpicky = False
+# -- nitpicky ----------------------------------------------------------------
+# Fail the build on any unresolved cross-reference (see developer/docs-style;
+# enforced through the docs Makefile's --fail-on-warning). The entries below
+# are the irreducible exceptions that no config can resolve: autoapi renders
+# these annotation types as ``py:class`` xrefs, but numpy publishes them as
+# ``py:data``/``py:attribute`` (a role mismatch); ``Ellipsis`` is the ``...``
+# in variadic tuples, which has no target; and ``MOIST_ADIABAT_TRUNCATION`` is
+# a parameter default from the private ``_constants`` module, which is not part
+# of the rendered API.
+nitpicky = True
+nitpick_ignore = [
+    ("py:class", "numpy.typing.ArrayLike"),
+    ("py:class", "numpy.typing.NDArray"),
+    ("py:class", "numpy.float64"),
+    ("py:class", "Ellipsis"),
+    ("py:obj", "MOIST_ADIABAT_TRUNCATION"),
+]

@@ -1,0 +1,7 @@
+The documentation is now built with Sphinx's ``nitpicky`` mode enabled, so any
+unresolved cross-reference fails the build instead of silently rendering as
+plain text. Enabling it caught and fixed references that were not linking —
+tephpy's own exceptions such as :exc:`~tephpy.exceptions.TephpyUnitsError` in
+``Raises`` sections, and :class:`~tephpy.plotting.isopleths.IsoplethFamily` in
+the tephigram axes accessors — which now resolve to their API documentation.
+(:user:`claude`)
