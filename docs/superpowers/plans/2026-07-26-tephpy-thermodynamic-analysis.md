@@ -36,7 +36,7 @@ Copied from the spec / Plans 1–4; every task's requirements implicitly include
 - **Docs:** build must stay warning-free (`pixi run docs`). Titles use CMOS headline style. Glossary entries ship with the terms this plan introduces (spec §10 cross-cutting rule); sphinx-autoapi picks up `tephpy.calc` and `tephpy.plotting.shading` automatically.
 - **Changelog:** one `changelog/<PR>.<type>.rst` fragment per PR, ending with ``(:user:`claude`)`` attribution (see `changelog/README.md`).
 - **Branch:** work on a feature branch (`no-commit-to-branch` blocks `main`): `git switch -c analysis`.
-- **Dedented listings:** the repo's blacken-docs hook formats this plan's fenced listings at top level, so code destined for a **class body** (Tasks 8(b), 10(b), 11(b)) is shown **dedented** — indent every line one level (4 spaces) when inserting into `TephigramAxes`.
+- **Dedented listings:** the repo's blacken-docs hook formats this plan's fenced listings at top level, so code destined for a **class body** (Tasks 8(b), 10(b), 11(b)) is shown **dedented** — indent every line one level (4 spaces) when inserting into `TephigramAxes`. One line sits on the 88-column boundary: Task 8(b)'s `profile_shaped = all(...)` generator is one line when dedented but re-wraps once indented — paste as shown and let `pixi run lint`'s ruff-format auto-fix wrap it (re-stage and re-run lint after auto-fixes, as always).
 - **Lint gotcha:** `pre-commit run --all-files` only checks files git knows about — **`git add` new files before `pixi run lint`** (every task's final step stages first for this reason).
 - **Environment facts (verified against the committed lockfile, 2026-07-26):** metpy 1.7.1, pint 0.25.3, numpy 2.5.1, matplotlib 3.11.1, pytest-mpl 0.19.0, numpydoc 1.10.0. Facts the design leans on, all verified empirically on 1.7.1 **and re-verified on a fresh `metpy=1.6` resolve (1.6.3) — the §6 semantics hold at the declared floor, so `metpy>=1.6` stands (spec §10 item 11)**:
   - `lcl`/`mixed_parcel`/`wet_bulb_potential_temperature` return **scalar** quantities; `lifted_index` returns a **length-1 array** quantity (`delta_degree_Celsius` — pint dimensionality `[temperature]`) that must be indexed `[0]`.
@@ -238,8 +238,9 @@ Design decisions locked here (shared vocabulary for all tasks):
 - **Lint posture:** `# numpydoc ignore=GL08` on the two overload stubs; one
   `# type: ignore[arg-type]` for `set_axes_locator(None)`; `# noqa: PLR0913`
   on `_parcel_curve` (six parameters, all necessary); function-local imports
-  carry `# noqa: PLC0415`. Codespell: avoid "Te" as a word in comments
-  (write `T_env`); write "unparsable".
+  carry `# noqa: PLC0415`. Codespell: never abbreviate environment temperature to a bare
+  two-letter word in comments or docstrings (write `T_env`); write
+  "unparsable".
 
 ---
 
@@ -277,14 +278,16 @@ from tephpy.exceptions import (
 ```
 
 In `test_hierarchy`, add the two new lines before the
-`issubclass(TephpyError, Exception)` assertion:
+`issubclass(TephpyError, Exception)` assertion (dedented listing — keep the
+function-body indentation when pasting):
 
 ```python
-    assert issubclass(MissingDataError, TephpyValidationError)
-    assert issubclass(ProfileTooShortError, TephpyValidationError)
+assert issubclass(MissingDataError, TephpyValidationError)
+assert issubclass(ProfileTooShortError, TephpyValidationError)
 ```
 
-and extend `test_subclasses_carry_levels`'s parametrize list to:
+and extend `test_subclasses_carry_levels`'s parametrize list so the whole
+decorated test reads:
 
 ```python
 @pytest.mark.parametrize(
@@ -296,6 +299,11 @@ and extend `test_subclasses_carry_levels`'s parametrize list to:
         ProfileTooShortError,
     ],
 )
+def test_subclasses_carry_levels(exception):
+    error = exception("boom", levels=(1,))
+    assert error.levels == (1,)
+    with pytest.raises(TephpyError):
+        raise error
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -2484,8 +2492,7 @@ def plot_profile(
         array, or a ``Sounding`` passed by mistake).
     """
     profile_shaped = all(
-        hasattr(pressure, attr)
-        for attr in ("pressure", "temperature", "lcl_pressure")
+        hasattr(pressure, attr) for attr in ("pressure", "temperature", "lcl_pressure")
     )
     if profile_shaped:
         if temperature is not None:
@@ -3293,8 +3300,11 @@ from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 and `Callable` joins the `TYPE_CHECKING` collections import:
 
 ```python
+if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 ```
+
+(only the `collections.abc` line changes — the rest of the block stays.)
 
 **(b)** Insert the three methods directly after `plot_sounding` (dedented
 listing — indent one level, see Global Constraints):
@@ -3523,7 +3533,9 @@ In `src/tephpy/plotting/axes.py`:
 **(a)** `import math` joins the stdlib imports (first import line),
 `make_axes_locatable` joins the third-party block (after
 `matplotlib.transforms`), the `_constants` import gains the four panel
-names, and the `TYPE_CHECKING` block gains `SoundingIndices`:
+names, and the `TYPE_CHECKING` block gains `SoundingIndices` — its
+`tephpy.calc` line becomes (dedented listing — keep the block indentation
+when pasting):
 
 ```python
 import math
@@ -3555,14 +3567,15 @@ from tephpy._constants import (
 ```
 
 ```python
-    from tephpy.calc import Profile, SoundingIndices
+from tephpy.calc import Profile, SoundingIndices
 ```
 
 **(b)** In the `TephigramAxes` class-attribute annotations, add the panel
-cache after `_families`:
+cache after `_families` (dedented listing — indent one level when
+pasting):
 
 ```python
-    _indices_panel: Axes | None
+_indices_panel: Axes | None
 ```
 
 **(c)** In `clear()`, extend the docstring's final sentence and add the
@@ -4125,7 +4138,7 @@ Task 7's test pins to `dataclasses.fields(SoundingIndices)`.
   1.10.0 has no overload handling), one justified
   `# type: ignore[arg-type]` for the `set_axes_locator(None)` stub defect,
   `# noqa: PLR0913` on `_parcel_curve`, and codespell-safe wording
-  (`T_env`, never a bare "Te").
+  (`T_env`, never the bare two-letter abbreviation).
 
 ---
 
