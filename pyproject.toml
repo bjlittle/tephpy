@@ -120,6 +120,9 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
+[tool.ruff.lint.pylint]
+max-positional-args = 6
+
 [tool.ruff.lint.per-file-ignores]
 "docs/src/conf.py" = ["INP001", "A001"]
 # DTZ001: naive datetimes are deliberate fixtures — the boundary under
