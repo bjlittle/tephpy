@@ -173,6 +173,53 @@ PROFILE_ZORDER: Final[float] = 2.5
 #: Derived sounding legend label (spec §3.4), e.g. ``"03808 2026-07-21 12Z"``.
 SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
 
+#: The operational cloud-base correction to Normand's point, in hPa: UK
+#: operational tephigram practice raises the constructed LCL by 25 mb to
+#: better match observed convective cloud base (spec §1/§3.3; Met Office
+#: forecasting practice). Applied only when explicitly requested via
+#: ``cloud_base_correction=``.
+CLOUD_BASE_CORRECTION: Final[float] = -25.0
+
+#: CAPE shading fill colour (the operational/MetPy convention: positive
+#: buoyancy red, negative blue; spec §3.2).
+CAPE_COLOR: Final[str] = "tab:red"
+
+#: CIN shading fill colour (the operational/MetPy convention).
+CIN_COLOR: Final[str] = "tab:blue"
+
+#: CAPE/CIN shading fill alpha.
+SHADING_ALPHA: Final[float] = 0.3
+
+#: CAPE/CIN shading draw order: between the isopleth families and the
+#: profile lines (spec §3.2).
+SHADING_ZORDER: Final[float] = 2.0
+
+#: Indices panel width, as an ``axes_grid1`` fraction of the diagram width
+#: (spec §3.2).
+INDICES_PANEL_WIDTH: Final[str] = "35%"
+
+#: Indices panel padding from the diagram, in inches.
+INDICES_PANEL_PAD: Final[float] = 0.1
+
+#: Indices panel text font size in points.
+INDICES_PANEL_FONTSIZE: Final[float] = 8.0
+
+#: Indices panel rows, one per ``SoundingIndices`` field, in display order:
+#: (field name, display label, pint unit to convert to, display unit,
+#: format spec). NaN values render as an em dash (spec §3.2).
+INDICES_PANEL_ROWS: Final[tuple[tuple[str, str, str, str, str], ...]] = (
+    ("cape", "CAPE", "J/kg", "J/kg", ".0f"),
+    ("cin", "CIN", "J/kg", "J/kg", ".0f"),
+    ("lcl_pressure", "LCL", "hPa", "hPa", ".0f"),
+    ("lcl_temperature", "LCL T", "degC", "°C", ".1f"),
+    ("lfc_pressure", "LFC", "hPa", "hPa", ".0f"),
+    ("lfc_temperature", "LFC T", "degC", "°C", ".1f"),
+    ("el_pressure", "EL", "hPa", "hPa", ".0f"),
+    ("el_temperature", "EL T", "degC", "°C", ".1f"),
+    ("theta_w", "θw", "degC", "°C", ".1f"),
+    ("lifted_index", "LI", "delta_degC", "°C", ".1f"),
+)
+
 #: Isopleth label font size in points.
 LABEL_FONTSIZE: Final[float] = 8.0
 
