@@ -45,6 +45,7 @@ def test_top_level_namespace():
     expected = {
         "Sounding",
         "__version__",
+        "calc",
         "config",
         "exceptions",
         "plotting",
