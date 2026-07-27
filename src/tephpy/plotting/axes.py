@@ -20,31 +20,45 @@ plans. No layout code ships in this release.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import math
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from matplotlib.axes import Axes
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 from matplotlib.projections import register_projection
 import matplotlib.transforms as mtransforms
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import (
+    CAPE_COLOR,
+    CIN_COLOR,
     DEFAULT_EXTENT,
+    INDICES_PANEL_FONTSIZE,
+    INDICES_PANEL_PAD,
+    INDICES_PANEL_ROWS,
+    INDICES_PANEL_WIDTH,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
     PROFILE_ZORDER,
+    SHADING_ALPHA,
+    SHADING_ZORDER,
 )
 from tephpy._units import as_quantity, check_units_mapping
+from tephpy.plotting import shading
 from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from matplotlib.lines import Line2D
 
+    from tephpy.calc import Profile, SoundingIndices
     from tephpy.sounding import Sounding
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
@@ -158,6 +172,7 @@ class TephigramAxes(Axes):
 
     tephigram_transform: TephigramTransform
     _families: dict[str, IsoplethFamily]
+    _indices_panel: Axes | None
 
     def clear(self) -> None:
         """Reset the axes to the tephigram projection defaults.
@@ -167,12 +182,20 @@ class TephigramAxes(Axes):
         the tephigram transform, equal aspect, hidden native axes, the
         five background isopleth families, and the default extent
         (``tephpy.config`` diagram extent, else ``DEFAULT_EXTENT``).
+        An indices panel is removed with the diagram it annotated.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
+        panel = getattr(self, "_indices_panel", None)
+        if panel is not None:
+            panel.remove()
+            # The stub demands a callable, but None resets the locator
+            # (the documented matplotlib behaviour).
+            self.set_axes_locator(None)  # type: ignore[arg-type]
+        self._indices_panel = None
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
             family = IsoplethFamily(spec, getattr(config, name))
@@ -218,7 +241,17 @@ class TephigramAxes(Axes):
         self.set_ylim(float(np.min(y)), float(np.max(y)))
         self.set_autoscale_on(False)
 
-    def plot_profile(
+    @overload
+    def plot_profile(  # numpydoc ignore=GL08
+        self,
+        pressure: Profile,
+        *,
+        label: str | None = None,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Line2D: ...
+
+    @overload
+    def plot_profile(  # numpydoc ignore=GL08
         self,
         pressure: object,
         temperature: object,
@@ -226,6 +259,16 @@ class TephigramAxes(Axes):
         units: Mapping[str, str] | None = None,
         label: str | None = None,
         **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Line2D: ...
+
+    def plot_profile(
+        self,
+        pressure: object,
+        temperature: object | None = None,
+        *,
+        units: Mapping[str, str] | None = None,
+        label: str | None = None,
+        **kwargs: Any,
     ) -> Line2D:
         """Plot one profile of temperature against pressure (spec §3.2).
 
@@ -235,15 +278,25 @@ class TephigramAxes(Axes):
         keywords pass through untouched, and out-of-domain values
         (pressure <= 0 hPa) propagate NaN, breaking the line (spec §3.1).
 
+        The same signature also accepts a ``calc.Profile`` (e.g. the
+        return of ``calc.parcel_path``) as its only positional argument;
+        dispatch is duck-typed on the ``Profile`` shape — `temperature`
+        omitted and ``pressure``/``temperature``/``lcl_pressure``
+        attributes present. Label precedence in that form: `label`
+        argument > ``profile.label`` > no entry. In both forms no style
+        defaults are set — this is the low-level primitive (spec §4
+        styles parcel paths explicitly at the call site).
+
         Parameters
         ----------
-        pressure : pint.Quantity or array_like
-            Level pressures.
-        temperature : pint.Quantity or array_like
-            Level temperatures.
+        pressure : pint.Quantity, array_like, or Profile
+            Level pressures, or the profile to plot.
+        temperature : pint.Quantity or array_like, optional
+            Level temperatures; omitted in the ``Profile`` form.
         units : mapping of str to str, optional
             Unit strings for bare arrays, keyed by argument name, e.g.
-            ``units={"pressure": "hPa", "temperature": "degC"}``.
+            ``units={"pressure": "hPa", "temperature": "degC"}``; not
+            accepted in the ``Profile`` form.
         label : str, optional
             Legend label for the line.
         **kwargs : Any
@@ -259,7 +312,34 @@ class TephigramAxes(Axes):
         TephpyUnitsError
             For unit-less bare arrays, ambiguous or unparsable units, or
             the wrong dimensionality.
+        TypeError
+            For wrong argument combinations: a ``Profile`` together with
+            `temperature` or ``units=``, or `temperature` omitted when
+            the sole argument is not ``Profile``-shaped (a bare pressure
+            array, or a ``Sounding`` passed by mistake).
         """
+        profile_shaped = all(
+            hasattr(pressure, attr)
+            for attr in ("pressure", "temperature", "lcl_pressure")
+        )
+        if profile_shaped:
+            if temperature is not None:
+                msg = "plot_profile() takes no separate temperature with a Profile"
+                raise TypeError(msg)
+            if units is not None:
+                msg = "plot_profile() takes no units= with a Profile"
+                raise TypeError(msg)
+            profile = cast("Profile", pressure)
+            pressure = profile.pressure
+            temperature = profile.temperature
+            if label is None:
+                label = profile.label
+        elif temperature is None:
+            msg = (
+                "plot_profile() needs pressure and temperature, or a single "
+                "Profile as its only positional argument"
+            )
+            raise TypeError(msg)
         mapping = check_units_mapping(units, allowed=("pressure", "temperature"))
         p = as_quantity(
             pressure,
@@ -338,6 +418,191 @@ class TephigramAxes(Axes):
                 **{"color": PROFILE_DEWPOINT_COLOR, **defaults, **kwargs},
             )
         return temperature_line, dewpoint_line
+
+    def shade_cape(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> PathPatch | None:
+        """Shade the CAPE area between the sounding and a parcel path.
+
+        The positive-buoyancy region between the environment temperature
+        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        integrates — from the LFC to the EL, to the profile top when the
+        parcel is still buoyant there — so the shading matches the
+        annotated numbers (spec §3.2). Drawn as one compound-path patch;
+        interrupted regions become multiple polygons in the same patch.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path, e.g. from ``calc.parcel_path``.
+        **kwargs : Any
+            Passed through to :class:`matplotlib.patches.PathPatch`,
+            overriding the ``_constants`` conventions.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area — 0 is an
+            answer, not an error (spec §6).
+        """
+        return self._shade(snd, parcel, shading.cape_polygons, CAPE_COLOR, kwargs)
+
+    def shade_cin(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> PathPatch | None:
+        """Shade the CIN area between the sounding and a parcel path.
+
+        The negative-buoyancy region between the environment temperature
+        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        integrates — from the parcel start to the LFC — so the shading
+        matches the annotated numbers (spec §3.2). Drawn as one
+        compound-path patch; with no LFC there is no CIN region.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path, e.g. from ``calc.parcel_path``.
+        **kwargs : Any
+            Passed through to :class:`matplotlib.patches.PathPatch`,
+            overriding the ``_constants`` conventions.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area — 0 is an
+            answer, not an error (spec §6).
+        """
+        return self._shade(snd, parcel, shading.cin_polygons, CIN_COLOR, kwargs)
+
+    def _shade(
+        self,
+        snd: Sounding,
+        parcel: Profile,
+        builder: Callable[..., list[npt.NDArray[np.float64]]],
+        facecolor: str,
+        kwargs: dict[str, Any],
+    ) -> PathPatch | None:
+        """Build one shading region and draw it as a compound-path patch.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The environment sounding.
+        parcel : Profile
+            The parcel path.
+        builder : callable
+            The ``plotting.shading`` polygon builder to delegate to.
+        facecolor : str
+            The region's conventional fill colour.
+        kwargs : dict
+            User overrides, passed through to the patch.
+
+        Returns
+        -------
+        matplotlib.patches.PathPatch or None
+            The shaded patch, or ``None`` for zero area.
+        """
+        polygons = builder(
+            snd.pressure.m_as("hPa"),
+            snd.temperature.m_as("degC"),
+            parcel.pressure.m_as("hPa"),
+            parcel.temperature.m_as("degC"),
+            lcl_pressure=float(parcel.lcl_pressure.m_as("hPa")),
+        )
+        if not polygons:
+            return None
+        vertices = []
+        codes = []
+        for polygon in polygons:
+            count = polygon.shape[0]
+            vertices.append(np.vstack([polygon, polygon[:1]]))
+            codes.append(
+                np.concatenate(
+                    [[Path.MOVETO], np.full(count - 1, Path.LINETO), [Path.CLOSEPOLY]]
+                )
+            )
+        path = Path(np.vstack(vertices), np.concatenate(codes))
+        patch = PathPatch(
+            path,
+            **{
+                "facecolor": facecolor,
+                "edgecolor": "none",
+                "alpha": SHADING_ALPHA,
+                "zorder": SHADING_ZORDER,
+                "transform": self.tephigram_transform + self.transData,
+                **kwargs,
+            },
+        )
+        self.add_patch(patch)
+        return patch
+
+    def annotate_indices(self, indices: SoundingIndices) -> Axes:
+        """Display derived parameters in a panel beside the diagram.
+
+        The first consumer of the side-of-axes contract (spec §3.2):
+        the panel is appended with the ``axes_grid1`` divider, one
+        formatted line per ``SoundingIndices`` field, NaN rendered as an
+        em dash. Calling it again updates the panel in place rather than
+        stacking a second one. With ``axes_grid1``, append order is
+        position order: once the wind-barb gutter exists (a later
+        release), ``plot_barbs`` must be called before this method for
+        the contracted inside-out order.
+
+        Parameters
+        ----------
+        indices : SoundingIndices
+            The derived parameters, e.g. from ``calc.indices``.
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The panel axes, for restyling.
+        """
+        if self._indices_panel is None:
+            divider = make_axes_locatable(self)
+            self._indices_panel = divider.append_axes(
+                "right",
+                size=INDICES_PANEL_WIDTH,
+                pad=INDICES_PANEL_PAD,
+                axes_class=Axes,
+            )
+        panel = self._indices_panel
+        panel.clear()
+        panel.set_axis_off()
+        rows = len(INDICES_PANEL_ROWS)
+        for row, (field, label, unit, display, spec) in enumerate(INDICES_PANEL_ROWS):
+            value = float(getattr(indices, field).m_as(unit))
+            text = "—" if math.isnan(value) else f"{value:{spec}} {display}"
+            y = 1.0 - (row + 0.5) / rows
+            panel.text(
+                0.04,
+                y,
+                label,
+                fontsize=INDICES_PANEL_FONTSIZE,
+                ha="left",
+                va="center",
+                transform=panel.transAxes,
+            )
+            panel.text(
+                0.96,
+                y,
+                text,
+                fontsize=INDICES_PANEL_FONTSIZE,
+                ha="right",
+                va="center",
+                transform=panel.transAxes,
+            )
+        return panel
 
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.

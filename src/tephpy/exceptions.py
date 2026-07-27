@@ -16,7 +16,9 @@ from __future__ import annotations
 
 __all__ = [
     "DewpointExceedsTemperatureError",
+    "MissingDataError",
     "NonMonotonicPressureError",
+    "ProfileTooShortError",
     "TephpyError",
     "TephpyUnitsError",
     "TephpyValidationError",
@@ -72,4 +74,23 @@ class DewpointExceedsTemperatureError(TephpyValidationError):
 
     Equality — saturation — is physical and accepted; only strict excess
     is rejected.
+    """
+
+
+class MissingDataError(TephpyValidationError):
+    """The sounding lacks a field the requested operation needs (spec §6).
+
+    Raised at the operation's boundary — the earliest point the need is
+    knowable — e.g. parcel analysis without dewpoint, or (in a later
+    release) wind barbs without wind.
+    """
+
+
+class ProfileTooShortError(TephpyValidationError):
+    """The profile tops out at or below the parcel's LCL (spec §6).
+
+    No moist ascent exists, so every parcel-derived quantity would be
+    meaningless; ``calc.parcel_path`` and ``calc.indices`` both raise
+    this. The LCL tested is the one the path would use — the corrected
+    one when a cloud-base correction is requested.
     """

@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, datetime
 
 import numpy as np
 
 from tephpy import _constants as constants
+from tephpy.calc import SoundingIndices
 
 INTERVAL_LADDERS = (
     constants.ISOTHERM_STEPS,
@@ -91,3 +93,32 @@ def test_sounding_label_format():
         station="03808", time=datetime(2026, 7, 21, 12, tzinfo=UTC)
     )
     assert label == "03808 2026-07-21 12Z"
+
+
+def test_shading_conventions():
+    """Shading draws between the families and the profile lines."""
+    family_zorders = (
+        constants.ISOTHERM_ZORDER,
+        constants.DRY_ADIABAT_ZORDER,
+        constants.ISOBAR_ZORDER,
+        constants.MIXING_RATIO_ZORDER,
+        constants.MOIST_ADIABAT_ZORDER,
+    )
+    assert max(family_zorders) < constants.SHADING_ZORDER < constants.PROFILE_ZORDER
+    # Also strictly below Matplotlib's default Line2D zorder of 2, so a parcel
+    # path drawn through plot_profile (which sets no zorder) stays above the
+    # shading rather than tying with it and being painted over.
+    assert constants.SHADING_ZORDER < 2.0
+    assert constants.CAPE_COLOR != constants.CIN_COLOR
+    assert 0.0 < constants.SHADING_ALPHA < 1.0
+
+
+def test_cloud_base_correction_is_the_operational_value():
+    """The operational correction raises the LCL by 25 mb (spec §1/§3.3)."""
+    assert constants.CLOUD_BASE_CORRECTION == -25.0
+
+
+def test_indices_panel_rows_cover_every_field():
+    """One panel row per SoundingIndices field, in field order."""
+    fields = [field.name for field in dataclasses.fields(SoundingIndices)]
+    assert [row[0] for row in constants.INDICES_PANEL_ROWS] == fields

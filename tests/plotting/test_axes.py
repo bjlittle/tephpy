@@ -6,19 +6,27 @@
 
 from __future__ import annotations
 
+import matplotlib.colors as mcolors
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 import matplotlib.pyplot as plt
 from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy import Sounding, transforms
+from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
+    CAPE_COLOR,
+    CIN_COLOR,
     DEFAULT_EXTENT,
+    INDICES_PANEL_ROWS,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
     PROFILE_ZORDER,
+    SHADING_ALPHA,
+    SHADING_ZORDER,
 )
 from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
@@ -396,3 +404,189 @@ def test_plot_sounding_kwargs_override_convention_colours(tephigram_axes):
     )
     assert temperature_line.get_color() == "purple"
     assert dewpoint_line.get_color() == "purple"
+
+
+# --- Profile plotting, shading, and the indices panel (spec §3.2/§3.3) ----
+
+CAPPED_PRESSURE = units.Quantity(
+    np.array([1000.0, 950.0, 900.0, 850.0, 700.0, 500.0, 300.0, 200.0]), "hPa"
+)
+CAPPED_TEMPERATURE = units.Quantity(
+    np.array([26.0, 24.0, 23.0, 21.0, 10.0, -12.0, -40.0, -55.0]), "degC"
+)
+CAPPED_DEWPOINT = units.Quantity(
+    np.array([20.0, 17.0, 14.0, 10.0, 2.0, -15.0, -45.0, -60.0]), "degC"
+)
+
+
+def _capped_sounding():
+    """Build a capped convective sounding with both CAPE and CIN."""
+    return Sounding(CAPPED_PRESSURE, CAPPED_TEMPERATURE, dewpoint=CAPPED_DEWPOINT)
+
+
+def test_plot_profile_accepts_a_parcel_profile(tephigram_axes):
+    """The Profile form plots the path through the transform machinery."""
+    parcel = calc.parcel_path(_capped_sounding(), label="surface parcel")
+    line = tephigram_axes.plot_profile(parcel, color="black", linestyle="--")
+    np.testing.assert_allclose(line.get_xdata(), parcel.temperature.m_as("degC"))
+    expected_theta = transforms.theta_from_pressure_temperature(
+        parcel.pressure.m_as("hPa"), parcel.temperature.m_as("degC")
+    )
+    np.testing.assert_allclose(line.get_ydata(), expected_theta)
+    assert line.get_label() == "surface parcel"
+    assert line.get_color() == "black"
+
+
+def test_plot_profile_profile_label_precedence(tephigram_axes):
+    """label= argument > profile.label > no legend entry (spec §3.2)."""
+    labelled = calc.parcel_path(_capped_sounding(), label="from the profile")
+    assert tephigram_axes.plot_profile(labelled).get_label() == "from the profile"
+    overridden = tephigram_axes.plot_profile(labelled, label="argument wins")
+    assert overridden.get_label() == "argument wins"
+    anonymous = tephigram_axes.plot_profile(calc.parcel_path(_capped_sounding()))
+    assert anonymous.get_label().startswith("_")
+
+
+def test_plot_profile_profile_form_sets_no_style_defaults(tephigram_axes):
+    """The low-level primitive: matplotlib defaults, not conventions."""
+    line = tephigram_axes.plot_profile(calc.parcel_path(_capped_sounding()))
+    assert line.get_linewidth() == plt.rcParams["lines.linewidth"]
+    assert line.get_zorder() == 2
+
+
+def test_plot_profile_wrong_combinations_are_type_errors(tephigram_axes):
+    """Bad argument shapes are TypeErrors, never units errors (spec §3.2)."""
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    with pytest.raises(TypeError, match="no separate temperature"):
+        tephigram_axes.plot_profile(parcel, CAPPED_TEMPERATURE)
+    with pytest.raises(TypeError, match="no units="):
+        tephigram_axes.plot_profile(parcel, units={"pressure": "hPa"})
+    with pytest.raises(TypeError, match="needs pressure and temperature"):
+        tephigram_axes.plot_profile(CAPPED_PRESSURE)
+    with pytest.raises(TypeError, match="needs pressure and temperature"):
+        tephigram_axes.plot_profile(snd)
+
+
+def _stable_sounding():
+    """Build a stable sounding: no positive buoyancy anywhere."""
+    return Sounding(
+        units.Quantity(np.array([1000.0, 850.0, 700.0, 500.0, 300.0]), "hPa"),
+        units.Quantity(np.array([5.0, 3.0, 0.0, -14.0, -40.0]), "degC"),
+        dewpoint=units.Quantity(np.array([-5.0, -10.0, -15.0, -30.0, -55.0]), "degC"),
+    )
+
+
+def test_shade_cape_draws_one_compound_patch(tephigram_axes):
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    patch = tephigram_axes.shade_cape(snd, parcel)
+    assert isinstance(patch, PathPatch)
+    assert patch in tephigram_axes.patches
+    expected = tephigram_axes.tephigram_transform + tephigram_axes.transData
+    assert patch.get_data_transform() == expected
+    np.testing.assert_allclose(
+        patch.get_facecolor(), mcolors.to_rgba(CAPE_COLOR, SHADING_ALPHA)
+    )
+    assert (patch.get_path().codes == Path.MOVETO).sum() == 1
+
+
+def test_shade_cin_draws_below_the_lfc(tephigram_axes):
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    patch = tephigram_axes.shade_cin(snd, parcel)
+    assert isinstance(patch, PathPatch)
+    np.testing.assert_allclose(
+        patch.get_facecolor(), mcolors.to_rgba(CIN_COLOR, SHADING_ALPHA)
+    )
+
+
+def test_shading_zorder_between_families_and_profiles(tephigram_axes):
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    parcel_line = tephigram_axes.plot_profile(parcel)
+    patch = tephigram_axes.shade_cape(snd, parcel)
+    family_zorders = [
+        family.get_zorder() for family in tephigram_axes._families.values()
+    ]
+    assert max(family_zorders) < patch.get_zorder() == SHADING_ZORDER
+    # A parcel path drawn through plot_profile sets no zorder, so it sits at
+    # Matplotlib's default; the shading must still render strictly below it
+    # (and below the PROFILE_ZORDER sounding lines).
+    assert patch.get_zorder() < parcel_line.get_zorder() < PROFILE_ZORDER
+
+
+def test_shade_kwargs_override_the_conventions(tephigram_axes):
+    snd = _capped_sounding()
+    patch = tephigram_axes.shade_cape(
+        snd, calc.parcel_path(snd), facecolor="purple", alpha=0.5
+    )
+    np.testing.assert_allclose(patch.get_facecolor(), mcolors.to_rgba("purple", 0.5))
+
+
+def test_shade_zero_area_returns_none(tephigram_axes):
+    """0 is an answer, not an error (spec §6)."""
+    snd = _stable_sounding()
+    parcel = calc.parcel_path(snd)
+    assert tephigram_axes.shade_cape(snd, parcel) is None
+    assert tephigram_axes.shade_cin(snd, parcel) is None
+
+
+def test_shading_does_not_drift_the_view(tephigram_axes):
+    """Patches never autoscale the fixed extent (spec §3.2)."""
+    before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
+    snd = _capped_sounding()
+    parcel = calc.parcel_path(snd)
+    tephigram_axes.shade_cape(snd, parcel)
+    tephigram_axes.shade_cin(snd, parcel)
+    tephigram_axes.figure.canvas.draw()
+    assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
+
+
+def test_annotate_indices_returns_a_side_panel(tephigram_axes):
+    result = calc.indices(_capped_sounding())
+    panel = tephigram_axes.annotate_indices(result)
+    assert panel in tephigram_axes.figure.axes
+    assert not isinstance(panel, TephigramAxes)
+    assert not panel.axison
+    texts = [text.get_text() for text in panel.texts]
+    assert len(texts) == 2 * len(INDICES_PANEL_ROWS)
+    assert "CAPE" in texts
+    assert any(text.endswith("J/kg") for text in texts)
+
+
+def test_annotate_indices_updates_in_place(tephigram_axes):
+    """Calling it again updates the panel, never stacks a second one."""
+    result = calc.indices(_capped_sounding())
+    panel = tephigram_axes.annotate_indices(result)
+    count = len(tephigram_axes.figure.axes)
+    assert tephigram_axes.annotate_indices(result) is panel
+    assert len(tephigram_axes.figure.axes) == count
+    assert len(panel.texts) == 2 * len(INDICES_PANEL_ROWS)
+
+
+def test_annotate_indices_renders_nan_as_em_dash(tephigram_axes):
+    """A stable sounding has no LFC/EL: those rows show an em dash."""
+    panel = tephigram_axes.annotate_indices(calc.indices(_stable_sounding()))
+    texts = [text.get_text() for text in panel.texts]
+    assert "—" in texts
+
+
+def test_clear_removes_the_indices_panel(tephigram_axes):
+    tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
+    assert len(tephigram_axes.figure.axes) == 2
+    tephigram_axes.clear()
+    assert len(tephigram_axes.figure.axes) == 1
+    assert tephigram_axes.get_axes_locator() is None
+
+
+def test_canonical_usage_composes(tephigram_axes):
+    """The spec §4 sequence works end to end (minus barbs, a later plan)."""
+    snd = _capped_sounding()
+    tephigram_axes.plot_sounding(snd)
+    parcel = calc.parcel_path(snd)
+    tephigram_axes.plot_profile(parcel, color="k", linestyle="--")
+    assert tephigram_axes.shade_cape(snd, parcel) is not None
+    assert tephigram_axes.shade_cin(snd, parcel) is not None
+    panel = tephigram_axes.annotate_indices(calc.indices(snd))
+    assert panel in tephigram_axes.figure.axes

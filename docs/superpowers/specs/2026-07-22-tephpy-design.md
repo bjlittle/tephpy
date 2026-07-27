@@ -192,7 +192,14 @@ Side-of-axes layout contract (decided in Plan 3, built by the consuming plans):
 panels beside the diagram are appended with `mpl_toolkits.axes_grid1`'s axes
 divider, which tracks the equal-aspect box height — right side, inside-out: Plan 6's
 barb gutter, then Plan 5's indices panel. Panel widths join `_constants` with their
-plans.
+plans. All side panels must share **one** cached divider: a second
+`make_axes_locatable(self)` call builds a fresh `AxesDivider` and replaces the parent
+locator, detaching the earlier panel so it draws over the newcomer. Plan 5 has the
+sole panel (`annotate_indices`), so it creates and owns the divider inline; when Plan 6
+adds `plot_barbs` it must **reuse** that divider (cache it on the axes and share it
+across the side-panel methods), not call `make_axes_locatable` again. (Raised in the
+Plan 5 review; deferred here because the two-panel path is only reachable — and
+testable — once the barb gutter exists.)
 
 ### 3.3 `calc`
 

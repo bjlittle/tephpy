@@ -10,7 +10,9 @@ import pytest
 
 from tephpy.exceptions import (
     DewpointExceedsTemperatureError,
+    MissingDataError,
     NonMonotonicPressureError,
+    ProfileTooShortError,
     TephpyError,
     TephpyUnitsError,
     TephpyValidationError,
@@ -23,6 +25,8 @@ def test_hierarchy():
     assert issubclass(TephpyValidationError, TephpyError)
     assert issubclass(NonMonotonicPressureError, TephpyValidationError)
     assert issubclass(DewpointExceedsTemperatureError, TephpyValidationError)
+    assert issubclass(MissingDataError, TephpyValidationError)
+    assert issubclass(ProfileTooShortError, TephpyValidationError)
     assert issubclass(TephpyError, Exception)
 
 
@@ -37,7 +41,13 @@ def test_validation_error_levels_default_empty():
 
 
 @pytest.mark.parametrize(
-    "exception", [NonMonotonicPressureError, DewpointExceedsTemperatureError]
+    "exception",
+    [
+        NonMonotonicPressureError,
+        DewpointExceedsTemperatureError,
+        MissingDataError,
+        ProfileTooShortError,
+    ],
 )
 def test_subclasses_carry_levels(exception):
     error = exception("boom", levels=(1,))
