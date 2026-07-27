@@ -29,3 +29,22 @@ Cross-reference the *first* mention of a glossary term per page with
 ``:term:``, in narrative prose only — never in titles, code blocks, API
 signatures, or admonition labels. Within a definition, link related terms but
 never the term itself. Keep one canonical spelling per concept.
+
+When a definition names a documented API, cross-reference it with the matching
+Sphinx domain role — ``:class:``, ``:func:``, ``:meth:``, ``:mod:``, or
+``:obj:`` — so the reader can follow the link straight into the API
+documentation, rather than quoting the name as a plain double-backtick literal.
+Keep the accessor idiom the entry reads in as the link's display text, so
+``calc.parcel_path`` and ``ax.shade_cape`` stay legible:
+
+.. code-block:: rst
+
+    avoid:   ``calc.parcel_path(...)`` computes a parcel's ascent
+    prefer:  :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` computes a parcel's ascent
+
+Third-party objects (matplotlib, numpy, …) resolve the same way through
+intersphinx. Reserve plain double-backtick literals for names with no
+documentation target: private members, dataclass fields already reachable
+through their linked owner, external tools without an intersphinx inventory
+(metpy), option strings, and keyword arguments. This mirrors the changelog
+fragment convention documented in ``changelog/README.md``.

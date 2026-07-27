@@ -1,0 +1,2 @@
+Glossary definitions now cross-reference the tephpy APIs they name — for example :class:`~tephpy.sounding.Sounding`, :func:`~tephpy.calc.parcel_path`, and :meth:`shade_cape <tephpy.plotting.axes.TephigramAxes.shade_cape>` — straight into the API documentation, and the documentation style guide records the convention.
+(:user:`claude`)
