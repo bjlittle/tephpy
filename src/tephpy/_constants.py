@@ -190,9 +190,12 @@ CIN_COLOR: Final[str] = "tab:blue"
 #: CAPE/CIN shading fill alpha.
 SHADING_ALPHA: Final[float] = 0.3
 
-#: CAPE/CIN shading draw order: between the isopleth families and the
-#: profile lines (spec §3.2).
-SHADING_ZORDER: Final[float] = 2.0
+#: CAPE/CIN shading draw order: above the isopleth families but below every
+#: profile line -- including parcel paths drawn via ``plot_profile``, which
+#: sets no zorder and so sits at Matplotlib's default ``Line2D`` zorder of 2.
+#: Kept strictly below 2 so the shading never renders over a profile line
+#: (spec §3.2).
+SHADING_ZORDER: Final[float] = 1.75
 
 #: Indices panel width, as an ``axes_grid1`` fraction of the diagram width
 #: (spec §3.2).

@@ -105,6 +105,10 @@ def test_shading_conventions():
         constants.MOIST_ADIABAT_ZORDER,
     )
     assert max(family_zorders) < constants.SHADING_ZORDER < constants.PROFILE_ZORDER
+    # Also strictly below Matplotlib's default Line2D zorder of 2, so a parcel
+    # path drawn through plot_profile (which sets no zorder) stays above the
+    # shading rather than tying with it and being painted over.
+    assert constants.SHADING_ZORDER < 2.0
     assert constants.CAPE_COLOR != constants.CIN_COLOR
     assert 0.0 < constants.SHADING_ALPHA < 1.0
 

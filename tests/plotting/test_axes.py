@@ -503,12 +503,17 @@ def test_shade_cin_draws_below_the_lfc(tephigram_axes):
 
 def test_shading_zorder_between_families_and_profiles(tephigram_axes):
     snd = _capped_sounding()
-    patch = tephigram_axes.shade_cape(snd, calc.parcel_path(snd))
+    parcel = calc.parcel_path(snd)
+    parcel_line = tephigram_axes.plot_profile(parcel)
+    patch = tephigram_axes.shade_cape(snd, parcel)
     family_zorders = [
         family.get_zorder() for family in tephigram_axes._families.values()
     ]
     assert max(family_zorders) < patch.get_zorder() == SHADING_ZORDER
-    assert patch.get_zorder() < PROFILE_ZORDER
+    # A parcel path drawn through plot_profile sets no zorder, so it sits at
+    # Matplotlib's default; the shading must still render strictly below it
+    # (and below the PROFILE_ZORDER sounding lines).
+    assert patch.get_zorder() < parcel_line.get_zorder() < PROFILE_ZORDER
 
 
 def test_shade_kwargs_override_the_conventions(tephigram_axes):
