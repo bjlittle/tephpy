@@ -1,28 +1,65 @@
+# Reference:
+#   - https://github.com/actions/checkout
+#   - https://github.com/actions/setup-python
+#   - https://github.com/snnaplab/get-labels-action
+#   - https://github.com/dorny/paths-filter
+
 name: ci-changelog
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+  push:
+    branches:
+      - "!main"
+    tags:
+      - "!v*"
+
+  workflow_dispatch:
 
 permissions: {}
 
 jobs:
   changelog:
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
-    runs-on: ubuntu-latest
+    name: 'validate changelog'
+    runs-on: "ubuntu-latest"
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    if: ${{ github.actor != 'pre-commit-ci[bot]' }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Require a news fragment for this PR
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.x'
+
+      - name: 'get PR labels'
+        uses: snnaplab/get-labels-action@f426df40304808ace3b5282d4f036515f7609576
+
+      - name: 'filter changelog'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706
+        id: changes
+        with:
+          filters: |
+            changelog:
+              - 'changelog/**'
+          list-files: 'csv'
+
+      - name: 'validate changelog'
+        if: ${{ ! contains(fromJSON(env.LABELS), 'skip-changelog') }}
         env:
-          PR: ${{ github.event.pull_request.number }}
+          CHANGELOG: "${{ steps.changes.outputs.changelog_files }}"
+          PR: "${{ github.event.number }}"
+        working-directory: .github/scripts
         run: |
-          shopt -s nullglob
-          files=(changelog/${PR}.*.rst)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::No changelog fragment changelog/${PR}.<type>.rst found. Add one or apply the 'skip-changelog' label."
-            exit 1
-          fi
-          echo "Found: ${files[*]}"
+          python -m pip install click towncrier
+          python -c "import sys; print(f'version = {sys.version}')"
+          towncrier --version
+          ./changelog.py "${PR}" "${CHANGELOG}"

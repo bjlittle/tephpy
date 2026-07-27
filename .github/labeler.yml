@@ -1,8 +1,22 @@
+"type: dependencies":
+- any:
+  - changed-files:
+    - any-glob-to-any-file: "requirements/tephpy.yml"
+    - any-glob-to-any-file: "requirements/pypi*.txt"
+    - any-glob-to-any-file: "requirements/locks/py*.txt"
 "type: documentation":
   - changed-files:
       - any-glob-to-any-file: ["docs/**"]
+"type: examples":
+- any:
+  - changed-files:
+    - any-glob-to-any-file: "src/tephpy/examples/**/*"
 "type: spec-0":
   - head-branch: ["^spec", "^spec0"]
+"type: testing":
+- any:
+  - changed-files:
+    - any-glob-to-any-file: "tests/**/*"
 "type: ci":
   - changed-files:
       - any-glob-to-any-file: [".github/**"]
