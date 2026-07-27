@@ -87,6 +87,8 @@ src = ["src", "tests", "docs/src"]
 docstring-code-format = true
 
 [tool.ruff.lint]
+# Allow information-source (U+2139) which could be confused for "i".
+allowed-confusables = ["ℹ"]
 explicit-preview-rules = true
 extend-select = ["CPY001"]
 ignore = [
@@ -117,13 +119,27 @@ force-sort-within-sections = true
 known-first-party = ["tephpy"]
 required-imports = ["from __future__ import annotations"]
 
+[tool.ruff.lint.mccabe]
+# TODO @bjlittle: refactor to reduce the complexity, if possible
+max-complexity = 17
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
 [tool.ruff.lint.pylint]
+# TODO @bjlittle: refactor to reduce the complexity, if possible
+max-branches = 16
 max-positional-args = 6
+max-statements = 53
 
 [tool.ruff.lint.per-file-ignores]
+".github/scripts/*.py" = [
+  # flake8-boolean-trap (FBT)
+  # https://docs.astral.sh/ruff/rules/#flake8-boolean-trap-fbt
+  "FBT001", # flake8-boolean-trap: Boolean-typed positional argument in function definition.
+  # https://docs.astral.sh/ruff/rules/print/
+  "T201", # flake8-print: print found.
+]
 "docs/src/conf.py" = ["INP001", "A001"]
 # DTZ001: naive datetimes are deliberate fixtures — the boundary under
 # test reads them as UTC (spec §3.4).
