@@ -433,6 +433,35 @@ def test_parcel_path_correction_wrong_dimension_raises():
         parcel_path(_sounding(), cloud_base_correction=Q(-25.0, "degC"))
 
 
+def test_parcel_path_mixed_layer_shallower_than_depth_raises():
+    """A mixed-layer parcel needs a sounding spanning its depth (spec §6)."""
+    snd = Sounding(PRESSURE[:2], TEMPERATURE[:2], dewpoint=DEWPOINT[:2])
+    with pytest.raises(ProfileTooShortError, match="mixed-layer parcel needs"):
+        parcel_path(snd, parcel="mixed-layer")
+
+
+def test_parcel_path_nan_surface_start_raises():
+    """A NaN lowest level leaves the surface parcel start undefined (spec §6)."""
+    temperature = TEMPERATURE.magnitude.copy()
+    dewpoint = DEWPOINT.magnitude.copy()
+    temperature[0] = dewpoint[0] = np.nan
+    snd = Sounding(PRESSURE, Q(temperature, "degC"), dewpoint=Q(dewpoint, "degC"))
+    with pytest.raises(TephpyValidationError, match=r"undefined \(NaN\)") as excinfo:
+        parcel_path(snd)
+    assert excinfo.value.levels == (0,)
+
+
+def test_parcel_path_mixed_layer_nan_start_raises():
+    """A NaN inside the mixed layer propagates into an undefined start."""
+    temperature = TEMPERATURE.magnitude.copy()
+    dewpoint = DEWPOINT.magnitude.copy()
+    temperature[0] = dewpoint[0] = np.nan
+    snd = Sounding(PRESSURE, Q(temperature, "degC"), dewpoint=Q(dewpoint, "degC"))
+    with pytest.raises(TephpyValidationError, match=r"undefined \(NaN\)") as excinfo:
+        parcel_path(snd, parcel="mixed-layer")
+    assert excinfo.value.levels == ()
+
+
 # --- indices ---------------------------------------------------------------
 
 # A stable sounding: no positive buoyancy anywhere (zero CAPE).
@@ -604,6 +633,24 @@ def test_indices_profile_too_short_raises():
     snd = Sounding(PRESSURE[:2], TEMPERATURE[:2], dewpoint=DEWPOINT[:2])
     with pytest.raises(ProfileTooShortError, match="no moist ascent"):
         indices(snd)
+
+
+def test_indices_mixed_layer_shallower_than_depth_raises():
+    """The mixed-layer depth guard also fronts ``indices`` (spec §6)."""
+    snd = Sounding(PRESSURE[:2], TEMPERATURE[:2], dewpoint=DEWPOINT[:2])
+    with pytest.raises(ProfileTooShortError, match="mixed-layer parcel needs"):
+        indices(snd, parcel="mixed-layer")
+
+
+def test_indices_nan_surface_start_raises():
+    """The undefined-start guard also fronts ``indices`` (spec §6)."""
+    temperature = TEMPERATURE.magnitude.copy()
+    dewpoint = DEWPOINT.magnitude.copy()
+    temperature[0] = dewpoint[0] = np.nan
+    snd = Sounding(PRESSURE, Q(temperature, "degC"), dewpoint=Q(dewpoint, "degC"))
+    with pytest.raises(TephpyValidationError, match=r"undefined \(NaN\)") as excinfo:
+        indices(snd)
+    assert excinfo.value.levels == (0,)
 
 
 def test_indices_theta_w_follows_the_parcel_option():

@@ -47,6 +47,11 @@ __all__ = ["Profile", "SoundingIndices", "indices", "normand_point", "parcel_pat
 #: The parcel-selection options (spec §3.3).
 _PARCELS: Final[tuple[str, ...]] = ("surface", "mixed-layer")
 
+#: The mixed-layer depth, in hPa (the operational convention and
+#: ``metpy.calc.mixed_parcel``'s default); passed explicitly so tephpy owns
+#: it and the sounding-span guard shares the single source of truth.
+_MIXED_LAYER_DEPTH_HPA: Final[float] = 100.0
+
 #: The ``Profile`` data fields with their required dimensionalities (spec §5).
 _PROFILE_DIMENSIONS: Final[dict[str, str]] = {
     "pressure": "[pressure]",
@@ -410,11 +415,14 @@ def parcel_path(
         If the sounding has no dewpoint.
     ProfileTooShortError
         If the profile tops out at or below the LCL the path would use
-        (the corrected one when a correction is requested).
+        (the corrected one when a correction is requested), or a
+        mixed-layer parcel is requested but the sounding spans less than
+        the mixed-layer depth.
     TephpyUnitsError
         If `cloud_base_correction` is not a pressure-dimension quantity.
     TephpyValidationError
-        If the correction places the LCL below the parcel start.
+        If the selected parcel start has an undefined (NaN) temperature or
+        dewpoint, or the correction places the LCL below the parcel start.
     ValueError
         If `parcel` is not a known option.
     """
@@ -481,6 +489,12 @@ def _parcel_start(
     ------
     MissingDataError
         If the sounding has no dewpoint.
+    ProfileTooShortError
+        If a mixed-layer parcel is requested but the sounding spans less
+        than the mixed-layer depth.
+    TephpyValidationError
+        If the selected parcel start has an undefined (NaN) temperature or
+        dewpoint.
     ValueError
         If `parcel` is not a known option.
     """
@@ -493,12 +507,66 @@ def _parcel_start(
     if parcel == "mixed-layer":
         # Function-local so `import tephpy` stays light (spec §10 item 10).
         from metpy.calc import mixed_parcel  # noqa: PLC0415
+        from metpy.units import units as registry  # noqa: PLC0415
 
+        # `mixed_parcel` integrates over the bottom `_MIXED_LAYER_DEPTH_HPA`;
+        # a shallower sounding otherwise raises a bare out-of-range
+        # ValueError from MetPy instead of the §6 hierarchy.
+        span = float(snd.pressure[0].m_as("hPa")) - float(snd.pressure[-1].m_as("hPa"))
+        if span < _MIXED_LAYER_DEPTH_HPA:
+            msg = (
+                f"mixed-layer parcel needs a sounding spanning at least its "
+                f"{_MIXED_LAYER_DEPTH_HPA:g} hPa depth; this sounding spans only "
+                f"{span:g} hPa (spec §6)"
+            )
+            raise ProfileTooShortError(msg)
         pressure, temperature, dewpoint = mixed_parcel(
-            snd.pressure, snd.temperature, snd.dewpoint
+            snd.pressure,
+            snd.temperature,
+            snd.dewpoint,
+            depth=registry.Quantity(_MIXED_LAYER_DEPTH_HPA, "hPa"),
         )
-        return pressure.to("hPa"), temperature.to("degC"), dewpoint.to("degC")
-    return snd.pressure[0], snd.temperature[0], snd.dewpoint[0]
+        start = pressure.to("hPa"), temperature.to("degC"), dewpoint.to("degC")
+        # A NaN inside the mixed layer propagates into an undefined start.
+        _require_defined_start(start, levels=())
+        return start
+    start = snd.pressure[0], snd.temperature[0], snd.dewpoint[0]
+    # `Sounding` admits NaN temperature/dewpoint; a NaN lowest level would
+    # otherwise yield a NaN LCL and bare downstream ValueErrors.
+    _require_defined_start(start, levels=(0,))
+    return start
+
+
+def _require_defined_start(
+    start: tuple[pint.Quantity, pint.Quantity, pint.Quantity],
+    *,
+    levels: tuple[int, ...],
+) -> None:
+    """Reject a parcel start with an undefined (NaN) temperature or dewpoint.
+
+    Parameters
+    ----------
+    start : tuple of pint.Quantity
+        The scalar ``(pressure, temperature, dewpoint)`` parcel start.
+    levels : tuple of int
+        The offending level indices to attribute the failure to; empty when
+        no single level is responsible (e.g. a mixed-layer average).
+
+    Raises
+    ------
+    TephpyValidationError
+        If the start temperature or dewpoint is not finite.
+    """
+    _, temperature, dewpoint = start
+    finite = np.isfinite(
+        [float(temperature.m_as("degC")), float(dewpoint.m_as("degC"))]
+    )
+    if not finite.all():
+        msg = (
+            "parcel start has an undefined (NaN) temperature or dewpoint; "
+            "no parcel can be lifted from it (spec §6)"
+        )
+        raise TephpyValidationError(msg, levels=levels)
 
 
 def _lcl_used(
@@ -627,11 +695,14 @@ def indices(
     MissingDataError
         If the sounding has no dewpoint.
     ProfileTooShortError
-        If the profile tops out at or below the LCL the parcel would use.
+        If the profile tops out at or below the LCL the parcel would use,
+        or a mixed-layer parcel is requested but the sounding spans less
+        than the mixed-layer depth.
     TephpyUnitsError
         If `cloud_base_correction` is not a pressure-dimension quantity.
     TephpyValidationError
-        If the correction places the LCL below the parcel start.
+        If the selected parcel start has an undefined (NaN) temperature or
+        dewpoint, or the correction places the LCL below the parcel start.
     ValueError
         If `parcel` is not a known option.
     """
