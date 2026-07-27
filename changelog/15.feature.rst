@@ -1,2 +1,2 @@
-Added the five zoom-aware background isopleth families with per-family accessor methods, ``TephigramAxes.set_extent``, the ``tephpy.config`` runtime configuration layer, and pytest-mpl image baselines.
+Added the five zoom-aware background isopleth families with per-family accessor methods, :meth:`TephigramAxes.set_extent <tephpy.plotting.axes.TephigramAxes.set_extent>`, the ``tephpy.config`` runtime configuration layer, and pytest-mpl image baselines.
 (:user:`claude`)

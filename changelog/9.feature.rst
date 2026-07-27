@@ -1,2 +1,2 @@
-Added the tephigram coordinate transforms and a minimal ``"tephigram"`` Matplotlib projection, cross-validated against tephi.
+Added the tephigram coordinate :mod:`~tephpy.transforms` and a minimal ``"tephigram"`` Matplotlib projection, cross-validated against tephi.
 (:user:`claude`)
