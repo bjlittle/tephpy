@@ -83,7 +83,8 @@ cross-reference rules.
         by condensation makes it cool more slowly than a :term:`dry
         adiabat`. Each curve is labelled by its :term:`wet-bulb potential
         temperature` — the temperature where it crosses 1000 hPa.
-        ``tephpy`` computes moist adiabats with ``metpy.calc.moist_lapse``
+        ``tephpy`` computes moist adiabats with
+        :func:`metpy.calc.moist_lapse`
         and truncates them at low temperature where they converge onto
         the dry adiabats; "moist adiabat" is the canonical name, matching
         the AMS Glossary headword and MetPy's vocabulary.

@@ -143,7 +143,7 @@ def isotherm_members(values: npt.ArrayLike) -> list[Member]:
 
     Parameters
     ----------
-    values : array_like
+    values : ArrayLike
         Member temperatures in degrees Celsius.
 
     Returns
@@ -165,7 +165,7 @@ def dry_adiabat_members(values: npt.ArrayLike) -> list[Member]:
 
     Parameters
     ----------
-    values : array_like
+    values : ArrayLike
         Member potential temperatures in degrees Celsius.
 
     Returns
@@ -189,7 +189,7 @@ def isobar_members(values: npt.ArrayLike) -> list[Member]:
 
     Parameters
     ----------
-    values : array_like
+    values : ArrayLike
         Member pressures in hPa.
 
     Returns
@@ -223,7 +223,7 @@ def moist_adiabat_members(
 
     Parameters
     ----------
-    values : array_like
+    values : ArrayLike
         Member wet-bulb potential temperatures in degrees Celsius.
     truncation : float, default: MOIST_ADIABAT_TRUNCATION
         Temperature (°C) below which the curves are truncated.
@@ -267,7 +267,7 @@ def mixing_ratio_members(values: npt.ArrayLike) -> list[Member]:
 
     Parameters
     ----------
-    values : array_like
+    values : ArrayLike
         Member humidity mixing ratios in g/kg.
 
     Returns
