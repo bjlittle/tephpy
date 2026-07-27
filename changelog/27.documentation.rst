@@ -1,0 +1,2 @@
+Documented the changelog-fragment convention of cross-referencing documented APIs with Sphinx roles instead of quoting the names, and applied it to the existing fragments.
+(:user:`claude`)
