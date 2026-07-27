@@ -67,12 +67,20 @@ Parameter and return *types* are cross-referenced automatically. With
 ``numpydoc_xref_param_type`` enabled, numpydoc turns each type in a
 ``Parameters``/``Returns`` block into a link: fully-qualified names
 (``pint.Quantity``, ``numpy.ndarray``) resolve through intersphinx, tephpy's own
-short type names (``Sounding``, ``Profile``) are mapped to their targets in
-``numpydoc_xref_aliases``, and descriptive connective words (``optional``,
+short type names (``Sounding``, ``Profile``, the ``Tephpy*Error`` exceptions) are
+mapped to their targets in ``numpydoc_xref_aliases``, and descriptive connective
+words (``optional``,
 ``of``) are listed in ``numpydoc_xref_ignore``. Write the type as its plain
 qualified name — ``pint.Quantity``, not a hand-written role — and let the
 configuration link it.
 
-``nitpicky`` is off, so an unresolved cross-reference renders silently as plain
-text with no build warning. Verify a new reference actually links by building
-the documentation and checking the rendered page, not by a warning-free build.
+``nitpicky`` is enabled, so an unresolved cross-reference is a warning and — via
+the docs Makefile's ``--fail-on-warning`` — fails the build. A reference that
+does not resolve is therefore caught automatically; a clean build is proof the
+links land. The only sanctioned exceptions live in ``nitpick_ignore`` in
+``conf.py``: annotation types autoapi emits as ``py:class`` xrefs while numpy
+publishes them as ``py:data``/``py:attribute`` (``numpy.typing.ArrayLike``,
+``numpy.typing.NDArray``, ``numpy.float64``), the ``Ellipsis`` in variadic
+tuples, and parameter defaults from the private ``_constants`` module. Do not
+extend that list to silence a reference you can instead make resolve — add a
+``numpydoc_xref_aliases`` entry or write the full dotted name.
