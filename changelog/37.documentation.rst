@@ -1,0 +1,6 @@
+Documented the attribute-documentation convention for the API reference in the
+:doc:`developer style guide </developer/docs-style>`. Because ``sphinx-autoapi``
+parses the source statically, Sphinx ``#:`` doc-comments are dropped from the
+rendered page, so a documented attribute uses the numpydoc ``Attributes``
+section or a PEP 224 attribute docstring (a triple-quoted string below the
+assignment) instead. (:user:`claude`)
