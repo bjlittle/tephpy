@@ -34,8 +34,8 @@ cross-reference rules.
         One curve of a temperature-like quantity against pressure — a
         :term:`sounding`'s temperature or dewpoint trace, or a computed
         :term:`parcel` path (the ``calc.Profile`` dataclass).
-        ``ax.plot_profile(...)`` draws either through the tephigram
-        transform machinery.
+        ``ax.plot_profile(...)`` draws it through the tephigram transform
+        machinery.
 
     potential temperature
         The temperature an air parcel would have if moved dry-adiabatically
