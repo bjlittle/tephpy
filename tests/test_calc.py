@@ -613,3 +613,72 @@ def test_indices_theta_w_follows_the_parcel_option():
     expected = mpcalc.wet_bulb_potential_temperature(*start)
     assert mixed.theta_w.m_as("degC") == expected.m_as("degC")
     assert mixed.theta_w.m_as("degC") != surface.theta_w.m_as("degC")
+
+
+# --- the published worked example (spec §7, §10 item 13) -------------------
+
+# Stull, R., 2017: "Practical Meteorology: An Algebra-based Survey of
+# Atmospheric Science", version 1.02b, CC BY-NC-SA 4.0, ch. 14 p. 496
+# (https://www.eoas.ubc.ca/books/Practical_Meteorology/): the sample
+# application sounding — P (kPa) 100, 96, 80, 70, 50, 30, 20; T (°C) 30,
+# 25, 10, 15, -10, -35, -35; surface Td 20 °C — with published
+# thermo-diagram answers P_LCL = 87 kPa, P_LFC = 60 kPa, P_EL = 24 kPa.
+# Values transcribed from the chapter PDF on 2026-07-26: a handful of
+# numeric facts, reproduced with citation. The environment dewpoints above
+# the surface are not published; the placeholders below enter only
+# cape_cin's virtual-temperature correction, not the LCL/LFC/EL
+# comparisons.
+STULL_PRESSURE = Q(np.array([1000.0, 960.0, 800.0, 700.0, 500.0, 300.0, 200.0]), "hPa")
+STULL_TEMPERATURE = Q(np.array([30.0, 25.0, 10.0, 15.0, -10.0, -35.0, -35.0]), "degC")
+STULL_DEWPOINT = Q(np.array([20.0, 15.0, 0.0, -5.0, -25.0, -50.0, -60.0]), "degC")
+
+
+def test_worked_example_stull_ch14():
+    """Integration: the published Stull ch. 14 parcel-ascent answers."""
+    snd = Sounding(STULL_PRESSURE, STULL_TEMPERATURE, dewpoint=STULL_DEWPOINT)
+    result = indices(snd)
+    # Stull reads 870 and 600 off a full-size skew-T; his own Sample
+    # Applications carry a "slightly different answer if you used a
+    # different thermo diagram... is normal" caveat.
+    assert result.lcl_pressure.m_as("hPa") == pytest.approx(870.0, abs=10.0)
+    assert result.lfc_pressure.m_as("hPa") == pytest.approx(600.0, abs=5.0)
+    # The published EL (240 hPa) sits in the isothermal -35 °C layer,
+    # where the crossing is hypersensitive to the moist-adiabat
+    # formulation: metpy 1.7.1 places it at 275 hPa. Divergence
+    # documented, not forced to zero (spec §7).
+    assert 240.0 <= result.el_pressure.m_as("hPa") <= 300.0
+    assert result.cin.m_as("J/kg") == 0.0
+
+
+def test_worked_example_cape_against_stull_equation_14_5():
+    """CAPE agrees with Stull's published pressure-integral, eq. (14.5).
+
+    CAPE = Rd * sum((T_parcel - T_env) * ln(p_bottom / p_top)) over the
+    area between the LFC and the EL — evaluated here on a fine ln-p grid
+    over MetPy's own parcel curve. cape_cin integrates the same area in
+    *virtual* temperature (the Doswell & Rasmussen correction), which
+    inflates it — by 14% for this moist parcel over its dry mid-level
+    environment (1182 vs 1033 J/kg, metpy 1.7.1). The check pins the
+    magnitude and the direction of that documented divergence: a
+    composition bug (wrong units, wrong curve, wrong bounds) lands far
+    outside it.
+    """
+    snd = Sounding(STULL_PRESSURE, STULL_TEMPERATURE, dewpoint=STULL_DEWPOINT)
+    result = indices(snd)
+    curve = mpcalc.parcel_profile(
+        STULL_PRESSURE, STULL_TEMPERATURE[0], STULL_DEWPOINT[0]
+    )
+    # cape_cin's integration bounds: its LFC ("bottom") is the LCL here —
+    # the parcel is buoyant from the LCL up — and its EL is the reported
+    # one.
+    bottom = result.lcl_pressure.m_as("hPa")
+    top = result.el_pressure.m_as("hPa")
+    grid = np.geomspace(bottom, top, 4001)
+    x = -np.log(STULL_PRESSURE.m_as("hPa"))
+    environment = np.interp(-np.log(grid), x, STULL_TEMPERATURE.m_as("degC"))
+    parcel = np.interp(-np.log(grid), x, curve.m_as("degC"))
+    rd = 287.053
+    cape_stull = rd * np.trapezoid(parcel - environment, -np.log(grid))
+    cape = result.cape.m_as("J/kg")
+    assert cape >= cape_stull
+    assert cape == pytest.approx(cape_stull, rel=0.2)
