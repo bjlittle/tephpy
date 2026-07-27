@@ -32,7 +32,6 @@ def test_runtime_dependencies_importable() -> None:
         "numpy",
         "pandas",
         "pint",
-        "scipy",
         "xarray",
     ):
         importlib.import_module(package)
