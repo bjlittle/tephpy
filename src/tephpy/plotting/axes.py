@@ -20,6 +20,7 @@ plans. No layout code ships in this release.
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from matplotlib.axes import Axes
@@ -27,6 +28,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.projections import register_projection
 import matplotlib.transforms as mtransforms
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import numpy.typing as npt
 
@@ -36,6 +38,10 @@ from tephpy._constants import (
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
+    INDICES_PANEL_FONTSIZE,
+    INDICES_PANEL_PAD,
+    INDICES_PANEL_ROWS,
+    INDICES_PANEL_WIDTH,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -52,7 +58,7 @@ if TYPE_CHECKING:
 
     from matplotlib.lines import Line2D
 
-    from tephpy.calc import Profile
+    from tephpy.calc import Profile, SoundingIndices
     from tephpy.sounding import Sounding
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
@@ -166,6 +172,7 @@ class TephigramAxes(Axes):
 
     tephigram_transform: TephigramTransform
     _families: dict[str, IsoplethFamily]
+    _indices_panel: Axes | None
 
     def clear(self) -> None:
         """Reset the axes to the tephigram projection defaults.
@@ -175,12 +182,20 @@ class TephigramAxes(Axes):
         the tephigram transform, equal aspect, hidden native axes, the
         five background isopleth families, and the default extent
         (``tephpy.config`` diagram extent, else ``DEFAULT_EXTENT``).
+        An indices panel is removed with the diagram it annotated.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
+        panel = getattr(self, "_indices_panel", None)
+        if panel is not None:
+            panel.remove()
+            # The stub demands a callable, but None resets the locator
+            # (the documented matplotlib behaviour).
+            self.set_axes_locator(None)  # type: ignore[arg-type]
+        self._indices_panel = None
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
             family = IsoplethFamily(spec, getattr(config, name))
@@ -530,6 +545,64 @@ class TephigramAxes(Axes):
         )
         self.add_patch(patch)
         return patch
+
+    def annotate_indices(self, indices: SoundingIndices) -> Axes:
+        """Display derived parameters in a panel beside the diagram.
+
+        The first consumer of the side-of-axes contract (spec §3.2):
+        the panel is appended with the ``axes_grid1`` divider, one
+        formatted line per ``SoundingIndices`` field, NaN rendered as an
+        em dash. Calling it again updates the panel in place rather than
+        stacking a second one. With ``axes_grid1``, append order is
+        position order: once the wind-barb gutter exists (a later
+        release), ``plot_barbs`` must be called before this method for
+        the contracted inside-out order.
+
+        Parameters
+        ----------
+        indices : SoundingIndices
+            The derived parameters, e.g. from ``calc.indices``.
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The panel axes, for restyling.
+        """
+        if self._indices_panel is None:
+            divider = make_axes_locatable(self)
+            self._indices_panel = divider.append_axes(
+                "right",
+                size=INDICES_PANEL_WIDTH,
+                pad=INDICES_PANEL_PAD,
+                axes_class=Axes,
+            )
+        panel = self._indices_panel
+        panel.clear()
+        panel.set_axis_off()
+        rows = len(INDICES_PANEL_ROWS)
+        for row, (field, label, unit, display, spec) in enumerate(INDICES_PANEL_ROWS):
+            value = float(getattr(indices, field).m_as(unit))
+            text = "—" if math.isnan(value) else f"{value:{spec}} {display}"
+            y = 1.0 - (row + 0.5) / rows
+            panel.text(
+                0.04,
+                y,
+                label,
+                fontsize=INDICES_PANEL_FONTSIZE,
+                ha="left",
+                va="center",
+                transform=panel.transAxes,
+            )
+            panel.text(
+                0.96,
+                y,
+                text,
+                fontsize=INDICES_PANEL_FONTSIZE,
+                ha="right",
+                va="center",
+                transform=panel.transAxes,
+            )
+        return panel
 
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.

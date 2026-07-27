@@ -20,6 +20,7 @@ from tephpy._constants import (
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
+    INDICES_PANEL_ROWS,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -535,3 +536,52 @@ def test_shading_does_not_drift_the_view(tephigram_axes):
     tephigram_axes.shade_cin(snd, parcel)
     tephigram_axes.figure.canvas.draw()
     assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
+
+
+def test_annotate_indices_returns_a_side_panel(tephigram_axes):
+    result = calc.indices(_capped_sounding())
+    panel = tephigram_axes.annotate_indices(result)
+    assert panel in tephigram_axes.figure.axes
+    assert not isinstance(panel, TephigramAxes)
+    assert not panel.axison
+    texts = [text.get_text() for text in panel.texts]
+    assert len(texts) == 2 * len(INDICES_PANEL_ROWS)
+    assert "CAPE" in texts
+    assert any(text.endswith("J/kg") for text in texts)
+
+
+def test_annotate_indices_updates_in_place(tephigram_axes):
+    """Calling it again updates the panel, never stacks a second one."""
+    result = calc.indices(_capped_sounding())
+    panel = tephigram_axes.annotate_indices(result)
+    count = len(tephigram_axes.figure.axes)
+    assert tephigram_axes.annotate_indices(result) is panel
+    assert len(tephigram_axes.figure.axes) == count
+    assert len(panel.texts) == 2 * len(INDICES_PANEL_ROWS)
+
+
+def test_annotate_indices_renders_nan_as_em_dash(tephigram_axes):
+    """A stable sounding has no LFC/EL: those rows show an em dash."""
+    panel = tephigram_axes.annotate_indices(calc.indices(_stable_sounding()))
+    texts = [text.get_text() for text in panel.texts]
+    assert "—" in texts
+
+
+def test_clear_removes_the_indices_panel(tephigram_axes):
+    tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
+    assert len(tephigram_axes.figure.axes) == 2
+    tephigram_axes.clear()
+    assert len(tephigram_axes.figure.axes) == 1
+    assert tephigram_axes.get_axes_locator() is None
+
+
+def test_canonical_usage_composes(tephigram_axes):
+    """The spec §4 sequence works end to end (minus barbs, a later plan)."""
+    snd = _capped_sounding()
+    tephigram_axes.plot_sounding(snd)
+    parcel = calc.parcel_path(snd)
+    tephigram_axes.plot_profile(parcel, color="k", linestyle="--")
+    assert tephigram_axes.shade_cape(snd, parcel) is not None
+    assert tephigram_axes.shade_cin(snd, parcel) is not None
+    panel = tephigram_axes.annotate_indices(calc.indices(snd))
+    assert panel in tephigram_axes.figure.axes
