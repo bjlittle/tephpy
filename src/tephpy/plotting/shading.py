@@ -12,7 +12,7 @@ transform as one compound-path ``PathPatch`` per call.
 
 Both curves are interpolated onto their merged pressure grid (linear in
 ln p) with the exact buoyancy sign-change crossings inserted, and the
-regions are bounded as ``metpy.calc.cape_cin`` integrates (its
+regions are bounded as :func:`metpy.calc.cape_cin` integrates (its
 ``which_lfc="bottom"``/``which_el="top"`` defaults): CAPE is the
 positive-buoyancy region between the LFC — the bottom of the lowest
 positive run at or above the LCL — and the EL — the top of the highest

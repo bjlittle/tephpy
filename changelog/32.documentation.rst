@@ -1,0 +1,2 @@
+Third-party APIs in the documentation now cross-reference into their upstream docs through intersphinx — for example :func:`metpy.calc.moist_lapse`, :class:`pint.Quantity`, :class:`pandas.DataFrame`, and :class:`xarray.Dataset` — and every numpydoc parameter and return type links automatically, with the convention recorded in the documentation style guide.
+(:user:`claude`)

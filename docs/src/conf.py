@@ -55,6 +55,19 @@ extlinks = {
 
 # -- numpydoc ----------------------------------------------------------------
 numpydoc_show_class_members = False
+# Cross-reference parameter/return types (see developer/docs-style). Full
+# dotted names (``pint.Quantity``, ``numpy.ndarray``, ``metpy.calc.*``) resolve
+# through intersphinx; map tephpy's own short type names to their
+# fully-qualified targets, and skip the descriptive connective words.
+numpydoc_xref_param_type = True
+numpydoc_xref_aliases = {
+    "Sounding": "tephpy.sounding.Sounding",
+    "Profile": "tephpy.calc.Profile",
+    "SoundingIndices": "tephpy.calc.SoundingIndices",
+    "FamilySpec": "tephpy.plotting.isopleths.FamilySpec",
+    "Member": "tephpy.plotting.isopleths.Member",
+}
+numpydoc_xref_ignore = {"default", "mapping", "of", "optional", "or", "to"}
 
 # -- bibtex ------------------------------------------------------------------
 bibtex_bibfiles = ["refs.bib"]
@@ -71,8 +84,12 @@ nb_execution_mode = "off"
 # -- intersphinx -------------------------------------------------------------
 intersphinx_mapping = {
     "matplotlib": ("https://matplotlib.org/stable/", None),
+    "metpy": ("https://unidata.github.io/MetPy/latest/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "pint": ("https://pint.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
 
 # -- HTML output -------------------------------------------------------------

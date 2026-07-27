@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Tephigram-native thermodynamic analysis over ``metpy.calc`` (spec §3.3).
+"""Tephigram-native thermodynamic analysis over :mod:`metpy.calc` (spec §3.3).
 
 Physics is delegated to MetPy; only tephigram-native compositions live
 here, and everything returns pint quantities on the shared registry
@@ -393,7 +393,7 @@ def parcel_path(
         The environment sounding; must carry dewpoint.
     parcel : str, default: "surface"
         The lifted parcel: ``"surface"`` starts from the lowest level;
-        ``"mixed-layer"`` starts from ``metpy.calc.mixed_parcel`` (its
+        ``"mixed-layer"`` starts from :func:`metpy.calc.mixed_parcel` (its
         100 hPa default depth is the operational convention).
     cloud_base_correction : pint.Quantity, optional
         A pressure-dimension correction added to the LCL pressure, applied
@@ -663,7 +663,7 @@ def indices(
 
     The mechanism: derive the parcel curve on the environment levels
     under the same parcel-selection and correction rules as
-    :func:`parcel_path`, then feed it to the generic ``metpy.calc``
+    :func:`parcel_path`, then feed it to the generic :mod:`metpy.calc`
     functions that take a parcel-profile argument (``cape_cin``, ``lfc``,
     ``el``, ``lifted_index``). With the defaults this reduces to plain
     surface-parcel delegation. The ``lcl_*`` fields report the point the

@@ -428,7 +428,7 @@ class TephigramAxes(Axes):
         """Shade the CAPE area between the sounding and a parcel path.
 
         The positive-buoyancy region between the environment temperature
-        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        and the parcel path, bounded as :func:`metpy.calc.cape_cin`
         integrates — from the LFC to the EL, to the profile top when the
         parcel is still buoyant there — so the shading matches the
         annotated numbers (spec §3.2). Drawn as one compound-path patch;
@@ -461,7 +461,7 @@ class TephigramAxes(Axes):
         """Shade the CIN area between the sounding and a parcel path.
 
         The negative-buoyancy region between the environment temperature
-        and the parcel path, bounded as ``metpy.calc.cape_cin``
+        and the parcel path, bounded as :func:`metpy.calc.cape_cin`
         integrates — from the parcel start to the LFC — so the shading
         matches the annotated numbers (spec §3.2). Drawn as one
         compound-path patch; with no LFC there is no CIN region.
