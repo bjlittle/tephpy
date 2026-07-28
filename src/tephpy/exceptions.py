@@ -20,6 +20,7 @@ __all__ = [
     "NonMonotonicPressureError",
     "ProfileTooShortError",
     "TephpyError",
+    "TephpyIOError",
     "TephpyUnitsError",
     "TephpyValidationError",
 ]
@@ -83,6 +84,16 @@ class MissingDataError(TephpyValidationError):
     Raised at the operation's boundary — the earliest point the need is
     knowable — e.g. parcel analysis without dewpoint, or (in a later
     release) wind barbs without wind.
+    """
+
+
+class TephpyIOError(TephpyError):
+    """A reader could not fetch or make sense of its source (spec §6).
+
+    Network failures, HTTP errors, the archive's "no data" replies, a
+    malformed or unrecognisable file, and an ambiguous read (an IGRA
+    station file holding many soundings with no ``time=`` selector) all
+    raise this, summarising the upstream response or file state.
     """
 
 

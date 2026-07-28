@@ -17,10 +17,14 @@ repos:
       - id: check-yaml
       - id: debug-statements
       - id: end-of-file-fixer
-        exclude: '\.svg$'
+        exclude: '\.svg$|^tests/fixtures/io/'
       - id: mixed-line-ending
+        exclude: '^tests/fixtures/io/'
       - id: no-commit-to-branch
       - id: trailing-whitespace
+        # The io fixtures are byte-faithful archive captures (their records
+        # legitimately end with a trailing space).
+        exclude: '^tests/fixtures/io/'
 
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.25

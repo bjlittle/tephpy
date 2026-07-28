@@ -10,12 +10,14 @@ mapping exposed as an invertible matplotlib transform and the five
 background isopleth families drawn by default as zoom-aware artists
 (spec §3.2).
 
-Side-of-axes layout contract (spec §10 item 7 — decided here, built by the
-consuming plans): panels beside the diagram are appended with
-``mpl_toolkits.axes_grid1``'s axes divider, which tracks the equal-aspect
-box height — right side, inside-out: the wind-barb gutter (Plan 6), then
-the indices panel (Plan 5). Panel widths join ``_constants`` with their
-plans. No layout code ships in this release.
+Side-of-axes layout contract (spec §10 item 7): panels beside the diagram
+are appended with ``mpl_toolkits.axes_grid1``'s axes divider, which tracks
+the equal-aspect box height — right side, inside-out: the wind-barb
+gutter, then the indices panel. One divider is created per axes, cached,
+and shared by every side-panel method; ``_relayout_side_panels`` rebuilds
+the divider's horizontal stack and reassigns every locator whenever a
+panel appears, so the inside-out order holds regardless of the order the
+panel methods are called in (spec §3.2).
 """
 
 from __future__ import annotations
@@ -28,13 +30,17 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.projections import register_projection
 import matplotlib.transforms as mtransforms
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1 import axes_size, make_axes_locatable
 import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import (
+    BARB_GUTTER_PAD,
+    BARB_GUTTER_WIDTH,
+    BARB_MIN_SEPARATION,
+    BARB_STAFF_POSITION,
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
@@ -50,13 +56,16 @@ from tephpy._constants import (
     SHADING_ZORDER,
 )
 from tephpy._units import as_quantity, check_units_mapping
+from tephpy.exceptions import MissingDataError
 from tephpy.plotting import shading
+from tephpy.plotting.barbs import BarbStaff
 from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
     from matplotlib.lines import Line2D
+    from mpl_toolkits.axes_grid1.axes_divider import AxesDivider
 
     from tephpy.calc import Profile, SoundingIndices
     from tephpy.sounding import Sounding
@@ -173,6 +182,8 @@ class TephigramAxes(Axes):
     tephigram_transform: TephigramTransform
     _families: dict[str, IsoplethFamily]
     _indices_panel: Axes | None
+    _barb_gutter: Axes | None
+    _side_divider: AxesDivider | None
 
     def clear(self) -> None:
         """Reset the axes to the tephigram projection defaults.
@@ -182,20 +193,27 @@ class TephigramAxes(Axes):
         the tephigram transform, equal aspect, hidden native axes, the
         five background isopleth families, and the default extent
         (``tephpy.config`` diagram extent, else ``DEFAULT_EXTENT``).
-        An indices panel is removed with the diagram it annotated.
+        Side panels — the barb gutter and the indices panel — are
+        removed with the diagram they annotated.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
-        panel = getattr(self, "_indices_panel", None)
-        if panel is not None:
-            panel.remove()
+        removed = False
+        for name in ("_barb_gutter", "_indices_panel"):
+            panel = getattr(self, name, None)
+            if panel is not None:
+                panel.remove()
+                removed = True
+        if removed:
             # The stub demands a callable, but None resets the locator
             # (the documented matplotlib behaviour).
             self.set_axes_locator(None)  # type: ignore[arg-type]
         self._indices_panel = None
+        self._barb_gutter = None
+        self._side_divider = None
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
             family = IsoplethFamily(spec, getattr(config, name))
@@ -546,6 +564,142 @@ class TephigramAxes(Axes):
         self.add_patch(patch)
         return patch
 
+    def _append_side_axes(
+        self,
+        *,
+        width: str,
+        pad: float,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> Axes:
+        """Append one side panel through the shared, cached divider.
+
+        The divider is created on first use and reused by every
+        side-panel method — a second ``make_axes_locatable`` call would
+        build a fresh divider and detach the earlier panel (spec §3.2).
+        The caller stores the returned axes on its slot attribute and
+        must call :meth:`_relayout_side_panels` afterwards.
+
+        Parameters
+        ----------
+        width : str
+            The panel width, as an ``axes_grid1`` size (e.g. ``"35%"``).
+        pad : float
+            The panel padding from the diagram, in inches.
+        **kwargs : Any
+            Passed through to the axes constructor (e.g. ``sharey=``).
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The appended plain axes.
+        """
+        if self._side_divider is None:
+            self._side_divider = make_axes_locatable(self)
+        return cast(
+            "Axes",
+            self._side_divider.append_axes(
+                "right", size=width, pad=pad, axes_class=Axes, **kwargs
+            ),
+        )
+
+    def _relayout_side_panels(self) -> None:
+        """Rebuild the divider stack in the contracted inside-out order.
+
+        ``append_axes`` stacks panels in call order; this rebuilds the
+        divider's horizontal sizes as diagram, barb gutter, indices
+        panel — skipping absent panels — and reassigns every locator, so
+        the spec §3.2 order holds regardless of the order the panel
+        methods were called in.
+        """
+        divider = self._side_divider
+        if divider is None:
+            return
+        horizontal = [axes_size.AxesX(self)]
+        slots: list[tuple[Axes, int]] = []
+        panels: tuple[tuple[Axes | None, float, str], ...] = (
+            (self._barb_gutter, BARB_GUTTER_PAD, BARB_GUTTER_WIDTH),
+            (self._indices_panel, INDICES_PANEL_PAD, INDICES_PANEL_WIDTH),
+        )
+        for panel, pad, width in panels:
+            if panel is None:
+                continue
+            horizontal.append(axes_size.Fixed(pad))
+            horizontal.append(axes_size.from_any(width, fraction_ref=horizontal[0]))
+            slots.append((panel, len(horizontal) - 1))
+        divider.set_horizontal(horizontal)
+        self.set_axes_locator(divider.new_locator(nx=0, ny=0))
+        for panel, nx in slots:
+            panel.set_axes_locator(divider.new_locator(nx=nx, ny=0))
+
+    def plot_barbs(
+        self,
+        snd: Sounding,
+        *,
+        x: float | None = None,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> BarbStaff:
+        """Plot the sounding's wind barbs on the gutter staff (spec §3.2).
+
+        The barbs draw on a right-hand gutter appended with the shared
+        divider, each level at the y where its isobar meets the
+        diagram's right edge (the printed-form staff convention),
+        thinned per draw to a minimum vertical separation — zooming in
+        reveals more levels. Met Office symbology: flag 50 kt, full barb
+        10 kt, half barb 5 kt, speeds rounded to 5 kt bins; calm levels
+        render as matplotlib's small circle. Each call draws one staff:
+        overlay soundings by calling again with another `x` and a
+        colour.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The sounding to plot; must carry wind.
+        x : float, optional
+            The staff position as a fraction across the gutter
+            (default ``BARB_STAFF_POSITION``).
+        **kwargs : Any
+            Passed through to :class:`matplotlib.quiver.Barbs`, over
+            the ``_constants`` conventions (increments, rounding,
+            length).
+
+        Returns
+        -------
+        BarbStaff
+            The zoom-aware staff artist; its ``barbs`` property is the
+            underlying matplotlib collection.
+
+        Raises
+        ------
+        MissingDataError
+            If the sounding has no wind (spec §6).
+        """
+        if snd.wind_speed is None or snd.wind_direction is None:
+            msg = "plot_barbs() needs wind: this sounding has none (spec §3.4)"
+            raise MissingDataError(msg)
+        # Function-local so `import tephpy` stays light (spec §10 item 10).
+        from metpy.calc import wind_components  # noqa: PLC0415
+
+        u, v = wind_components(snd.wind_speed, snd.wind_direction)
+        if self._barb_gutter is None:
+            gutter = self._append_side_axes(
+                width=BARB_GUTTER_WIDTH, pad=BARB_GUTTER_PAD, sharey=self
+            )
+            gutter.set_xlim(0.0, 1.0)
+            gutter.set_axis_off()
+            self._barb_gutter = gutter
+            self._relayout_side_panels()
+        staff = BarbStaff(
+            self,
+            snd.pressure.m_as("hPa"),
+            np.asarray(u.m_as("knots"), dtype=np.float64),
+            np.asarray(v.m_as("knots"), dtype=np.float64),
+            x=BARB_STAFF_POSITION if x is None else float(x),
+            minimum_separation=BARB_MIN_SEPARATION,
+            **kwargs,
+        )
+        self._barb_gutter.add_artist(staff)
+        return staff
+
     def annotate_indices(self, indices: SoundingIndices) -> Axes:
         """Display derived parameters in a panel beside the diagram.
 
@@ -553,10 +707,9 @@ class TephigramAxes(Axes):
         the panel is appended with the ``axes_grid1`` divider, one
         formatted line per ``SoundingIndices`` field, NaN rendered as an
         em dash. Calling it again updates the panel in place rather than
-        stacking a second one. With ``axes_grid1``, append order is
-        position order: once the wind-barb gutter exists (a later
-        release), ``plot_barbs`` must be called before this method for
-        the contracted inside-out order.
+        stacking a second one, and the side-panel layout is rebuilt
+        inside-out (barb gutter, then this panel) whichever order the
+        panel methods are called in (spec §3.2).
 
         Parameters
         ----------
@@ -569,13 +722,10 @@ class TephigramAxes(Axes):
             The panel axes, for restyling.
         """
         if self._indices_panel is None:
-            divider = make_axes_locatable(self)
-            self._indices_panel = divider.append_axes(
-                "right",
-                size=INDICES_PANEL_WIDTH,
-                pad=INDICES_PANEL_PAD,
-                axes_class=Axes,
+            self._indices_panel = self._append_side_axes(
+                width=INDICES_PANEL_WIDTH, pad=INDICES_PANEL_PAD
             )
+            self._relayout_side_panels()
         panel = self._indices_panel
         panel.clear()
         panel.set_axis_off()

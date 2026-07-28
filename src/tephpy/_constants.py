@@ -223,6 +223,46 @@ INDICES_PANEL_ROWS: Final[tuple[tuple[str, str, str, str, str], ...]] = (
     ("lifted_index", "LI", "delta_degC", "°C", ".1f"),
 )
 
+#: Wind-barb gutter width, as an ``axes_grid1`` fraction of the diagram
+#: width (spec §3.2).
+BARB_GUTTER_WIDTH: Final[str] = "15%"
+
+#: Wind-barb gutter padding from the diagram, in inches.
+BARB_GUTTER_PAD: Final[float] = 0.1
+
+#: Default staff position, as a fraction across the gutter; overlaid
+#: soundings pick other positions via ``plot_barbs(..., x=...)``.
+BARB_STAFF_POSITION: Final[float] = 0.5
+
+#: Minimum vertical separation between drawn barbs, in points; the staff
+#: keeps the densest subset at least this far apart, so zooming in reveals
+#: more levels (spec §3.2).
+BARB_MIN_SEPARATION: Final[float] = 18.0
+
+#: Wind-barb speed increments in knots — half barb 5 kt, full barb 10 kt,
+#: flag 50 kt, with speeds rounded to the nearest increment (5 kt binning):
+#: the Met Office/WMO symbology (Met Office Factsheet 13; spec §1, §3.2).
+BARB_INCREMENTS: Final[dict[str, float]] = {"half": 5.0, "full": 10.0, "flag": 50.0}
+
+#: Wind-barb glyph length in points.
+BARB_LENGTH: Final[float] = 6.0
+
+#: University of Wyoming sounding request (spec §3.4): the post-2024 wsgi
+#: interface's machine-readable form — ``type=TEXT:CSV`` returns bare,
+#: self-describing CSV (verified 2026-07-27; the classic ``cgi-bin``
+#: TEXT:LIST endpoint now 404s).
+WYOMING_URL: Final[str] = (
+    "https://weather.uwyo.edu/wsgi/sounding?datetime={datetime}&id={station}"
+    "&type=TEXT:CSV"
+)
+
+#: Default timeout for a University of Wyoming request, in seconds.
+WYOMING_TIMEOUT: Final[float] = 30.0
+
+#: IGRA v2 missing-value sentinels (NCEI ``igra2-data-format.txt``): -9999
+#: throughout; -8888 additionally flags a removed-by-QA value.
+IGRA_MISSING: Final[tuple[int, ...]] = (-9999, -8888)
+
 #: Isopleth label font size in points.
 LABEL_FONTSIZE: Final[float] = 8.0
 

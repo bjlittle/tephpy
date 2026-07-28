@@ -1,0 +1,11 @@
+Added wind barbs and data ingest —
+:meth:`~tephpy.plotting.axes.TephigramAxes.plot_barbs` drawing Met Office
+barbs (flag 50 kt, full 10 kt, half 5 kt, 5 kt binning) on a zoom-aware
+right-hand gutter staff, with the side panels sharing one divider so the
+gutter and the indices panel compose in either call order; the ``tephpy.io``
+readers :func:`~tephpy.io.wyoming.fetch` (University of Wyoming) and
+:func:`~tephpy.io.igra.read` (IGRA v2) returning validated
+:class:`~tephpy.sounding.Sounding` objects, with recorded, provenance-tracked
+fixtures; :class:`~tephpy.exceptions.TephpyIOError`; and the barb image
+baselines.
+(:user:`claude`)

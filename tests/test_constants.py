@@ -122,3 +122,23 @@ def test_indices_panel_rows_cover_every_field():
     """One panel row per SoundingIndices field, in field order."""
     fields = [field.name for field in dataclasses.fields(SoundingIndices)]
     assert [row[0] for row in constants.INDICES_PANEL_ROWS] == fields
+
+
+def test_barb_conventions():
+    """Met Office symbology, a sane staff, and knot-calibrated increments."""
+    assert constants.BARB_INCREMENTS == {"half": 5.0, "full": 10.0, "flag": 50.0}
+    assert constants.BARB_GUTTER_WIDTH.endswith("%")
+    assert constants.BARB_GUTTER_PAD > 0.0
+    assert 0.0 < constants.BARB_STAFF_POSITION < 1.0
+    assert constants.BARB_MIN_SEPARATION > 0.0
+    assert constants.BARB_LENGTH > 0.0
+
+
+def test_io_conventions():
+    """The Wyoming request is https with both placeholders; sane sentinels."""
+    assert constants.WYOMING_URL.startswith("https://weather.uwyo.edu/")
+    assert "{datetime}" in constants.WYOMING_URL
+    assert "{station}" in constants.WYOMING_URL
+    assert "TEXT:CSV" in constants.WYOMING_URL
+    assert constants.WYOMING_TIMEOUT > 0.0
+    assert constants.IGRA_MISSING == (-9999, -8888)
