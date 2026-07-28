@@ -72,6 +72,8 @@ def fetch(
         For network failures, HTTP errors (including the archive's "no
         data at that time" and "unknown station" replies), or a response
         the parser does not recognise.
+    TypeError
+        If `time` is neither a datetime nor a string.
     ValueError
         If a `time` string is not ISO 8601.
     """
@@ -107,7 +109,8 @@ def _request(url: str, timeout: float) -> str:
         any transport failure.
     """
     # Function-local so `import tephpy` stays light (spec §3.4, §10 item 10).
-    from urllib.error import HTTPError, URLError  # noqa: PLC0415
+    from http.client import HTTPException  # noqa: PLC0415
+    from urllib.error import HTTPError  # noqa: PLC0415
     from urllib.request import urlopen  # noqa: PLC0415
 
     try:
@@ -115,34 +118,51 @@ def _request(url: str, timeout: float) -> str:
         with urlopen(url, timeout=timeout) as response:  # noqa: S310
             return str(response.read().decode("utf-8", errors="replace"))
     except HTTPError as error:
-        with error:
-            body = error.read().decode("utf-8", errors="replace").strip()
+        try:
+            with error:
+                body = error.read().decode("utf-8", errors="replace").strip()
+        except (OSError, HTTPException):
+            # A truncated or reset error body must not mask the status.
+            body = ""
         summary = body.splitlines()[0] if body else str(error.reason)
         msg = f"the Wyoming archive returned HTTP {error.code}: {summary}"
         raise TephpyIOError(msg) from error
-    except (TimeoutError, URLError, OSError) as error:
+    except (OSError, HTTPException) as error:
+        # `URLError` and `TimeoutError` are `OSError`s; `HTTPException`
+        # adds the http.client failures urlopen does not wrap, e.g. a
+        # truncated body (`IncompleteRead`) or a malformed status line.
         msg = f"could not reach the Wyoming archive: {error}"
         raise TephpyIOError(msg) from error
 
 
-def _parse(text: str, *, station: str, time: datetime) -> Sounding:
+def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding:
     """Parse one ``TEXT:CSV`` archive body into a sounding.
 
     Blank cells read as NaN (NaN gaps are data, spec §3.4); rows whose
     pressure does not strictly decrease on the running minimum are
     dropped keeping the first occurrence, so the dense BUFR-era ascents
     satisfy ``Sounding``'s strict monotonicity; an optional field that
-    is entirely NaN is treated as absent, so the missing-data errors
-    stay meaningful downstream (spec §6).
+    is entirely NaN is treated as absent — and the wind pair as a unit,
+    so a one-sided wind column passes as absent rather than tripping
+    ``Sounding``'s pairing rule — keeping the missing-data errors
+    meaningful downstream (spec §6).
+
+    The archive's CSV is rectangular, so a row with fewer cells than
+    the header is a truncated reply rather than a gap: it is rejected
+    naming the row (the header is row 1). Trailing cells beyond the
+    header are ignored — every carried column is located by its header
+    index.
 
     Parameters
     ----------
     text : str
         The response body.
-    station : str
-        The WMO station identifier, carried as metadata.
-    time : datetime.datetime
-        The nominal launch time, carried as metadata.
+    station : str or None
+        The WMO station identifier, carried as metadata; ``None``
+        derives no legend label.
+    time : datetime.datetime or None
+        The nominal launch time, carried as metadata; ``None`` derives
+        no legend label.
 
     Returns
     -------
@@ -152,10 +172,16 @@ def _parse(text: str, *, station: str, time: datetime) -> Sounding:
     Raises
     ------
     TephpyIOError
-        If the body is not the archive's CSV form, expected columns are
-        missing, or a cell is not numeric.
+        If the body is not readable as CSV at all, expected columns are
+        missing, a row is shorter than the header, the header carries no
+        data rows, or a cell is not numeric.
     """
-    rows = list(csv.reader(io.StringIO(text)))
+    try:
+        rows = list(csv.reader(io.StringIO(text)))
+    except csv.Error as error:
+        # A 200 body that is not CSV at all — a proxy page, a binary blob.
+        msg = f"unexpected Wyoming response format: {error}"
+        raise TephpyIOError(msg) from error
     if not rows:
         msg = "the Wyoming archive returned an empty response"
         raise TephpyIOError(msg)
@@ -169,9 +195,15 @@ def _parse(text: str, *, station: str, time: datetime) -> Sounding:
         raise TephpyIOError(msg)
     indices = {column: header.index(column) for column in _COLUMNS}
     data: dict[str, list[float]] = {field: [] for field, _ in _COLUMNS.values()}
-    for row in rows[1:]:
+    for number, row in enumerate(rows[1:], start=2):
         if not row:
             continue
+        if len(row) < len(header):
+            msg = (
+                f"unexpected Wyoming response format: row {number} has "
+                f"{len(row)} cell(s), expected at least {len(header)}"
+            )
+            raise TephpyIOError(msg)
         for column, (field, _) in _COLUMNS.items():
             cell = row[indices[column]].strip()
             try:
@@ -182,6 +214,11 @@ def _parse(text: str, *, station: str, time: datetime) -> Sounding:
                     f"cell {cell!r} is not numeric"
                 )
                 raise TephpyIOError(msg) from error
+    if not data["pressure"]:
+        # A header carrying no records is a mangled reply, not a sounding
+        # with too few levels (spec §3.4).
+        msg = "unexpected Wyoming response format: no data rows after the header"
+        raise TephpyIOError(msg)
     arrays = {
         field: np.asarray(values, dtype=np.float64) for field, values in data.items()
     }
@@ -192,6 +229,11 @@ def _parse(text: str, *, station: str, time: datetime) -> Sounding:
         values = arrays[field]
         optional = field not in ("pressure", "temperature")
         fields[field] = None if optional and bool(np.all(np.isnan(values))) else values
+    # The wind pair goes together: one wholly-missing component retires
+    # both, so the failure downstream is the meaningful MissingDataError
+    # from `plot_barbs`, not a `Sounding` pairing error here (spec §6).
+    if fields["wind_speed"] is None or fields["wind_direction"] is None:
+        fields["wind_speed"] = fields["wind_direction"] = None
     return Sounding(
         fields["pressure"],
         fields["temperature"],

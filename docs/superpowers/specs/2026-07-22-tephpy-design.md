@@ -158,8 +158,9 @@ Differences from tephi:
   line is `"_nolegend_"`); label precedence is `label=` argument > `snd.label` >
   no entry. Returns `(temperature_line, dewpoint_line | None)`. Legends stay
   stock matplotlib — tephpy sets labels, the user calls `ax.legend()`.
-- `ax.plot_barbs(snd, *, x=None, **kwargs)` — the sounding's wind barbs on a
-  right-hand gutter staff (Met Office symbology: flag 50 kt, full barb 10 kt,
+- `ax.plot_barbs(snd, *, x=None, minimum_separation=None, **kwargs)` — the
+  sounding's wind barbs on a right-hand gutter staff (Met Office symbology:
+  flag 50 kt, full barb 10 kt,
   half barb 5 kt, rounded to 5 kt bins), raising `MissingDataError` when the
   sounding has no wind (§6). The staff is drawn by a zoom-aware artist in
   `plotting/barbs.py` (the `isopleths.py` refresh pattern): each draw selects
@@ -173,14 +174,17 @@ Differences from tephi:
   one-source-of-truth idiom). Calm levels render as matplotlib's native small
   circle — which is the Met Office calm symbol (verified at plan drafting,
   2026-07-27). `x` positions the staff
-  as a fraction across the gutter (default in `_constants`): overlaid
-  soundings pick different positions and a colour — the explicit-styles
-  convention profile overlays already use — within one fixed-width gutter.
-  Returns the staff artist; matplotlib kwargs pass through to the barbs.
+  as a fraction across the gutter and `minimum_separation` sets the thinning
+  distance in points (both default to their `_constants` value): overlaid
+  soundings pick different positions, separations, and a colour — the
+  explicit-styles convention profile overlays already use — within one
+  fixed-width gutter. Returns the staff artist; matplotlib kwargs pass
+  through to the barbs.
   Gutter width and pad, staff position, minimum separation, and the barb
   increments live in `_constants` with their source conventions cited
-  (Factsheet 13); like profile lines and shading, no `tephpy.config` section
-  at v1.
+  (Factsheet 13) — staff position and minimum separation being the two a
+  call overrides, the constants supplying their defaults; like profile lines
+  and shading, no `tephpy.config` section at v1.
 - `ax.shade_cape(snd, parcel)` / `ax.shade_cin(snd, parcel)` — area fills between
   the environment temperature and the parcel path, bounded exactly as MetPy's
   `cape_cin` integrates so the shading always matches the annotated numbers:
@@ -355,7 +359,9 @@ policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 
   NaN (NaN gaps are data, §3.4), keeps rows only while pressure strictly
   undercuts the running minimum (first occurrence wins; the dense BUFR-era
   ascents must satisfy `Sounding`'s strict monotonicity), and treats an
-  entirely-NaN optional field as absent so `MissingDataError` stays
+  entirely-NaN optional field as absent — the wind pair as a unit, so a
+  one-sided wind column passes as absent rather than tripping `Sounding`'s
+  pairing rule — keeping `MissingDataError`
   meaningful (§6). `station` is the WMO identifier (`"03808"`); `time` is a
   datetime or ISO string, naive read as UTC (the `Sounding` convention).
   Station and time land as metadata, so the legend label derives for free.
@@ -372,8 +378,9 @@ policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 
   entirely-NaN-optional-field rule as the Wyoming parser applied. `time=`
   selects the ascent and may be omitted only when the file
   holds exactly one sounding (trimmed research subsets, fixtures); an
-  ambiguous read raises `TephpyIOError` reporting the file's sounding count,
-  time span, and the nearest ascents, as does malformed input (§6).
+  ambiguous read raises `TephpyIOError` reporting the file's sounding count
+  and time span, an unmatched `time=` reports the nearest ascents (or that
+  the file records no nominal launch times), as does malformed input (§6).
 
 ### 3.5 `_constants` + `tephpy.config`
 
@@ -714,8 +721,8 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_extent`; §3.5 `_constants` + `tephpy.config`; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | ✅ complete (PR #15) |
 | 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR #19) |
 | 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR #26) |
-| 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | **next** |
-| 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | |
+| 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR #40; ingest and layout hardening PR #41) |
+| 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | **next** |
 
 Cross-cutting rules (apply to every plan rather than one row):
 

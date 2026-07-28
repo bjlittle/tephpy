@@ -580,6 +580,30 @@ def test_clear_removes_the_indices_panel(tephigram_axes):
     assert tephigram_axes.get_axes_locator() is None
 
 
+def test_figure_clear_with_a_side_panel(tephigram_axes):
+    """The figure deletes the panel itself: the diagram must not race it."""
+    fig = tephigram_axes.figure
+    tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
+    fig.canvas.draw()
+    fig.clear()
+    assert fig.axes == []
+    assert tephigram_axes._indices_panel is None
+    assert tephigram_axes._side_divider is None
+
+
+def test_figure_clear_is_reusable_after_a_side_panel(tephigram_axes):
+    """A cleared figure takes a fresh diagram and panel, and draws."""
+    fig = tephigram_axes.figure
+    tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
+    fig.canvas.draw()
+    fig.clear()
+    axes = fig.add_subplot(projection="tephigram")
+    panel = axes.annotate_indices(calc.indices(_capped_sounding()))
+    fig.canvas.draw()
+    assert panel in fig.axes
+    assert len(fig.axes) == 2
+
+
 def test_canonical_usage_composes(tephigram_axes):
     """The spec §4 sequence works end to end (minus barbs, a later plan)."""
     snd = _capped_sounding()

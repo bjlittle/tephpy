@@ -1,0 +1,6 @@
+Added a ``minimum_separation`` keyword to
+:meth:`~tephpy.plotting.axes.TephigramAxes.plot_barbs`, so a call picks its own
+barb thinning distance — an overlaid staff, or a longer ``length=`` glyph,
+wants one wider than the ``BARB_MIN_SEPARATION`` convention. Passing it
+previously raised :exc:`TypeError` from the staff constructor.
+(:user:`claude`)
