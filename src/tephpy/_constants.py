@@ -247,6 +247,18 @@ BARB_INCREMENTS: Final[dict[str, float]] = {"half": 5.0, "full": 10.0, "flag": 5
 #: Wind-barb glyph length in points.
 BARB_LENGTH: Final[float] = 6.0
 
+#: University of Wyoming sounding request (spec §3.4): the post-2024 wsgi
+#: interface's machine-readable form — ``type=TEXT:CSV`` returns bare,
+#: self-describing CSV (verified 2026-07-27; the classic ``cgi-bin``
+#: TEXT:LIST endpoint now 404s).
+WYOMING_URL: Final[str] = (
+    "https://weather.uwyo.edu/wsgi/sounding?datetime={datetime}&id={station}"
+    "&type=TEXT:CSV"
+)
+
+#: Default timeout for a University of Wyoming request, in seconds.
+WYOMING_TIMEOUT: Final[float] = 30.0
+
 #: Isopleth label font size in points.
 LABEL_FONTSIZE: Final[float] = 8.0
 
