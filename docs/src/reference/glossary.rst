@@ -174,3 +174,29 @@ cross-reference rules.
         ``lifted_index`` field of
         :class:`calc.SoundingIndices <tephpy.calc.SoundingIndices>`; NaN when
         the profile tops out below 500 hPa.
+
+    radiosonde
+        The instrument package a weather balloon carries aloft,
+        transmitting pressure, temperature, humidity, and wind as it
+        rises — the source of most real :term:`soundings <sounding>`.
+        ``tephpy`` ingests radiosonde archives through the ``tephpy.io``
+        readers.
+
+    IGRA
+    Integrated Global Radiosonde Archive
+        NCEI's quality-controlled archive of the global
+        :term:`radiosonde` record, distributed as one fixed-width file
+        per station (version 2).
+        :func:`igra.read(...) <tephpy.io.igra.read>` reads one ascent
+        from such a file into a
+        :class:`Sounding <tephpy.sounding.Sounding>`.
+
+    wind barb
+        A glyph giving the wind at one level: the shaft points toward
+        the direction the wind comes from, and its feathers sum to the
+        speed — half barb 5 kt, full barb 10 kt, flag 50 kt, rounded to
+        5 kt bins; a bare circle is calm.
+        :meth:`ax.plot_barbs(snd) <tephpy.plotting.axes.TephigramAxes.plot_barbs>`
+        draws a :term:`sounding`'s barbs on a staff in the right-hand
+        gutter, each level at the height where its isobar meets the
+        diagram's edge.

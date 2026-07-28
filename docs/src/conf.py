@@ -78,6 +78,8 @@ numpydoc_xref_aliases = {
     ),
     "MissingDataError": "tephpy.exceptions.MissingDataError",
     "ProfileTooShortError": "tephpy.exceptions.ProfileTooShortError",
+    "TephpyIOError": "tephpy.exceptions.TephpyIOError",
+    "BarbStaff": "tephpy.plotting.barbs.BarbStaff",
 }
 numpydoc_xref_ignore = {"default", "mapping", "of", "optional", "or", "to"}
 
@@ -131,6 +133,7 @@ nitpick_ignore = [
     ("py:class", "numpy.typing.ArrayLike"),
     ("py:class", "numpy.typing.NDArray"),
     ("py:class", "numpy.float64"),
+    ("py:class", "numpy.bool_"),
     ("py:class", "Ellipsis"),
     ("py:obj", "MOIST_ADIABAT_TRUNCATION"),
 ]
