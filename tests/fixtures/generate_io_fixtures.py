@@ -51,7 +51,7 @@ kept = [rows[0], *rows[1::STRIDE]]
 if rows[-1] != kept[-1]:
     kept.append(rows[-1])
 (out / "wyoming-03808-2026-07-21-12Z.csv").write_text("\n".join(kept) + "\n")
-print(f"wyoming: kept {len(kept) - 1} of {len(rows) - 1} data rows")  # noqa: T201
+print(f"wyoming: kept {len(kept) - 1} of {len(rows) - 1} data rows")
 
 with urlopen(IGRA, timeout=120) as response:
     payload = response.read()
@@ -70,4 +70,4 @@ while index < len(lines):
         index += 1
 (out / "UKM00003808-data-trimmed.txt").write_text("\n".join(blocks) + "\n")
 ascents = sum(1 for block in blocks if block.startswith("#"))
-print(f"igra: kept {ascents} ascents, {len(blocks)} lines")  # noqa: T201
+print(f"igra: kept {ascents} ascents, {len(blocks)} lines")
