@@ -147,6 +147,9 @@ max-statements = 53
 # One-shot generator scripts (spec §7 layer 4), not package modules; their
 # print is the script's user feedback.
 "tests/fixtures/generate_tephi_*.py" = ["INP001", "T201", "SLF001"]
+# The tests tree mirrors the package (spec §8.5): tests/io shadows nothing
+# importable — it is reached as tests.io.
+"tests/io/__init__.py" = ["A005"]
 
 [tool.mypy]
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
