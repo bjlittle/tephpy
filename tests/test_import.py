@@ -41,12 +41,15 @@ def test_top_level_namespace():
     """Submodules are reachable from the package root (spec §4 idiom)."""
     assert tephpy.transforms is not None
     assert tephpy.plotting is not None
+    assert tephpy.io.wyoming is not None
+    assert tephpy.io.igra is not None
     expected = {
         "Sounding",
         "__version__",
         "calc",
         "config",
         "exceptions",
+        "io",
         "plotting",
         "transforms",
     }

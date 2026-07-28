@@ -92,11 +92,14 @@ def test_import_tephpy_does_not_import_heavy_dependencies():
     """`import tephpy` must not import metpy, pandas, or xarray (item 10).
 
     MetPy loads on first use (as_quantity); pandas and xarray are never
-    imported by tephpy at runtime at all. Run in a subprocess so the
-    check is independent of what this session already imported.
+    imported by tephpy at runtime at all; the readers keep their
+    network/archive imports (urllib.request, zipfile) function-local
+    (spec §3.4). Run in a subprocess so the check is independent of what
+    this session already imported.
     """
     code = (
         "import sys, tephpy; raise SystemExit("
-        "1 if {'metpy', 'pandas', 'xarray'} & set(sys.modules) else 0)"
+        "1 if {'metpy', 'pandas', 'xarray', 'urllib.request', 'zipfile'}"
+        " & set(sys.modules) else 0)"
     )
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603

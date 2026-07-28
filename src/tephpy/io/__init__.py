@@ -13,3 +13,7 @@ the documentation points at eccodes.
 """
 
 from __future__ import annotations
+
+from tephpy.io import igra, wyoming
+
+__all__ = ["igra", "wyoming"]
