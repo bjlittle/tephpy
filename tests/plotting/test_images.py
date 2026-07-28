@@ -174,3 +174,47 @@ def test_indices_panel():
     ax.plot_sounding(snd)
     ax.annotate_indices(calc.indices(snd))
     return fig
+
+
+def _windy_sounding():
+    """Build a sounding whose wind sweeps the barb glyph vocabulary."""
+    return Sounding(
+        units.Quantity(
+            np.array([1000.0, 950.0, 900.0, 850.0, 700.0, 500.0, 300.0, 200.0]), "hPa"
+        ),
+        units.Quantity(
+            np.array([26.0, 24.0, 23.0, 21.0, 10.0, -12.0, -40.0, -55.0]), "degC"
+        ),
+        dewpoint=units.Quantity(
+            np.array([20.0, 17.0, 14.0, 10.0, 2.0, -15.0, -45.0, -60.0]), "degC"
+        ),
+        wind_speed=units.Quantity(
+            np.array([2.0, 7.0, 15.0, 25.0, 40.0, 55.0, 75.0, 105.0]), "knots"
+        ),
+        wind_direction=units.Quantity(
+            np.array([180.0, 200.0, 220.0, 240.0, 260.0, 280.0, 300.0, 320.0]),
+            "degree",
+        ),
+    )
+
+
+@pytest.mark.mpl_image_compare
+def test_barbs_staff():
+    """The wind-barb gutter staff beside the diagram (spec §3.2)."""
+    fig, ax = _tephigram_figure()
+    snd = _windy_sounding()
+    ax.plot_sounding(snd)
+    ax.plot_barbs(snd)
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_barbs_with_indices_panel():
+    """Both side panels composed inside-out: gutter, then indices panel."""
+    fig, ax = plt.subplots(figsize=(5.0, 3.5), subplot_kw={"projection": "tephigram"})
+    ax.set_extent(((1050.0, -30.0), (200.0, 40.0)))
+    snd = _windy_sounding()
+    ax.plot_sounding(snd)
+    ax.plot_barbs(snd)
+    ax.annotate_indices(calc.indices(snd))
+    return fig
