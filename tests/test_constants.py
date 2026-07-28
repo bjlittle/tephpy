@@ -132,3 +132,13 @@ def test_barb_conventions():
     assert 0.0 < constants.BARB_STAFF_POSITION < 1.0
     assert constants.BARB_MIN_SEPARATION > 0.0
     assert constants.BARB_LENGTH > 0.0
+
+
+def test_io_conventions():
+    """The Wyoming request is https with both placeholders; sane sentinels."""
+    assert constants.WYOMING_URL.startswith("https://weather.uwyo.edu/")
+    assert "{datetime}" in constants.WYOMING_URL
+    assert "{station}" in constants.WYOMING_URL
+    assert "TEXT:CSV" in constants.WYOMING_URL
+    assert constants.WYOMING_TIMEOUT > 0.0
+    assert constants.IGRA_MISSING == (-9999, -8888)

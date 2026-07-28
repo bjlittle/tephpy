@@ -259,6 +259,10 @@ WYOMING_URL: Final[str] = (
 #: Default timeout for a University of Wyoming request, in seconds.
 WYOMING_TIMEOUT: Final[float] = 30.0
 
+#: IGRA v2 missing-value sentinels (NCEI ``igra2-data-format.txt``): -9999
+#: throughout; -8888 additionally flags a removed-by-QA value.
+IGRA_MISSING: Final[tuple[int, ...]] = (-9999, -8888)
+
 #: Isopleth label font size in points.
 LABEL_FONTSIZE: Final[float] = 8.0
 
