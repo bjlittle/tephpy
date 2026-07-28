@@ -16,18 +16,30 @@ Office increments (flag 50 kt, full 10 kt, half 5 kt, 5 kt binning).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+from matplotlib import artist as martist
+from matplotlib.quiver import Barbs
 import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
 from tephpy._constants import (
+    BARB_INCREMENTS,
+    BARB_LENGTH,
+    BARB_STAFF_POSITION,
     KAPPA,
     KELVIN_ZERO,
     MA,
     P_REF,
 )
 
-__all__ = ["select_barbs", "staff_y"]
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.backend_bases import RendererBase
+    from matplotlib.figure import Figure, SubFigure
+
+__all__ = ["BarbStaff", "select_barbs", "staff_y"]
 
 #: Temperature span (°C) sampled for the g(T) inversion. Deliberately far
 #: wider than ``TEMPERATURE_DOMAIN``: an isobar's drawn polyline ends at
@@ -114,3 +126,154 @@ def select_barbs(
             keep[index] = True
             last = position
     return keep
+
+
+class BarbStaff(martist.Artist):
+    """One sounding's wind barbs on the gutter staff (spec §3.2).
+
+    A zoom-aware artist (the ``IsoplethFamily`` refresh pattern) that
+    manages a :class:`matplotlib.quiver.Barbs` child. Each draw reads the
+    main axes' view, places every level at its isobar's staff crossing
+    (:func:`staff_y`), masks the levels outside the view or closer than
+    the minimum separation (:func:`select_barbs`), and hands the child
+    the same-length masked arrays — matplotlib's barbs machinery skips
+    masked points, so the member count never changes.
+
+    Parameters
+    ----------
+    main_axes : matplotlib.axes.Axes
+        The tephigram axes the staff annotates.
+    pressure : numpy.ndarray
+        Level pressures in hPa, surface-first.
+    u, v : numpy.ndarray
+        Wind components in knots (the barb-increment units).
+    x : float
+        The staff position as a fraction across the gutter.
+    minimum_separation : float
+        Minimum vertical separation between drawn barbs, in points.
+    **kwargs : Any
+        Passed through to :class:`matplotlib.quiver.Barbs`, over the
+        ``_constants`` conventions (increments, rounding, length).
+    """
+
+    def __init__(  # noqa: PLR0913 -- the staff's full geometry contract
+        self,
+        main_axes: Axes,
+        pressure: npt.NDArray[np.float64],
+        u: npt.NDArray[np.float64],
+        v: npt.NDArray[np.float64],
+        *,
+        x: float = BARB_STAFF_POSITION,
+        minimum_separation: float,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> None:
+        """Wire the staff and its managed barbs child.
+
+        Parameters
+        ----------
+        main_axes : matplotlib.axes.Axes
+            The tephigram axes the staff annotates.
+        pressure : numpy.ndarray
+            Level pressures in hPa, surface-first.
+        u, v : numpy.ndarray
+            Wind components in knots.
+        x : float
+            The staff position as a fraction across the gutter.
+        minimum_separation : float
+            Minimum vertical separation between drawn barbs, in points.
+        **kwargs : Any
+            Passed through to :class:`matplotlib.quiver.Barbs`.
+        """
+        super().__init__()
+        self._main_axes = main_axes
+        self._pressure = np.asarray(pressure, dtype=np.float64)
+        self._u = np.asarray(u, dtype=np.float64)
+        self._v = np.asarray(v, dtype=np.float64)
+        self._x = float(x)
+        self._minimum_separation = float(minimum_separation)
+        self._kwargs = {
+            "barb_increments": dict(BARB_INCREMENTS),
+            "rounding": True,
+            "length": BARB_LENGTH,
+            **kwargs,
+        }
+        self._barbs: Barbs | None = None
+
+    @property
+    def barbs(self) -> Barbs | None:
+        """The managed matplotlib barbs collection.
+
+        Returns
+        -------
+        matplotlib.quiver.Barbs or None
+            The child collection, or ``None`` before the first draw.
+        """
+        return self._barbs
+
+    def set_figure(self, fig: Figure | SubFigure) -> None:
+        """Propagate the owning figure to the managed child.
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure or matplotlib.figure.SubFigure
+            The figure the staff belongs to.
+        """
+        super().set_figure(fig)
+        if self._barbs is not None:
+            self._barbs.set_figure(fig)
+
+    @martist.allow_rasterization  # type: ignore[untyped-decorator]
+    def draw(self, renderer: RendererBase) -> None:
+        """Draw the barbs visible in the current view.
+
+        Parameters
+        ----------
+        renderer : matplotlib.backend_bases.RendererBase
+            The active renderer.
+        """
+        if not self.get_visible():
+            return
+        figure = self.get_figure(root=True)
+        if self.axes is None or figure is None or self._pressure.size == 0:
+            return
+        gutter = cast("Axes", self.axes)
+        main = self._main_axes
+        y = staff_y(self._pressure, main.get_xlim()[1])
+        y0, y1 = sorted(main.get_ylim())
+        candidate = (
+            np.isfinite(y)
+            & (y >= y0)
+            & (y <= y1)
+            & np.isfinite(self._u)
+            & np.isfinite(self._v)
+        )
+        keep = np.zeros(y.shape, dtype=np.bool_)
+        indices = np.flatnonzero(candidate)
+        if indices.size:
+            offsets = np.column_stack([np.full(indices.size, self._x), y[indices]])
+            separation = self._minimum_separation * figure.dpi / 72.0
+            display = gutter.transData.transform(offsets)[:, 1]
+            keep[indices] = select_barbs(display, minimum_separation=separation)
+        if self._barbs is None:
+            self._barbs = Barbs(
+                gutter,
+                np.full(y.shape, self._x),
+                np.where(keep, y, 0.0),
+                np.ma.masked_array(self._u, mask=~keep),
+                np.ma.masked_array(self._v, mask=~keep),
+                **self._kwargs,
+            )
+            self._barbs.set_figure(figure)
+        else:
+            self._barbs.set_offsets(
+                np.column_stack([np.full(y.shape, self._x), np.where(keep, y, 0.0)])
+            )
+            self._barbs.set_UVC(
+                np.ma.masked_array(self._u, mask=~keep),
+                np.ma.masked_array(self._v, mask=~keep),
+            )
+        renderer.open_group("barb-staff", gid=self.get_gid())
+        self._barbs.set_clip_box(gutter.bbox)
+        self._barbs.draw(renderer)
+        renderer.close_group("barb-staff")
+        self.stale = False

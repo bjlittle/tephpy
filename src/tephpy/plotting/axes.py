@@ -39,6 +39,8 @@ from tephpy._config import config
 from tephpy._constants import (
     BARB_GUTTER_PAD,
     BARB_GUTTER_WIDTH,
+    BARB_MIN_SEPARATION,
+    BARB_STAFF_POSITION,
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
@@ -54,7 +56,9 @@ from tephpy._constants import (
     SHADING_ZORDER,
 )
 from tephpy._units import as_quantity, check_units_mapping
+from tephpy.exceptions import MissingDataError
 from tephpy.plotting import shading
+from tephpy.plotting.barbs import BarbStaff
 from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
 
 if TYPE_CHECKING:
@@ -626,6 +630,75 @@ class TephigramAxes(Axes):
         self.set_axes_locator(divider.new_locator(nx=0, ny=0))
         for panel, nx in slots:
             panel.set_axes_locator(divider.new_locator(nx=nx, ny=0))
+
+    def plot_barbs(
+        self,
+        snd: Sounding,
+        *,
+        x: float | None = None,
+        **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+    ) -> BarbStaff:
+        """Plot the sounding's wind barbs on the gutter staff (spec §3.2).
+
+        The barbs draw on a right-hand gutter appended with the shared
+        divider, each level at the y where its isobar meets the
+        diagram's right edge (the printed-form staff convention),
+        thinned per draw to a minimum vertical separation — zooming in
+        reveals more levels. Met Office symbology: flag 50 kt, full barb
+        10 kt, half barb 5 kt, speeds rounded to 5 kt bins; calm levels
+        render as matplotlib's small circle. Each call draws one staff:
+        overlay soundings by calling again with another `x` and a
+        colour.
+
+        Parameters
+        ----------
+        snd : Sounding
+            The sounding to plot; must carry wind.
+        x : float, optional
+            The staff position as a fraction across the gutter
+            (default ``BARB_STAFF_POSITION``).
+        **kwargs : Any
+            Passed through to :class:`matplotlib.quiver.Barbs`, over
+            the ``_constants`` conventions (increments, rounding,
+            length).
+
+        Returns
+        -------
+        BarbStaff
+            The zoom-aware staff artist; its ``barbs`` property is the
+            underlying matplotlib collection.
+
+        Raises
+        ------
+        MissingDataError
+            If the sounding has no wind (spec §6).
+        """
+        if snd.wind_speed is None or snd.wind_direction is None:
+            msg = "plot_barbs() needs wind: this sounding has none (spec §3.4)"
+            raise MissingDataError(msg)
+        # Function-local so `import tephpy` stays light (spec §10 item 10).
+        from metpy.calc import wind_components  # noqa: PLC0415
+
+        u, v = wind_components(snd.wind_speed, snd.wind_direction)
+        if self._barb_gutter is None:
+            gutter = self._append_side_axes(
+                width=BARB_GUTTER_WIDTH, pad=BARB_GUTTER_PAD, sharey=self
+            )
+            gutter.set_xlim(0.0, 1.0)
+            gutter.set_axis_off()
+            self._barb_gutter = gutter
+            self._relayout_side_panels()
+        staff = BarbStaff(
+            self,
+            snd.pressure.m_as("hPa"),
+            np.asarray(u.m_as("knots"), dtype=np.float64),
+            np.asarray(v.m_as("knots"), dtype=np.float64),
+            x=BARB_STAFF_POSITION if x is None else float(x),
+            minimum_separation=BARB_MIN_SEPARATION,
+            **kwargs,
+        )
+        self._barb_gutter.add_artist(staff)
+        return staff
 
     def annotate_indices(self, indices: SoundingIndices) -> Axes:
         """Display derived parameters in a panel beside the diagram.
