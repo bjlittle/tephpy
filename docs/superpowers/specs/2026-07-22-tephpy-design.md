@@ -170,8 +170,9 @@ Differences from tephi:
   staff's pressure marks sit where the isobars cross it), interpolated along
   the isobar polyline in pure numpy. Wind speed converts to knots; u/v come
   from `metpy.calc.wind_components` (function-local import — the §3.2/§3.3
-  one-source-of-truth idiom). Calm levels render as matplotlib's default
-  point; an open-circle calm glyph is a v1.x nicety. `x` positions the staff
+  one-source-of-truth idiom). Calm levels render as matplotlib's native small
+  circle — which is the Met Office calm symbol (verified at plan drafting,
+  2026-07-27). `x` positions the staff
   as a fraction across the gutter (default in `_constants`): overlaid
   soundings pick different positions and a colour — the explicit-styles
   convention profile overlays already use — within one fixed-width gutter.
@@ -202,9 +203,8 @@ Differences from tephi:
   Returns the panel axes so users can restyle; calling it again updates the
   panel in place rather than stacking a second one. With `axes_grid1`, append
   order is position order; Plan 6 makes call order irrelevant rather than
-  enforcing it — `annotate_indices` caches the indices it last rendered, and a
-  later `plot_barbs` re-appends and re-renders the panel outside the new
-  gutter (the auto-rebuild in the layout contract below).
+  enforcing it — a later `plot_barbs` relocates the existing panel outside the
+  new gutter (the relayout in the layout contract below).
 - `ax.set_extent(...)` — fixed extents from ((p, T), (p, T)) corners so successive
   figures are directly comparable; disables autoscaling so overlays don't drift the
   window. (The cartopy idiom — the earlier `set_anchor` name collided with
@@ -225,10 +225,13 @@ testable — once the barb gutter exists.) *Resolved 2026-07-27 (Plan 6):* the d
 is created once, cached privately on the axes, and shared — `annotate_indices` is
 refactored onto it, `plot_barbs` appends the gutter through it, and
 `make_axes_locatable` is called exactly once per axes. Call order is made irrelevant
-rather than enforced: `annotate_indices` caches its last `SoundingIndices`, and when
-`plot_barbs` finds an existing panel it removes it, appends the gutter, then
-re-appends and re-renders the panel outside it, so the inside-out contract holds on
-every call path.
+rather than enforced: one relayout helper rebuilds the divider's horizontal stack
+(diagram, gutter, indices panel — skipping absent panels) and reassigns every
+locator whenever a panel appears, so the inside-out contract holds on every call
+path with no panel teardown or re-rendering. (Refined at plan drafting, same day:
+axes_grid1's `append_axes` only ever appends to the size stack, so the earlier
+remove-and-re-append sketch would leave a stale width slot — a phantom gap;
+relayout is the clean mechanism, verified empirically.)
 
 ### 3.3 `calc`
 
@@ -343,22 +346,31 @@ policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 
 
 - `wyoming.fetch(station, time, *, timeout=None)` fetches one ascent from the
   University of Wyoming archive over stdlib `urllib` — no new dependency; the
-  timeout default lives in `_constants` — and hands the TEXT:LIST body to a pure,
-  transport-free parser: PRES/TEMP/DWPT/DRCT/SKNT columns in their native units
-  (hPa, °C, degrees, knots), blank fields → NaN (NaN gaps are data, §3.4), and
-  exact-duplicate pressure rows dropped keeping the first (the archive emits
-  them; `Sounding` demands strictly monotonic pressure). `station` is the WMO
-  identifier (`"03808"`); `time` is a datetime or ISO string, naive read as UTC
-  (the `Sounding` convention). Station and time land as metadata, so the legend
-  label derives for free. Network failures, HTTP errors, and the CGI's "no
-  data" replies raise `TephpyIOError` summarising the upstream response (§6).
+  timeout default lives in `_constants` — and hands the `TEXT:CSV` body to a
+  pure, transport-free parser. (`TEXT:CSV` is the post-2024 wsgi interface's
+  machine-readable form, bare self-describing CSV; the classic `cgi-bin`
+  TEXT:LIST endpoint is gone — probed live 2026-07-27.) The parser reads the
+  pressure/temperature/dew-point/wind columns in the header's units (hPa, °C,
+  degrees, m/s — the classic knots column no longer exists), blank fields →
+  NaN (NaN gaps are data, §3.4), keeps rows only while pressure strictly
+  undercuts the running minimum (first occurrence wins; the dense BUFR-era
+  ascents must satisfy `Sounding`'s strict monotonicity), and treats an
+  entirely-NaN optional field as absent so `MissingDataError` stays
+  meaningful (§6). `station` is the WMO identifier (`"03808"`); `time` is a
+  datetime or ISO string, naive read as UTC (the `Sounding` convention).
+  Station and time land as metadata, so the legend label derives for free.
+  Network failures and HTTP errors — the archive replies 400 "no data at that
+  time" / 404 "unknown station" with a one-line plain-text body — raise
+  `TephpyIOError` summarising the upstream reply (§6).
 - `igra.read(path, *, time=None)` reads one ascent from an IGRA v2 per-station
   file — the as-distributed `.zip` or the extracted `.txt`, sniffed with
   `zipfile.is_zipfile` rather than by suffix. The fixed-width records parse
   with the IGRA sentinels (−9999/−8888) → NaN, dewpoint derived as
-  temperature − dewpoint depression, wind converted from tenths of m/s, and
+  temperature − dewpoint depression, wind converted from tenths of m/s,
   records without a pressure value dropped (`Sounding` requires finite
-  pressure). `time=` selects the ascent and may be omitted only when the file
+  pressure), and the same running-minimum monotonicity filter and
+  entirely-NaN-optional-field rule as the Wyoming parser applied. `time=`
+  selects the ascent and may be omitted only when the file
   holds exactly one sounding (trimmed research subsets, fixtures); an
   ambiguous read raises `TephpyIOError` reporting the file's sounding count,
   time span, and the nearest ascents, as does malformed input (§6).
