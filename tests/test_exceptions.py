@@ -14,6 +14,7 @@ from tephpy.exceptions import (
     NonMonotonicPressureError,
     ProfileTooShortError,
     TephpyError,
+    TephpyIOError,
     TephpyUnitsError,
     TephpyValidationError,
 )
@@ -27,6 +28,8 @@ def test_hierarchy():
     assert issubclass(DewpointExceedsTemperatureError, TephpyValidationError)
     assert issubclass(MissingDataError, TephpyValidationError)
     assert issubclass(ProfileTooShortError, TephpyValidationError)
+    assert issubclass(TephpyIOError, TephpyError)
+    assert not issubclass(TephpyIOError, TephpyValidationError)
     assert issubclass(TephpyError, Exception)
 
 
