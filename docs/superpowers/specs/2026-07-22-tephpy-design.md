@@ -222,7 +222,7 @@ Differences from tephi:
   rotated data-space (x, y): the cursor position inverts through
   `transforms.temperature_theta_from_xy`, pressure derives via
   `transforms.pressure_from_temperature_theta`, and the configured fields render
-  in listed order, e.g. `850 hPa, -4.2 °C, θ 28.1 °C` (whole hPa, one decimal
+  in listed order, e.g. `850 hPa, -4.2 °C, θ 8.6 °C` (whole hPa, one decimal
   for temperatures). Fields name entries in a five-strong registry mirroring the
   isopleth families: `"pressure"`, `"temperature"`, `"theta"` — closed-form, the
   default trio — plus opt-in `"mixing_ratio"` (saturation mixing ratio at the
