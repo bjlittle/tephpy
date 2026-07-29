@@ -100,7 +100,8 @@ preserving the layering (`plotting` imports `transforms`, never the reverse).
 The Plan 2 minimum: an invertible matplotlib `Transform` wrapping the transform
 functions, equal aspect locked (the isotherm ⊥ dry-adiabat invariant must be visually
 true), sensible default extents, zoom/pan working through the transform, and native
-x/y ticks hidden — meaningful labelling arrives with Plan 3's isopleths. Out-of-domain
+x/y ticks hidden by default — meaningful labelling arrives with Plan 3's isopleths, and
+§3.2's edge labelling later reclaims those axes for a family that asks. Out-of-domain
 input (p ≤ 0, unphysical T) propagates NaN rather than raising: exception-carrying
 validation belongs to the quantified boundaries above (§6). Plan 2 also seeds
 `_constants.py` (MA, the θ reference pressure, default extents) per §3.5's
@@ -131,6 +132,49 @@ Differences from tephi:
   `ax.moist_adiabats(...)`, `ax.mixing_ratios(...)`. With no arguments an accessor
   returns the family artist; with kwargs (`values=`/`interval=`, `color=`, `labels=`,
   `visible=`, …) it reconfigures and returns it.
+- Isopleth labels place **inline or on the diagram's edges** — the declutter control,
+  and the existing `labels=` widened rather than joined by a new option, so the API
+  grows no names. A placement is `True` (every member labelled inline — the default,
+  unchanged), `False` (none), or an edge name `"bottom"`/`"top"`/`"left"`/`"right"`,
+  singly or as a tuple; a bare string and a one-tuple are identical, and a family may
+  claim several edges. The rule is one sentence: **listed edges label the members that
+  reach them; every member left over is labelled inline.** So
+  `ax.isobars(labels=("bottom", "left"))` builds the printed chart's pressure scale, and
+  `ax.isotherms(labels=("bottom", "left"))` labels the warm isotherms below the frame and
+  the cold ones beside it (the coverage table below).
+  Deliberate gaps are not expressible: thinning a family is
+  `values`/`interval`'s job, and label placement must not become a second member filter.
+  A member meeting a listed edge more than once — a curved isobar leaving and re-entering
+  — is ticked at each crossing, and an invisible family (`visible=False`) labels nothing
+  and holds no edge.
+  Edge labels are **native matplotlib ticks**, not drawn text. Bottom and left claim the
+  axes' own `xaxis`/`yaxis` (hidden by default per §3.1); top and right claim a lazily
+  created `secondary_xaxis`/`secondary_yaxis` with identity functions — verified
+  2026-07-29 to track both the equal-aspect shrunk position and the `axes_grid1` divider.
+  Each claimed edge takes a locator/formatter pair: the locator intersects the family's
+  currently selected members with the edge segment (the free function `edge_crossings`
+  in `isopleths.py` — the module's pure-builder pattern, headlessly testable against the
+  analytic case, an isotherm crossing `y = y0` at exactly `x = y0 + 2T`), and the
+  formatter reads the member values cached alongside those positions, formatted
+  `"{value:g}"` as inline labels already are — no inverse math, no MetPy, exact for all
+  five families. Because matplotlib calls the locator on every draw, pan, zoom, resize
+  and `set_extent` stay correct with no new refresh machinery, and a tight-bbox
+  `savefig`, `tight_layout`, `tick_params` and `set_xlabel` all work unwrapped. The
+  crossings are computed twice per draw — once by the locator, once by the family
+  filtering its inline remainder — because tick location and artist drawing have no
+  guaranteed ordering; it is pure numpy over ~20 short polylines, and correctness beats
+  the cache. A claimed edge also takes an axis title from `_constants` — one per family,
+  `Temperature (°C)` through `Mixing ratio (g kg⁻¹)` — **only when that axis title is
+  empty**, so a user's `set_xlabel` wins whether it precedes or follows the accessor
+  call, and releasing the edge clears it again; tick marks and labels take the family
+  colour at `LABEL_FONTSIZE`, with tick length and pad in `_constants`. **One family per
+  edge:** two claimants raise `TypeError` naming both and the edge, checked by the axes
+  — which owns all five families and funnels both the accessor and creation paths — so a
+  `tephpy.config` conflict surfaces at axes creation rather than at first draw. An
+  unknown placement raises `TypeError` naming it and the valid set (the `format_coord`
+  style), the bare-string check preventing a silent per-character iteration.
+  `TephigramAxes.clear` drops the cached secondary axes alongside its existing
+  xaxis/yaxis re-hiding. Not tephi's design: tephi labels inline only.
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and
@@ -239,6 +283,37 @@ Differences from tephi:
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
 
+Edge coverage decides which pairing suits each family. Measured 2026-07-29 against the
+real families at `DEFAULT_EXTENT` (matplotlib 3.11.1) — of the members the zoom ladder
+selects, how many reach each edge, and how many reach at least one:
+
+| family | members | bottom | top | left | right | any |
+|---|---|---|---|---|---|---|
+| isotherms | 19 | 11 | 16 | 8 | 3 | 18 |
+| isobars | 19 | 1 | 2 | 18 | 3 | 19 |
+| dry adiabats | 35 | 9 | 20 | 7 | 3 | 27 |
+| moist adiabats | 21 | 0 | 7 | 1 | 0 | 8 |
+| mixing ratios | 8 | 0 | 8 | 1 | 0 | 8 |
+
+No single edge covers a family, which is why placements are a tuple and why the inline
+remainder is automatic rather than optional. The pairings the numbers recommend:
+
+- **Isobars `("bottom", "left")`** — all 19 ticked, none doubled, nothing left inline: the
+  left edge carries 150–1000 hPa and the bottom edge the 1050 hPa isobar alone. The
+  printed chart's pressure scale, exactly.
+- **Isotherms `("bottom", "left")`** — 18 of 19, the warm 11 below (−40 to 60 °C) and the
+  cold 8 beside (−110 to −40 °C). The two edges are not disjoint: −40 °C passes through
+  the corner and is ticked on both, and −120 °C reaches no edge at all and falls to the
+  inline remainder. Both rules above, visible in one call.
+- **Mixing ratios `"top"`** — 8 of 8, a complete scale from one token.
+- **Dry adiabats `("top", "left")`** — 27 of 35; the 8 that reach nothing stay inline.
+- **Moist adiabats** — 8 of 21 at best, because they are truncated curves that mostly
+  begin and end inside the view. Not an edge family: leave them inline or `labels=False`.
+
+The counts are extent-dependent — `set_extent` changes every one of them — which is
+precisely why the crossings are recomputed by the locator on each draw rather than fixed
+when the family is built.
+
 Side-of-axes layout contract (decided in Plan 3, built by the consuming plans):
 panels beside the diagram are appended with `mpl_toolkits.axes_grid1`'s axes
 divider, which tracks the equal-aspect box height — right side, inside-out: Plan 6's
@@ -260,7 +335,12 @@ locator whenever a panel appears, so the inside-out contract holds on every call
 path with no panel teardown or re-rendering. (Refined at plan drafting, same day:
 axes_grid1's `append_axes` only ever appends to the size stack, so the earlier
 remove-and-re-append sketch would leave a stale width slot — a phantom gap;
-relayout is the clean mechanism, verified empirically.)
+relayout is the clean mechanism, verified empirically.) The right edge is the one
+contested by both features: `BARB_GUTTER_PAD` is 0.1 in, narrower than an 8 pt tick
+label, so right-edge isopleth labels would land on the gutter. Rather than forbid the
+combination or document a collision, the relayout helper substitutes a wider
+`_constants` pad when the right edge carries labels — one lookup in a helper that
+already rebuilds the stack on every panel call, and no rule for the user to remember.
 
 ### 3.3 `calc`
 
@@ -523,7 +603,8 @@ signature rather than per-signature positional conventions.
   documented convention win, and divergences are recorded. Attribution attaches only
   where tephi artifacts are actually copied (per case, via a NOTICE file if needed).
 - **Plotting:** image-baseline tests via pytest-mpl (small in-repo PNGs,
-  tolerance-tuned) for each isopleth family, profiles, barbs, shading, and the
+  tolerance-tuned) for each isopleth family, profiles, barbs, shading, the
+  printed-chart edge-labelling configuration, and the
   composed §4 figure. Deliberately not tephi's external image-hash repo, which is a
   contributor-hostile maintenance burden. Curved-family geometry is additionally
   cross-checked against recorded tephi outputs *informationally* — MetPy's and
