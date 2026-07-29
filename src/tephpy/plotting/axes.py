@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import math
 from typing import TYPE_CHECKING, Any, Final, cast, overload
+import warnings
 
 from matplotlib.axes import Axes
 from matplotlib.figure import FigureBase
@@ -154,15 +155,26 @@ def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> 
     Returns
     -------
     str
-        The mixing-ratio readout in g/kg, one decimal.
+        The mixing-ratio readout in g/kg, one decimal, or ``""`` when
+        undefined (total pressure is less than the saturation vapour
+        pressure at that temperature).
+
+    Notes
+    -----
+    MetPy is imported on first use; the first call has a small import cost.
     """
     # Function-local so `import tephpy` stays light (spec §10 item 10).
     from metpy.calc import saturation_mixing_ratio  # noqa: PLC0415
     from metpy.units import units as registry  # noqa: PLC0415
 
-    ratio = saturation_mixing_ratio(
-        registry.Quantity(pressure, "hPa"), registry.Quantity(temperature, "degC")
-    ).m_as("g/kg")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        warnings.simplefilter("ignore", RuntimeWarning)
+        ratio = saturation_mixing_ratio(
+            registry.Quantity(pressure, "hPa"), registry.Quantity(temperature, "degC")
+        ).m_as("g/kg")
+    if not math.isfinite(float(ratio)):
+        return ""
     return f"{float(ratio):.1f} g/kg"
 
 
@@ -186,18 +198,30 @@ def _cursor_theta_w(pressure: float, temperature: float, _theta: float) -> str:
     Returns
     -------
     str
-        The wet-bulb potential-temperature readout, one decimal.
+        The wet-bulb potential-temperature readout, one decimal, or ``""``
+        when undefined (total pressure is less than the saturation vapour
+        pressure at that temperature).
+
+    Notes
+    -----
+    MetPy is imported on first use; the first call has a small import cost.
+    ``theta_w`` integrates the pseudoadiabat numerically per event.
     """
     # Function-local so `import tephpy` stays light (spec §10 item 10).
     from metpy.calc import wet_bulb_potential_temperature  # noqa: PLC0415
     from metpy.units import units as registry  # noqa: PLC0415
 
     quantity = registry.Quantity
-    theta_w = wet_bulb_potential_temperature(
-        quantity(pressure, "hPa"),
-        quantity(temperature, "degC"),
-        quantity(temperature, "degC"),
-    ).m_as("degC")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        warnings.simplefilter("ignore", RuntimeWarning)
+        theta_w = wet_bulb_potential_temperature(
+            quantity(pressure, "hPa"),
+            quantity(temperature, "degC"),
+            quantity(temperature, "degC"),
+        ).m_as("degC")
+    if not math.isfinite(float(theta_w)):
+        return ""
     return f"θw {float(theta_w):.1f} °C"
 
 
@@ -445,7 +469,8 @@ class TephigramAxes(Axes):
         ``ax.format_coord = fn`` (stock matplotlib) shadows this method
         entirely, and ``config.cursor.fields`` is read live on every call,
         so a ``config.context(cursor={"fields": ...})`` override applies to
-        existing axes for its duration (spec §3.5).
+        existing axes for its duration (spec §3.5). Fields whose value is
+        undefined at the point are omitted from the readout.
 
         Parameters
         ----------
@@ -463,11 +488,19 @@ class TephigramAxes(Axes):
         Raises
         ------
         TypeError
-            If ``config.cursor.fields`` names an unknown field.
+            If ``config.cursor.fields`` is a bare string rather than a
+            tuple of field names, or names an unknown field.
         """
         fields = config.cursor.fields
         if fields is None:
             fields = CURSOR_FIELDS
+        _fields_obj: object = fields
+        if isinstance(_fields_obj, str):
+            msg = (
+                f"cursor fields must be a tuple of field names, not a bare string: "
+                f"pass ({_fields_obj!r},)"
+            )
+            raise TypeError(msg)
         unknown = set(fields) - set(_CURSOR_FORMATTERS)
         if unknown:
             msg = (
@@ -481,7 +514,11 @@ class TephigramAxes(Axes):
         finite = math.isfinite(p) and math.isfinite(t) and math.isfinite(th)
         if not (finite and p > 0.0):
             return ""
-        return ", ".join(_CURSOR_FORMATTERS[name](p, t, th) for name in fields)
+        return ", ".join(
+            part
+            for part in (_CURSOR_FORMATTERS[name](p, t, th) for name in fields)
+            if part
+        )
 
     @overload
     def plot_profile(  # numpydoc ignore=GL08

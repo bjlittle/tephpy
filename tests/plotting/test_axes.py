@@ -296,6 +296,32 @@ def test_format_coord_unknown_field_raises(tephigram_axes):
         tephigram_axes.format_coord(0.0, 0.0)
 
 
+def test_format_coord_supersaturated_skips_metpy_fields(tephigram_axes):
+    """Supersaturated points omit undefined fields, not render nan (spec §3.2).
+
+    At ~1000 hPa / 120 °C, saturation vapour pressure exceeds total pressure,
+    making mixing_ratio and theta_w mathematically undefined.  The readout
+    must omit those fields rather than showing nan and must not emit any
+    warning (filterwarnings=error enforces this).
+    """
+    x, y = _cursor_xy(1000.0, 120.0)
+    with config.context(
+        cursor={"fields": ("pressure", "temperature", "mixing_ratio", "theta_w")}
+    ):
+        result = tephigram_axes.format_coord(x, y)
+    assert result == "1000 hPa, 120.0 °C"
+
+
+def test_format_coord_bare_string_fields_raises(tephigram_axes):
+    """A bare-string cursor fields value raises a clear TypeError (spec §3.2)."""
+    x, y = _cursor_xy(850.0, -4.2)
+    with (
+        config.context(cursor={"fields": "pressure"}),
+        pytest.raises(TypeError, match="cursor fields must be a tuple"),
+    ):
+        tephigram_axes.format_coord(x, y)
+
+
 def test_clear_restores_projection_defaults(tephigram_axes):
     old_family = tephigram_axes.isobars()
     tephigram_axes.plot([1700.0, 1750.0], [1700.0, 1750.0])
