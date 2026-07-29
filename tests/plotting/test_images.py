@@ -116,7 +116,7 @@ def _reference_sounding(**kwargs):
 def test_profile_sounding():
     """One sounding: red temperature and green dewpoint over the grid."""
     fig, ax = _tephigram_figure()
-    ax.plot_sounding(_reference_sounding(label="03808 2026-07-21 12Z"))
+    ax.plot_sounding(_reference_sounding(label="72357 2013-05-20 12Z"))
     ax.legend(loc="upper right", fontsize=6)
     return fig
 

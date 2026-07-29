@@ -1,0 +1,9 @@
+Swapped the design spec's canonical usage example — and the station/time
+identity echoed through the :class:`~tephpy.sounding.Sounding` and
+:func:`~tephpy.io.wyoming.fetch` docstrings, label examples, and tests — from
+a stable Camborne profile whose 4 J/kg of CAPE rendered
+:meth:`~tephpy.plotting.axes.TephigramAxes.shade_cape` as a sub-pixel sliver,
+to Norman, Oklahoma at 2013-05-20 12Z (the Moore EF5 morning sounding:
+1810 J/kg of CAPE, −271 J/kg of CIN), so the canonical example visibly
+demonstrates every call it makes — now including
+:meth:`~tephpy.plotting.axes.TephigramAxes.shade_cin`. (:user:`claude`)

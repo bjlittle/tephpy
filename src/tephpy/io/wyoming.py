@@ -52,7 +52,7 @@ def fetch(
     Parameters
     ----------
     station : str
-        The WMO station identifier, e.g. ``"03808"``.
+        The WMO station identifier, e.g. ``"72357"``.
     time : datetime.datetime or str
         The nominal launch time; a string is read with
         :meth:`datetime.datetime.fromisoformat`, and a naive value is

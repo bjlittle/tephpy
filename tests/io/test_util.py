@@ -15,7 +15,7 @@ from tephpy.io._util import coerce_time, strictly_decreasing
 
 
 def test_coerce_time_naive_string_reads_as_utc():
-    assert coerce_time("2026-07-21 12:00") == datetime(2026, 7, 21, 12, tzinfo=UTC)
+    assert coerce_time("2013-05-20 12:00") == datetime(2013, 5, 20, 12, tzinfo=UTC)
 
 
 def test_coerce_time_aware_input_converts_to_utc():
