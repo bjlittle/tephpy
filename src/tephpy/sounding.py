@@ -231,6 +231,9 @@ class Sounding:
         if time is None:
             return
         if isinstance(time, np.datetime64):
+            if np.isnat(time):
+                msg = "time is NaT (not-a-time): pass a real launch time, or None"
+                raise TypeError(msg)
             time = time.astype("datetime64[us]").item()
         if not isinstance(time, datetime):
             msg = f"time must be a datetime or numpy.datetime64, got {type(time)!r}"

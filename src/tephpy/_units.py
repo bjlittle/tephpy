@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from tephpy.exceptions import TephpyUnitsError
+from tephpy.exceptions import TephpyUnitsError, TephpyValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -103,6 +103,9 @@ def as_quantity(
         For unit-less input without `units`, the ambiguous
         quantity-plus-`units` case, an unparsable unit string, or the
         wrong dimensionality.
+    TephpyValidationError
+        If the value holds non-numeric elements (e.g. string
+        missing-markers) that cannot coerce to float64.
     """
     # Function-local so `import tephpy` stays light (spec §5, §10 item 10).
     from metpy.units import units as registry  # noqa: PLC0415
@@ -115,7 +118,7 @@ def as_quantity(
                 f"drop the units[{name!r}] entry or pass a bare array"
             )
             raise TephpyUnitsError(msg)
-        magnitude = np.asarray(value.magnitude, dtype=np.float64)
+        raw: object = value.magnitude
         unit = str(value.units)
     else:
         if units is None:
@@ -124,8 +127,13 @@ def as_quantity(
                 f'units={{"{name}": "<unit>"}}'
             )
             raise TephpyUnitsError(msg)
-        magnitude = np.asarray(value, dtype=np.float64)
+        raw = value
         unit = units
+    try:
+        magnitude = np.asarray(raw, dtype=np.float64)
+    except (TypeError, ValueError) as error:
+        msg = f"{name!r} is not numeric and cannot coerce to float64: {error}"
+        raise TephpyValidationError(msg) from error
     try:
         quantity = registry.Quantity(magnitude, unit)
     except (pint.PintError, TypeError, ValueError) as error:

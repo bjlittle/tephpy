@@ -15,7 +15,7 @@ import pint
 import pytest
 
 from tephpy._units import as_quantity, check_units_mapping
-from tephpy.exceptions import TephpyUnitsError
+from tephpy.exceptions import TephpyUnitsError, TephpyValidationError
 
 
 def test_quantity_passes_through():
@@ -47,6 +47,14 @@ def test_integer_input_coerced_to_float64():
         np.array([1000, 850]), name="pressure", units="hPa", dimension="[pressure]"
     )
     assert result.magnitude.dtype == np.float64
+
+
+def test_non_numeric_bare_input_raises():
+    """Values that cannot coerce to float64 fail inside the §6 taxonomy."""
+    with pytest.raises(TephpyValidationError, match="'pressure'"):
+        as_quantity(
+            ["1000.0", "-----"], name="pressure", units="hPa", dimension="[pressure]"
+        )
 
 
 def test_bare_array_without_units_raises():

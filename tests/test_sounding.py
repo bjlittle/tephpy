@@ -250,6 +250,16 @@ def test_bad_time_type_raises():
         Sounding(PRESSURE, TEMPERATURE, time="2026-07-21")
 
 
+def test_nat_time_named_in_error():
+    """NaT is named, not reported as ``<class 'NoneType'>`` (spec §6).
+
+    Unit-specific NaT only: numpy 2.5 deprecates *creating* the generic
+    ``np.datetime64("NaT")``, so that form can no longer arrive here.
+    """
+    with pytest.raises(TypeError, match="NaT"):
+        Sounding(PRESSURE, TEMPERATURE, time=np.datetime64("NaT", "ns"))
+
+
 def test_none_pressure_or_temperature_raises():
     """Required fields passed as None fail fast (bad code, spec §6)."""
     with pytest.raises(TypeError, match="'pressure' is None"):
@@ -301,6 +311,13 @@ def test_from_dataframe_unknown_field():
         Sounding.from_dataframe(df, bogus="x")
 
 
+def test_from_dataframe_non_numeric_column_raises():
+    """An object-dtype column of missing-markers names the field (spec §6)."""
+    df = pd.DataFrame({"pressure": [1000.0, 850.0], "temperature": ["12.0", "-----"]})
+    with pytest.raises(TephpyValidationError, match="'temperature'"):
+        Sounding.from_dataframe(df, units={"pressure": "hPa", "temperature": "degC"})
+
+
 def test_from_dataset_reads_attrs_units():
     ds = xr.Dataset(
         {
@@ -310,6 +327,16 @@ def test_from_dataset_reads_attrs_units():
     )
     snd = Sounding.from_dataset(ds)
     np.testing.assert_allclose(snd.temperature.m_as("degC"), [20.0, 12.0])
+
+
+def test_from_dataset_reads_coordinate_field():
+    """A coordinate works as a field source: membership tests ``ds.variables``."""
+    ds = xr.Dataset(
+        {"temperature": ("pressure", np.array([20.0, 12.0]), {"units": "degC"})},
+        coords={"pressure": ("pressure", np.array([1000.0, 850.0]), {"units": "hPa"})},
+    )
+    snd = Sounding.from_dataset(ds)
+    np.testing.assert_allclose(snd.pressure.m_as("hPa"), [1000.0, 850.0])
 
 
 def test_from_dataset_units_override_and_var_map():
