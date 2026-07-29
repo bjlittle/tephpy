@@ -301,6 +301,13 @@ def test_from_dataframe_unknown_field():
         Sounding.from_dataframe(df, bogus="x")
 
 
+def test_from_dataframe_non_numeric_column_raises():
+    """An object-dtype column of missing-markers names the field (spec §6)."""
+    df = pd.DataFrame({"pressure": [1000.0, 850.0], "temperature": ["12.0", "-----"]})
+    with pytest.raises(TephpyValidationError, match="'temperature'"):
+        Sounding.from_dataframe(df, units={"pressure": "hPa", "temperature": "degC"})
+
+
 def test_from_dataset_reads_attrs_units():
     ds = xr.Dataset(
         {
