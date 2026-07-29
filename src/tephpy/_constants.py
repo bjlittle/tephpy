@@ -170,7 +170,7 @@ PROFILE_LINEWIDTH: Final[float] = 1.5
 #: default ``Line2D`` zorder of 2.
 PROFILE_ZORDER: Final[float] = 2.5
 
-#: Derived sounding legend label (spec §3.4), e.g. ``"03808 2026-07-21 12Z"``.
+#: Derived sounding legend label (spec §3.4), e.g. ``"72357 2013-05-20 12Z"``.
 SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
 
 #: The operational cloud-base correction to Normand's point, in hPa: UK

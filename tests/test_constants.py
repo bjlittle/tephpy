@@ -90,9 +90,9 @@ def test_profile_conventions():
 def test_sounding_label_format():
     """The derived-label convention renders as station then UTC time."""
     label = constants.SOUNDING_LABEL_FORMAT.format(
-        station="03808", time=datetime(2026, 7, 21, 12, tzinfo=UTC)
+        station="72357", time=datetime(2013, 5, 20, 12, tzinfo=UTC)
     )
-    assert label == "03808 2026-07-21 12Z"
+    assert label == "72357 2013-05-20 12Z"
 
 
 def test_shading_conventions():

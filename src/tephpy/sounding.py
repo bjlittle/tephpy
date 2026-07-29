@@ -83,13 +83,13 @@ class Sounding:
     wind_direction : pint.Quantity or None
         Level wind directions (degrees from north); requires `wind_speed`.
     station : str or None
-        Station identifier, e.g. ``"03808"``.
+        Station identifier, e.g. ``"72357"``.
     time : datetime.datetime or None
         Launch time; ``numpy.datetime64`` input is accepted, naive
         datetimes are read as UTC, and aware ones are converted to UTC.
     label : str or None
         Legend text. When not given it derives as e.g.
-        ``"03808 2026-07-21 12Z"`` if both `station` and `time` are
+        ``"72357 2013-05-20 12Z"`` if both `station` and `time` are
         present, else ``None`` — and ``None`` means no legend entry.
     units : mapping of str to str, optional
         Construction-only (not stored): unit strings for bare-array

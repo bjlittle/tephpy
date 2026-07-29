@@ -202,22 +202,22 @@ def test_dewpoint_comparison_converts_units():
 
 def test_label_derives_from_station_and_time():
     snd = Sounding(
-        PRESSURE, TEMPERATURE, station="03808", time=datetime(2026, 7, 21, 12)
+        PRESSURE, TEMPERATURE, station="72357", time=datetime(2013, 5, 20, 12)
     )
-    assert snd.label == "03808 2026-07-21 12Z"
+    assert snd.label == "72357 2013-05-20 12Z"
 
 
 def test_label_requires_both_station_and_time():
-    assert Sounding(PRESSURE, TEMPERATURE, station="03808").label is None
-    assert Sounding(PRESSURE, TEMPERATURE, time=datetime(2026, 7, 21, 12)).label is None
+    assert Sounding(PRESSURE, TEMPERATURE, station="72357").label is None
+    assert Sounding(PRESSURE, TEMPERATURE, time=datetime(2013, 5, 20, 12)).label is None
 
 
 def test_explicit_label_wins():
     snd = Sounding(
         PRESSURE,
         TEMPERATURE,
-        station="03808",
-        time=datetime(2026, 7, 21, 12),
+        station="72357",
+        time=datetime(2013, 5, 20, 12),
         label="forecast",
     )
     assert snd.label == "forecast"
@@ -225,29 +225,29 @@ def test_explicit_label_wins():
 
 def test_naive_time_read_as_utc_aware_converted():
     """Naive datetimes are UTC; aware ones convert to UTC (spec §3.4)."""
-    naive = Sounding(PRESSURE, TEMPERATURE, station="X", time=datetime(2026, 7, 21, 12))
-    assert naive.time == datetime(2026, 7, 21, 12, tzinfo=UTC)
+    naive = Sounding(PRESSURE, TEMPERATURE, station="X", time=datetime(2013, 5, 20, 12))
+    assert naive.time == datetime(2013, 5, 20, 12, tzinfo=UTC)
     plus_two = timezone(timedelta(hours=2))
     aware = Sounding(
         PRESSURE,
         TEMPERATURE,
         station="X",
-        time=datetime(2026, 7, 21, 14, tzinfo=plus_two),
+        time=datetime(2013, 5, 20, 14, tzinfo=plus_two),
     )
-    assert aware.time == datetime(2026, 7, 21, 12, tzinfo=UTC)
-    assert aware.label == "X 2026-07-21 12Z"
+    assert aware.time == datetime(2013, 5, 20, 12, tzinfo=UTC)
+    assert aware.label == "X 2013-05-20 12Z"
 
 
 def test_datetime64_time_accepted():
     snd = Sounding(
-        PRESSURE, TEMPERATURE, station="X", time=np.datetime64("2026-07-21T12:00")
+        PRESSURE, TEMPERATURE, station="X", time=np.datetime64("2013-05-20T12:00")
     )
-    assert snd.time == datetime(2026, 7, 21, 12, tzinfo=UTC)
+    assert snd.time == datetime(2013, 5, 20, 12, tzinfo=UTC)
 
 
 def test_bad_time_type_raises():
     with pytest.raises(TypeError, match="time must be"):
-        Sounding(PRESSURE, TEMPERATURE, time="2026-07-21")
+        Sounding(PRESSURE, TEMPERATURE, time="2013-05-20")
 
 
 def test_nat_time_named_in_error():
@@ -282,10 +282,10 @@ def test_from_dataframe():
         df,
         units={"pressure": "hPa", "temperature": "degC", "dewpoint": "degC"},
         dewpoint="dwpt",
-        station="03808",
-        time=pd.Timestamp("2026-07-21 12:00"),
+        station="72357",
+        time=pd.Timestamp("2013-05-20 12:00"),
     )
-    assert snd.label == "03808 2026-07-21 12Z"
+    assert snd.label == "72357 2013-05-20 12Z"
     np.testing.assert_array_equal(snd.dewpoint.m_as("degC"), [15.0, 8.0])
 
 

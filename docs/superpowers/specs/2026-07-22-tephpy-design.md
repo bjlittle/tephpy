@@ -323,7 +323,7 @@ fields must arrive together. Inputs are coerced in `__post_init__` — bare arra
 need the §5 `units=` mapping — so a constructed Sounding always holds quantities.
 
 `station` and `time` are optional metadata; `label` is the legend text. An explicit
-`label=` stands as-is; otherwise it derives as `"03808 2026-07-21 12Z"` when both
+`label=` stands as-is; otherwise it derives as `"72357 2013-05-20 12Z"` when both
 station and time are present (naive datetimes read as UTC, aware ones converted to
 UTC; format string in `_constants` per §3.5), otherwise `None` — and `None` means
 no legend entry. Distinguishing forecast-vs-observed overlays of one station/time
@@ -366,7 +366,7 @@ policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 
   entirely-NaN optional field as absent — the wind pair as a unit, so a
   one-sided wind column passes as absent rather than tripping `Sounding`'s
   pairing rule — keeping `MissingDataError`
-  meaningful (§6). `station` is the WMO identifier (`"03808"`); `time` is a
+  meaningful (§6). `station` is the WMO identifier (`"72357"`); `time` is a
   datetime or ISO string, naive read as UTC (the `Sounding` convention).
   Station and time land as metadata, so the legend label derives for free.
   Network failures and HTTP errors — the archive replies 400 "no data at that
@@ -407,19 +407,26 @@ import matplotlib.pyplot as plt
 import tephpy
 from tephpy.io import wyoming
 
-snd = wyoming.fetch("03808", "2026-07-21 12:00")  # → Sounding
+snd = wyoming.fetch("72357", "2013-05-20 12:00")  # → Sounding
 
 fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-ax.plot_sounding(snd)  # T + Td, legend "03808 2026-07-21 12Z"
+ax.plot_sounding(snd)  # T + Td, legend "72357 2013-05-20 12Z"
 ax.plot_barbs(snd)
 
 parcel = tephpy.calc.parcel_path(snd)
 ax.plot_profile(parcel, color="k", linestyle="--")
 ax.shade_cape(snd, parcel)
+ax.shade_cin(snd, parcel)
 ax.annotate_indices(tephpy.calc.indices(snd))
 
 fig.savefig("sounding.pdf")
 ```
+
+The station/time is deliberate: Norman, Oklahoma on the morning of the 2013
+Moore EF5 tornado — a profile with ≈1800 J/kg of CAPE and ≈−270 J/kg of CIN —
+so `shade_cape` and `shade_cin` have visible regions to fill and every call in
+the example demonstrably renders. A stable profile reduces the shading to
+invisible slivers.
 
 Comparing soundings is two `plot_sounding` calls with different styles; `set_extent`
 keeps extents identical across figures.
@@ -800,11 +807,11 @@ them, ordered by owning plan.
    right-side inside-out ordering (barb gutter, then indices panel); no layout code
    ships until Plans 5/6 consume it.
 8. **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
-   `"03808 2026-07-21 12Z"`), station/time optionality (§3.4 states requiredness only for
+   `"72357 2013-05-20 12Z"`), station/time optionality (§3.4 states requiredness only for
    the data arrays), and how forecast-vs-observed overlays of the same station/time stay
    distinguishable in a legend. *Resolved 2026-07-25:* station and time are optional
    metadata — ad-hoc arrays plot without ceremony, operational users get comparable
-   legends for free. `label` derives as `"03808 2026-07-21 12Z"` when both are present,
+   legends for free. `label` derives as `"72357 2013-05-20 12Z"` when both are present,
    an explicit `label=` always wins, and with neither there is no legend entry.
    Forecast-vs-observed distinguishability is the label override's job — no dedicated
    field. §3.2/§3.4 updated accordingly.
