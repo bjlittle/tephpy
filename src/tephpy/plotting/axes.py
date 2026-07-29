@@ -23,7 +23,7 @@ panel methods are called in (spec §3.2).
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import TYPE_CHECKING, Any, Final, cast, overload
 
 from matplotlib.axes import Axes
 from matplotlib.figure import FigureBase
@@ -44,6 +44,7 @@ from tephpy._constants import (
     BARB_STAFF_POSITION,
     CAPE_COLOR,
     CIN_COLOR,
+    CURSOR_FIELDS,
     DEFAULT_EXTENT,
     INDICES_PANEL_FONTSIZE,
     INDICES_PANEL_PAD,
@@ -76,6 +77,75 @@ __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
 #: ``Figure.clear``'s frame, recognised so the side-panel teardown can
 #: stand down for that caller (see ``TephigramAxes._figure_is_clearing``).
 _FIGURE_CLEAR_CODE = FigureBase.clear.__code__
+
+
+def _cursor_pressure(pressure: float, _temperature: float, _theta: float) -> str:
+    """Format the cursor point's pressure (spec §3.2).
+
+    Parameters
+    ----------
+    pressure : float
+        Cursor pressure in hPa.
+    _temperature : float
+        Ignored; the uniform registry signature.
+    _theta : float
+        Ignored; the uniform registry signature.
+
+    Returns
+    -------
+    str
+        The pressure readout, whole hPa.
+    """
+    return f"{pressure:.0f} hPa"
+
+
+def _cursor_temperature(_pressure: float, temperature: float, _theta: float) -> str:
+    """Format the cursor point's temperature (spec §3.2).
+
+    Parameters
+    ----------
+    _pressure : float
+        Ignored; the uniform registry signature.
+    temperature : float
+        Cursor temperature in degrees Celsius.
+    _theta : float
+        Ignored; the uniform registry signature.
+
+    Returns
+    -------
+    str
+        The temperature readout, one decimal.
+    """
+    return f"{temperature:.1f} °C"
+
+
+def _cursor_theta(_pressure: float, _temperature: float, theta: float) -> str:
+    """Format the cursor point's potential temperature (spec §3.2).
+
+    Parameters
+    ----------
+    _pressure : float
+        Ignored; the uniform registry signature.
+    _temperature : float
+        Ignored; the uniform registry signature.
+    theta : float
+        Cursor potential temperature in degrees Celsius.
+
+    Returns
+    -------
+    str
+        The potential-temperature readout, one decimal.
+    """
+    return f"θ {theta:.1f} °C"
+
+
+#: The cursor readout field registry (spec §3.2): field name to a
+#: ``(pressure, temperature, theta) -> str`` formatter.
+_CURSOR_FORMATTERS: Final[dict[str, Callable[[float, float, float], str]]] = {
+    "pressure": _cursor_pressure,
+    "temperature": _cursor_temperature,
+    "theta": _cursor_theta,
+}
 
 
 class TephigramTransform(mtransforms.Transform):
@@ -299,6 +369,55 @@ class TephigramAxes(Axes):
         self.set_xlim(float(np.min(x)), float(np.max(x)))
         self.set_ylim(float(np.min(y)), float(np.max(y)))
         self.set_autoscale_on(False)
+
+    def format_coord(self, x: float, y: float) -> str:
+        """Report diagram-meaningful values for the cursor position (spec §3.2).
+
+        The navigation toolbar's readout: the data-space cursor position
+        inverts to (temperature, theta), pressure derives via Poisson's
+        equation, and the configured fields render in listed order, e.g.
+        ``850 hPa, -4.2 °C, θ 8.6 °C``. Fields resolve as instance
+        assignment > ``tephpy.config`` > ``_constants``: assigning
+        ``ax.format_coord = fn`` (stock matplotlib) shadows this method
+        entirely, and ``config.cursor.fields`` is read live on every call,
+        so a ``config.context(cursor={"fields": ...})`` override applies to
+        existing axes for its duration (spec §3.5).
+
+        Parameters
+        ----------
+        x : float
+            Cursor x in tephigram data space.
+        y : float
+            Cursor y in tephigram data space.
+
+        Returns
+        -------
+        str
+            The formatted readout, or ``""`` when the position is
+            unphysical (e.g. left of the -273.15 °C isotherm).
+
+        Raises
+        ------
+        TypeError
+            If ``config.cursor.fields`` names an unknown field.
+        """
+        fields = config.cursor.fields
+        if fields is None:
+            fields = CURSOR_FIELDS
+        unknown = set(fields) - set(_CURSOR_FORMATTERS)
+        if unknown:
+            msg = (
+                f"unknown cursor field(s) {sorted(unknown)!r}; "
+                f"expected {sorted(_CURSOR_FORMATTERS)!r}"
+            )
+            raise TypeError(msg)
+        temperature, theta = transforms.temperature_theta_from_xy(x, y)
+        pressure = transforms.pressure_from_temperature_theta(temperature, theta)
+        p, t, th = float(pressure), float(temperature), float(theta)
+        finite = math.isfinite(p) and math.isfinite(t) and math.isfinite(th)
+        if not (finite and p > 0.0):
+            return ""
+        return ", ".join(_CURSOR_FORMATTERS[name](p, t, th) for name in fields)
 
     @overload
     def plot_profile(  # numpydoc ignore=GL08

@@ -245,6 +245,42 @@ def test_set_extent_rejects_unphysical_corners(tephigram_axes):
         tephigram_axes.set_extent(((850.0, 10.0), (850.0, 10.0)))
 
 
+def _cursor_xy(pressure, temperature):
+    """Map a (pressure, temperature) point into cursor data-space (x, y)."""
+    theta = transforms.theta_from_pressure_temperature(pressure, temperature)
+    x, y = transforms.xy_from_temperature_theta(temperature, theta)
+    return float(x), float(y)
+
+
+def test_format_coord_default_trio(tephigram_axes):
+    """The toolbar readout renders p, T, theta — not raw data-space (x, y)."""
+    x, y = _cursor_xy(850.0, -4.2)
+    assert tephigram_axes.format_coord(x, y) == "850 hPa, -4.2 °C, θ 8.6 °C"
+
+
+def test_format_coord_config_fields_read_live(tephigram_axes):
+    """config.cursor.fields reorders/selects, live on an existing axes (§3.5)."""
+    x, y = _cursor_xy(850.0, -4.2)
+    with config.context(cursor={"fields": ("theta", "pressure")}):
+        assert tephigram_axes.format_coord(x, y) == "θ 8.6 °C, 850 hPa"
+    assert tephigram_axes.format_coord(x, y) == "850 hPa, -4.2 °C, θ 8.6 °C"
+
+
+def test_format_coord_out_of_domain_blank(tephigram_axes):
+    """Left of the -273.15 °C isotherm the pressure is NaN: blank readout."""
+    assert tephigram_axes.format_coord(-300.0, 300.0) == ""
+
+
+def test_format_coord_instance_assignment_wins(tephigram_axes):
+    """Stock matplotlib full-custom path: assignment shadows the method (§3.2)."""
+
+    def custom(_x, _y):
+        return "custom"
+
+    tephigram_axes.format_coord = custom
+    assert tephigram_axes.format_coord(1.0, 2.0) == "custom"
+
+
 def test_clear_restores_projection_defaults(tephigram_axes):
     old_family = tephigram_axes.isobars()
     tephigram_axes.plot([1700.0, 1750.0], [1700.0, 1750.0])
