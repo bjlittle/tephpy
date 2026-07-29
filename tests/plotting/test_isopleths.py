@@ -406,3 +406,57 @@ def test_configure_failure_leaves_family_unchanged():
     family.configure(color="red")
     assert family.options.color == "red"
     assert family.options.interval is None
+
+
+VIEW = mtransforms.Bbox.from_extents(1591.0, 1651.0, 1902.0, 1822.0)
+
+
+def test_edge_crossings_isotherm_bottom_is_analytic():
+    """An isotherm x - y = 2T meets y = y0 at exactly x = y0 + 2T."""
+    (member,) = isopleths.isotherm_members([20.0])
+    crossings = isopleths.edge_crossings(member.xy, "bottom", VIEW)
+    np.testing.assert_allclose(crossings, [VIEW.y0 + 40.0], rtol=1e-12)
+
+
+def test_edge_crossings_isotherm_left_is_analytic():
+    """The same isotherm meets x = x0 at exactly y = x0 - 2T."""
+    (member,) = isopleths.isotherm_members([-30.0])
+    crossings = isopleths.edge_crossings(member.xy, "left", VIEW)
+    np.testing.assert_allclose(crossings, [VIEW.x0 + 60.0], rtol=1e-12)
+
+
+def test_edge_crossings_outside_the_edge_span_are_dropped():
+    """A crossing of the infinite line beyond the edge segment is not a hit."""
+    tiny = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1600.0, 1822.0)
+    (member,) = isopleths.isotherm_members([20.0])
+    assert isopleths.edge_crossings(member.xy, "bottom", tiny).size == 0
+
+
+def test_edge_crossings_vertex_on_the_edge_counts_once():
+    """A vertex sitting exactly on the edge yields one crossing, not two."""
+    xy = np.array([[1700.0, 1600.0], [1700.0, 1671.0], [1700.0, 1750.0]])
+    crossings = isopleths.edge_crossings(xy, "bottom", VIEW)
+    np.testing.assert_allclose(crossings, [1700.0])
+
+
+def test_edge_crossings_ignores_non_finite_segments():
+    """Truncated members carry NaN vertices; those segments never hit."""
+    xy = np.array([[1700.0, 1600.0], [np.nan, np.nan], [1700.0, 1750.0]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_needs_two_vertices():
+    """A degenerate polyline has no segments to intersect."""
+    xy = np.array([[1700.0, 1671.0]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_rejects_an_unknown_edge():
+    """Fail loud on an unknown edge name (spec §6)."""
+    (member,) = isopleths.isotherm_members([0.0])
+    with pytest.raises(TypeError, match=r"unknown edge 'middle'.*bottom"):
+        isopleths.edge_crossings(member.xy, "middle", VIEW)
+
+
+def test_edges_are_the_four_diagram_edges():
+    assert isopleths.EDGES == ("bottom", "top", "left", "right")

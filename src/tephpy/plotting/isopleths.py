@@ -75,11 +75,13 @@ if TYPE_CHECKING:
     import matplotlib.transforms as mtransforms
 
 __all__ = [
+    "EDGES",
     "FamilySpec",
     "IsoplethFamily",
     "Member",
     "ResolvedOptions",
     "dry_adiabat_members",
+    "edge_crossings",
     "isobar_members",
     "isotherm_members",
     "mixing_ratio_members",
@@ -96,6 +98,71 @@ _STYLE_KEYS: Final[frozenset[str]] = frozenset(
 
 #: Options accepted by the interval-based families.
 _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
+
+#: The diagram edges an isopleth family may claim for its labels (spec §3.2).
+EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
+
+
+def edge_crossings(
+    xy: npt.NDArray[np.float64], edge: str, view: mtransforms.Bbox
+) -> npt.NDArray[np.float64]:
+    """Return where a member polyline meets one edge of the view.
+
+    Pure numpy over the cached member geometry: each segment that straddles
+    the edge's level contributes one linearly interpolated crossing, kept
+    only when it falls within the edge's own span. A vertex lying exactly on
+    the edge is attributed to the segment it starts, so it counts once; a
+    segment with a non-finite endpoint never counts. A member may cross the
+    same edge more than once — a curved isobar leaving and re-entering the
+    view — and every crossing is returned (spec §3.2).
+
+    Parameters
+    ----------
+    xy : numpy.ndarray
+        The member polyline, shape ``(n, 2)`` in tephigram data space.
+    edge : str
+        The edge to intersect, one of :data:`EDGES`.
+    view : matplotlib.transforms.Bbox
+        The current data-space view rectangle.
+
+    Returns
+    -------
+    numpy.ndarray
+        The along-edge coordinates of the crossings — x for ``"bottom"``
+        and ``"top"``, y for ``"left"`` and ``"right"`` — in polyline
+        order; empty when the member does not reach the edge.
+
+    Raises
+    ------
+    TypeError
+        If `edge` is not one of :data:`EDGES`.
+    """
+    if edge not in EDGES:
+        msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
+        raise TypeError(msg)
+    if xy.shape[0] < 2:
+        return np.empty(0, dtype=np.float64)
+    if edge in {"bottom", "top"}:
+        across, along = xy[:, 1], xy[:, 0]
+        level = view.y0 if edge == "bottom" else view.y1
+        lo, hi = view.x0, view.x1
+    else:
+        across, along = xy[:, 0], xy[:, 1]
+        level = view.x0 if edge == "left" else view.x1
+        lo, hi = view.y0, view.y1
+    delta = across - level
+    start, end = delta[:-1], delta[1:]
+    # A NaN endpoint makes both the equality and the sign product False, so
+    # truncated members drop their non-finite segments here.
+    hit = (start == 0.0) | (np.sign(start) * np.sign(end) < 0.0)
+    if not hit.any():
+        return np.empty(0, dtype=np.float64)
+    start, end = start[hit], end[hit]
+    first, second = along[:-1][hit], along[1:][hit]
+    span = end - start
+    fraction = np.where(span == 0.0, 0.0, -start / np.where(span == 0.0, 1.0, span))
+    positions = first + fraction * (second - first)
+    return np.asarray(positions[(positions >= lo) & (positions <= hi)])
 
 
 @dataclasses.dataclass(frozen=True)
