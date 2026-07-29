@@ -5,8 +5,8 @@
 """Tests for the CAPE/CIN shading builders (spec §3.2).
 
 Headless geometry tests against an analytic fixture: an isothermal 0 °C
-environment and a piecewise-linear (in ln p) parcel curve, whose buoyancy
-sign-change crossings have closed-form pressures.
+environment and a parcel curve whose drawn segments (straight in
+tephigram (x, y) space) cross it at closed-form pressures.
 """
 
 from __future__ import annotations
@@ -14,17 +14,37 @@ from __future__ import annotations
 import numpy as np
 
 from tephpy import transforms
+from tephpy._constants import KELVIN_ZERO
 from tephpy.plotting.shading import cape_polygons, cin_polygons
 
 ENV_PRESSURE = np.array([1000.0, 800.0, 500.0, 300.0])
 ENV_TEMPERATURE = np.zeros(4)
 PARCEL_TEMPERATURE = np.array([-4.0, 6.0, 6.0, -6.0])
 
-#: Buoyancy crossings of the fixture, exact in ln p: the -4 → +6 segment
-#: crosses zero at 0.4 of ln(1000/800); the +6 → -6 segment at its ln-p
-#: midpoint.
-CROSS_LOW = 1000.0 * np.exp(-0.4 * np.log(1000.0 / 800.0))
-CROSS_HIGH = np.sqrt(500.0 * 300.0)
+
+def _isotherm_chord_crossing(p0, t0, p1, t1):
+    """Locate where a drawn parcel segment meets the 0 °C environment.
+
+    Temperature and ln theta_K are both linear along a drawn segment, so
+    the segment meets the isothermal environment at fraction
+    ``s = t0 / (t0 - t1)`` with theta_K blended log-linearly; the
+    crossing's pressure follows from Poisson's equation.
+    """
+    fraction = t0 / (t0 - t1)
+    theta_k = (
+        transforms.theta_from_pressure_temperature(
+            np.array([p0, p1]), np.array([t0, t1])
+        )
+        + KELVIN_ZERO
+    )
+    blend = theta_k[0] ** (1.0 - fraction) * theta_k[1] ** fraction
+    return float(transforms.pressure_from_temperature_theta(0.0, blend - KELVIN_ZERO))
+
+
+#: Buoyancy crossings of the fixture: where the -4 → +6 and +6 → -6 drawn
+#: parcel segments intersect the 0 °C isotherm.
+CROSS_LOW = _isotherm_chord_crossing(1000.0, -4.0, 800.0, 6.0)
+CROSS_HIGH = _isotherm_chord_crossing(500.0, 6.0, 300.0, -6.0)
 
 
 def _cape(lcl_pressure, parcel_temperature=PARCEL_TEMPERATURE):
@@ -52,8 +72,8 @@ def _vertex_pressures(polygon):
     return transforms.pressure_from_temperature_theta(polygon[:, 0], polygon[:, 1])
 
 
-def test_cape_region_bounded_by_the_interpolated_crossings():
-    """Crossings are located by linear interpolation in ln p (spec §3.2)."""
+def test_cape_region_bounded_by_the_drawn_curve_crossings():
+    """Crossings sit where the drawn segments intersect (spec §3.2)."""
     (polygon,) = _cape(lcl_pressure=950.0)
     pressures = _vertex_pressures(polygon)
     np.testing.assert_allclose(pressures.max(), CROSS_LOW, rtol=1e-9)
@@ -127,3 +147,66 @@ def test_nan_gap_breaks_the_region():
     pressures = _vertex_pressures(polygon)
     np.testing.assert_allclose(pressures.max(), CROSS_LOW, rtol=1e-9)
     np.testing.assert_allclose(pressures.min(), 800.0, rtol=1e-9)
+
+
+# A sloped environment on a grid offset from the parcel's: the drawn curves
+# are straight segments in tephigram (x, y) space between their own vertices,
+# and neither is an isotherm, so any other interpolation is off-polyline.
+SLOPED_ENV_PRESSURE = np.array([1000.0, 700.0, 400.0])
+SLOPED_ENV_TEMPERATURE = np.array([15.0, 0.0, -35.0])
+SLOPED_PARCEL_PRESSURE = np.array([1000.0, 900.0, 650.0, 400.0])
+SLOPED_PARCEL_TEMPERATURE = np.array([10.0, 9.0, 3.0, -45.0])
+
+
+def _xy_polyline(pressure, temperature):
+    """Build the drawn curve's polyline: one (x, y) vertex per level."""
+    theta = transforms.theta_from_pressure_temperature(pressure, temperature)
+    x, y = transforms.xy_from_temperature_theta(temperature, theta)
+    return np.column_stack([x, y])
+
+
+def _assert_on_polyline(vertices, pressure, temperature, atol=1e-6):
+    """Assert (T, theta) vertices lie on a drawn polyline in (x, y)."""
+    line = _xy_polyline(pressure, temperature)
+    x, y = transforms.xy_from_temperature_theta(vertices[:, 0], vertices[:, 1])
+    points = np.column_stack([x, y])
+    tail, head = line[:-1], line[1:]
+    span = head - tail
+    length = (span * span).sum(axis=1)
+    offset = points[:, None, :] - tail[None, :, :]
+    fraction = np.clip((offset * span).sum(axis=2) / length, 0.0, 1.0)
+    nearest = tail[None, :, :] + fraction[..., None] * span[None, :, :]
+    distance = np.sqrt(((points[:, None, :] - nearest) ** 2).sum(axis=2)).min(axis=1)
+    np.testing.assert_array_less(distance, atol)
+
+
+def test_cape_polygon_vertices_lie_on_the_drawn_polylines():
+    """Every CAPE vertex sits on a drawn curve — no gap to the profile."""
+    (polygon,) = cape_polygons(
+        SLOPED_ENV_PRESSURE,
+        SLOPED_ENV_TEMPERATURE,
+        SLOPED_PARCEL_PRESSURE,
+        SLOPED_PARCEL_TEMPERATURE,
+        lcl_pressure=680.0,
+    )
+    half = polygon.shape[0] // 2
+    _assert_on_polyline(
+        polygon[:half], SLOPED_PARCEL_PRESSURE, SLOPED_PARCEL_TEMPERATURE
+    )
+    _assert_on_polyline(polygon[half:], SLOPED_ENV_PRESSURE, SLOPED_ENV_TEMPERATURE)
+
+
+def test_cin_polygon_vertices_lie_on_the_drawn_polylines():
+    """Every CIN vertex sits on a drawn curve — no gap to the profile."""
+    (polygon,) = cin_polygons(
+        SLOPED_ENV_PRESSURE,
+        SLOPED_ENV_TEMPERATURE,
+        SLOPED_PARCEL_PRESSURE,
+        SLOPED_PARCEL_TEMPERATURE,
+        lcl_pressure=680.0,
+    )
+    half = polygon.shape[0] // 2
+    _assert_on_polyline(
+        polygon[:half], SLOPED_PARCEL_PRESSURE, SLOPED_PARCEL_TEMPERATURE
+    )
+    _assert_on_polyline(polygon[half:], SLOPED_ENV_PRESSURE, SLOPED_ENV_TEMPERATURE)

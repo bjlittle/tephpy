@@ -191,8 +191,12 @@ Differences from tephi:
   CAPE is the positive-buoyancy region from the LFC to the EL (to the profile
   top when EL is NaN with CAPE > 0, §6), CIN the negative-buoyancy region from
   the parcel start to the LFC. Pure builders in `plotting/shading.py`
-  interpolate both curves onto their merged pressure grid (linear in ln p),
-  locate the buoyancy sign-change crossings, and return the region's closed
+  sample both curves onto their merged pressure grid along the drawn
+  polylines — the straight segments in tephigram (x, y) space that
+  matplotlib draws between profile levels, so the fill closes on the
+  plotted lines at every figure scale (a pressure-space interpolation bows
+  away from the drawn chords between levels; issue #42) — locate the
+  crossings where the drawn segments intersect, and return the region's closed
   polygons in (T, θ) space — plural when the region is interrupted — the
   `isopleths.py` free-builder pattern, headlessly testable. The axes methods
   draw them through the tephigram transform as one compound-path `PathPatch`
