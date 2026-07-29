@@ -138,11 +138,11 @@ Differences from tephi:
   unchanged), `False` (none), or an edge name `"bottom"`/`"top"`/`"left"`/`"right"`,
   singly or as a tuple; a bare string and a one-tuple are identical, and a family may
   claim several edges. The rule is one sentence: **listed edges label the members that
-  reach them; every member left over is labelled inline.** So `ax.isobars(labels="left")`
-  builds the printed chart's pressure scale, and `ax.isotherms(labels=("bottom", "left"))`
-  labels the warm isotherms below the frame and the cold ones beside it — at the default
-  extent 11 and 8 of 19 members, no member reaching both and none left over (measured
-  2026-07-29). Deliberate gaps are not expressible: thinning a family is
+  reach them; every member left over is labelled inline.** So
+  `ax.isobars(labels=("bottom", "left"))` builds the printed chart's pressure scale, and
+  `ax.isotherms(labels=("bottom", "left"))` labels the warm isotherms below the frame and
+  the cold ones beside it (the coverage table below).
+  Deliberate gaps are not expressible: thinning a family is
   `values`/`interval`'s job, and label placement must not become a second member filter.
   A member meeting a listed edge more than once — a curved isobar leaving and re-entering
   — is ticked at each crossing, and an invisible family (`visible=False`) labels nothing
@@ -282,6 +282,37 @@ Differences from tephi:
   garbage; an unknown field name raises `TypeError` naming it and the valid
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
+
+Edge coverage decides which pairing suits each family. Measured 2026-07-29 against the
+real families at `DEFAULT_EXTENT` (matplotlib 3.11.1) — of the members the zoom ladder
+selects, how many reach each edge, and how many reach at least one:
+
+| family | members | bottom | top | left | right | any |
+|---|---|---|---|---|---|---|
+| isotherms | 19 | 11 | 16 | 8 | 3 | 18 |
+| isobars | 19 | 1 | 2 | 18 | 3 | 19 |
+| dry adiabats | 35 | 9 | 20 | 7 | 3 | 27 |
+| moist adiabats | 21 | 0 | 7 | 1 | 0 | 8 |
+| mixing ratios | 8 | 0 | 8 | 1 | 0 | 8 |
+
+No single edge covers a family, which is why placements are a tuple and why the inline
+remainder is automatic rather than optional. The pairings the numbers recommend:
+
+- **Isobars `("bottom", "left")`** — all 19 ticked, none doubled, nothing left inline: the
+  left edge carries 150–1000 hPa and the bottom edge the 1050 hPa isobar alone. The
+  printed chart's pressure scale, exactly.
+- **Isotherms `("bottom", "left")`** — 18 of 19, the warm 11 below (−40 to 60 °C) and the
+  cold 8 beside (−110 to −40 °C). The two edges are not disjoint: −40 °C passes through
+  the corner and is ticked on both, and −120 °C reaches no edge at all and falls to the
+  inline remainder. Both rules above, visible in one call.
+- **Mixing ratios `"top"`** — 8 of 8, a complete scale from one token.
+- **Dry adiabats `("top", "left")`** — 27 of 35; the 8 that reach nothing stay inline.
+- **Moist adiabats** — 8 of 21 at best, because they are truncated curves that mostly
+  begin and end inside the view. Not an edge family: leave them inline or `labels=False`.
+
+The counts are extent-dependent — `set_extent` changes every one of them — which is
+precisely why the crossings are recomputed by the locator on each draw rather than fixed
+when the family is built.
 
 Side-of-axes layout contract (decided in Plan 3, built by the consuming plans):
 panels beside the diagram are appended with `mpl_toolkits.axes_grid1`'s axes
