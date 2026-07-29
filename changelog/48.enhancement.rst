@@ -1,0 +1,8 @@
+The interactive cursor readout (the matplotlib navigation toolbar's
+coordinate text) over a tephigram now reports diagram-meaningful values —
+``850 hPa, -4.2 °C, θ 8.6 °C`` — instead of the raw rotated (x, y) data
+space. ``tephpy.config.cursor.fields`` selects and orders the readout from
+a five-field registry (``"pressure"``, ``"temperature"``, ``"theta"``,
+``"mixing_ratio"``, ``"theta_w"``), and assigning
+:meth:`~matplotlib.axes.Axes.format_coord` remains the stock full-custom
+path. (:user:`claude`)
