@@ -329,6 +329,16 @@ def test_from_dataset_reads_attrs_units():
     np.testing.assert_allclose(snd.temperature.m_as("degC"), [20.0, 12.0])
 
 
+def test_from_dataset_reads_coordinate_field():
+    """A coordinate works as a field source: membership tests ``ds.variables``."""
+    ds = xr.Dataset(
+        {"temperature": ("pressure", np.array([20.0, 12.0]), {"units": "degC"})},
+        coords={"pressure": ("pressure", np.array([1000.0, 850.0]), {"units": "hPa"})},
+    )
+    snd = Sounding.from_dataset(ds)
+    np.testing.assert_allclose(snd.pressure.m_as("hPa"), [1000.0, 850.0])
+
+
 def test_from_dataset_units_override_and_var_map():
     ds = xr.Dataset(
         {
