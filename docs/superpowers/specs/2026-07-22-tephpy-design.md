@@ -884,6 +884,21 @@ them, ordered by owning plan.
     wheel-install smoke test → Plan 2 (decided 2026-07-23); check-manifest CI gate →
     revisit once the wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs
     statement → Plan 7.
+16. **matplotlib floor vs. `Artist.get_figure(root=...)`.** §8.1 names matplotlib without
+    a version and the pins carried `>=3.9`, but the `root` keyword arrived only in
+    matplotlib 3.10, and three zoom-aware artists pass it: `isopleths.py` (Plan 3),
+    `barbs.py` (Plan 6), and `axes.py` (Plan 6 hardening). *Resolved 2026-07-29:* floor
+    raised to `matplotlib>=3.10` in `requirements/pypi-core.txt` and
+    `[tool.pixi.dependencies]`; the call sites keep the explicit `root=`, which is
+    load-bearing in `axes.py` — the `Figure.clear` frame check must match the *enclosing*
+    (Sub)Figure — and future-proof elsewhere. Verified against real installs: matplotlib
+    3.9.4 fails 26 of the 445 tests, every failure the same `TypeError: ... unexpected
+    keyword argument 'root'`; 3.10 passes all 445 on unmodified source. 3.10 is also the
+    §8.3 SPEC 0 floor, matplotlib 3.9.0 (2024-05-15) having left the 24-month window on
+    2026-05-15. No CI job resolves the declared minimums — every workflow is
+    `pixi run --frozen` against a lock pinned to 3.11.1, and the wheel smoke test takes
+    the newest satisfying release — which is how the wrong floor survived three plans; a
+    lowest-direct-resolution gate is re-homed to Plan 7.
 
 ## 11. Open questions (carried from research)
 

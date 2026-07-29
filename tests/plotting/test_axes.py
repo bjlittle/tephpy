@@ -604,6 +604,22 @@ def test_figure_clear_is_reusable_after_a_side_panel(tephigram_axes):
     assert len(fig.axes) == 2
 
 
+def test_subfigure_clear_with_a_side_panel():
+    """The clearing figure is the *enclosing* one, not the root of the tree."""
+    fig = plt.figure()
+    subfig = fig.subfigures()
+    axes = subfig.add_subplot(projection="tephigram")
+    try:
+        panel = axes.annotate_indices(calc.indices(_capped_sounding()))
+        assert panel in subfig.axes
+        fig.canvas.draw()
+        subfig.clear()
+        assert subfig.axes == []
+        assert axes._indices_panel is None
+    finally:
+        plt.close(fig)
+
+
 def test_canonical_usage_composes(tephigram_axes):
     """The spec §4 sequence works end to end (minus barbs, a later plan)."""
     snd = _capped_sounding()
