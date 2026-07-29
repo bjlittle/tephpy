@@ -1,6 +1,7 @@
 Fixed the :meth:`~tephpy.plotting.axes.TephigramAxes.shade_cape` and
 :meth:`~tephpy.plotting.axes.TephigramAxes.shade_cin` fills pulling away from
-the plotted profiles between sounding levels: the region builders now sample
+the plotted profiles between sounding levels (:issue:`42`): the region
+builders now sample
 both curves along the drawn polylines — the straight segments matplotlib draws
 between profile levels in tephigram (x, y) space — and pinch each region at
 the exact drawn-segment intersections, instead of interpolating temperature
