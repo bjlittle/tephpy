@@ -234,9 +234,10 @@ BARB_GUTTER_PAD: Final[float] = 0.1
 #: soundings pick other positions via ``plot_barbs(..., x=...)``.
 BARB_STAFF_POSITION: Final[float] = 0.5
 
-#: Minimum vertical separation between drawn barbs, in points; the staff
-#: keeps the densest subset at least this far apart, so zooming in reveals
-#: more levels (spec §3.2).
+#: Default minimum vertical separation between drawn barbs, in points; the
+#: staff keeps the densest subset at least this far apart, so zooming in
+#: reveals more levels. A call picks another separation via
+#: ``plot_barbs(..., minimum_separation=...)`` (spec §3.2).
 BARB_MIN_SEPARATION: Final[float] = 18.0
 
 #: Wind-barb speed increments in knots — half barb 5 kt, full barb 10 kt,

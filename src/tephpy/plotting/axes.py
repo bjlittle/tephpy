@@ -26,6 +26,7 @@ import math
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from matplotlib.axes import Axes
+from matplotlib.figure import FigureBase
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.projections import register_projection
@@ -71,6 +72,10 @@ if TYPE_CHECKING:
     from tephpy.sounding import Sounding
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
+
+#: ``Figure.clear``'s frame, recognised so the side-panel teardown can
+#: stand down for that caller (see ``TephigramAxes._figure_is_clearing``).
+_FIGURE_CLEAR_CODE = FigureBase.clear.__code__
 
 
 class TephigramTransform(mtransforms.Transform):
@@ -194,20 +199,22 @@ class TephigramAxes(Axes):
         five background isopleth families, and the default extent
         (``tephpy.config`` diagram extent, else ``DEFAULT_EXTENT``).
         Side panels — the barb gutter and the indices panel — are
-        removed with the diagram they annotated.
+        removed with the diagram they annotated, except when the figure
+        is clearing itself: it removes every axes anyway, and it is
+        iterating a snapshot this one must not delete from.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
-        removed = False
-        for name in ("_barb_gutter", "_indices_panel"):
-            panel = getattr(self, name, None)
-            if panel is not None:
-                panel.remove()
-                removed = True
-        if removed:
+        slots = ("_barb_gutter", "_indices_panel")
+        panels = [getattr(self, name, None) for name in slots]
+        if any(panel is not None for panel in panels):
+            if not self._figure_is_clearing():
+                for panel in panels:
+                    if panel is not None:
+                        panel.remove()
             # The stub demands a callable, but None resets the locator
             # (the documented matplotlib behaviour).
             self.set_axes_locator(None)  # type: ignore[arg-type]
@@ -221,6 +228,40 @@ class TephigramAxes(Axes):
             self._families[name] = family
         extent = config.diagram.extent
         self.set_extent(DEFAULT_EXTENT if extent is None else extent)
+
+    def _figure_is_clearing(self) -> bool:
+        """Whether the enclosing figure is the caller of :meth:`clear`.
+
+        ``Figure.clear`` clears and deletes each entry of a snapshot of
+        ``figure.axes``, so an axes that removes a sibling from inside
+        its own ``clear`` orphans an entry matplotlib is still about to
+        visit — the panel is then cleared and deleted with no figure,
+        raising deep in matplotlib. The side panels are the diagram's to
+        remove on a direct ``ax.clear()``; on a figure clear they are the
+        figure's, so the teardown stands down (spec §3.2). Recognising
+        the caller by its frame is the only signal: the figure's state is
+        identical either way.
+
+        Returns
+        -------
+        bool
+            Whether a ``Figure.clear`` of this axes' figure is running.
+        """
+        figure = self.get_figure(root=False)
+        if figure is None:
+            return False
+        # Function-local so `import tephpy` stays light (spec §10 item 10).
+        import inspect  # noqa: PLC0415
+
+        frame = inspect.currentframe()
+        while frame is not None:
+            if (
+                frame.f_code is _FIGURE_CLEAR_CODE
+                and frame.f_locals.get("self") is figure
+            ):
+                return True
+            frame = frame.f_back
+        return False
 
     def set_extent(
         self, extent: tuple[tuple[float, float], tuple[float, float]]
@@ -636,6 +677,7 @@ class TephigramAxes(Axes):
         snd: Sounding,
         *,
         x: float | None = None,
+        minimum_separation: float | None = None,
         **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
     ) -> BarbStaff:
         """Plot the sounding's wind barbs on the gutter staff (spec §3.2).
@@ -647,8 +689,8 @@ class TephigramAxes(Axes):
         reveals more levels. Met Office symbology: flag 50 kt, full barb
         10 kt, half barb 5 kt, speeds rounded to 5 kt bins; calm levels
         render as matplotlib's small circle. Each call draws one staff:
-        overlay soundings by calling again with another `x` and a
-        colour.
+        overlay soundings by calling again with another `x`,
+        `minimum_separation`, and colour.
 
         Parameters
         ----------
@@ -657,6 +699,10 @@ class TephigramAxes(Axes):
         x : float, optional
             The staff position as a fraction across the gutter
             (default ``BARB_STAFF_POSITION``).
+        minimum_separation : float, optional
+            The minimum vertical separation between drawn barbs, in
+            points (default ``BARB_MIN_SEPARATION``) — a longer
+            ``length=`` glyph wants a wider separation.
         **kwargs : Any
             Passed through to :class:`matplotlib.quiver.Barbs`, over
             the ``_constants`` conventions (increments, rounding,
@@ -694,7 +740,11 @@ class TephigramAxes(Axes):
             np.asarray(u.m_as("knots"), dtype=np.float64),
             np.asarray(v.m_as("knots"), dtype=np.float64),
             x=BARB_STAFF_POSITION if x is None else float(x),
-            minimum_separation=BARB_MIN_SEPARATION,
+            minimum_separation=(
+                BARB_MIN_SEPARATION
+                if minimum_separation is None
+                else float(minimum_separation)
+            ),
             **kwargs,
         )
         self._barb_gutter.add_artist(staff)

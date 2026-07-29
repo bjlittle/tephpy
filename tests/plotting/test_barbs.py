@@ -186,6 +186,47 @@ def test_plot_barbs_zoom_changes_the_drawn_levels(tephigram_axes):
     assert zoomed_count != default_count
 
 
+def test_plot_barbs_minimum_separation_thins_the_drawn_levels(tephigram_axes):
+    """A per-call separation wider than the convention keeps fewer levels."""
+    default = tephigram_axes.plot_barbs(_sounding())
+    sparse = tephigram_axes.plot_barbs(
+        _sounding(), x=0.8, minimum_separation=BARB_MIN_SEPARATION * 3.0
+    )
+    tephigram_axes.figure.canvas.draw()
+    assert default._minimum_separation == BARB_MIN_SEPARATION
+    assert sparse._minimum_separation == BARB_MIN_SEPARATION * 3.0
+    assert len(sparse.barbs.get_paths()) < len(default.barbs.get_paths())
+
+
+def test_plot_barbs_view_clear_of_every_level_masks_every_member(tephigram_axes):
+    """A view above the profile top leaves no candidate: all members mask."""
+    staff = tephigram_axes.plot_barbs(_sounding())
+    fig = tephigram_axes.figure
+    fig.canvas.draw()
+    assert len(staff.barbs.get_paths()) > 0
+    tephigram_axes.set_extent(((150.0, -80.0), (100.0, -60.0)))
+    fig.canvas.draw()
+    y = staff_y(PRESSURE, tephigram_axes.get_xlim()[1])
+    y0, y1 = sorted(tephigram_axes.get_ylim())
+    assert not (np.isfinite(y) & (y >= y0) & (y <= y1)).any()
+    assert len(staff.barbs.get_paths()) == 0
+    assert staff.barbs.u.size == N
+    assert np.ma.getmaskarray(staff.barbs.u).all()
+    tephigram_axes.set_extent(((1000.0, -50.0), (200.0, 40.0)))
+    fig.canvas.draw()
+    assert len(staff.barbs.get_paths()) > 0
+
+
+def test_plot_barbs_builds_a_masked_child_when_nothing_is_in_view(tephigram_axes):
+    """The zero-candidate branch also holds on the very first draw."""
+    tephigram_axes.set_extent(((150.0, -80.0), (100.0, -60.0)))
+    staff = tephigram_axes.plot_barbs(_sounding())
+    tephigram_axes.figure.canvas.draw()
+    assert staff.barbs is not None
+    assert len(staff.barbs.get_paths()) == 0
+    assert np.ma.getmaskarray(staff.barbs.u).all()
+
+
 def test_plot_barbs_shares_one_gutter_across_calls(tephigram_axes):
     first = tephigram_axes.plot_barbs(_sounding())
     second = tephigram_axes.plot_barbs(_sounding(), x=0.2)
@@ -265,3 +306,15 @@ def test_clear_removes_the_gutter_and_restores_the_slot(tephigram_axes):
     assert tephigram_axes._barb_gutter is None
     assert tephigram_axes._side_divider is None
     assert _bounds(tephigram_axes) == pytest.approx(full)
+
+
+def test_figure_clear_with_the_gutter_and_a_panel(tephigram_axes):
+    """Both panels go with the figure's own teardown, in either order."""
+    fig = tephigram_axes.figure
+    tephigram_axes.plot_barbs(_sounding())
+    tephigram_axes.annotate_indices(_indices())
+    fig.canvas.draw()
+    fig.clear()
+    assert fig.axes == []
+    assert tephigram_axes._barb_gutter is None
+    assert tephigram_axes._indices_panel is None

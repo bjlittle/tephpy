@@ -88,9 +88,11 @@ def read(
     ------
     TephpyIOError
         For an unreadable or malformed file, a `time` matching no
-        ascent (the nearest nominal times are reported), or an
-        ambiguous read — several soundings with no ``time=`` selector
-        (the file's count and span are reported).
+        ascent (the nearest nominal times are reported, when the file
+        records any), or an ambiguous read — several soundings with no
+        ``time=`` selector (the file's count and span are reported).
+    TypeError
+        If `time` is neither a datetime nor a string.
     ValueError
         If a `time` string is not ISO 8601.
     """
@@ -118,10 +120,12 @@ def _text(path: str | os.PathLike[str]) -> str:
     Raises
     ------
     TephpyIOError
-        If the file is unreadable, or a zip without exactly one member.
+        If the file is unreadable or a corrupt zip, or a zip without
+        exactly one member.
     """
     # Function-local so `import tephpy` stays light (spec §3.4, §10 item 10).
     import zipfile  # noqa: PLC0415
+    import zlib  # noqa: PLC0415 -- a corrupt deflate member raises it
 
     try:
         if zipfile.is_zipfile(path):
@@ -136,7 +140,11 @@ def _text(path: str | os.PathLike[str]) -> str:
                 return archive.read(names[0]).decode("ascii", errors="replace")
         with open(path, encoding="ascii", errors="replace") as handle:  # noqa: PTH123
             return handle.read()
-    except OSError as error:
+    except (OSError, zipfile.BadZipFile, zlib.error) as error:
+        # A corrupt archive raises outside `OSError`: `BadZipFile` for a
+        # mangled directory or CRC, `zlib.error` for a bit-rotted deflate
+        # stream. `TephpyError` is neither, so the multi-member message
+        # raised above passes through unwrapped (spec §3.4).
         msg = f"could not read {path!s}: {error}"
         raise TephpyIOError(msg) from error
 
@@ -231,8 +239,12 @@ def _select(
         (header.when for header in headers if header.when is not None),
         key=lambda stamp: abs(stamp - when),
     )[:3]
-    listed = ", ".join(f"{stamp:%Y-%m-%d %H}Z" for stamp in nearest)
-    msg = f"{path!s} has no sounding at {when:%Y-%m-%d %H:%M}Z (nearest: {listed})"
+    detail = (
+        "nearest: " + ", ".join(f"{stamp:%Y-%m-%d %H}Z" for stamp in nearest)
+        if nearest
+        else "the file records no nominal launch times"
+    )
+    msg = f"{path!s} has no sounding at {when:%Y-%m-%d %H:%M}Z ({detail})"
     raise TephpyIOError(msg)
 
 
@@ -244,8 +256,9 @@ def _sounding(lines: list[str], header: _Header) -> Sounding:
     temperature minus dewpoint depression, and rows whose pressure does
     not strictly undercut the running minimum drop keeping the first
     occurrence. An optional field that is entirely NaN is treated as
-    absent, so the missing-data errors stay meaningful downstream
-    (spec §6).
+    absent — and the wind pair as a unit, so a one-sided wind column
+    passes as absent rather than as barbs that cannot draw — keeping
+    the missing-data errors meaningful downstream (spec §6).
 
     Parameters
     ----------
@@ -292,7 +305,9 @@ def _sounding(lines: list[str], header: _Header) -> Sounding:
     arrays = {field: values[keep] for field, values in arrays.items()}
     dewpoint = arrays["temperature"] - arrays.pop("dewpoint_depression")
     wind = ("wind_direction", "wind_speed")
-    wind_absent = all(bool(np.all(np.isnan(arrays[field]))) for field in wind)
+    # Either component wholly missing retires the pair: `Sounding` takes
+    # the two together, and half a wind draws no barbs (spec §6).
+    wind_absent = any(bool(np.all(np.isnan(arrays[field]))) for field in wind)
     return Sounding(
         arrays["pressure"],
         arrays["temperature"],

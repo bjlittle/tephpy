@@ -12,16 +12,19 @@ under test.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime
+import http.client
 import io as stdlib_io
 from pathlib import Path
+from types import SimpleNamespace
 import urllib.error
 import urllib.request
 
 import numpy as np
 import pytest
 
-from tephpy.exceptions import TephpyIOError
+from tephpy.exceptions import TephpyIOError, TephpyValidationError
 from tephpy.io import wyoming
 
 FIXTURE = (
@@ -72,6 +75,48 @@ def test_parse_non_numeric_cell_raises():
         wyoming._parse(text, station="03808", time=WHEN)
 
 
+def test_parse_unreadable_csv_raises():
+    # A 200 body that is not CSV: an unterminated field past the limit.
+    text = '"' + "a" * 200000 + "\n"
+    with pytest.raises(TephpyIOError, match="unexpected Wyoming response format"):
+        wyoming._parse(text, station=None, time=None)
+
+
+def test_parse_short_row_raises():
+    rows = [
+        "2026,1,2,1000.0,4,15.0,5.0,7,8,9,10,360,5.0",
+        "2026,1,2,900.0",
+    ]
+    text = "\n".join([HEADER, *rows])
+    with pytest.raises(TephpyIOError, match=r"row 3 has 4 cell\(s\), expected at"):
+        wyoming._parse(text, station=None, time=None)
+
+
+def test_parse_extra_trailing_cells_are_ignored():
+    rows = [
+        "2026,1,2,1000.0,4,15.0,5.0,7,8,9,10,360,5.0,99",
+        "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,350,6.0,99",
+    ]
+    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    np.testing.assert_array_equal(snd.pressure.m_as("hPa"), [1000.0, 900.0])
+
+
+def test_parse_header_without_data_rows_raises():
+    with pytest.raises(TephpyIOError, match="no data rows after the header"):
+        wyoming._parse(f"{HEADER}\n", station=None, time=None)
+
+
+def test_parse_blank_data_rows_only_raises():
+    with pytest.raises(TephpyIOError, match="no data rows after the header"):
+        wyoming._parse(f"{HEADER}\n\n\n", station=None, time=None)
+
+
+def test_parse_single_data_row_raises_validation():
+    row = "2026,1,2,1000.0,4,15.0,5.0,7,8,9,10,360,5.0"
+    with pytest.raises(TephpyValidationError, match="needs at least 2 levels"):
+        wyoming._parse(f"{HEADER}\n{row}\n", station=None, time=None)
+
+
 def test_parse_blank_cells_read_as_nan_gaps():
     rows = [
         "2026,1,2,1000.0,4,15.0,,7,8,9,10,360,5.0",
@@ -90,6 +135,27 @@ def test_parse_all_nan_optional_fields_are_absent():
     ]
     snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert snd.dewpoint is None
+    assert snd.wind_speed is None
+    assert snd.wind_direction is None
+
+
+def test_parse_all_blank_speed_column_drops_the_wind_pair():
+    rows = [
+        "2026,1,2,1000.0,4,15.0,10.0,7,8,9,10,360,",
+        "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,350,",
+    ]
+    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    assert snd.wind_speed is None
+    assert snd.wind_direction is None
+    assert snd.dewpoint is not None
+
+
+def test_parse_all_blank_direction_column_drops_the_wind_pair():
+    rows = [
+        "2026,1,2,1000.0,4,15.0,10.0,7,8,9,10,,4.1",
+        "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,,6.2",
+    ]
+    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert snd.wind_speed is None
     assert snd.wind_direction is None
 
@@ -161,4 +227,58 @@ def test_fetch_maps_transport_failures(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(TephpyIOError, match="could not reach the Wyoming archive"):
+        wyoming.fetch("03808", WHEN)
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (http.client.IncompleteRead(b"partial"), "IncompleteRead"),
+        (http.client.BadStatusLine("garbage"), "garbage"),
+        # Already an OSError via ConnectionResetError: this pins that the
+        # catch tuple keeps covering it, not that the widening added it.
+        (http.client.RemoteDisconnected("closed"), "closed"),
+    ],
+)
+def test_fetch_maps_http_client_failures(monkeypatch, error, expected):
+    def fake_urlopen(_url, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(
+        TephpyIOError, match=f"could not reach the Wyoming archive: .*{expected}"
+    ):
+        wyoming.fetch("03808", WHEN)
+
+
+def test_fetch_maps_a_truncated_response_body(monkeypatch):
+    partial = b"pressure_hPa,temperature_C\n"
+
+    def read():
+        raise http.client.IncompleteRead(partial, 4096)
+
+    def fake_urlopen(_url, **_kwargs):
+        return contextlib.nullcontext(SimpleNamespace(read=read))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(TephpyIOError, match="could not reach the Wyoming archive"):
+        wyoming.fetch("03808", WHEN)
+
+
+def test_fetch_summarises_an_http_error_with_an_unreadable_body(monkeypatch):
+    error = urllib.error.HTTPError(
+        "https://weather.uwyo.edu", 500, "Server Error", None, stdlib_io.BytesIO(b"")
+    )
+
+    def unreadable():
+        partial = b"<html>"
+        raise http.client.IncompleteRead(partial, 4096)
+
+    monkeypatch.setattr(error, "read", unreadable)
+
+    def fake_urlopen(_url, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(TephpyIOError, match="HTTP 500: Server Error"):
         wyoming.fetch("03808", WHEN)

@@ -227,7 +227,7 @@ platforms = ["linux-64"]
 tephpy = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
-matplotlib-base = ">=3.9"
+matplotlib-base = ">=3.10"
 metpy = ">=1.6"
 numpy = ">=2.0"
 pandas = ">=2.3"

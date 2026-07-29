@@ -1,0 +1,6 @@
+Raised the matplotlib floor to ``>=3.10``. tephpy's zoom-aware artists pass the
+``root`` keyword to :meth:`~matplotlib.artist.Artist.get_figure`, which
+matplotlib added in 3.10, so the declared ``>=3.9`` could not draw a labelled
+diagram at its own floor. 3.10 is also the oldest matplotlib inside the
+`SPEC 0 <https://scientific-python.org/specs/spec-0000/>`__ window.
+(:user:`claude`)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import struct
 import zipfile
 
 import numpy as np
@@ -24,6 +25,21 @@ from tephpy.io import igra
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "io" / "UKM00003808-data-trimmed.txt"
 WHEN = datetime(2026, 7, 21, 12, tzinfo=UTC)
+
+
+def _blanked(tmp_path, field):
+    chars = igra._FIELDS[field][0]
+    width = chars.stop - chars.start
+    lines = FIXTURE.read_text().splitlines()
+    blanked = [
+        line
+        if line.startswith("#")
+        else line[: chars.start] + "-9999".rjust(width) + line[chars.stop :]
+        for line in lines
+    ]
+    path = tmp_path / f"no-{field}.txt"
+    path.write_text("\n".join(blanked) + "\n")
+    return path
 
 
 def test_read_carries_the_fixture_profile():
@@ -120,3 +136,80 @@ def test_read_maps_unreadable_paths(tmp_path):
 def test_read_rejects_a_non_iso_time_string():
     with pytest.raises(ValueError, match="Invalid isoformat"):
         igra.read(FIXTURE, time="21/07/2026")
+
+
+def test_read_maps_a_corrupt_zip_member(tmp_path):
+    bundle = tmp_path / "UKM00003808-data.txt.zip"
+    with zipfile.ZipFile(bundle, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("UKM00003808-data.txt", FIXTURE.read_text())
+    # Flip one payload byte: the archive still sniffs and opens as a zip,
+    # but the member's CRC-32 fails when it is read.
+    payload = bytearray(bundle.read_bytes())
+    payload[payload.index(b"#UKM00003808") + 1] ^= 0x20
+    bundle.write_bytes(bytes(payload))
+    assert zipfile.is_zipfile(bundle)
+    with pytest.raises(TephpyIOError, match=r"could not read .*: Bad CRC-32"):
+        igra.read(bundle, time=WHEN)
+
+
+def test_read_maps_a_corrupt_zip_directory(tmp_path):
+    bundle = tmp_path / "UKM00003808-data.txt.zip"
+    with zipfile.ZipFile(bundle, "w") as archive:
+        archive.writestr("a.txt", "x")
+        archive.writestr("b.txt", "y")
+    # Garble the second central-directory entry's signature: the sniff
+    # only inspects the first entry, so the failure lands on the open.
+    payload = bytearray(bundle.read_bytes())
+    second = payload.index(b"PK\x01\x02", payload.index(b"PK\x01\x02") + 4)
+    payload[second : second + 4] = b"XXXX"
+    bundle.write_bytes(bytes(payload))
+    assert zipfile.is_zipfile(bundle)
+    with pytest.raises(TephpyIOError, match=r"could not read .*: Bad magic number"):
+        igra.read(bundle)
+
+
+def test_read_maps_a_corrupt_zip_stream(tmp_path):
+    bundle = tmp_path / "UKM00003808-data.txt.zip"
+    with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("UKM00003808-data.txt", FIXTURE.read_text())
+    # Garble the deflate stream itself: zipfile surfaces zlib's error
+    # rather than a BadZipFile, and the distributed archives are deflated.
+    payload = bytearray(bundle.read_bytes())
+    local = payload.index(b"PK\x03\x04")
+    names, extra = struct.unpack("<HH", payload[local + 26 : local + 30])
+    start = local + 30 + names + extra
+    for index in range(start + 2, start + 40):
+        payload[index] ^= 0xFF
+    bundle.write_bytes(bytes(payload))
+    with pytest.raises(TephpyIOError, match=r"could not read .*: Error -3"):
+        igra.read(bundle, time=WHEN)
+
+
+def test_read_unmatched_time_without_nominal_hours_reports_no_times(tmp_path):
+    # IGRA writes hour 99 when a launch has no nominal hour, so no ascent
+    # in this file can match a time= selector.
+    lines = [
+        line[:24] + "99" + line[26:] if line.startswith("#") else line
+        for line in FIXTURE.read_text().splitlines()
+    ]
+    path = tmp_path / "hour99.txt"
+    path.write_text("\n".join(lines) + "\n")
+    with pytest.raises(
+        TephpyIOError,
+        match=r"no sounding at 2026-07-21 12:00Z "
+        r"\(the file records no nominal launch times\)",
+    ):
+        igra.read(path, time=WHEN)
+
+
+def test_read_all_sentinel_speed_column_drops_the_wind_pair(tmp_path):
+    snd = igra.read(_blanked(tmp_path, "wind_speed"), time=WHEN)
+    assert snd.wind_speed is None
+    assert snd.wind_direction is None
+    assert snd.dewpoint is not None
+
+
+def test_read_all_sentinel_direction_column_drops_the_wind_pair(tmp_path):
+    snd = igra.read(_blanked(tmp_path, "wind_direction"), time=WHEN)
+    assert snd.wind_speed is None
+    assert snd.wind_direction is None

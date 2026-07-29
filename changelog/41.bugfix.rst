@@ -1,0 +1,18 @@
+Fixed :meth:`matplotlib.figure.Figure.clear` raising ``AttributeError`` once a
+diagram carried a side panel: the panel teardown now stands down for the
+figure's own clear, which removes every axes itself. Hardened the
+:mod:`tephpy.io` readers on the same pass —
+:func:`~tephpy.io.wyoming.fetch` maps the :mod:`http.client` failures
+:func:`~urllib.request.urlopen` leaves unwrapped (a truncated body, a
+malformed status line) and an unreadable HTTP error page to
+:exc:`~tephpy.exceptions.TephpyIOError`, and rejects a body that is not CSV, a
+row shorter than the header, or a header with no data rows rather than raising
+:exc:`IndexError` or a misleading
+:exc:`~tephpy.exceptions.TephpyValidationError`;
+:func:`~tephpy.io.igra.read` maps a corrupt zip (a bad CRC, central directory,
+or deflate stream) and says so plainly when an unmatched ``time=`` has no
+nominal launch times to suggest; and both readers now pass a one-sided wind
+column as absent wind, so the failure downstream is
+:exc:`~tephpy.exceptions.MissingDataError` from
+:meth:`~tephpy.plotting.axes.TephigramAxes.plot_barbs`.
+(:user:`claude`)
