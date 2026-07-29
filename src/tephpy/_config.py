@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Config",
+    "CursorOptions",
     "DiagramOptions",
     "FamilyOptions",
     "LineOptions",
@@ -100,12 +101,22 @@ class DiagramOptions:
 
 
 @dataclasses.dataclass
+class CursorOptions:
+    """Options for the interactive cursor readout (spec §3.2)."""
+
+    #: Readout fields in display order, naming entries in the
+    #: ``TephigramAxes.format_coord`` registry; ``None`` falls through to
+    #: the ``_constants.CURSOR_FIELDS`` convention.
+    fields: tuple[str, ...] | None = None
+
+
+@dataclasses.dataclass
 class Config:
     """The ``tephpy.config`` runtime configuration singleton (spec §3.5).
 
-    One typed section per isopleth family plus a diagram-wide section,
-    e.g. ``config.isobars.interval`` or ``config.diagram.extent``. Use
-    :meth:`context` for temporary overrides.
+    One typed section per isopleth family plus diagram-wide and cursor sections,
+    e.g. ``config.isobars.interval``, ``config.diagram.extent``, or
+    ``config.cursor.fields``. Use :meth:`context` for temporary overrides.
     """
 
     isotherms: FamilyOptions = dataclasses.field(default_factory=FamilyOptions)
@@ -118,6 +129,7 @@ class Config:
         default_factory=MixingRatioOptions
     )
     diagram: DiagramOptions = dataclasses.field(default_factory=DiagramOptions)
+    cursor: CursorOptions = dataclasses.field(default_factory=CursorOptions)
 
     @contextmanager
     def context(self, **overrides: Mapping[str, object]) -> Iterator[Config]:

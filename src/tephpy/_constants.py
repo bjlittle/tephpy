@@ -173,6 +173,10 @@ PROFILE_ZORDER: Final[float] = 2.5
 #: Derived sounding legend label (spec §3.4), e.g. ``"72357 2013-05-20 12Z"``.
 SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
 
+#: Default interactive cursor readout fields (spec §3.2), in display order;
+#: names index the ``plotting.axes`` cursor formatter registry.
+CURSOR_FIELDS: Final[tuple[str, ...]] = ("pressure", "temperature", "theta")
+
 #: The operational cloud-base correction to Normand's point, in hPa: UK
 #: operational tephigram practice raises the constructed LCL by 25 mb to
 #: better match observed convective cloud base (spec §1/§3.3; Met Office

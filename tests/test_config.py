@@ -20,6 +20,7 @@ SECTIONS = (
     "moist_adiabats",
     "mixing_ratios",
     "diagram",
+    "cursor",
 )
 
 
@@ -44,6 +45,7 @@ def test_section_shapes():
     assert hasattr(tephpy.config.mixing_ratios, "values")
     assert not hasattr(tephpy.config.mixing_ratios, "interval")
     assert hasattr(tephpy.config.diagram, "extent")
+    assert hasattr(tephpy.config.cursor, "fields")
 
 
 def test_context_applies_and_restores():
@@ -51,6 +53,12 @@ def test_context_applies_and_restores():
         assert cfg is tephpy.config
         assert tephpy.config.isobars.interval == 25.0
     assert tephpy.config.isobars.interval is None
+
+
+def test_context_cursor_fields_applies_and_restores():
+    with tephpy.config.context(cursor={"fields": ("pressure",)}):
+        assert tephpy.config.cursor.fields == ("pressure",)
+    assert tephpy.config.cursor.fields is None
 
 
 def test_context_restores_on_error():
