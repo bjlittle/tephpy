@@ -163,7 +163,8 @@ def _merged_curves(
     union of their pressure levels over the overlapping span, and a
     vertex is inserted at each exact intersection of the drawn segments
     so every run of one buoyancy sign starts and ends on a
-    zero-difference vertex (or a span end).
+    zero-difference vertex (or a span end; or its own grid vertices for
+    a pathological sign flip whose segments never cross).
 
     Parameters
     ----------
@@ -195,7 +196,8 @@ def _merged_curves(
     diff = parcel - env
     crossing = np.flatnonzero(diff[:-1] * diff[1:] < 0.0)
     if crossing.size:
-        p_cross, t_cross = _segment_intersections(grid, env, parcel, crossing)
+        crossing, p_cross, t_cross = _segment_intersections(grid, env, parcel, crossing)
+    if crossing.size:
         grid = np.insert(grid, crossing + 1, p_cross)
         env = np.insert(env, crossing + 1, t_cross)
         parcel = np.insert(parcel, crossing + 1, t_cross)
@@ -263,14 +265,20 @@ def _segment_intersections(
     temperature: npt.NDArray[np.float64],
     parcel_temperature: npt.NDArray[np.float64],
     crossing: npt.NDArray[np.intp],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[npt.NDArray[np.intp], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Intersect the drawn curves over each sign-change grid cell.
 
     Within one merged-grid cell both curves are straight segments in
     tephigram (x, y) space, and a buoyancy sign change across the cell
-    guarantees they cross inside it; the intersection point lies on both
-    drawn polylines. Near-parallel degenerate cells fall back to the
-    linear blend of the cell's environment endpoints.
+    means they cross inside it whenever pressure is monotone along both
+    chords — the physical case; the intersection point then lies on both
+    drawn polylines. A pathological chord (an extreme temperature swing
+    over a near-isobaric step) can flip the sign at equal pressures
+    while the segments stay disjoint, so a cell is kept only when the
+    intersection sits within both segments — fabricating a vertex there
+    would put it on neither polyline and break the strictly-decreasing
+    grid. Skipped cells leave their run ending on grid vertices instead
+    of a pinch.
 
     Parameters
     ----------
@@ -286,7 +294,8 @@ def _segment_intersections(
     Returns
     -------
     tuple of numpy.ndarray
-        The ``(pressure, temperature)`` of one intersection per cell.
+        The kept cell indices and the ``(pressure, temperature)`` of
+        one intersection per kept cell.
     """
     env_xy = np.column_stack(
         transforms.xy_from_temperature_theta(
@@ -304,22 +313,26 @@ def _segment_intersections(
     parcel_span = parcel_xy[crossing + 1] - parcel_xy[crossing]
     gap = parcel_xy[crossing] - env_xy[crossing]
     with np.errstate(invalid="ignore", divide="ignore"):
-        # 2D cross products: gap x parcel_span over env_span x parcel_span.
+        # 2D cross products: the segment parameters of the intersection.
         determinant = (
             env_span[:, 0] * parcel_span[:, 1] - env_span[:, 1] * parcel_span[:, 0]
         )
         s = (
             gap[:, 0] * parcel_span[:, 1] - gap[:, 1] * parcel_span[:, 0]
         ) / determinant
-        diff = parcel_temperature - temperature
-        fallback = diff[crossing] / (diff[crossing] - diff[crossing + 1])
-        s = np.where(np.isfinite(s), np.clip(s, 0.0, 1.0), fallback)
-        point = env_xy[crossing] + s[:, None] * env_span
+        u = (gap[:, 0] * env_span[:, 1] - gap[:, 1] * env_span[:, 0]) / determinant
+        inside = np.isfinite(s) & np.isfinite(u)
+        tolerance = 1e-9
+        for parameter in (s, u):
+            inside &= (parameter >= -tolerance) & (parameter <= 1.0 + tolerance)
+        kept = crossing[inside]
+        s = np.clip(s[inside], 0.0, 1.0)
+        point = env_xy[kept] + s[:, None] * env_span[inside]
         t_cross = (point[:, 0] - point[:, 1]) / 2.0
         ln_theta_k = (point[:, 0] + point[:, 1]) / (2.0 * MA)
         p_cross = P_REF * np.exp((np.log(t_cross + KELVIN_ZERO) - ln_theta_k) / KAPPA)
-    p_cross = np.clip(p_cross, pressure[crossing + 1], pressure[crossing])
-    return p_cross, t_cross
+    p_cross = np.clip(p_cross, pressure[kept + 1], pressure[kept])
+    return kept, p_cross, t_cross
 
 
 def _regions(

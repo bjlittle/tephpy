@@ -196,6 +196,27 @@ def test_cape_polygon_vertices_lie_on_the_drawn_polylines():
     _assert_on_polyline(polygon[half:], SLOPED_ENV_PRESSURE, SLOPED_ENV_TEMPERATURE)
 
 
+def test_sign_flip_without_segment_intersection_fabricates_nothing():
+    """A sign flip whose drawn segments never cross invents no vertex.
+
+    Pressure is not monotone along a near-isobaric chord with an extreme
+    temperature swing, so the buoyancy difference can change sign at
+    equal pressures while the drawn segments stay disjoint; fabricating
+    a crossing there would put a vertex on neither polyline and break
+    the strictly-decreasing grid (PR #43 review).
+    """
+    pressure = np.array([1000.0, 999.0])
+    environment = np.array([0.0, -20.0])
+    parcel = np.array([-5.0, -5.1])
+    assert (
+        cape_polygons(pressure, environment, pressure, parcel, lcl_pressure=1000.0)
+        == []
+    )
+    assert (
+        cin_polygons(pressure, environment, pressure, parcel, lcl_pressure=1000.0) == []
+    )
+
+
 def test_cin_polygon_vertices_lie_on_the_drawn_polylines():
     """Every CIN vertex sits on a drawn curve — no gap to the profile."""
     (polygon,) = cin_polygons(
