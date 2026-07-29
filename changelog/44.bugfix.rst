@@ -1,0 +1,8 @@
+Hardened two :class:`~tephpy.sounding.Sounding` ingest edges deferred from
+the Plan 4 review (:issue:`22`): a bare field holding non-numeric values —
+for example an object-dtype :meth:`~tephpy.sounding.Sounding.from_dataframe`
+column carrying string missing-markers such as ``"-----"`` — now raises
+:exc:`~tephpy.exceptions.TephpyValidationError` naming the field instead of
+leaking a bare :exc:`ValueError`, and a :class:`numpy.datetime64` ``NaT``
+launch time is rejected by an error that names NaT rather than reporting
+``got <class 'NoneType'>``. (:user:`claude`)
