@@ -10,10 +10,13 @@ return closed polygons in (temperature, theta) space, headlessly testable.
 ``TephigramAxes.shade_cape``/``shade_cin`` draw them through the tephigram
 transform as one compound-path ``PathPatch`` per call.
 
-Both curves are interpolated onto their merged pressure grid (linear in
-ln p) with the exact buoyancy sign-change crossings inserted, and the
-regions are bounded as :func:`metpy.calc.cape_cin` integrates (its
-``which_lfc="bottom"``/``which_el="top"`` defaults): CAPE is the
+Both curves are sampled onto their merged pressure grid along the drawn
+polylines — the straight segments in tephigram (x, y) space that
+matplotlib draws between profile levels — with a vertex inserted at each
+exact segment intersection, so the fill closes on the plotted lines at
+every scale (any other interpolation bows away from the drawn chords
+between levels). The regions are bounded as :func:`metpy.calc.cape_cin`
+integrates (its ``which_lfc="bottom"``/``which_el="top"`` defaults): CAPE is the
 positive-buoyancy region between the LFC — the bottom of the lowest
 positive run at or above the LCL — and the EL — the top of the highest
 such run, which is the profile top while the parcel is still buoyant
@@ -35,6 +38,7 @@ import numpy as np
 import numpy.typing as npt
 
 from tephpy import transforms
+from tephpy._constants import KAPPA, KELVIN_ZERO, MA, P_REF
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -152,12 +156,15 @@ def _merged_curves(
     parcel_pressure: npt.ArrayLike,
     parcel_temperature: npt.ArrayLike,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Interpolate both curves onto their merged pressure grid.
+    """Sample both curves onto their merged pressure grid.
 
-    Both curves are interpolated linearly in ln p onto the union of their
-    pressure levels over the overlapping span, and the exact buoyancy
-    sign-change crossings are inserted so every run of one buoyancy sign
-    starts and ends on a zero-difference vertex (or a span end).
+    Both curves are sampled along their drawn polylines (straight
+    segments in tephigram (x, y) space between profile levels) onto the
+    union of their pressure levels over the overlapping span, and a
+    vertex is inserted at each exact intersection of the drawn segments
+    so every run of one buoyancy sign starts and ends on a
+    zero-difference vertex (or a span end; or its own grid vertices for
+    a pathological sign flip whose segments never cross).
 
     Parameters
     ----------
@@ -184,20 +191,148 @@ def _merged_curves(
     bottom = min(env_p.max(), path_p.max())
     grid = np.unique(np.concatenate([env_p, path_p]))
     grid = grid[(grid >= top) & (grid <= bottom)][::-1]
-    # Interpolate linearly in ln p; -ln p is increasing for np.interp.
-    x = -np.log(grid)
-    env = np.interp(x, -np.log(env_p), env_t)
-    parcel = np.interp(x, -np.log(path_p), path_t)
+    env = _polyline_interpolate(env_p, env_t, grid)
+    parcel = _polyline_interpolate(path_p, path_t, grid)
     diff = parcel - env
     crossing = np.flatnonzero(diff[:-1] * diff[1:] < 0.0)
     if crossing.size:
-        fraction = diff[crossing] / (diff[crossing] - diff[crossing + 1])
-        x_cross = x[crossing] + fraction * (x[crossing + 1] - x[crossing])
-        t_cross = np.interp(x_cross, x, env)
-        grid = np.insert(grid, crossing + 1, np.exp(-x_cross))
+        crossing, p_cross, t_cross = _segment_intersections(grid, env, parcel, crossing)
+    if crossing.size:
+        grid = np.insert(grid, crossing + 1, p_cross)
         env = np.insert(env, crossing + 1, t_cross)
         parcel = np.insert(parcel, crossing + 1, t_cross)
     return grid, env, parcel
+
+
+def _polyline_interpolate(
+    pressure: npt.NDArray[np.float64],
+    temperature: npt.NDArray[np.float64],
+    targets: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Temperature at target pressures on a curve's drawn polyline.
+
+    The drawn curve is straight in tephigram (x, y) space between profile
+    levels, so temperature and ln theta_K are both linear along a segment
+    while pressure varies nonlinearly; the point at a target pressure is
+    located by bisection on ``ln T_K(s) - ln theta_K(s) = kappa ln (p /
+    P_REF)``, which is concave in the segment parameter and bracketed by
+    the endpoints. Targets that hit a profile level exactly return that
+    level's temperature (NaN levels propagate to their segments only, as
+    ``np.interp`` did).
+
+    Parameters
+    ----------
+    pressure : numpy.ndarray
+        The curve's pressures in hPa, strictly decreasing.
+    temperature : numpy.ndarray
+        The curve's temperatures in degrees Celsius.
+    targets : numpy.ndarray
+        Pressures to sample at, in hPa, within the curve's span.
+
+    Returns
+    -------
+    numpy.ndarray
+        Temperatures in degrees Celsius on the drawn polyline.
+    """
+    u = -np.log(pressure)
+    u_targets = -np.log(np.asarray(targets, dtype=np.float64))
+    theta = transforms.theta_from_pressure_temperature(pressure, temperature)
+    ln_theta_k = np.log(theta + KELVIN_ZERO)
+    segment = np.clip(np.searchsorted(u, u_targets, side="right") - 1, 0, u.size - 2)
+    t0 = temperature[segment] + KELVIN_ZERO
+    t1 = temperature[segment + 1] + KELVIN_ZERO
+    l0 = ln_theta_k[segment]
+    l1 = ln_theta_k[segment + 1]
+    goal = -KAPPA * (u_targets + np.log(P_REF))
+    low = np.zeros_like(goal)
+    high = np.ones_like(goal)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        for _ in range(60):
+            mid = 0.5 * (low + high)
+            above = np.log(t0 + mid * (t1 - t0)) - (l0 + mid * (l1 - l0)) >= goal
+            low = np.where(above, mid, low)
+            high = np.where(above, high, mid)
+        s = 0.5 * (low + high)
+        result = t0 + s * (t1 - t0) - KELVIN_ZERO
+    # Exact level hits stay exact, whatever their neighbours.
+    index = np.minimum(np.searchsorted(u, u_targets), u.size - 1)
+    hit = u[index] == u_targets
+    return np.asarray(np.where(hit, temperature[index], result), dtype=np.float64)
+
+
+def _segment_intersections(
+    pressure: npt.NDArray[np.float64],
+    temperature: npt.NDArray[np.float64],
+    parcel_temperature: npt.NDArray[np.float64],
+    crossing: npt.NDArray[np.intp],
+) -> tuple[npt.NDArray[np.intp], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Intersect the drawn curves over each sign-change grid cell.
+
+    Within one merged-grid cell both curves are straight segments in
+    tephigram (x, y) space, and a buoyancy sign change across the cell
+    means they cross inside it whenever pressure is monotone along both
+    chords — the physical case; the intersection point then lies on both
+    drawn polylines. A pathological chord (an extreme temperature swing
+    over a near-isobaric step) can flip the sign at equal pressures
+    while the segments stay disjoint, so a cell is kept only when the
+    intersection sits within both segments — fabricating a vertex there
+    would put it on neither polyline and break the strictly-decreasing
+    grid. Skipped cells leave their run ending on grid vertices instead
+    of a pinch.
+
+    Parameters
+    ----------
+    pressure : numpy.ndarray
+        The merged pressure grid, strictly decreasing.
+    temperature : numpy.ndarray
+        Environment temperatures on that grid.
+    parcel_temperature : numpy.ndarray
+        Parcel temperatures on that grid.
+    crossing : numpy.ndarray
+        Indices of the cells whose buoyancy difference changes sign.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        The kept cell indices and the ``(pressure, temperature)`` of
+        one intersection per kept cell.
+    """
+    env_xy = np.column_stack(
+        transforms.xy_from_temperature_theta(
+            temperature,
+            transforms.theta_from_pressure_temperature(pressure, temperature),
+        )
+    )
+    parcel_xy = np.column_stack(
+        transforms.xy_from_temperature_theta(
+            parcel_temperature,
+            transforms.theta_from_pressure_temperature(pressure, parcel_temperature),
+        )
+    )
+    env_span = env_xy[crossing + 1] - env_xy[crossing]
+    parcel_span = parcel_xy[crossing + 1] - parcel_xy[crossing]
+    gap = parcel_xy[crossing] - env_xy[crossing]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        # 2D cross products: the segment parameters of the intersection.
+        determinant = (
+            env_span[:, 0] * parcel_span[:, 1] - env_span[:, 1] * parcel_span[:, 0]
+        )
+        s = (
+            gap[:, 0] * parcel_span[:, 1] - gap[:, 1] * parcel_span[:, 0]
+        ) / determinant
+        u = (gap[:, 0] * env_span[:, 1] - gap[:, 1] * env_span[:, 0]) / determinant
+        inside = np.isfinite(s) & np.isfinite(u)
+        tolerance = 1e-9
+        for parameter in (s, u):
+            inside &= (parameter >= -tolerance) & (parameter <= 1.0 + tolerance)
+        kept = crossing[inside]
+        s = np.clip(s[inside], 0.0, 1.0)
+        point = env_xy[kept] + s[:, None] * env_span[inside]
+        t_cross = (point[:, 0] - point[:, 1]) / 2.0
+        ln_theta_k = (point[:, 0] + point[:, 1]) / (2.0 * MA)
+        p_cross = P_REF * np.exp((np.log(t_cross + KELVIN_ZERO) - ln_theta_k) / KAPPA)
+    p_cross = np.clip(p_cross, pressure[kept + 1], pressure[kept])
+    return kept, p_cross, t_cross
 
 
 def _regions(
@@ -330,7 +465,11 @@ def _interpolated_level(
     parcel_temperature: npt.NDArray[np.float64],
     level: float,
 ) -> tuple[float, float]:
-    """Interpolate both curves at one pressure level (linear in ln p).
+    """Interpolate both curves at one pressure level, on the drawn chords.
+
+    The region's grid points already lie on the drawn polylines, and
+    consecutive points share a drawn segment, so sampling between them
+    stays on the plotted curves.
 
     Parameters
     ----------
@@ -348,11 +487,10 @@ def _interpolated_level(
     tuple of float
         The ``(environment, parcel)`` temperatures at `level`.
     """
-    x = -np.log(pressure)
-    at = -np.log(level)
+    at = np.array([level], dtype=np.float64)
     return (
-        float(np.interp(at, x, temperature)),
-        float(np.interp(at, x, parcel_temperature)),
+        float(_polyline_interpolate(pressure, temperature, at)[0]),
+        float(_polyline_interpolate(pressure, parcel_temperature, at)[0]),
     )
 
 

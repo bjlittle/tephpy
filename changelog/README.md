@@ -6,6 +6,11 @@ Every pull request adds a news fragment here named `<PR>.<type>.rst`, where
 sentence-case line, ending with author attribution via the `:user:` extlink
 role, e.g. ``(:user:`bjlittle`)``.
 
+When the pull request closes one or more open issues, cite each issue in the
+fragment with the `:issue:` extlink role — at the point where the fragment
+describes what the issue reported, e.g. ``Fixed the fills pulling away from
+the plotted profiles (:issue:`42`): …``.
+
 When an entry names a documented API, cross-reference it with the matching
 Sphinx domain role (`:class:`, `:func:`, `:meth:`, `:mod:`, `:obj:`) so the
 reader can follow the link straight into the API docs, rather than quoting the

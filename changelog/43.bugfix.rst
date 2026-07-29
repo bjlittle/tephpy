@@ -1,0 +1,10 @@
+Fixed the :meth:`~tephpy.plotting.axes.TephigramAxes.shade_cape` and
+:meth:`~tephpy.plotting.axes.TephigramAxes.shade_cin` fills pulling away from
+the plotted profiles between sounding levels (:issue:`42`): the region
+builders now sample
+both curves along the drawn polylines — the straight segments matplotlib draws
+between profile levels in tephigram (x, y) space — and pinch each region at
+the exact drawn-segment intersections, instead of interpolating temperature
+linearly in ln p, which bowed the fill away from the drawn lines mid-segment,
+visibly at larger figure scales. Geometry only: the annotated numbers still
+come from :func:`metpy.calc.cape_cin`. (:user:`claude`)

@@ -295,9 +295,10 @@ def main(pr: str, changelog: str, verbose: bool) -> None:
     ]
     debug(f"{fragments=}", verbose=verbose)
 
-    # detect and discard towncrier template from the candidate news fragments
-    template = Path(config.template).name
-    fragments = [fragment for fragment in fragments if fragment != template]
+    # detect and discard the towncrier template and the directory's own
+    # documentation from the candidate news fragments
+    ignored = {Path(config.template).name, "README.md"}
+    fragments = [fragment for fragment in fragments if fragment not in ignored]
     debug(f"{fragments=}", verbose=verbose)
 
     if not fragments:
