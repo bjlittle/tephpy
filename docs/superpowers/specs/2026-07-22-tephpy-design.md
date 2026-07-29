@@ -217,6 +217,27 @@ Differences from tephi:
   figures are directly comparable; disables autoscaling so overlays don't drift the
   window. (The cartopy idiom — the earlier `set_anchor` name collided with
   matplotlib's own `Axes.set_anchor`.)
+- `ax.format_coord(x, y)` — the interactive cursor readout (the navigation
+  toolbar's coordinate text) reports diagram-meaningful values instead of the raw
+  rotated data-space (x, y): the cursor position inverts through
+  `transforms.temperature_theta_from_xy`, pressure derives via
+  `transforms.pressure_from_temperature_theta`, and the configured fields render
+  in listed order, e.g. `850 hPa, -4.2 °C, θ 28.1 °C` (whole hPa, one decimal
+  for temperatures). Fields name entries in a five-strong registry mirroring the
+  isopleth families: `"pressure"`, `"temperature"`, `"theta"` — closed-form, the
+  default trio — plus opt-in `"mixing_ratio"` (saturation mixing ratio at the
+  point, g/kg, one decimal) and `"theta_w"` (the moist adiabat through the
+  point), the latter two via `metpy.calc` with function-local imports (the
+  one-source-of-truth idiom above; a user who never lists them never pays for
+  them). Selection resolves as instance assignment > `tephpy.config` >
+  `_constants`: `config.cursor.fields` is read live on every mouse event — so
+  `config.context(cursor={"fields": ...})` scopes cleanly — and full
+  customisation stays stock matplotlib: assigning `ax.format_coord = fn`
+  shadows the method (documented, not wrapped). Out-of-domain positions (the
+  inverse yields NaN) return `""` so the toolbar goes blank rather than showing
+  garbage; an unknown field name raises `TypeError` naming it and the valid
+  names (the family-`configure` style), surfacing on the first mouse move.
+  Headlessly testable — `format_coord` is a plain string-returning method.
 
 Side-of-axes layout contract (decided in Plan 3, built by the consuming plans):
 panels beside the diagram are appended with `mpl_toolkits.axes_grid1`'s axes
@@ -393,12 +414,14 @@ truncation temperature, gutter width, colours — live in `_constants.py` as def
 nothing numeric is hard-coded at point of use, and docstrings cite the source
 convention (e.g. Met Office Factsheet 13). The mutable runtime layer over them is
 `tephpy.config` (`_config.py`): a typed singleton of per-family dataclass sections
-plus a diagram-wide section (e.g. `config.isobars.interval`,
-`config.moist_adiabats.truncation`, `config.diagram.extent`), with a
-`config.context(...)` manager for temporary overrides. Precedence: accessor kwargs >
-`tephpy.config` > `_constants`. Config is read when a family is created or
-reconfigured; changing it does not retroactively restyle existing axes (matplotlib
-rcParams semantics).
+plus diagram-wide and cursor sections (e.g. `config.isobars.interval`,
+`config.moist_adiabats.truncation`, `config.diagram.extent`,
+`config.cursor.fields`), with a `config.context(...)` manager for temporary
+overrides. Precedence: accessor kwargs > `tephpy.config` > `_constants`. Config is
+read when a family is created or reconfigured; changing it does not retroactively
+restyle existing axes (matplotlib rcParams semantics). The cursor readout is the
+one exception: `config.cursor` is read live per mouse event (§3.2), so a context
+override applies to existing axes for its duration.
 
 ## 4. Canonical usage
 
