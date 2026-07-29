@@ -460,3 +460,90 @@ def test_edge_crossings_rejects_an_unknown_edge():
 
 def test_edges_are_the_four_diagram_edges():
     assert isopleths.EDGES == ("bottom", "top", "left", "right")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, (True, ())),
+        (True, (True, ())),
+        (False, (False, ())),
+        ("bottom", (True, ("bottom",))),
+        (("bottom", "left"), (True, ("bottom", "left"))),
+        (("left", "bottom"), (True, ("left", "bottom"))),
+        (("bottom", "bottom"), (True, ("bottom",))),
+        ((), (False, ())),
+    ],
+)
+def test_normalize_labels(raw, expected):
+    """A bare string and a one-tuple are identical; duplicates collapse."""
+    assert isopleths._normalize_labels(raw, "isobars") == expected
+
+
+@pytest.mark.parametrize("raw", ["middle", ("bottom", "middle"), (0,), 3.5])
+def test_normalize_labels_rejects_unknown_placements(raw):
+    """Fail loud, naming the placement and the valid set (spec §6)."""
+    with pytest.raises(TypeError, match=r"'isobars' label placement"):
+        isopleths._normalize_labels(raw, "isobars")
+
+
+def test_resolved_label_edges_and_invisibility():
+    """An invisible family labels nothing and holds no edge (spec §3.2)."""
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars)
+    assert family.options.labels is True
+    assert family.options.label_edges == ()
+    family.configure(labels=("bottom", "left"))
+    assert family.options.label_edges == ("bottom", "left")
+    family.configure(visible=False)
+    assert family.options.label_edges == ()
+    family.configure(visible=True)
+    assert family.options.label_edges == ("bottom", "left")
+    family.configure(labels=True)
+    assert family.options.label_edges == ()
+
+
+def test_validator_rejection_rolls_the_family_back():
+    """A validator veto leaves the family exactly as it was."""
+
+    def veto(name, options):
+        if options.label_edges:
+            msg = f"{name} may not claim an edge"
+            raise TypeError(msg)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars, validate=veto)
+    family.configure(color="red")
+    with pytest.raises(TypeError, match="may not claim an edge"):
+        family.configure(labels="left", color="blue")
+    assert family.options.label_edges == ()
+    assert family.options.color == "red"
+
+
+def test_selected_and_inline_members_at_the_default_extent():
+    """Spec §3.2's coverage table, exercised through the family."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        view = ax.viewLim
+
+        isobars = ax.isobars(labels=("bottom", "left"))
+        selected = isobars._selected_members()
+        assert [member.value for member in selected][:3] == [150.0, 200.0, 250.0]
+        assert len(selected) == 19
+        assert isobars._inline_members(view, selected) == []
+
+        # Release the edges before the isotherms take them: Task 5 makes a
+        # second claimant an error, and this test must keep passing.
+        ax.isobars(labels=True)
+        isotherms = ax.isotherms(labels=("bottom", "left"))
+        selected = isotherms._selected_members()
+        assert len(selected) == 19
+        remainder = isotherms._inline_members(view, selected)
+        assert [member.value for member in remainder] == [-120.0]
+
+        adiabats = ax.dry_adiabats()
+        selected = adiabats._selected_members()
+        assert adiabats._inline_members(view, selected) == selected
+    finally:
+        plt.close(fig)

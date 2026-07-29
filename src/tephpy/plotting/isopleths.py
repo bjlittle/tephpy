@@ -22,6 +22,7 @@ and potential temperatures in degrees Celsius, mixing ratios in g/kg.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import dataclasses
 import math
 from typing import TYPE_CHECKING, Final, cast
@@ -67,7 +68,7 @@ from tephpy._constants import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
     from typing import SupportsFloat
 
     from matplotlib.backend_bases import RendererBase
@@ -163,6 +164,54 @@ def edge_crossings(
     fraction = np.where(span == 0.0, 0.0, -start / np.where(span == 0.0, 1.0, span))
     positions = first + fraction * (second - first)
     return np.asarray(positions[(positions >= lo) & (positions <= hi)])
+
+
+def _normalize_labels(value: object, name: str) -> tuple[bool, tuple[str, ...]]:
+    """Split a raw ``labels`` option into a flag and the edges it claims.
+
+    ``True``/``None`` mean every member is labelled inline, ``False`` means
+    none is, and one or more edge names claim those edges — a bare string
+    and a one-tuple are identical, and duplicates collapse in first-seen
+    order (spec §3.2). The bare-string case is handled before the iterable
+    case so ``"bottom"`` is never iterated character by character.
+
+    Parameters
+    ----------
+    value : object
+        The resolved ``labels`` option, from any precedence tier.
+    name : str
+        The family name, for the error message.
+
+    Returns
+    -------
+    tuple of (bool, tuple of str)
+        Whether the family labels anything, and the edges it claims.
+
+    Raises
+    ------
+    TypeError
+        If `value` is neither a bool nor edge name(s) from :data:`EDGES`.
+    """
+    if value is None or isinstance(value, bool):
+        return (True if value is None else value), ()
+    placements: tuple[object, ...]
+    if isinstance(value, str):
+        placements = (value,)
+    elif isinstance(value, Iterable):
+        placements = tuple(cast("Iterable[object]", value))
+    else:
+        placements = (value,)
+    edges: list[str] = []
+    for placement in placements:
+        if not isinstance(placement, str) or placement not in EDGES:
+            msg = (
+                f"unknown {name!r} label placement {placement!r}; expected "
+                f"True, False, or edge name(s) from {list(EDGES)!r}"
+            )
+            raise TypeError(msg)
+        if placement not in edges:
+            edges.append(placement)
+    return bool(edges), tuple(edges)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -365,7 +414,8 @@ class ResolvedOptions:
 
     Resolution precedence: accessor kwargs > ``tephpy.config`` >
     ``_constants`` (spec §3.5). ``values``/``interval`` of ``None`` mean the
-    zoom-adaptive default ladder is in force.
+    zoom-adaptive default ladder is in force. An empty `label_edges` means
+    the family labels inline only.
     """
 
     values: tuple[float, ...] | None
@@ -375,6 +425,7 @@ class ResolvedOptions:
     linewidth: float
     alpha: float
     labels: bool
+    label_edges: tuple[str, ...]
     visible: bool
 
 
@@ -569,9 +620,19 @@ class IsoplethFamily(martist.Artist):
     section : object
         The family's ``tephpy.config`` section, read at creation and on
         :meth:`configure`.
+    validate : callable, optional
+        Called with ``(family name, candidate options)`` whenever the
+        options resolve; raising rejects the change. The owning axes
+        passes its one-family-per-edge check here so the rejection
+        lands inside this class's rollback (spec §3.2).
     """
 
-    def __init__(self, spec: FamilySpec, section: object) -> None:
+    def __init__(
+        self,
+        spec: FamilySpec,
+        section: object,
+        validate: Callable[[str, ResolvedOptions], None] | None = None,
+    ) -> None:
         """Initialise the family and snapshot its resolved options.
 
         Parameters
@@ -581,10 +642,16 @@ class IsoplethFamily(martist.Artist):
         section : object
             The family's ``tephpy.config`` section, read at creation and
             on :meth:`configure`.
+        validate : callable, optional
+            Called with ``(family name, candidate options)`` whenever the
+            options resolve; raising rejects the change. The owning axes
+            passes its one-family-per-edge check here so the rejection
+            lands inside this class's rollback (spec §3.2).
         """
         super().__init__()
         self._spec = spec
         self._section = section
+        self._validate = validate
         self._overrides: dict[str, object] = {}
         self._members: list[Member] | None = None
         self._member_values: npt.NDArray[np.float64] = np.empty(0)
@@ -592,7 +659,7 @@ class IsoplethFamily(martist.Artist):
         self._zoom_adaptive = True
         self._lines = LineCollection([])
         self._texts: list[Text] = []
-        self._options = self._resolve()
+        self._options = self._resolve_validated()
         self.set_zorder(spec.zorder)
         self.set_visible(self._options.visible)
 
@@ -626,7 +693,9 @@ class IsoplethFamily(martist.Artist):
         Raises
         ------
         TypeError
-            If an option name is unknown for this family.
+            If an option name is unknown for this family, if ``labels`` names
+            an unknown placement, or if the owning axes rejects an edge claim
+            already held by another family.
         ValueError
             If an option value is invalid, e.g. a non-positive
             ``interval``.
@@ -653,7 +722,7 @@ class IsoplethFamily(martist.Artist):
         prior = self._overrides
         self._overrides = overrides
         try:
-            self._options = self._resolve()
+            self._options = self._resolve_validated()
         except Exception:
             self._overrides = prior
             raise
@@ -689,13 +758,8 @@ class IsoplethFamily(martist.Artist):
         axes = self.axes
         if axes is None:
             return
-        if self._members is None:
-            self._build()
-        members = self._members if self._members is not None else []
         opts = self._options
-        view = axes.viewLim
-        mask = self._zoom_mask(view.width) & self._view_mask(view)
-        selected = [m for m, keep in zip(members, mask, strict=True) if keep]
+        selected = self._selected_members()
         renderer.open_group("isopleth-family", gid=self.get_gid())
         lines = self._lines
         lines.set_segments([m.xy for m in selected])
@@ -741,6 +805,8 @@ class IsoplethFamily(martist.Artist):
         ------
         ValueError
             If the resolved ``interval`` is not a positive, finite number.
+        TypeError
+            If the resolved ``labels`` names an unknown placement.
         """
         spec = self._spec
         pick = self._pick
@@ -770,7 +836,9 @@ class IsoplethFamily(martist.Artist):
         raw_linewidth = pick("linewidth")
         raw_alpha = pick("alpha")
         raw_labels = pick("labels")
+        labels, label_edges = _normalize_labels(raw_labels, spec.name)
         raw_visible = pick("visible")
+        visible = True if raw_visible is None else bool(raw_visible)
         return ResolvedOptions(
             values=values,
             interval=interval,
@@ -786,9 +854,31 @@ class IsoplethFamily(martist.Artist):
                 if raw_alpha is None
                 else float(cast("SupportsFloat", raw_alpha))
             ),
-            labels=True if raw_labels is None else bool(raw_labels),
-            visible=True if raw_visible is None else bool(raw_visible),
+            labels=labels,
+            # An invisible family draws nothing, so it holds no edge (spec §3.2).
+            label_edges=label_edges if visible else (),
+            visible=visible,
         )
+
+    def _resolve_validated(self) -> ResolvedOptions:
+        """Resolve the options and put them past the owner's validator.
+
+        Returns
+        -------
+        ResolvedOptions
+            The accepted snapshot.
+
+        Raises
+        ------
+        TypeError
+            If the owner's validator rejects the candidate options.
+        ValueError
+            If an option value is invalid (see :meth:`_resolve`).
+        """
+        options = self._resolve()
+        if self._validate is not None:
+            self._validate(self._spec.name, options)
+        return options
 
     def _candidate_values(self) -> npt.NDArray[np.float64]:
         """Return the member values to build, at the finest granularity.
@@ -921,11 +1011,67 @@ class IsoplethFamily(martist.Artist):
             text.set_figure(figure)
         return text
 
+    def _selected_members(self) -> list[Member]:
+        """Return the members the current view and zoom ladder select.
+
+        Building lazily on first use, this is the single definition of "what
+        this family shows right now" — shared by :meth:`draw` and by the edge
+        tick locator, which matplotlib calls outside the draw path.
+
+        Returns
+        -------
+        list of Member
+            The selected members in build order; empty until the family has
+            an axes.
+        """
+        axes = self.axes
+        if axes is None:
+            return []
+        if self._members is None:
+            self._build()
+        members = self._members if self._members is not None else []
+        view = axes.viewLim
+        mask = self._zoom_mask(view.width) & self._view_mask(view)
+        return [m for m, keep in zip(members, mask, strict=True) if keep]
+
+    def _inline_members(
+        self, view: mtransforms.Bbox, selected: list[Member]
+    ) -> list[Member]:
+        """Return the selected members that no claimed edge labels.
+
+        The automatic remainder of spec §3.2: listed edges label the members
+        that reach them, and every member left over is labelled inline. With
+        no claimed edge every selected member is inline, which is the default.
+        The crossings are recomputed here rather than shared with the locator
+        because tick location and artist drawing have no guaranteed ordering.
+
+        Parameters
+        ----------
+        view : matplotlib.transforms.Bbox
+            The current data-space view rectangle.
+        selected : list of Member
+            The members drawn this pass.
+
+        Returns
+        -------
+        list of Member
+            The members to label inline.
+        """
+        edges = self._options.label_edges
+        if not edges:
+            return selected
+        return [
+            member
+            for member in selected
+            if not any(edge_crossings(member.xy, edge, view).size for edge in edges)
+        ]
+
     def _draw_labels(self, renderer: RendererBase, selected: list[Member]) -> None:
         """Place and draw one label per selected member.
 
         The label anchors at the middle in-view vertex, rotated to the
-        local line direction in screen space and folded upright.
+        local line direction in screen space and folded upright. Members
+        a claimed edge already ticks are dropped first (spec §3.2).
 
         Parameters
         ----------
@@ -939,9 +1085,10 @@ class IsoplethFamily(martist.Artist):
             return
         opts = self._options
         view = axes.viewLim
-        while len(self._texts) < len(selected):
+        labelled = self._inline_members(view, selected)
+        while len(self._texts) < len(labelled):
             self._texts.append(self._make_text())
-        for member, text in zip(selected, self._texts, strict=False):
+        for member, text in zip(labelled, self._texts, strict=False):
             xy = member.xy
             inside = (
                 (xy[:, 0] >= view.x0)
