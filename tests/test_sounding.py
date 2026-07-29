@@ -250,6 +250,16 @@ def test_bad_time_type_raises():
         Sounding(PRESSURE, TEMPERATURE, time="2026-07-21")
 
 
+def test_nat_time_named_in_error():
+    """NaT is named, not reported as ``<class 'NoneType'>`` (spec §6).
+
+    Unit-specific NaT only: numpy 2.5 deprecates *creating* the generic
+    ``np.datetime64("NaT")``, so that form can no longer arrive here.
+    """
+    with pytest.raises(TypeError, match="NaT"):
+        Sounding(PRESSURE, TEMPERATURE, time=np.datetime64("NaT", "ns"))
+
+
 def test_none_pressure_or_temperature_raises():
     """Required fields passed as None fail fast (bad code, spec §6)."""
     with pytest.raises(TypeError, match="'pressure' is None"):
