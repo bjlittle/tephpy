@@ -95,6 +95,11 @@ def test_sounding_label_format():
     assert label == "72357 2013-05-20 12Z"
 
 
+def test_cursor_fields():
+    """The default cursor readout trio, in display order (spec §3.2)."""
+    assert constants.CURSOR_FIELDS == ("pressure", "temperature", "theta")
+
+
 def test_shading_conventions():
     """Shading draws between the families and the profile lines."""
     family_zorders = (
