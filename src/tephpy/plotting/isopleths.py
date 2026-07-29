@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Final, cast
 from matplotlib import artist as martist
 from matplotlib.collections import LineCollection
 from matplotlib.text import Text
+from matplotlib.ticker import Formatter, Locator
 import numpy as np
 import numpy.typing as npt
 
@@ -1115,3 +1116,125 @@ class IsoplethFamily(martist.Artist):
             text.set_clip_box(axes.bbox)
             text.set_clip_on(True)
             text.draw(renderer)
+
+
+class _EdgeLocator(Locator):
+    """Locate one family's crossings of one diagram edge as ticks.
+
+    Matplotlib calls the locator on every draw, so pan, zoom, resize and
+    ``set_extent`` stay correct with no refresh machinery (spec §3.2). Each
+    call caches the member value beside each position for
+    :class:`_EdgeFormatter`, which is why the formatter needs no inverse
+    math and works identically for all five families.
+
+    Parameters
+    ----------
+    family : IsoplethFamily
+        The family that claimed the edge.
+    edge : str
+        The claimed edge, one of :data:`EDGES`.
+    """
+
+    def __init__(self, family: IsoplethFamily, edge: str) -> None:
+        """Initialise the locator with empty caches.
+
+        Parameters
+        ----------
+        family : IsoplethFamily
+            The family that claimed the edge.
+        edge : str
+            The claimed edge, one of :data:`EDGES`.
+        """
+        super().__init__()
+        self.family = family
+        self.edge = edge
+        self.positions: list[float] = []
+        self.values: list[float] = []
+
+    def __call__(self) -> list[float]:
+        """Return the tick positions, refreshing the caches.
+
+        Returns
+        -------
+        list of float
+            The along-edge crossing coordinates, in member order; empty
+            while the family has no axes.
+        """
+        positions: list[float] = []
+        values: list[float] = []
+        axes = self.family.axes
+        if axes is not None:
+            view = axes.viewLim
+            # The locator is the family's own machinery, one module away
+            # from a method it has no reason to publish.
+            for member in self.family._selected_members():  # noqa: SLF001
+                for position in edge_crossings(member.xy, self.edge, view):
+                    positions.append(float(position))
+                    values.append(member.value)
+        self.positions = positions
+        self.values = values
+        return positions
+
+    def tick_values(self, vmin: float, vmax: float) -> list[float]:
+        """Return the tick positions, ignoring the requested interval.
+
+        Parameters
+        ----------
+        vmin : float
+            Ignored; the crossings define their own interval.
+        vmax : float
+            Ignored; the crossings define their own interval.
+
+        Returns
+        -------
+        list of float
+            The same positions :meth:`__call__` returns.
+        """
+        del vmin, vmax
+        return self()
+
+
+class _EdgeFormatter(Formatter):
+    """Label an edge tick with the member value that produced it.
+
+    Parameters
+    ----------
+    locator : _EdgeLocator
+        The locator whose caches supply the values; matplotlib runs it
+        immediately before this formatter within a draw, so the two agree.
+    """
+
+    def __init__(self, locator: _EdgeLocator) -> None:
+        """Bind the formatter to its locator's caches.
+
+        Parameters
+        ----------
+        locator : _EdgeLocator
+            The locator whose caches supply the values.
+        """
+        super().__init__()
+        self.locator = locator
+
+    def __call__(self, x: float, pos: int | None = None) -> str:
+        """Format one tick.
+
+        Parameters
+        ----------
+        x : float
+            The tick position, in along-edge data coordinates.
+        pos : int, optional
+            Ignored; the registry signature matplotlib calls with.
+
+        Returns
+        -------
+        str
+            The member value formatted ``"{value:g}"``, as inline labels
+            already are, or ``""`` for a position this locator did not
+            produce.
+        """
+        del pos
+        locator = self.locator
+        for position, value in zip(locator.positions, locator.values, strict=True):
+            if math.isclose(position, x, rel_tol=1e-9, abs_tol=1e-9):
+                return f"{value:g}"
+        return ""

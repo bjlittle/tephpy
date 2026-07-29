@@ -547,3 +547,82 @@ def test_selected_and_inline_members_at_the_default_extent():
         assert adiabats._inline_members(view, selected) == selected
     finally:
         plt.close(fig)
+
+
+def test_edge_locator_matches_the_coverage_table():
+    """Spec §3.2's measured coverage, through the locator (spec §7)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "left")
+        positions = locator()
+        assert len(positions) == 18
+        assert locator.values == [float(p) for p in range(150, 1050, 50)]
+        assert locator.positions == positions
+
+        locator = isopleths._EdgeLocator(ax.mixing_ratios(), "top")
+        locator()
+        assert locator.values == [0.05, 0.2, 1.0, 2.0, 4.0, 7.0, 14.0, 28.0]
+
+        locator = isopleths._EdgeLocator(ax.isotherms(), "bottom")
+        locator()
+        assert locator.values == [float(t) for t in range(-40, 70, 10)]
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_ticks_every_crossing():
+    """200 hPa leaves and re-enters the view across the top edge."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "top")
+        locator()
+        assert locator.values == [150.0, 200.0, 200.0]
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_tracks_the_view():
+    """Matplotlib calls the locator every draw, so zoom needs no plumbing."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "left")
+        wide = locator()
+        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        fig.canvas.draw()
+        assert locator() != wide
+        # Note: The zoomed extent may include isobars outside the nominal
+        # 500-900 hPa range because isobars curve and may enter from the view
+        # edges; edge_crossings filters to members that actually reach the
+        # requested edge within the view bounds.
+        assert all(450.0 <= value <= 900.0 for value in locator.values)
+        assert locator.tick_values(0.0, 1.0) == locator.positions
+    finally:
+        plt.close(fig)
+
+
+def test_edge_formatter_reads_the_cached_values():
+    """No inverse math: the formatter reads the value beside the position."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.mixing_ratios(), "top")
+        formatter = isopleths._EdgeFormatter(locator)
+        positions = locator()
+        assert formatter(positions[0]) == "0.05"
+        assert formatter(positions[-1]) == "28"
+        assert formatter(positions[0] + 1.0) == ""
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_without_axes_is_empty():
+    """A detached family has no view to intersect."""
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    locator = isopleths._EdgeLocator(
+        isopleths.IsoplethFamily(spec, config.isobars), "left"
+    )
+    assert locator() == []
+    assert locator.values == []
