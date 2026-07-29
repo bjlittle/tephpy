@@ -408,7 +408,7 @@ def test_configure_failure_leaves_family_unchanged():
     assert family.options.interval is None
 
 
-VIEW = mtransforms.Bbox.from_extents(1591.0, 1651.0, 1902.0, 1822.0)
+VIEW = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
 
 
 def test_edge_crossings_isotherm_bottom_is_analytic():
@@ -419,10 +419,10 @@ def test_edge_crossings_isotherm_bottom_is_analytic():
 
 
 def test_edge_crossings_isotherm_left_is_analytic():
-    """The same isotherm meets x = x0 at exactly y = x0 - 2T."""
-    (member,) = isopleths.isotherm_members([-30.0])
+    """An isotherm x - y = 2T meets x = x0 at exactly y = x0 - 2T."""
+    (member,) = isopleths.isotherm_members([-50.0])
     crossings = isopleths.edge_crossings(member.xy, "left", VIEW)
-    np.testing.assert_allclose(crossings, [VIEW.x0 + 60.0], rtol=1e-12)
+    np.testing.assert_allclose(crossings, [VIEW.x0 + 100.0], rtol=1e-12)
 
 
 def test_edge_crossings_outside_the_edge_span_are_dropped():
