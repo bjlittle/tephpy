@@ -281,6 +281,21 @@ def test_format_coord_instance_assignment_wins(tephigram_axes):
     assert tephigram_axes.format_coord(1.0, 2.0) == "custom"
 
 
+def test_format_coord_metpy_fields(tephigram_axes):
+    """Opt-in fields: saturation mixing ratio and the moist adiabat (θw)."""
+    x, y = _cursor_xy(850.0, -4.2)
+    with config.context(cursor={"fields": ("mixing_ratio", "theta_w")}):
+        assert tephigram_axes.format_coord(x, y) == "3.3 g/kg, θw 4.0 °C"
+
+
+def test_format_coord_unknown_field_raises(tephigram_axes):
+    with (
+        config.context(cursor={"fields": ("bogus",)}),
+        pytest.raises(TypeError, match="unknown cursor field"),
+    ):
+        tephigram_axes.format_coord(0.0, 0.0)
+
+
 def test_clear_restores_projection_defaults(tephigram_axes):
     old_family = tephigram_axes.isobars()
     tephigram_axes.plot([1700.0, 1750.0], [1700.0, 1750.0])

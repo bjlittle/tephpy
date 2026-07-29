@@ -139,12 +139,76 @@ def _cursor_theta(_pressure: float, _temperature: float, theta: float) -> str:
     return f"θ {theta:.1f} °C"
 
 
+def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> str:
+    """Format the saturation mixing ratio through the cursor point (§3.2).
+
+    Parameters
+    ----------
+    pressure : float
+        Cursor pressure in hPa.
+    temperature : float
+        Cursor temperature in degrees Celsius.
+    _theta : float
+        Ignored; the uniform registry signature.
+
+    Returns
+    -------
+    str
+        The mixing-ratio readout in g/kg, one decimal.
+    """
+    # Function-local so `import tephpy` stays light (spec §10 item 10).
+    from metpy.calc import saturation_mixing_ratio  # noqa: PLC0415
+    from metpy.units import units as registry  # noqa: PLC0415
+
+    ratio = saturation_mixing_ratio(
+        registry.Quantity(pressure, "hPa"), registry.Quantity(temperature, "degC")
+    ).m_as("g/kg")
+    return f"{float(ratio):.1f} g/kg"
+
+
+def _cursor_theta_w(pressure: float, temperature: float, _theta: float) -> str:
+    """Format the moist adiabat (θw) through the cursor point (§3.2).
+
+    The point is treated as saturated (``dewpoint=temperature``), giving
+    the wet-bulb potential temperature of the pseudoadiabat through it —
+    the moist-adiabat family's member value (the §3.2/§3.3
+    one-source-of-truth idiom).
+
+    Parameters
+    ----------
+    pressure : float
+        Cursor pressure in hPa.
+    temperature : float
+        Cursor temperature in degrees Celsius.
+    _theta : float
+        Ignored; the uniform registry signature.
+
+    Returns
+    -------
+    str
+        The wet-bulb potential-temperature readout, one decimal.
+    """
+    # Function-local so `import tephpy` stays light (spec §10 item 10).
+    from metpy.calc import wet_bulb_potential_temperature  # noqa: PLC0415
+    from metpy.units import units as registry  # noqa: PLC0415
+
+    quantity = registry.Quantity
+    theta_w = wet_bulb_potential_temperature(
+        quantity(pressure, "hPa"),
+        quantity(temperature, "degC"),
+        quantity(temperature, "degC"),
+    ).m_as("degC")
+    return f"θw {float(theta_w):.1f} °C"
+
+
 #: The cursor readout field registry (spec §3.2): field name to a
 #: ``(pressure, temperature, theta) -> str`` formatter.
 _CURSOR_FORMATTERS: Final[dict[str, Callable[[float, float, float], str]]] = {
     "pressure": _cursor_pressure,
     "temperature": _cursor_temperature,
     "theta": _cursor_theta,
+    "mixing_ratio": _cursor_mixing_ratio,
+    "theta_w": _cursor_theta_w,
 }
 
 
