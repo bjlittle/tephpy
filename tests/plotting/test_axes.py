@@ -774,7 +774,7 @@ def test_a_user_axis_title_wins_either_way():
 
 
 def test_top_and_right_use_lazily_created_secondary_axes():
-    """Claiming creates one child axes; releasing hides it (spec §3.2)."""
+    """Claiming creates one child axes; releasing hides it; clear reaps (spec §3.2)."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         ax.mixing_ratios(labels="top")
@@ -795,6 +795,11 @@ def test_top_and_right_use_lazily_created_secondary_axes():
         assert len(ax.child_axes) == 1
         assert not ax.child_axes[0].get_visible()
         assert set(ax._secondary_axes) == {"top"}
+        # `clear` is the reset: it drops the cache, and matplotlib reaps the
+        # child axes with it, so a hidden secondary cannot outlive a clear.
+        ax.clear()
+        assert ax.child_axes == []
+        assert ax._secondary_axes == {}
     finally:
         plt.close(fig)
 

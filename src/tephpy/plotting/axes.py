@@ -985,9 +985,10 @@ class TephigramAxes(Axes):
         TypeError
             If `edge` is not one of ``EDGES``.
         ValueError
-            If no family labels that edge. Styling an unclaimed edge would
-            be overwritten by the conventions its claim stamps, and probing
-            one must not build a secondary axes nothing is using.
+            If no family labels that edge. Probing one must not build a
+            secondary axes nothing is using, and a claim stamps the owning
+            family's tick colour, so a colour set before the claim would not
+            survive it.
         """
         if edge not in EDGES:
             msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"

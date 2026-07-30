@@ -211,8 +211,8 @@ Differences from tephi:
   `_secondary_axes` or an undifferentiated `child_axes` that must be sniffed to tell one
   from the other. An unknown name raises `TypeError` naming it and the valid set (the
   `format_coord` style); an unlabelled edge raises `ValueError` saying so and how to claim
-  one, because probing must not materialise a secondary axes nobody is using, and styling
-  an edge before its claim would be silently overwritten by the claim's conventions.
+  one, because probing must not materialise a secondary axes nobody is using, and a claim
+  stamps the owning family's tick colour over whatever the edge carries.
   Releasing a top or right edge **hides** its secondary axes rather than removing it, so a
   held handle stays live and its ticks and title survive a release/reclaim exactly as
   bottom and left do. It is the whole secondary axes that hides, not merely its `Axis`, or
