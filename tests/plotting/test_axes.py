@@ -1096,3 +1096,108 @@ def test_config_top_claim_takes_effect_at_axes_creation():
         fig.canvas.draw()
     finally:
         plt.close(fig)
+
+
+def test_only_a_new_owner_re_points_an_edge():
+    """A sync that changes nothing touches nothing (spec §3.2).
+
+    ``_EdgeLocator`` holds a live family reference and recomputes on every
+    draw, so re-installing it on each sync is not only wasted work — it is
+    the pattern that made unrelated resolves reach into a claimed edge.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        locator = ax.yaxis.get_major_locator()
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        assert ax.yaxis.get_major_locator() is locator
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.yaxis.get_major_locator() is not locator
+    finally:
+        plt.close(fig)
+
+
+def test_tick_colour_tracks_its_own_family_only():
+    """Restyling the owning family restyles its ticks; nothing else does."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelcolor="black")
+        fig.canvas.draw()
+        black = mcolors.to_rgba("black")
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # An unrelated family, and a non-colour restyle of the owner, leave it.
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # The owner's own colour still reaches its ticks.
+        ax.isobars(color="blue")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_cleared_axis_title_stays_cleared():
+    """``set_ylabel("")`` durably means "ticks, no title" (spec §3.2).
+
+    The fill-when-empty guard runs only on a first claim, so no later sync
+    looks at the label again; a genuine release forgets tephpy's own title,
+    so a reclaim stamps afresh.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.set_ylabel("")
+        ax.isotherms(color="grey")
+        ax.isobars(color="blue")
+        ax.set_extent(DEFAULT_EXTENT)
+        fig.canvas.draw()
+        assert ax.get_ylabel() == ""
+        # Dropping the labels and re-adding them is a fresh claim.
+        ax.isobars(labels=False)
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_new_owner_restamps_the_axis_title():
+    """Handing an edge to another family retitles it (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isotherms"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_visibility_round_trip_preserves_edge_styling():
+    """Toggling a family must not discard styling the user did not drop."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14, labelcolor="black")
+        fig.canvas.draw()
+        ax.isobars(visible=False)
+        ax.isobars(visible=True)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("black"))
+    finally:
+        plt.close(fig)

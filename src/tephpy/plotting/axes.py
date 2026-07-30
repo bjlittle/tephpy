@@ -368,6 +368,11 @@ class TephigramAxes(Axes):
     _edge_owners: dict[str, str]
     _secondary_axes: dict[str, SecondaryAxis]
     _edge_titles: dict[str, str]
+    #: The RGBA last applied to each claimed edge's ticks, so a sync
+    #: re-applies only what the owning family actually changed. Survives
+    #: release, which is what makes a family visibility toggle a true round
+    #: trip; only :meth:`clear` empties it (spec §3.2).
+    _edge_tick_colors: dict[str, tuple[float, float, float, float]]
     #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
     #: live before ``Axes.__init__`` reaches :meth:`clear`.
     _edge_sync_busy: bool = False
@@ -422,6 +427,7 @@ class TephigramAxes(Axes):
         self._edge_owners = {}
         self._secondary_axes = {}
         self._edge_titles = {}
+        self._edge_tick_colors = {}
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
             # The families arm their ``on_change`` only once constructed, so
@@ -1050,7 +1056,9 @@ class TephigramAxes(Axes):
             self._style_edge_axis(secondary.xaxis if edge == "top" else secondary.yaxis)
         return secondary.xaxis if edge == "top" else secondary.yaxis
 
-    def _claim_edge(self, edge: str, name: str, family: IsoplethFamily) -> None:
+    def _claim_edge(
+        self, edge: str, name: str, family: IsoplethFamily, *, first: bool
+    ) -> None:
         """Point one edge's ticks at a family. Idempotent.
 
         Identity only — locator, formatter, visibility, colour and title.
@@ -1065,25 +1073,37 @@ class TephigramAxes(Axes):
             The claiming family's accessor name, which keys the axis titles.
         family : IsoplethFamily
             The claiming family.
+        first : bool
+            Whether this claim is the edge's first under this owner — the
+            edge was unowned, or another family held it and has just been
+            released. Identity is installed only then; a repeat claim
+            re-applies nothing but a changed colour (spec §3.2).
         """
         axis = self._edge_axis(edge)
-        locator = _EdgeLocator(family, edge)
-        axis.set_major_locator(locator)
-        axis.set_major_formatter(_EdgeFormatter(locator))
-        # Crossings are exact positions; a minor tick between them means
-        # nothing. NullLocator is also matplotlib's linear-axis default, so
-        # release restores it.
-        axis.set_minor_locator(NullLocator())
-        axis.set_visible(True)
+        if first:
+            locator = _EdgeLocator(family, edge)
+            axis.set_major_locator(locator)
+            axis.set_major_formatter(_EdgeFormatter(locator))
+            # Crossings are exact positions; a minor tick between them means
+            # nothing. NullLocator is also matplotlib's linear-axis default, so
+            # release restores it.
+            axis.set_minor_locator(NullLocator())
+            secondary = self._secondary_axes.get(edge)
+            if secondary is None:
+                axis.set_visible(True)
+            else:
+                secondary.set_visible(True)
+            if not axis.get_label_text():
+                title = EDGE_AXIS_TITLES[name]
+                axis.set_label_text(title)
+                self._edge_titles[edge] = title
         # ``set_tick_params`` takes no alpha, and per-``Tick`` alpha would not
         # survive matplotlib rebuilding the tick artists on a locator change,
         # so the family's alpha is baked into the tick RGBA instead.
         rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
-        axis.set_tick_params(color=rgba, labelcolor=rgba)
-        if not axis.get_label_text():
-            title = EDGE_AXIS_TITLES[name]
-            axis.set_label_text(title)
-            self._edge_titles[edge] = title
+        if self._edge_tick_colors.get(edge) != rgba:
+            axis.set_tick_params(color=rgba, labelcolor=rgba)
+            self._edge_tick_colors[edge] = rgba
 
     def _release_edge(self, edge: str) -> None:
         """Return one edge to its unclaimed state.
@@ -1135,13 +1155,19 @@ class TephigramAxes(Axes):
             had_right = "right" in self._edge_owners
             for edge in EDGES:
                 owner = claims.get(edge)
-                if self._edge_owners.get(edge) not in (None, owner):
+                previous = self._edge_owners.get(edge)
+                if previous not in (None, owner):
                     self._release_edge(edge)
                 if owner is None:
                     self._edge_owners.pop(edge, None)
                 else:
                     self._edge_owners[edge] = owner
-                    self._claim_edge(edge, owner, self._families[owner])
+                    self._claim_edge(
+                        edge,
+                        owner,
+                        self._families[owner],
+                        first=previous != owner,
+                    )
             if had_right != ("right" in self._edge_owners):
                 self._relayout_side_panels()
         finally:
