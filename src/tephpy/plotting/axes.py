@@ -352,7 +352,9 @@ class TephigramAxes(Axes):
     The temperature/theta mapping is exposed as
     :attr:`tephigram_transform`; artists plot in (temperature, theta)
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
-    x/y ticks carry no meteorological meaning and are hidden.
+    x/y ticks carry no meteorological meaning and are hidden until
+    a family claims an edge for its labels — ``labels=("bottom", "left")``
+    turns them into that family's scale (spec §3.2).
     """
 
     name = "tephigram"
@@ -1262,7 +1264,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the isotherm family.
@@ -1283,8 +1285,12 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1292,6 +1298,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The isotherm family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "isotherms",
@@ -1314,7 +1326,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the isobar family.
@@ -1335,8 +1347,12 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1344,6 +1360,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The isobar family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "isobars",
@@ -1366,7 +1388,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the dry-adiabat family.
@@ -1388,8 +1410,12 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1397,6 +1423,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The dry-adiabat family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "dry_adiabats",
@@ -1420,7 +1452,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the moist-adiabat family.
@@ -1444,8 +1476,12 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1453,6 +1489,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The moist-adiabat family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "moist_adiabats",
@@ -1475,7 +1517,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the mixing-ratio family.
@@ -1495,8 +1537,12 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1504,6 +1550,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The mixing-ratio family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "mixing_ratios",

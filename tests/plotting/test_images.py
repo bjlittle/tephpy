@@ -218,3 +218,12 @@ def test_barbs_with_indices_panel():
     ax.plot_barbs(snd)
     ax.annotate_indices(calc.indices(snd))
     return fig
+
+
+@pytest.mark.mpl_image_compare(savefig_kwargs={"bbox_inches": "tight"})
+def test_printed_chart_edges():
+    """The printed-chart edge-labelling configuration (spec §3.2/§7)."""
+    fig, ax = _tephigram_figure()
+    ax.isobars(labels=("bottom", "left"))
+    ax.mixing_ratios(labels="top")
+    return fig
