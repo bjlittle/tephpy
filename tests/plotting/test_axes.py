@@ -20,6 +20,8 @@ from tephpy._constants import (
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
+    EDGE_AXIS_TITLES,
+    EDGE_LABEL_GUTTER_PAD,
     INDICES_PANEL_ROWS,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
@@ -30,7 +32,7 @@ from tephpy._constants import (
 )
 from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
-from tephpy.plotting.isopleths import IsoplethFamily
+from tephpy.plotting.isopleths import EDGES, IsoplethFamily
 
 
 def test_transform_matches_functions():
@@ -707,3 +709,207 @@ def test_canonical_usage_composes(tephigram_axes):
     assert tephigram_axes.shade_cin(snd, parcel) is not None
     panel = tephigram_axes.annotate_indices(calc.indices(snd))
     assert panel in tephigram_axes.figure.axes
+
+
+# --- Edge ownership (spec §3.2) -------------------------------------------
+
+
+def _ticks(axis):
+    """Return the rendered tick label strings of an axis."""
+    return [text.get_text() for text in axis.get_ticklabels()]
+
+
+def test_no_edge_is_claimed_by_default():
+    """Today's default stands: hidden native axes, no secondary axes."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert ax.child_axes == []
+        assert not ax.xaxis.get_visible()
+        assert not ax.yaxis.get_visible()
+    finally:
+        plt.close(fig)
+
+
+def test_isobars_claim_bottom_and_left():
+    """The printed chart's pressure scale, from one call (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        fig.canvas.draw()
+        assert ax._edge_owners == {"bottom": "isobars", "left": "isobars"}
+        assert ax.xaxis.get_visible()
+        assert _ticks(ax.xaxis) == ["1050"]
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert len(_ticks(ax.yaxis)) == 18
+        assert ax.get_xlabel() == EDGE_AXIS_TITLES["isobars"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_user_axis_title_wins_either_way():
+    """The convention title only fills an empty axis label (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.set_xlabel("Mine")
+        ax.isobars(labels="bottom")
+        assert ax.get_xlabel() == "Mine"
+        ax.set_xlabel("Still mine")
+        ax.isobars(labels=True)
+        assert ax.get_xlabel() == "Still mine"
+    finally:
+        plt.close(fig)
+
+
+def test_top_and_right_use_lazily_created_secondary_axes():
+    """Claiming creates one child axes; releasing removes it."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert len(ax.child_axes) == 1
+        assert _ticks(ax._secondary_axes["top"].xaxis) == [
+            "0.05",
+            "0.2",
+            "1",
+            "2",
+            "4",
+            "7",
+            "14",
+            "28",
+        ]
+        ax.mixing_ratios(labels=True)
+        fig.canvas.draw()
+        assert ax.child_axes == []
+        assert ax._secondary_axes == {}
+    finally:
+        plt.close(fig)
+
+
+def test_one_family_per_edge():
+    """Two claimants raise, naming both and the edge (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        with pytest.raises(TypeError, match=r"'left'.*'isobars'.*'isotherms'"):
+            ax.isotherms(labels=("bottom", "left"))
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.isotherms().options.label_edges == ()
+    finally:
+        plt.close(fig)
+
+
+def test_a_config_conflict_surfaces_at_axes_creation():
+    """Not at first draw: the axes funnels the creation path too."""
+    fig = plt.figure()
+    try:
+        with (
+            config.context(
+                isotherms={"labels": "bottom"}, isobars={"labels": "bottom"}
+            ),
+            pytest.raises(TypeError, match="'bottom'"),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
+
+
+def test_unknown_placement_is_rejected():
+    """Fail loud, naming the placement and the valid set (spec §6)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        with pytest.raises(TypeError, match=r"label placement 'middle'"):
+            ax.isobars(labels="middle")
+        assert ax._edge_owners == {}
+    finally:
+        plt.close(fig)
+
+
+def test_an_invisible_family_releases_its_edge():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax._edge_owners == {"left": "isobars"}
+        ax.isobars(visible=False)
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        ax.isotherms(labels="left")
+        assert ax._edge_owners == {"left": "isotherms"}
+    finally:
+        plt.close(fig)
+
+
+def test_clear_drops_every_edge_claim():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        ax.clear()
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert ax._secondary_axes == {}
+        assert ax.child_axes == []
+        assert not ax.xaxis.get_visible()
+        assert ax.get_xlabel() == ""
+    finally:
+        plt.close(fig)
+
+
+def test_right_edge_labels_widen_the_gutter_pad():
+    """The relayout helper substitutes the wider pad (spec §3.2)."""
+    pressure = np.array([1000.0, 900.0, 800.0]) * units.hPa
+    snd = Sounding(
+        pressure=pressure,
+        temperature=np.array([20.0, 14.0, 8.0]) * units.degC,
+        wind_speed=np.array([10.0, 20.0, 30.0]) * units.knots,
+        wind_direction=np.array([180.0, 200.0, 220.0]) * units.deg,
+    )
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        fig.canvas.draw()
+        narrow = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        wide = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        assert wide == pytest.approx(EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0)
+        assert wide > narrow
+    finally:
+        plt.close(fig)
+
+
+def test_edge_ticks_follow_set_extent():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        wide = _ticks(ax.yaxis)
+        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        fig.canvas.draw()
+        zoomed = _ticks(ax.yaxis)
+        assert zoomed != wide
+        # The zoomed view shows a strictly narrower pressure range than the
+        # full view.  An absolute 500-900 hPa guard fails because the view
+        # extent defines corners in (pressure, temperature) space; the left
+        # edge of the resulting x-y rectangle cuts through isobars slightly
+        # below 500 hPa, so some ticks below 500 are geometrically correct.
+        assert min(float(t) for t in zoomed) > min(float(t) for t in wide)
+        assert max(float(t) for t in zoomed) < max(float(t) for t in wide)
+    finally:
+        plt.close(fig)
+
+
+def test_every_edge_can_be_claimed_at_once():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        ax.isotherms(labels="right")
+        fig.canvas.draw()
+        assert set(ax._edge_owners) == set(EDGES)
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
