@@ -1,0 +1,5 @@
+Isopleth member labels now honour a family's ``alpha`` option, both inline and
+on a claimed diagram edge. ``alpha`` is documented as applying to a family's
+lines and its labels, but it reached only the lines, so
+:meth:`~tephpy.plotting.axes.TephigramAxes.isotherms` with ``alpha=0.4`` drew
+fully opaque labels over translucent isotherms. (:user:`claude`)

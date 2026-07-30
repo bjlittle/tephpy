@@ -113,8 +113,9 @@ def edge_crossings(
     Pure numpy over the cached member geometry: each segment that straddles
     the edge's level contributes one linearly interpolated crossing, kept
     only when it falls within the edge's own span. A vertex lying exactly on
-    the edge is attributed to the segment it starts, so it counts once; a
-    segment with a non-finite endpoint never counts. A member may cross the
+    the edge counts once — attributed to the segment it starts, or to the
+    segment it ends when it is the polyline's last vertex; a segment with a
+    non-finite endpoint never counts. A member may cross the
     same edge more than once — a curved isobar leaving and re-entering the
     view — and every crossing is returned (spec §3.2).
 
@@ -154,9 +155,17 @@ def edge_crossings(
         lo, hi = view.y0, view.y1
     delta = across - level
     start, end = delta[:-1], delta[1:]
-    # A NaN endpoint makes both the equality and the sign product False, so
-    # truncated members drop their non-finite segments here.
-    hit = (start == 0.0) | (np.sign(start) * np.sign(end) < 0.0)
+    # A segment with a non-finite endpoint never counts. NaN drops out of the
+    # tests below on its own, but ``np.sign`` maps +/-inf to +/-1, so an
+    # infinite endpoint would otherwise fake a sign change (and opposing
+    # infinities divide inf by inf); mask both explicitly.
+    finite = np.isfinite(start) & np.isfinite(end)
+    hit = finite & ((start == 0.0) | (np.sign(start) * np.sign(end) < 0.0))
+    # A vertex exactly on the edge is attributed to the segment it starts, so
+    # it counts once. The polyline's final vertex starts no segment, so the
+    # final segment claims it instead — the interpolation below, with
+    # ``end == 0``, lands exactly on that vertex.
+    hit[-1] |= finite[-1] & (end[-1] == 0.0)
     if not hit.any():
         return np.empty(0, dtype=np.float64)
     start, end = start[hit], end[hit]
@@ -1165,6 +1174,7 @@ class IsoplethFamily(martist.Artist):
             text.set_position((float(xy[mid, 0]), float(xy[mid, 1])))
             text.set_text(f"{member.value:g}")
             text.set_color(opts.color)
+            text.set_alpha(opts.alpha)
             text.set_rotation(angle)
             text.set_transform(axes.transData)
             text.set_clip_box(axes.bbox)

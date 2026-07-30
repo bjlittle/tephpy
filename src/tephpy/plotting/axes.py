@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Final, cast, overload
 import warnings
 
 from matplotlib.axes import Axes
+import matplotlib.colors as mcolors
 from matplotlib.figure import FigureBase
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
@@ -1031,10 +1032,13 @@ class TephigramAxes(Axes):
         # release restores it.
         axis.set_minor_locator(NullLocator())
         axis.set_visible(True)
-        color = family.options.color
+        # ``set_tick_params`` takes no alpha, and per-``Tick`` alpha would not
+        # survive matplotlib rebuilding the tick artists on a locator change,
+        # so the family's alpha is baked into the tick RGBA instead.
+        rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
         axis.set_tick_params(
-            color=color,
-            labelcolor=color,
+            color=rgba,
+            labelcolor=rgba,
             labelsize=LABEL_FONTSIZE,
             length=EDGE_TICK_LENGTH,
             pad=EDGE_TICK_PAD,

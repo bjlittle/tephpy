@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
+import warnings
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -439,10 +440,45 @@ def test_edge_crossings_vertex_on_the_edge_counts_once():
     np.testing.assert_allclose(crossings, [1700.0])
 
 
+def test_edge_crossings_terminal_vertex_on_the_edge_counts():
+    """The last vertex starts no segment, but still lies on the edge.
+
+    The same geometric vertex must give the same answer wherever it sits in
+    the polyline, so this is pinned against the interior placement above.
+    """
+    terminal = np.array([[1700.0, 1750.0], [1700.0, 1671.0]])
+    np.testing.assert_allclose(
+        isopleths.edge_crossings(terminal, "bottom", VIEW), [1700.0]
+    )
+    leading = np.array([[1700.0, 1671.0], [1700.0, 1750.0]])
+    np.testing.assert_allclose(
+        isopleths.edge_crossings(leading, "bottom", VIEW), [1700.0]
+    )
+
+
 def test_edge_crossings_ignores_non_finite_segments():
     """Truncated members carry NaN vertices; those segments never hit."""
     xy = np.array([[1700.0, 1600.0], [np.nan, np.nan], [1700.0, 1750.0]])
     assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+@pytest.mark.parametrize("infinity", [np.inf, -np.inf])
+def test_edge_crossings_ignores_infinite_endpoints(infinity):
+    """``np.sign`` maps +/-inf to +/-1, which would fake a sign change.
+
+    ``-inf`` is the dangerous one: it used to return a finite, wholly
+    fictitious crossing rather than nothing at all.
+    """
+    xy = np.array([[1700.0, 1750.0], [1750.0, infinity]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_opposing_infinities_are_silent():
+    """Opposing infinities divide inf by inf; mask before doing the maths."""
+    xy = np.array([[1700.0, -np.inf], [1750.0, np.inf]])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
 
 
 def test_edge_crossings_needs_two_vertices():

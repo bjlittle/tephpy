@@ -23,6 +23,7 @@ from tephpy._constants import (
     EDGE_AXIS_TITLES,
     EDGE_LABEL_GUTTER_PAD,
     INDICES_PANEL_ROWS,
+    ISOBAR_COLOR,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -831,6 +832,33 @@ def test_unknown_placement_is_rejected():
         with pytest.raises(TypeError, match=r"label placement 'middle'"):
             ax.isobars(labels="middle")
         assert ax._edge_owners == {}
+    finally:
+        plt.close(fig)
+
+
+def test_family_alpha_reaches_both_label_routes():
+    """``alpha`` is documented for lines *and* labels, inline or on an edge.
+
+    ``set_tick_params`` takes no alpha, so the edge ticks carry it in their
+    RGBA; the two routes must still agree.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left", alpha=0.4)
+        ax.isotherms(alpha=0.4)
+        fig.canvas.draw()
+        # A member with fewer than two in-view vertices is skipped before its
+        # pooled Text is placed, so only the rendered labels carry the style.
+        placed = [text for text in ax._families["isotherms"]._texts if text.get_text()]
+        assert len(placed) > 1
+        assert all(text.get_alpha() == pytest.approx(0.4) for text in placed)
+        expected = mcolors.to_rgba(ISOBAR_COLOR, 0.4)
+        assert mcolors.to_rgba(ax.yaxis.get_ticklabels()[0].get_color()) == (
+            pytest.approx(expected)
+        )
+        assert mcolors.to_rgba(ax.yaxis.get_ticklines()[0].get_color()) == (
+            pytest.approx(expected)
+        )
     finally:
         plt.close(fig)
 
