@@ -196,14 +196,15 @@ Differences from tephi:
   `ax.clear()` is the reset.
 - **The axis title splits the same way:** its *text* is identity — from `_constants`, one
   per family, `Temperature (°C)` through `Mixing ratio (g kg⁻¹)` — and its *styling* is
-  presentation tephpy never touches. tephpy writes the title only when the axis label is
-  exactly what tephpy last wrote there, or nothing when it has written none, so a user's
-  `set_xlabel` wins whether it precedes or follows the accessor call, a new owner restamps
-  with its own title, and `set_ylabel("")` durably means "ticks, no title". The earlier
-  fill-when-empty guard could not tell a user's empty string from no title at all, so a
-  cleared title reappeared on the next resolve. Releasing clears and forgets tephpy's own
-  title, leaving a user's replacement alone, so a reclaim stamps afresh and the disable
-  holds for the life of the claim.
+  presentation tephpy never touches. The fill-when-empty guard stands unchanged, but it
+  now runs only on a first claim, and that alone makes it honest: a user's `set_xlabel`
+  still wins whether it precedes or follows the accessor call, and `set_ylabel("")`
+  durably means "ticks, no title" rather than reappearing on the next resolve, because no
+  later sync looks at the label again. Releasing clears and forgets tephpy's own title
+  while leaving a user's replacement alone, so a reclaim stamps afresh, a new owner
+  restamps with its own, and the disable holds for the life of the claim. Nothing richer
+  is needed — release always forgets, so a first claim never meets a title tephpy still
+  remembers writing, and a provenance check could not differ from the guard.
 - **`ax.edge_axis(edge)`** is the uniform public handle on all four edges, returning the
   matplotlib `Axis` that draws that edge's ticks, keyed by the same edge vocabulary
   `labels=` uses. Without it, top and right are reachable only through a private
