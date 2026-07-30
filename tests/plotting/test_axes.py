@@ -1394,3 +1394,33 @@ def test_edge_axis_styling_reaches_top_and_survives_a_reclaim():
         } == {12.0}
     finally:
         plt.close(fig)
+
+
+def test_accessor_emphasis_reaches_the_family(tephigram_axes):
+    family = tephigram_axes.isotherms(emphasis={0.0: {"color": "tab:cyan"}})
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_accessor_emphasis_available_on_every_family(tephigram_axes):
+    for name in (
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    ):
+        family = getattr(tephigram_axes, name)(emphasis={0.0: {}})
+        assert family.options.emphasis == {0.0: {}}
+
+
+def test_accessor_emphasis_error_propagates(tephigram_axes):
+    with pytest.raises(TypeError, match="emphasis style key"):
+        tephigram_axes.isotherms(emphasis={0.0: {"colour": "red"}})
+
+
+def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):
+    """A forced member is ticked like any other (spec §3.2)."""
+    tephigram_axes.isotherms(labels="bottom", emphasis={-12.0: {}})
+    tephigram_axes.figure.canvas.draw()
+    labels = [text.get_text() for text in tephigram_axes.xaxis.get_ticklabels()]
+    assert "-12" in labels
