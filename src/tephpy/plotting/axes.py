@@ -396,6 +396,16 @@ class TephigramAxes(Axes):
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
+        # Presentation is stamped once, here, and never re-asserted, so it is
+        # the user's from a claim onwards (spec §3.2).
+        self._style_edge_axis(self.xaxis)
+        self._style_edge_axis(self.yaxis)
+        # The classic style mirrors ticks onto the opposite edge, which would
+        # collide with that edge's own family. Pinned on the concrete
+        # ``XAxis``/``YAxis``, whose ``set_ticks_position`` take different
+        # values, rather than through the ``Axis``-typed helper above.
+        self.xaxis.set_ticks_position("bottom")
+        self.yaxis.set_ticks_position("left")
         slots = ("_barb_gutter", "_indices_panel")
         panels = [getattr(self, name, None) for name in slots]
         if any(panel is not None for panel in panels):
@@ -976,6 +986,36 @@ class TephigramAxes(Axes):
                 )
                 raise TypeError(msg)
 
+    def _style_edge_axis(self, axis: Axis) -> None:
+        """Stamp the tephigram tick conventions on one edge axis.
+
+        Applied once, when the axis comes into existence — :meth:`clear` for
+        the axes' own ``xaxis``/``yaxis``, the lazy build in
+        :meth:`_edge_axis` for a top or right secondary — and never
+        re-applied, so a user's ``tick_params`` on a claimed edge survives
+        every later family resolve (spec §3.2). Matplotlib offers no
+        provenance on ``set_tick_params``, so *when* is the only guard
+        available. The conventions replay onto the tick artists matplotlib
+        rebuilds when a claim swaps the locator, because they live in the
+        axis' ``_major_tick_kw``.
+
+        Parameters
+        ----------
+        axis : matplotlib.axis.Axis
+            The axis that draws one diagram edge's ticks.
+        """
+        axis.set_tick_params(
+            labelsize=LABEL_FONTSIZE,
+            length=EDGE_TICK_LENGTH,
+            pad=EDGE_TICK_PAD,
+        )
+        # Lines of constant data-space x or y mean nothing on a tephigram: the
+        # ticks are the crossings, not a scale to rule off. Suppressing here
+        # lands after ``Axes.clear`` has read ``rcParams["axes.grid"]``, which
+        # several styles set, so a style cannot smuggle them in — while an
+        # explicit later ``ax.grid(True)`` is the user's call (spec §3.2).
+        axis.grid(visible=False, which="both")
+
     def _edge_axis(self, edge: str) -> Axis:
         """Return the axis that draws one diagram edge's ticks.
 
@@ -1007,12 +1047,15 @@ class TephigramAxes(Axes):
                 else self.secondary_yaxis("right", functions=identity)
             )
             self._secondary_axes[edge] = secondary
+            self._style_edge_axis(secondary.xaxis if edge == "top" else secondary.yaxis)
         return secondary.xaxis if edge == "top" else secondary.yaxis
 
     def _claim_edge(self, edge: str, name: str, family: IsoplethFamily) -> None:
         """Point one edge's ticks at a family. Idempotent.
 
-        Re-applied on every sync so a family's restyle reaches its ticks.
+        Identity only — locator, formatter, visibility, colour and title.
+        How the ticks look is stamped once by :meth:`_style_edge_axis` when
+        the edge axis is created and is the user's thereafter (spec §3.2).
 
         Parameters
         ----------
@@ -1036,24 +1079,7 @@ class TephigramAxes(Axes):
         # survive matplotlib rebuilding the tick artists on a locator change,
         # so the family's alpha is baked into the tick RGBA instead.
         rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
-        axis.set_tick_params(
-            color=rgba,
-            labelcolor=rgba,
-            labelsize=LABEL_FONTSIZE,
-            length=EDGE_TICK_LENGTH,
-            pad=EDGE_TICK_PAD,
-        )
-        # Making the axis visible would otherwise let ``ax.grid(True)`` — and
-        # ``rcParams["axes.grid"]``, which several styles set — draw lines of
-        # constant data-space x or y, which mean nothing on a tephigram. The
-        # ticks are the crossings, not a scale to rule off (spec §3.1/§3.2).
-        axis.grid(visible=False, which="both")
-        if edge == "bottom":
-            # The classic style mirrors ticks onto the opposite edge, which
-            # would collide with that edge's own family.
-            self.xaxis.set_ticks_position("bottom")
-        elif edge == "left":
-            self.yaxis.set_ticks_position("left")
+        axis.set_tick_params(color=rgba, labelcolor=rgba)
         if not axis.get_label_text():
             title = EDGE_AXIS_TITLES[name]
             axis.set_label_text(title)
@@ -1082,9 +1108,6 @@ class TephigramAxes(Axes):
         axis.set_major_locator(AutoLocator())
         axis.set_major_formatter(ScalarFormatter())
         axis.set_minor_locator(NullLocator())
-        # Resetting the tick params also restores the axis' grid state from
-        # ``rcParams["axes.grid"]``, undoing the claim's ``grid(False)``.
-        axis.set_tick_params(reset=True, which="both")
         axis.set_visible(False)
 
     def _sync_edge_labels(self) -> None:

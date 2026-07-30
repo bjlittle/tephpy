@@ -24,6 +24,7 @@ from tephpy._constants import (
     EDGE_LABEL_GUTTER_PAD,
     INDICES_PANEL_ROWS,
     ISOBAR_COLOR,
+    LABEL_FONTSIZE,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -1014,6 +1015,9 @@ def test_a_claimed_edge_draws_no_gridlines():
     ``rcParams["axes.grid"]`` is set by several common styles, and the
     native axes are hidden precisely because their scale is meaningless;
     claiming an edge must not smuggle that scale back in as gridlines.
+    Suppression happens once, when the edge axis is created, which is after
+    ``Axes.clear`` reads the rcParam — so a style still cannot smuggle them
+    in, and an explicit ``ax.grid(True)`` is honoured (spec §3.2).
     """
     with plt.rc_context({"axes.grid": True}):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
@@ -1023,12 +1027,57 @@ def test_a_claimed_edge_draws_no_gridlines():
             assert ax.xaxis.get_visible()
             assert ax.xaxis.get_gridlines()
             assert not any(line.get_visible() for line in ax.xaxis.get_gridlines())
-            # Release hands the axis back to the rcParams default.
-            ax.isobars(labels=True)
+            # Presentation is the user's after the claim: an explicit
+            # ``ax.grid(True)`` is honoured, and an unrelated family's
+            # resolve no longer wipes it (spec §3.2).
+            ax.grid(visible=True)
+            ax.isotherms(color="grey")
             fig.canvas.draw()
-            assert ax.xaxis._major_tick_kw["gridOn"]
+            gridlines = ax.xaxis.get_gridlines()
+            assert gridlines
+            assert all(line.get_visible() for line in gridlines)
         finally:
             plt.close(fig)
+
+
+def test_user_tick_styling_survives_an_unrelated_family_resolve():
+    """Presentation is the user's once the edge is claimed (spec §3.2).
+
+    The first implementation re-asserted ``LABEL_FONTSIZE`` and the tick
+    length and pad on every sync, so an *unrelated* family's resolve
+    silently reverted a user's ``tick_params``.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        ax.isotherms(color="grey")
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        # Nor may the owning family's own restyle revert it.
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+    finally:
+        plt.close(fig)
+
+
+def test_clear_restores_the_edge_tick_conventions():
+    """``ax.clear()`` is the reset for edge tick presentation (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        ax.clear()
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        sizes = {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()}
+        assert sizes == {LABEL_FONTSIZE}
+    finally:
+        plt.close(fig)
 
 
 def test_config_top_claim_takes_effect_at_axes_creation():
