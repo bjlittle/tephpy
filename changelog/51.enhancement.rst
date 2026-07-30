@@ -1,0 +1,12 @@
+The ``labels`` option of every isopleth family accessor — for example
+:meth:`~tephpy.plotting.axes.TephigramAxes.isobars` — now places labels on
+the diagram's edges as well as inline. Alongside ``True`` and ``False`` it
+accepts the edge names ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``,
+singly or as a tuple, so ``ax.isobars(labels=("bottom", "left"))`` builds the
+printed chart's pressure scale. Listed edges label the members that reach
+them and every member left over is labelled inline, so nothing goes missing
+when a family only partly reaches an edge. Edge labels are native matplotlib
+ticks and track pan, zoom and
+:meth:`~tephpy.plotting.axes.TephigramAxes.set_extent`. One family may hold
+an edge at a time; a second claimant raises :exc:`TypeError`. The
+out-of-the-box diagram is unchanged. (:user:`claude`)
