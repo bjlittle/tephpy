@@ -1104,9 +1104,7 @@ class TephigramAxes(Axes):
             self._style_edge_axis(secondary.xaxis if edge == "top" else secondary.yaxis)
         return secondary.xaxis if edge == "top" else secondary.yaxis
 
-    def _claim_edge(
-        self, edge: str, name: str, family: IsoplethFamily, *, first: bool
-    ) -> None:
+    def _claim_edge(self, edge: str, name: str, *, first: bool) -> None:
         """Point one edge's ticks at a family. Idempotent.
 
         Identity only — locator, formatter, visibility, colour and title.
@@ -1118,15 +1116,15 @@ class TephigramAxes(Axes):
         edge : str
             The edge to claim, one of ``EDGES``.
         name : str
-            The claiming family's accessor name, which keys the axis titles.
-        family : IsoplethFamily
-            The claiming family.
+            The claiming family's accessor name, which keys both the axis
+            titles and ``self._families``.
         first : bool
             Whether this claim is the edge's first under this owner — the
             edge was unowned, or another family held it and has just been
             released. Identity is installed only then; a repeat claim
             re-applies nothing but a changed colour (spec §3.2).
         """
+        family = self._families[name]
         axis = self._edge_axis(edge)
         if first:
             locator = _EdgeLocator(family, edge)
@@ -1228,12 +1226,7 @@ class TephigramAxes(Axes):
                     self._edge_owners.pop(edge, None)
                 else:
                     self._edge_owners[edge] = owner
-                    self._claim_edge(
-                        edge,
-                        owner,
-                        self._families[owner],
-                        first=previous != owner,
-                    )
+                    self._claim_edge(edge, owner, first=previous != owner)
             if had_right != ("right" in self._edge_owners):
                 self._relayout_side_panels()
         finally:
