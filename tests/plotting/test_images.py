@@ -224,6 +224,6 @@ def test_barbs_with_indices_panel():
 def test_printed_chart_edges():
     """The printed-chart edge-labelling configuration (spec §3.2/§7)."""
     fig, ax = _tephigram_figure()
-    ax.isobars(labels=("bottom", "left"), interval=100)
+    ax.isobars(labels=("bottom", "left"), interval=150)
     ax.mixing_ratios(labels="top")
     return fig

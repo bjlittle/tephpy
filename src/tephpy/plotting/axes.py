@@ -1080,7 +1080,7 @@ class TephigramAxes(Axes):
         axis.set_minor_locator(NullLocator())
         # Resetting the tick params also restores the axis' grid state from
         # ``rcParams["axes.grid"]``, undoing the claim's ``grid(False)``.
-        axis.set_tick_params(reset=True)
+        axis.set_tick_params(reset=True, which="both")
         axis.set_visible(False)
 
     def _sync_edge_labels(self) -> None:
@@ -1582,8 +1582,8 @@ class TephigramAxes(Axes):
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
             left over is labelled inline. One family per edge. An edge crowded
-            by closely spaced members is thinned with ``interval=``; edge
-            labelling never drops a member's label itself.
+            by a large member set is thinned with ``values=``; edge labelling
+            never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
