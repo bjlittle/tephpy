@@ -187,9 +187,12 @@ from
 to
 
 ```python
-        del vmax
-        return [p for p in self() if p >= vmin]
+        return [p for p in self() if vmin <= p <= vmax]
 ```
+
+Both bounds are required: left-edge positions are tephigram y-coordinates in the
+~1690–1744 range, so a `vmin`-only filter with `vmin=0.0` is a no-op and the
+break would not discriminate.
 
 Run: `pixi run --frozen pytest tests/plotting/test_isopleths.py::test_edge_locator_tracks_the_view -q`
 
