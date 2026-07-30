@@ -356,6 +356,38 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
     return emphasis
 
 
+def _close_index(
+    values: npt.NDArray[np.float64], targets: npt.NDArray[np.float64]
+) -> npt.NDArray[np.int64]:
+    """Match each value against a target list within the emphasis tolerance.
+
+    Member values are floats built by arithmetic over a ladder interval, and
+    emphasis keys are floats a user typed, so the two are compared with a
+    tolerance rather than for equality.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        The values to match, shape ``(n,)``.
+    targets : numpy.ndarray
+        The values to match against, shape ``(m,)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(n,)`` of int64: the index into `targets` of the first match
+        for each value, or ``-1`` where there is none.
+    """
+    if values.size == 0 or targets.size == 0:
+        return np.full(values.size, -1, dtype=np.int64)
+    close = np.isclose(
+        values[:, None], targets[None, :], rtol=_EMPHASIS_RTOL, atol=_EMPHASIS_ATOL
+    )
+    return np.asarray(
+        np.where(close.any(axis=1), close.argmax(axis=1), -1), dtype=np.int64
+    )
+
+
 @dataclasses.dataclass(frozen=True)
 class Member:
     """One isopleth polyline in tephigram x-y data space.
@@ -818,6 +850,7 @@ class IsoplethFamily(martist.Artist):
         self._members: list[Member] | None = None
         self._member_values: npt.NDArray[np.float64] = np.empty(0)
         self._member_bboxes: npt.NDArray[np.float64] = np.empty((0, 4))
+        self._member_extra: npt.NDArray[np.bool_] = np.empty(0, dtype=bool)
         self._zoom_adaptive = True
         self._lines = LineCollection([])
         self._texts: list[Text] = []
@@ -1112,13 +1145,28 @@ class IsoplethFamily(martist.Artist):
         return np.asarray(values, dtype=np.float64)
 
     def _build(self) -> None:
-        """Build and cache the member polylines and their bounding boxes."""
+        """Build and cache the member polylines, boxes and emphasis marks.
+
+        Emphasised values the canonical set does not already carry are appended
+        to the build, so a member the zoom ladder would never select still
+        exists to be forced in by :meth:`_zoom_mask` (spec §3.2). Which members
+        those are is recorded, because a list family strides by member index and
+        an addition must not shift that phase.
+        """
         opts = self._options
-        members = self._spec.builder(self._candidate_values(), opts.truncation)
+        canonical = self._candidate_values()
+        keys = np.asarray(sorted(opts.emphasis), dtype=np.float64)
+        extra = keys[_close_index(keys, canonical) < 0]
+        members = self._spec.builder(
+            np.concatenate([canonical, extra]), opts.truncation
+        )
         self._members = members
         self._member_values = np.array(
             [member.value for member in members], dtype=np.float64
         )
+        # By value, not by build position: a builder may drop members (the moist
+        # adiabats truncate), so positions do not survive the round trip.
+        self._member_extra = np.asarray(_close_index(self._member_values, extra) >= 0)
         if members:
             self._member_bboxes = np.array(
                 [
@@ -1139,6 +1187,12 @@ class IsoplethFamily(martist.Artist):
     def _zoom_mask(self, width: float) -> npt.NDArray[np.bool_]:
         """Select members for the zoom level via the convention ladder.
 
+        An emphasised member is always selected, whatever the ladder would pick
+        — that is what lets emphasis mark a reference isopleth the interval
+        never lands on (spec §3.2). A list family strides by member index, so
+        the stride runs over the canonical members by their canonical position
+        and an emphasis-only addition cannot shift its phase.
+
         Parameters
         ----------
         width : float
@@ -1152,6 +1206,11 @@ class IsoplethFamily(martist.Artist):
         count = self._member_values.size
         if not self._zoom_adaptive:
             return np.ones(count, dtype=bool)
+        extra = self._member_extra
+        if extra.size != count:
+            extra = np.zeros(count, dtype=bool)
+        keys = np.asarray(sorted(self._options.emphasis), dtype=np.float64)
+        forced = np.asarray(_close_index(self._member_values, keys) >= 0)
         spec = self._spec
         if spec.steps is not None:
             step = spec.steps[-1][1]
@@ -1160,14 +1219,41 @@ class IsoplethFamily(martist.Artist):
                     step = ladder_step
                     break
             ratio = self._member_values / step
-            return np.asarray(np.abs(ratio - np.round(ratio)) < 1e-6)
+            mask = np.asarray(np.abs(ratio - np.round(ratio)) < 1e-6)
+            return np.asarray(mask | forced)
         stride = 1
         if spec.strides is not None:
             for min_width, ladder_stride in spec.strides:
                 if width >= min_width:
                     stride = ladder_stride
                     break
-        return np.asarray((np.arange(count) % stride) == 0)
+        # Position among the canonical members, so an emphasis-only addition
+        # never shifts which members the stride picks.
+        position = np.cumsum(~extra) - 1
+        mask = np.asarray((position % stride) == 0) & ~extra
+        return np.asarray(mask | forced)
+
+    def _emphasis_style(self, value: float) -> dict[str, object] | None:
+        """Return the emphasis overrides for one member value.
+
+        Parameters
+        ----------
+        value : float
+            The member's isopleth value in the family's native units.
+
+        Returns
+        -------
+        dict of str to object or None
+            The member's style overrides, or ``None`` when it is not
+            emphasised.
+        """
+        emphasis = self._options.emphasis
+        if not emphasis:
+            return None
+        for key, style in emphasis.items():
+            if math.isclose(key, value, rel_tol=_EMPHASIS_RTOL, abs_tol=_EMPHASIS_ATOL):
+                return style
+        return None
 
     def _view_mask(self, view: mtransforms.Bbox) -> npt.NDArray[np.bool_]:
         """Select members whose bounding box overlaps the view rectangle.

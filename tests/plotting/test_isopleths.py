@@ -854,3 +854,100 @@ def test_emphasis_accepted_by_every_family():
         family = _make_family(name)
         family.configure(emphasis={0.0: {}})
         assert family.options.emphasis == {0.0: {}}
+
+
+def test_emphasis_adds_an_off_ladder_member():
+    """-12 °C is on no isotherm ladder step, so emphasis must build it."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={-12.0: {}})
+    family._build()
+    assert np.any(np.isclose(family._member_values, -12.0))
+
+
+def test_emphasis_does_not_duplicate_an_existing_member():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    family._build()
+    assert np.count_nonzero(np.isclose(family._member_values, 0.0)) == 1
+
+
+def test_emphasis_marks_only_the_added_member_as_extra():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}, -12.0: {}})
+    family._build()
+    extra = family._member_values[family._member_extra]
+    np.testing.assert_allclose(extra, [-12.0])
+
+
+def test_emphasis_forces_an_off_ladder_member_into_the_zoom_mask():
+    family = _make_family("isotherms")
+    family.configure(emphasis={-12.0: {}})
+    family._build()
+    selected = family._member_values[family._zoom_mask(600.0)]
+    assert np.any(np.isclose(selected, -12.0))
+
+
+def test_emphasis_forces_an_on_grid_member_the_ladder_would_drop():
+    """5 °C is a canonical member but not a 20 °C ladder step."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={5.0: {}})
+    family._build()
+    selected = family._member_values[family._zoom_mask(600.0)]
+    assert np.any(np.isclose(selected, 5.0))
+    plain = _make_family("isotherms")
+    plain._build()
+    assert not np.any(np.isclose(plain._member_values[plain._zoom_mask(600.0)], 5.0))
+
+
+def test_emphasis_does_not_shift_the_mixing_ratio_stride():
+    """A list family strides by canonical position, so an addition cannot shift it."""
+    plain = _make_family("mixing_ratios")
+    plain._build()
+    emphasised = _make_family("mixing_ratios")
+    emphasised.configure(emphasis={6.0: {}})
+    emphasised._build()
+    for width in (600.0, 300.0, 100.0):
+        expected = plain._member_values[plain._zoom_mask(width)]
+        got = emphasised._member_values[emphasised._zoom_mask(width)]
+        np.testing.assert_allclose(got[~np.isclose(got, 6.0)], expected)
+        assert np.any(np.isclose(got, 6.0))
+
+
+def test_emphasis_respects_the_view_mask(plain_axes):
+    """An emphasised isobar above the view is still gated by the view mask.
+
+    50 hPa is a canonical member (PRESSURE_DOMAIN starts at 50 hPa) that lies
+    above the plain_axes view (its tephigram y-coordinates exceed the view
+    y-maximum). Emphasis forces it through the zoom mask but the view mask must
+    still exclude it, so it never appears in ``_selected_members()``.
+    """
+    family = _make_family("isobars")
+    family.configure(emphasis={50.0: {}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    drawn = [m.value for m in family._selected_members()]
+    assert not any(math.isclose(value, 50.0) for value in drawn)
+
+
+def test_emphasis_outside_the_domain_is_a_silent_no_op():
+    """``TEMPERATURE_DOMAIN`` ends at 60 °C, so 500 °C is built but never shown.
+
+    500 °C is outside the temperature domain; the skewed tephigram coordinate
+    puts its bounding box entirely to the right of the plain-axes view, so it
+    passes ``_build`` as an extra member but ``_view_mask`` correctly excludes it.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={500.0: {}})
+    family._build()
+    view = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
+    assert not np.any(
+        family._view_mask(view) & np.isclose(family._member_values, 500.0)
+    )
+
+
+def test_emphasis_style_lookup_matches_within_tolerance():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    assert family._emphasis_style(0.0) == {"color": "tab:cyan"}
+    assert family._emphasis_style(1e-12) == {"color": "tab:cyan"}
+    assert family._emphasis_style(10.0) is None
