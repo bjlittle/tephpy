@@ -165,6 +165,7 @@ module = ["metpy.*", "pandas.*", "pint.*"]
 
 [tool.repo-review]
 ignore = [
+  "PC111", # use blacken-docs (flaky)
   "PC180", # prettier (not used)
   "PP006", # dev dependency group
 ]
