@@ -728,3 +728,129 @@ def test_edge_locator_without_axes_is_empty():
     )
     assert locator() == []
     assert locator.values == []
+
+
+def test_emphasis_defaults_to_empty():
+    """A family emphasises nothing until asked (spec §3.2)."""
+    family = _make_family("isotherms")
+    assert family.options.emphasis == {}
+
+
+def test_emphasis_normalizes_keys_to_float():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0: {}, -20: {"color": "tab:cyan"}})
+    assert family.options.emphasis == {0.0: {}, -20.0: {"color": "tab:cyan"}}
+    assert all(isinstance(key, float) for key in family.options.emphasis)
+
+
+def test_emphasis_accepts_every_style_key():
+    family = _make_family("isotherms")
+    style = {
+        "color": "tab:cyan",
+        "linewidth": 2.0,
+        "linestyle": "--",
+        "alpha": 0.5,
+    }
+    family.configure(emphasis={0.0: style})
+    assert family.options.emphasis[0.0] == style
+
+
+def test_emphasis_snapshot_does_not_alias_the_caller():
+    """Mutating the caller's mapping afterwards must not reach the family."""
+    family = _make_family("isotherms")
+    style = {"color": "tab:cyan"}
+    emphasis = {0.0: style}
+    family.configure(emphasis=emphasis)
+    emphasis[10.0] = {"color": "red"}
+    style["color"] = "red"
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_none_resets_to_config():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    family.configure(emphasis=None)
+    assert family.options.emphasis == {}
+
+
+def test_emphasis_empty_mapping_clears_config():
+    """An empty mapping is how an accessor clears a config-tier emphasis."""
+    with config.context(isotherms={"emphasis": {0.0: {"color": "tab:cyan"}}}):
+        family = _make_family("isotherms")
+        assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+        family.configure(emphasis={})
+        assert family.options.emphasis == {}
+
+
+def test_emphasis_config_tier_resolves():
+    with config.context(isotherms={"emphasis": {0.0: {"color": "tab:cyan"}}}):
+        family = _make_family("isotherms")
+        assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_not_a_mapping_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="'isotherms' emphasis must be a mapping"):
+        family.configure(emphasis=[0.0])
+
+
+def test_emphasis_non_numeric_key_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="member value must be a number"):
+        family.configure(emphasis={None: {}})
+
+
+def test_emphasis_style_not_a_mapping_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="must be a mapping of style overrides"):
+        family.configure(emphasis={0.0: "tab:cyan"})
+
+
+def test_emphasis_unknown_style_key_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match=r"unknown 'isotherms' emphasis style key"):
+        family.configure(emphasis={0.0: {"colour": "tab:cyan"}})
+
+
+@pytest.mark.parametrize("linewidth", [0.0, -1.0, float("inf")])
+def test_emphasis_bad_linewidth_raises(linewidth):
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="must be a positive, finite number"):
+        family.configure(emphasis={0.0: {"linewidth": linewidth}})
+
+
+@pytest.mark.parametrize("alpha", [-0.1, 1.1])
+def test_emphasis_bad_alpha_raises(alpha):
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="must be between 0 and 1"):
+        family.configure(emphasis={0.0: {"alpha": alpha}})
+
+
+def test_emphasis_failure_leaves_family_unchanged():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    with pytest.raises(TypeError):
+        family.configure(emphasis={0.0: {"colour": "red"}})
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_is_a_geometry_key():
+    """Changing emphasis invalidates the cached member geometry (spec §3.2)."""
+    family = _make_family("isotherms")
+    family._build()
+    assert family._members is not None
+    family.configure(emphasis={0.0: {}})
+    assert family._members is None
+
+
+def test_emphasis_accepted_by_every_family():
+    for name in (
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    ):
+        family = _make_family(name)
+        family.configure(emphasis={0.0: {}})
+        assert family.options.emphasis == {0.0: {}}

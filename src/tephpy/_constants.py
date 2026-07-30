@@ -141,6 +141,12 @@ ISOPLETH_LINEWIDTH: Final[float] = 0.5
 #: Isopleth line and label alpha.
 ISOPLETH_ALPHA: Final[float] = 1.0
 
+#: Line width in points for an emphasised isopleth member (spec §3.2). Emphasis
+#: follows the monochrome printed-chart idiom -- same ink, heavier line -- so a
+#: distinguished member needs no colour convention; a call supplies ``color`` to
+#: override that.
+EMPHASIS_LINEWIDTH: Final[float] = 1.5
+
 #: Isotherm draw order.
 ISOTHERM_ZORDER: Final[float] = 1.1
 

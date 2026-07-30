@@ -22,7 +22,7 @@ and potential temperatures in degrees Celsius, mixing ratios in g/kg.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 import dataclasses
 import math
 from typing import TYPE_CHECKING, Final, cast, override
@@ -91,11 +91,15 @@ __all__ = [
 ]
 
 #: Options that require rebuilding the cached member geometry when changed.
-_GEOMETRY_KEYS: Final[frozenset[str]] = frozenset({"values", "interval", "truncation"})
+#: ``emphasis`` is here as well as in the style keys because an emphasised value
+#: the zoom ladder would never select is added to the build (spec §3.2).
+_GEOMETRY_KEYS: Final[frozenset[str]] = frozenset(
+    {"values", "interval", "truncation", "emphasis"}
+)
 
 #: Style and visibility options shared by every family.
 _STYLE_KEYS: Final[frozenset[str]] = frozenset(
-    {"color", "linewidth", "alpha", "labels", "visible"}
+    {"color", "linewidth", "alpha", "labels", "visible", "emphasis"}
 )
 
 #: Options accepted by the interval-based families.
@@ -103,6 +107,20 @@ _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
 
 #: The diagram edges an isopleth family may claim for its labels (spec §3.2).
 EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
+
+#: Style keys one emphasised member may override; an omitted key falls back to
+#: the family's own style (spec §3.2).
+_EMPHASIS_STYLE_KEYS: Final[tuple[str, ...]] = (
+    "color",
+    "linewidth",
+    "linestyle",
+    "alpha",
+)
+
+#: Tolerance for matching a member value against an emphasis key. ``abs_tol``
+#: carries the 0 °C case, where a relative tolerance alone matches nothing.
+_EMPHASIS_RTOL: Final[float] = 1e-9
+_EMPHASIS_ATOL: Final[float] = 1e-9
 
 
 def edge_crossings(
@@ -222,6 +240,120 @@ def _normalize_labels(value: object, name: str) -> tuple[bool, tuple[str, ...]]:
         if placement not in edges:
             edges.append(placement)
     return bool(edges), tuple(edges)
+
+
+def _emphasis_number(value: object, key: str, name: str, member: float) -> float:
+    """Validate one numeric style override on an emphasised member.
+
+    Parameters
+    ----------
+    value : object
+        The resolved override value.
+    key : str
+        The style key, ``"linewidth"`` or ``"alpha"``.
+    name : str
+        The family name, for the error message.
+    member : float
+        The member value the style belongs to, for the error message.
+
+    Returns
+    -------
+    float
+        The validated number.
+
+    Raises
+    ------
+    TypeError
+        If `value` is not a number.
+    ValueError
+        If a ``linewidth`` is not positive and finite, or an ``alpha`` falls
+        outside ``[0, 1]``.
+    """
+    try:
+        number = float(cast("SupportsFloat", value))
+    except (TypeError, ValueError) as err:
+        msg = (
+            f"{name!r} emphasis {key!r} for member {member:g} must be a "
+            f"number: {value!r}"
+        )
+        raise TypeError(msg) from err
+    if key == "linewidth":
+        valid = number > 0.0 and math.isfinite(number)
+        expected = "a positive, finite number"
+    else:
+        valid = 0.0 <= number <= 1.0
+        expected = "between 0 and 1"
+    if not valid:
+        msg = (
+            f"{name!r} emphasis {key!r} for member {member:g} must be "
+            f"{expected}: {number!r}"
+        )
+        raise ValueError(msg)
+    return number
+
+
+def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, object]]:
+    """Validate and copy a raw ``emphasis`` option (spec §3.2).
+
+    Keys become floats and each style mapping is copied into a fresh dict, so
+    the family's snapshot never aliases a mapping the caller can still mutate --
+    the same reason ``values`` materialises a generator to a tuple. ``color`` and
+    ``linestyle`` are left to matplotlib to validate at draw time, exactly as the
+    family-level ``color`` already is.
+
+    Parameters
+    ----------
+    value : object
+        The resolved ``emphasis`` option, from any precedence tier.
+    name : str
+        The family name, for the error messages.
+
+    Returns
+    -------
+    dict of float to dict of str to object
+        Member value mapped to its validated style overrides; empty when
+        nothing is emphasised.
+
+    Raises
+    ------
+    TypeError
+        If `value` is not a mapping, a key is not a number, a style is not a
+        mapping, or a style names a key outside :data:`_EMPHASIS_STYLE_KEYS`.
+    ValueError
+        If a ``linewidth`` or ``alpha`` override is out of range.
+    """
+    if not isinstance(value, Mapping):
+        msg = (
+            f"{name!r} emphasis must be a mapping of member value to style "
+            f"overrides, not {type(value).__name__}"
+        )
+        raise TypeError(msg)
+    emphasis: dict[float, dict[str, object]] = {}
+    for raw_member, raw_style in cast("Mapping[object, object]", value).items():
+        try:
+            member = float(cast("SupportsFloat", raw_member))
+        except (TypeError, ValueError) as err:
+            msg = f"{name!r} emphasis member value must be a number: {raw_member!r}"
+            raise TypeError(msg) from err
+        if not isinstance(raw_style, Mapping):
+            msg = (
+                f"{name!r} emphasis style for member {member:g} must be a mapping "
+                f"of style overrides, not {type(raw_style).__name__}"
+            )
+            raise TypeError(msg)
+        style = dict(cast("Mapping[str, object]", raw_style))
+        unknown = set(style) - set(_EMPHASIS_STYLE_KEYS)
+        if unknown:
+            msg = (
+                f"unknown {name!r} emphasis style key(s) {sorted(unknown)!r} for "
+                f"member {member:g}; expected {list(_EMPHASIS_STYLE_KEYS)!r}"
+            )
+            raise TypeError(msg)
+        for key in ("linewidth", "alpha"):
+            if key in style:
+                style[key] = _emphasis_number(style[key], key, name, member)
+        emphasis[member] = style
+    return emphasis
 
 
 @dataclasses.dataclass(frozen=True)
@@ -425,7 +557,10 @@ class ResolvedOptions:
     Resolution precedence: accessor kwargs > ``tephpy.config`` >
     ``_constants`` (spec §3.5). ``values``/``interval`` of ``None`` mean the
     zoom-adaptive default ladder is in force. An empty `label_edges` means
-    the family labels inline only.
+    the family labels inline only, and an empty `emphasis` means no member is
+    distinguished. The class is frozen against rebinding; `emphasis` is a plain
+    dict the family owns outright, copied from the caller's mapping when it
+    resolves.
     """
 
     values: tuple[float, ...] | None
@@ -437,6 +572,7 @@ class ResolvedOptions:
     labels: bool
     label_edges: tuple[str, ...]
     visible: bool
+    emphasis: dict[float, dict[str, object]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -726,7 +862,7 @@ class IsoplethFamily(martist.Artist):
         TypeError
             If an option name is unknown for this family, if ``labels`` names
             an unknown placement, or if the owning axes rejects an edge claim
-            already held by another family.
+            already held by another family, or if ``emphasis`` is malformed.
         ValueError
             If an option value is invalid, e.g. a non-positive
             ``interval``.
@@ -742,11 +878,14 @@ class IsoplethFamily(martist.Artist):
                 overrides.pop(key, None)
             else:
                 # Materialize one-shot iterables (e.g., generators) to tuple
-                # so they survive later reconfigures (spec §3.5, §7 item 1).
+                # so they survive later reconfigures (spec §3.5, §7 item 1),
+                # and copy an emphasis mapping for the same reason.
                 if key == "values":
                     override_value: object = tuple(
                         float(v) for v in cast("Iterable[SupportsFloat]", value)
                     )
+                elif key == "emphasis":
+                    override_value = _normalize_emphasis(value, self._spec.name)
                 else:
                     override_value = value
                 overrides[key] = override_value
@@ -870,7 +1009,8 @@ class IsoplethFamily(martist.Artist):
         ValueError
             If the resolved ``interval`` is not a positive, finite number.
         TypeError
-            If the resolved ``labels`` names an unknown placement.
+            If the resolved ``labels`` names an unknown placement, or
+            ``emphasis`` is malformed.
         """
         spec = self._spec
         pick = self._pick
@@ -903,6 +1043,10 @@ class IsoplethFamily(martist.Artist):
         labels, label_edges = _normalize_labels(raw_labels, spec.name)
         raw_visible = pick("visible")
         visible = True if raw_visible is None else bool(raw_visible)
+        raw_emphasis = pick("emphasis")
+        emphasis = (
+            {} if raw_emphasis is None else _normalize_emphasis(raw_emphasis, spec.name)
+        )
         return ResolvedOptions(
             values=values,
             interval=interval,
@@ -922,6 +1066,7 @@ class IsoplethFamily(martist.Artist):
             # An invisible family draws nothing, so it holds no edge (spec §3.2).
             label_edges=label_edges if visible else (),
             visible=visible,
+            emphasis=emphasis,
         )
 
     def _resolve_validated(self) -> ResolvedOptions:
