@@ -1321,7 +1321,9 @@ class TephigramAxes(Axes):
             the default), ``False`` (none), or the diagram edge names
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
-            left over is labelled inline. One family per edge.
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1383,7 +1385,9 @@ class TephigramAxes(Axes):
             the default), ``False`` (none), or the diagram edge names
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
-            left over is labelled inline. One family per edge.
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1446,7 +1450,9 @@ class TephigramAxes(Axes):
             the default), ``False`` (none), or the diagram edge names
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
-            left over is labelled inline. One family per edge.
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1512,7 +1518,9 @@ class TephigramAxes(Axes):
             the default), ``False`` (none), or the diagram edge names
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
-            left over is labelled inline. One family per edge.
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1573,7 +1581,9 @@ class TephigramAxes(Axes):
             the default), ``False`` (none), or the diagram edge names
             ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
             tuple. Listed edges label the members that reach them; every member
-            left over is labelled inline. One family per edge.
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 

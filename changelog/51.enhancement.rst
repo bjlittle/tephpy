@@ -12,4 +12,7 @@ an edge at a time; a second claimant raises :exc:`TypeError`. Hiding a family
 — with ``visible=False`` or
 :meth:`~matplotlib.artist.Artist.set_visible` — releases the edge it held for
 another family to take, and showing it again reclaims it. The out-of-the-box
-diagram is unchanged. (:user:`claude`)
+diagram is unchanged. When an edge label set crowds (e.g. the default 10 hPa isobar family
+on the left edge), pass ``interval=`` to thin the family; the
+:meth:`~tephpy.plotting.axes.TephigramAxes.isobars` reference configuration uses
+``interval=100`` for a legible pressure scale. (:user:`claude`)

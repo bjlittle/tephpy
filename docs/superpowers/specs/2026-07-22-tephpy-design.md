@@ -298,9 +298,10 @@ selects, how many reach each edge, and how many reach at least one:
 No single edge covers a family, which is why placements are a tuple and why the inline
 remainder is automatic rather than optional. The pairings the numbers recommend:
 
-- **Isobars `("bottom", "left")`** — all 19 ticked, none doubled, nothing left inline: the
-  left edge carries 150–1000 hPa and the bottom edge the 1050 hPa isobar alone. The
-  printed chart's pressure scale, exactly.
+- **Isobars `("bottom", "left"), interval=100`** — at the default 10 hPa spacing all 19
+  members tick (none doubled, nothing left inline: the left edge carries 150–1000 hPa and
+  the bottom edge the 1050 hPa isobar alone), but the left-edge labels crowd; `interval=100`
+  gives a legible ~10-label scale. The printed chart's pressure scale.
 - **Isotherms `("bottom", "left")`** — 18 of 19, the warm 11 below (−40 to 60 °C) and the
   cold 8 beside (−110 to −40 °C). The two edges are not disjoint: −40 °C passes through
   the corner and is ticked on both, and −120 °C reaches no edge at all and falls to the
