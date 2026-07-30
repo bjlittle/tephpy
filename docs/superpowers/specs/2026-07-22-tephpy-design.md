@@ -163,11 +163,8 @@ Differences from tephi:
   crossings are computed twice per draw — once by the locator, once by the family
   filtering its inline remainder — because tick location and artist drawing have no
   guaranteed ordering; it is pure numpy over ~20 short polylines, and correctness beats
-  the cache. A claimed edge also takes an axis title from `_constants` — one per family,
-  `Temperature (°C)` through `Mixing ratio (g kg⁻¹)` — **only when that axis title is
-  empty**, so a user's `set_xlabel` wins whether it precedes or follows the accessor
-  call, and releasing the edge clears it again; tick marks and labels take the family
-  colour at `LABEL_FONTSIZE`, with tick length and pad in `_constants`. **One family per
+  the cache. A claimed edge also takes an axis title and its tick conventions from
+  `_constants`; who owns each of those afterwards is the next bullet. **One family per
   edge:** two claimants raise `TypeError` naming both and the edge, checked by the axes
   — which owns all five families and funnels both the accessor and creation paths — so a
   `tephpy.config` conflict surfaces at axes creation rather than at first draw. An
@@ -175,6 +172,52 @@ Differences from tephi:
   style), the bare-string check preventing a silent per-character iteration.
   `TephigramAxes.clear` drops the cached secondary axes alongside its existing
   xaxis/yaxis re-hiding. Not tephi's design: tephi labels inline only.
+- **A claimed edge's ticks are stock matplotlib and yours to style.** tephpy stamps its
+  tick conventions on an edge axis **once, when that axis is created** — `LABEL_FONTSIZE`,
+  the `_constants` tick length and pad, the bottom/left ticks-position pin (the classic
+  style mirrors ticks onto the opposite edge, where another family may live), and the
+  gridline suppression. That moment is `clear()` for the axes' own xaxis/yaxis and the
+  lazy build for a top or right secondary. Thereafter tephpy never touches presentation
+  again: the only thing a later claim or sync changes is the tick colour, and only when
+  the owning family's own colour or alpha changes. Claiming an edge is then pure
+  identity — locator, formatter, visibility, colour, title — and releasing it pure
+  teardown. The first implementation re-asserted presentation on every sync, so an
+  *unrelated* family's resolve silently reverted a user's `tick_params`, and `ax.grid(True)`
+  after a claim survived only until the next resolve (both reproduced 2026-07-30).
+  Nothing needed re-asserting: the locator holds a live family reference and recomputes on
+  every draw. Matplotlib gives no provenance on `set_tick_params`, so the split has to be
+  by *when* rather than by *what the user touched*. Tick colour is the exception because it
+  is what ties a tick to the line it labels: the axes remembers the RGBA it last applied to
+  each edge and re-applies only on a difference, so restyling the owning family reaches its
+  ticks and nothing else does. That memory survives release, making a family visibility
+  toggle a true round trip. Grid suppression lands at axis creation, which is after
+  `Axes.clear` reads `rcParams["axes.grid"]`, so a style still cannot smuggle in gridlines
+  of constant data-space x or y — but an explicit `ax.grid(True)` is now the user's call.
+  `ax.clear()` is the reset.
+- **The axis title splits the same way:** its *text* is identity — from `_constants`, one
+  per family, `Temperature (°C)` through `Mixing ratio (g kg⁻¹)` — and its *styling* is
+  presentation tephpy never touches. tephpy writes the title only when the axis label is
+  exactly what tephpy last wrote there, or nothing when it has written none, so a user's
+  `set_xlabel` wins whether it precedes or follows the accessor call, a new owner restamps
+  with its own title, and `set_ylabel("")` durably means "ticks, no title". The earlier
+  fill-when-empty guard could not tell a user's empty string from no title at all, so a
+  cleared title reappeared on the next resolve. Releasing clears and forgets tephpy's own
+  title, leaving a user's replacement alone, so a reclaim stamps afresh and the disable
+  holds for the life of the claim.
+- **`ax.edge_axis(edge)`** is the uniform public handle on all four edges, returning the
+  matplotlib `Axis` that draws that edge's ticks, keyed by the same edge vocabulary
+  `labels=` uses. Without it, top and right are reachable only through a private
+  `_secondary_axes` or an undifferentiated `child_axes` that must be sniffed to tell one
+  from the other. An unknown name raises `TypeError` naming it and the valid set (the
+  `format_coord` style); an unlabelled edge raises `ValueError` saying so and how to claim
+  one, because probing must not materialise a secondary axes nobody is using, and styling
+  an edge before its claim would be silently overwritten by the claim's conventions.
+  Releasing a top or right edge **hides** its secondary axes rather than removing it, so a
+  held handle stays live and its ticks and title survive a release/reclaim exactly as
+  bottom and left do. It is the whole secondary axes that hides, not merely its `Axis`, or
+  its spine would keep drawing; an invisible secondary returns `None` from
+  `get_tightbbox` and `Axes.clear` empties `child_axes` (both verified 2026-07-30), so the
+  persistence costs nothing in layout and `TephigramAxes.clear` still reaps them.
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and
