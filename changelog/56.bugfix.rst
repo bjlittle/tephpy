@@ -1,0 +1,10 @@
+Styling a claimed diagram edge's ticks with
+:meth:`~matplotlib.axes.Axes.tick_params` now lasts. tephpy re-applied its own
+tick conventions on every isopleth family resolve, so an unrelated family —
+``ax.isotherms(color="grey")`` after ``ax.isobars(labels="left")`` — silently
+reverted the tick label size, tick length and padding a user had set, and
+re-suppressed gridlines an explicit :meth:`~matplotlib.axes.Axes.grid` call had
+enabled. The conventions are now stamped once, when the edge axis is created,
+and an axis title cleared with
+:meth:`ax.set_ylabel("") <matplotlib.axes.Axes.set_ylabel>` likewise stays cleared for
+as long as the edge is labelled. (:issue:`52`, :user:`claude`)

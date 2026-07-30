@@ -187,10 +187,13 @@ Differences from tephi:
   Nothing needed re-asserting: the locator holds a live family reference and recomputes on
   every draw. Matplotlib gives no provenance on `set_tick_params`, so the split has to be
   by *when* rather than by *what the user touched*. Tick colour is the exception because it
-  is what ties a tick to the line it labels: the axes remembers the RGBA it last applied to
-  each edge and re-applies only on a difference, so restyling the owning family reaches its
-  ticks and nothing else does. That memory survives release, making a family visibility
-  toggle a true round trip. Grid suppression lands at axis creation, which is after
+  is what ties a tick to the line it labels: the axes remembers the owner and the RGBA it
+  last applied to each edge and re-applies only on a difference, so restyling the owning
+  family reaches its ticks and nothing else does. That memory survives release, making a
+  family visibility toggle a true round trip; the owner is part of the key because a bare
+  RGBA memory suppresses a *new* owner's claim whenever its colour matches the last one's,
+  stranding the ticks in a colour that ties them to nothing (reproduced 2026-07-30). Grid
+  suppression lands at axis creation, which is after
   `Axes.clear` reads `rcParams["axes.grid"]`, so a style still cannot smuggle in gridlines
   of constant data-space x or y — but an explicit `ax.grid(True)` is now the user's call.
   `ax.clear()` is the reset.
@@ -211,12 +214,14 @@ Differences from tephi:
   `_secondary_axes` or an undifferentiated `child_axes` that must be sniffed to tell one
   from the other. An unknown name raises `TypeError` naming it and the valid set (the
   `format_coord` style); an unlabelled edge raises `ValueError` saying so and how to claim
-  one, because probing must not materialise a secondary axes nobody is using, and styling
-  an edge before its claim would be silently overwritten by the claim's conventions.
+  one, because probing must not materialise a secondary axes nobody is using and an
+  unclaimed edge renders nothing to style.
   Releasing a top or right edge **hides** its secondary axes rather than removing it, so a
   held handle stays live and its ticks and title survive a release/reclaim exactly as
   bottom and left do. It is the whole secondary axes that hides, not merely its `Axis`, or
-  its spine would keep drawing; an invisible secondary returns `None` from
+  its spine would keep drawing; a claim correspondingly shows both, since showing the
+  container alone would leave an `Axis` the user had hidden drawing no ticks on an edge
+  that has just been claimed; an invisible secondary returns `None` from
   `get_tightbbox` and `Axes.clear` empties `child_axes` (both verified 2026-07-30), so the
   persistence costs nothing in layout and `TephigramAxes.clear` still reaps them.
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`

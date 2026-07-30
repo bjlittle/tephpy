@@ -24,6 +24,7 @@ from tephpy._constants import (
     EDGE_LABEL_GUTTER_PAD,
     INDICES_PANEL_ROWS,
     ISOBAR_COLOR,
+    LABEL_FONTSIZE,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -773,7 +774,7 @@ def test_a_user_axis_title_wins_either_way():
 
 
 def test_top_and_right_use_lazily_created_secondary_axes():
-    """Claiming creates one child axes; releasing removes it."""
+    """Claiming creates one child axes; releasing hides it; clear reaps (spec §3.2)."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         ax.mixing_ratios(labels="top")
@@ -791,6 +792,12 @@ def test_top_and_right_use_lazily_created_secondary_axes():
         ]
         ax.mixing_ratios(labels=True)
         fig.canvas.draw()
+        assert len(ax.child_axes) == 1
+        assert not ax.child_axes[0].get_visible()
+        assert set(ax._secondary_axes) == {"top"}
+        # `clear` is the reset: it drops the cache, and matplotlib reaps the
+        # child axes with it, so a hidden secondary cannot outlive a clear.
+        ax.clear()
         assert ax.child_axes == []
         assert ax._secondary_axes == {}
     finally:
@@ -1014,6 +1021,9 @@ def test_a_claimed_edge_draws_no_gridlines():
     ``rcParams["axes.grid"]`` is set by several common styles, and the
     native axes are hidden precisely because their scale is meaningless;
     claiming an edge must not smuggle that scale back in as gridlines.
+    Suppression happens once, when the edge axis is created, which is after
+    ``Axes.clear`` reads the rcParam — so a style still cannot smuggle them
+    in, and an explicit ``ax.grid(True)`` is honoured (spec §3.2).
     """
     with plt.rc_context({"axes.grid": True}):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
@@ -1023,12 +1033,57 @@ def test_a_claimed_edge_draws_no_gridlines():
             assert ax.xaxis.get_visible()
             assert ax.xaxis.get_gridlines()
             assert not any(line.get_visible() for line in ax.xaxis.get_gridlines())
-            # Release hands the axis back to the rcParams default.
-            ax.isobars(labels=True)
+            # Presentation is the user's after the claim: an explicit
+            # ``ax.grid(True)`` is honoured, and an unrelated family's
+            # resolve no longer wipes it (spec §3.2).
+            ax.grid(visible=True)
+            ax.isotherms(color="grey")
             fig.canvas.draw()
-            assert ax.xaxis._major_tick_kw["gridOn"]
+            gridlines = ax.xaxis.get_gridlines()
+            assert gridlines
+            assert all(line.get_visible() for line in gridlines)
         finally:
             plt.close(fig)
+
+
+def test_user_tick_styling_survives_an_unrelated_family_resolve():
+    """Presentation is the user's once the edge is claimed (spec §3.2).
+
+    The first implementation re-asserted ``LABEL_FONTSIZE`` and the tick
+    length and pad on every sync, so an *unrelated* family's resolve
+    silently reverted a user's ``tick_params``.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        ax.isotherms(color="grey")
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        # Nor may the owning family's own restyle revert it.
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+    finally:
+        plt.close(fig)
+
+
+def test_clear_restores_the_edge_tick_conventions():
+    """``ax.clear()`` is the reset for edge tick presentation (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        ax.clear()
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        sizes = {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()}
+        assert sizes == {LABEL_FONTSIZE}
+    finally:
+        plt.close(fig)
 
 
 def test_config_top_claim_takes_effect_at_axes_creation():
@@ -1045,5 +1100,248 @@ def test_config_top_claim_takes_effect_at_axes_creation():
         assert "top" in ax._secondary_axes
         assert len(ax.child_axes) == 1
         fig.canvas.draw()
+    finally:
+        plt.close(fig)
+
+
+def test_only_a_new_owner_re_points_an_edge():
+    """A sync that changes nothing touches nothing (spec §3.2).
+
+    ``_EdgeLocator`` holds a live family reference and recomputes on every
+    draw, so re-installing it on each sync is not only wasted work — it is
+    the pattern that made unrelated resolves reach into a claimed edge.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        locator = ax.yaxis.get_major_locator()
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        assert ax.yaxis.get_major_locator() is locator
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.yaxis.get_major_locator() is not locator
+    finally:
+        plt.close(fig)
+
+
+def test_tick_colour_tracks_its_own_family_only():
+    """Restyling the owning family restyles its ticks; nothing else does."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelcolor="black")
+        fig.canvas.draw()
+        black = mcolors.to_rgba("black")
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # An unrelated family, and a non-colour restyle of the owner, leave it.
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # The owner's own colour still reaches its ticks.
+        ax.isobars(color="blue")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_new_owner_restamps_the_edge_tick_colour():
+    """A new owner's colour lands even when it matches the last one's.
+
+    The RGBA memory survives release, so keying it by colour alone would
+    suppress this claim and strand the ticks in the user's colour — tied to
+    a family that no longer owns the edge (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        ax.edge_axis("left").set_tick_params(color="red", labelcolor="red")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("red"))
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_claim_restores_an_edge_axis_the_user_hid():
+    """Visibility is identity, so a claim restores it on all four edges.
+
+    Hiding the ``Axis`` alone leaves a top or right secondary axes visible,
+    so restoring only the container would give the reclaimed edge no ticks
+    while bottom and left came back (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_visible(False)
+        ax.edge_axis("left").set_visible(False)
+        ax.mixing_ratios(labels=False)
+        ax.isobars(labels=False)
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_visible()
+        assert ax._secondary_axes["top"].get_visible()
+        assert ax.edge_axis("left").get_visible()
+        assert _ticks(ax.edge_axis("top"))
+        assert _ticks(ax.yaxis)
+    finally:
+        plt.close(fig)
+
+
+def test_a_cleared_axis_title_stays_cleared():
+    """``set_ylabel("")`` durably means "ticks, no title" (spec §3.2).
+
+    The fill-when-empty guard runs only on a first claim, so no later sync
+    looks at the label again; a genuine release forgets tephpy's own title,
+    so a reclaim stamps afresh.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.set_ylabel("")
+        ax.isotherms(color="grey")
+        ax.isobars(color="blue")
+        ax.set_extent(DEFAULT_EXTENT)
+        fig.canvas.draw()
+        assert ax.get_ylabel() == ""
+        # Dropping the labels and re-adding them is a fresh claim.
+        ax.isobars(labels=False)
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_new_owner_restamps_the_axis_title():
+    """Handing an edge to another family retitles it (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isotherms"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_visibility_round_trip_preserves_edge_styling():
+    """Toggling a family must not discard styling the user did not drop."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14, labelcolor="black")
+        fig.canvas.draw()
+        ax.isobars(visible=False)
+        ax.isobars(visible=True)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("black"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_released_secondary_axes_is_hidden_not_destroyed():
+    """A held handle must stay live across a release and reclaim (spec §3.2).
+
+    Destroying the secondary axes took its ticks and title with it, so top
+    and right could not behave like bottom and left, which are merely
+    hidden. An invisible secondary returns ``None`` from ``get_tightbbox``,
+    so the persistence costs nothing in layout.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        secondary = ax._secondary_axes["top"]
+        axis = secondary.xaxis
+        assert len(ax.child_axes) == 1
+        ax.mixing_ratios(labels=True)
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert not secondary.get_visible()
+        assert secondary.get_tightbbox() is None
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert secondary.xaxis is axis
+        assert secondary.get_visible()
+        assert _ticks(axis)
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_returns_each_edge_s_axis():
+    """The uniform public handle on all four edges (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        ax.dry_adiabats(labels="right")
+        fig.canvas.draw()
+        assert ax.edge_axis("bottom") is ax.xaxis
+        assert ax.edge_axis("left") is ax.yaxis
+        assert ax.edge_axis("top") is ax._secondary_axes["top"].xaxis
+        assert ax.edge_axis("right") is ax._secondary_axes["right"].yaxis
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_rejects_an_unknown_or_unclaimed_edge():
+    """An unknown name is a TypeError; an unlabelled edge a ValueError."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        with pytest.raises(TypeError, match="unknown edge 'middle'"):
+            ax.edge_axis("middle")
+        with pytest.raises(ValueError, match="'top' edge carries no isopleth"):
+            ax.edge_axis("top")
+        # Probing must not have built a secondary axes nothing is using.
+        assert ax._secondary_axes == {}
+        assert ax.child_axes == []
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_styling_reaches_top_and_survives_a_reclaim():
+    """Stock matplotlib styling now reaches top and right, and sticks."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_tick_params(labelsize=12)
+        ax.edge_axis("top").set_label_text("W")
+        fig.canvas.draw()
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
+        ax.mixing_ratios(labels=False)
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_label_text() == "W"
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
     finally:
         plt.close(fig)

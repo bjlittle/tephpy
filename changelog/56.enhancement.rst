@@ -1,0 +1,9 @@
+:meth:`~tephpy.plotting.axes.TephigramAxes.edge_axis` returns the matplotlib
+:class:`~matplotlib.axis.Axis` that draws one diagram edge's isopleth ticks,
+keyed by the same ``"bottom"``, ``"top"``, ``"left"`` and ``"right"`` names the
+``labels`` option takes. The top and right edges are drawn by lazily created
+secondary axes and had no public handle, so stock matplotlib styling could not
+reach them; ``ax.edge_axis("top").set_tick_params(labelsize=12)`` now works on
+all four edges alike. Releasing a top or right edge hides its secondary axes
+instead of destroying it, so a handle held across the release stays live and
+its ticks and title survive the reclaim. (:issue:`52`, :user:`claude`)

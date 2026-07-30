@@ -368,6 +368,13 @@ class TephigramAxes(Axes):
     _edge_owners: dict[str, str]
     _secondary_axes: dict[str, SecondaryAxis]
     _edge_titles: dict[str, str]
+    #: The owner and RGBA last applied to each claimed edge's ticks, so a
+    #: sync re-applies only what the owning family actually changed.
+    #: Survives release, which is what makes a family visibility toggle a
+    #: true round trip; the owner is part of the key so a new owner's colour
+    #: still lands when it matches the last one's. Only :meth:`clear` empties
+    #: it (spec §3.2).
+    _edge_tick_colors: dict[str, tuple[str, tuple[float, float, float, float]]]
     #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
     #: live before ``Axes.__init__`` reaches :meth:`clear`.
     _edge_sync_busy: bool = False
@@ -396,6 +403,16 @@ class TephigramAxes(Axes):
         self.set_aspect(1.0, adjustable="box")
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
+        # Presentation is stamped once, here, and never re-asserted, so it is
+        # the user's from a claim onwards (spec §3.2).
+        self._style_edge_axis(self.xaxis)
+        self._style_edge_axis(self.yaxis)
+        # The classic style mirrors ticks onto the opposite edge, which would
+        # collide with that edge's own family. Pinned on the concrete
+        # ``XAxis``/``YAxis``, whose ``set_ticks_position`` take different
+        # values, rather than through the ``Axis``-typed helper above.
+        self.xaxis.set_ticks_position("bottom")
+        self.yaxis.set_ticks_position("left")
         slots = ("_barb_gutter", "_indices_panel")
         panels = [getattr(self, name, None) for name in slots]
         if any(panel is not None for panel in panels):
@@ -412,6 +429,7 @@ class TephigramAxes(Axes):
         self._edge_owners = {}
         self._secondary_axes = {}
         self._edge_titles = {}
+        self._edge_tick_colors = {}
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
             # The families arm their ``on_change`` only once constructed, so
@@ -940,6 +958,52 @@ class TephigramAxes(Axes):
         for panel, nx in slots:
             panel.set_axes_locator(divider.new_locator(nx=nx, ny=0))
 
+    def edge_axis(self, edge: str) -> Axis:
+        """Return the matplotlib axis drawing one diagram edge's ticks.
+
+        The uniform handle on all four edges (spec §3.2), keyed by the same
+        names the ``labels`` option takes. Bottom and left are the axes' own
+        ``xaxis``/``yaxis``; top and right belong to a secondary axes that
+        has no other public handle. tephpy stamps its tick conventions on an
+        edge axis once, when that axis is created, so everything stock
+        matplotlib offers is the caller's from the claim onwards — e.g.
+        ``ax.edge_axis("top").set_tick_params(labelsize=12)``, or
+        ``set_label_text("")`` to keep the ticks and drop the axis title.
+        The only thing tephpy changes afterwards is the tick colour, and
+        only when the owning family's own colour or alpha changes, or
+        another family takes the edge.
+
+        Parameters
+        ----------
+        edge : str
+            The edge, one of ``EDGES``.
+
+        Returns
+        -------
+        matplotlib.axis.Axis
+            The axis drawing that edge's ticks.
+
+        Raises
+        ------
+        TypeError
+            If `edge` is not one of ``EDGES``.
+        ValueError
+            If no family labels that edge. An unclaimed edge renders
+            nothing to style — bottom and left are hidden, and top and
+            right have no axis yet — and probing one must not build a
+            secondary axes nothing is using.
+        """
+        if edge not in EDGES:
+            msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
+            raise TypeError(msg)
+        if edge not in self._edge_owners:
+            msg = (
+                f"the {edge!r} edge carries no isopleth labels; claim it "
+                f'first, e.g. ax.isobars(labels="{edge}") (spec §3.2)'
+            )
+            raise ValueError(msg)
+        return self._edge_axis(edge)
+
     def _check_label_edges(self, name: str, options: ResolvedOptions) -> None:
         """Reject an edge claim another family already holds.
 
@@ -976,6 +1040,36 @@ class TephigramAxes(Axes):
                 )
                 raise TypeError(msg)
 
+    def _style_edge_axis(self, axis: Axis) -> None:
+        """Stamp the tephigram tick conventions on one edge axis.
+
+        Applied once, when the axis comes into existence — :meth:`clear` for
+        the axes' own ``xaxis``/``yaxis``, the lazy build in
+        :meth:`_edge_axis` for a top or right secondary — and never
+        re-applied, so a user's ``tick_params`` on a claimed edge survives
+        every later family resolve (spec §3.2). Matplotlib offers no
+        provenance on ``set_tick_params``, so *when* is the only guard
+        available. The conventions replay onto the tick artists matplotlib
+        rebuilds when a claim swaps the locator, because they live in the
+        axis' ``_major_tick_kw``.
+
+        Parameters
+        ----------
+        axis : matplotlib.axis.Axis
+            The axis that draws one diagram edge's ticks.
+        """
+        axis.set_tick_params(
+            labelsize=LABEL_FONTSIZE,
+            length=EDGE_TICK_LENGTH,
+            pad=EDGE_TICK_PAD,
+        )
+        # Lines of constant data-space x or y mean nothing on a tephigram: the
+        # ticks are the crossings, not a scale to rule off. Suppressing here
+        # lands after ``Axes.clear`` has read ``rcParams["axes.grid"]``, which
+        # several styles set, so a style cannot smuggle them in — while an
+        # explicit later ``ax.grid(True)`` is the user's call (spec §3.2).
+        axis.grid(visible=False, which="both")
+
     def _edge_axis(self, edge: str) -> Axis:
         """Return the axis that draws one diagram edge's ticks.
 
@@ -1007,12 +1101,17 @@ class TephigramAxes(Axes):
                 else self.secondary_yaxis("right", functions=identity)
             )
             self._secondary_axes[edge] = secondary
+            self._style_edge_axis(secondary.xaxis if edge == "top" else secondary.yaxis)
         return secondary.xaxis if edge == "top" else secondary.yaxis
 
-    def _claim_edge(self, edge: str, name: str, family: IsoplethFamily) -> None:
+    def _claim_edge(
+        self, edge: str, name: str, family: IsoplethFamily, *, first: bool
+    ) -> None:
         """Point one edge's ticks at a family. Idempotent.
 
-        Re-applied on every sync so a family's restyle reaches its ticks.
+        Identity only — locator, formatter, visibility, colour and title.
+        How the ticks look is stamped once by :meth:`_style_edge_axis` when
+        the edge axis is created and is the user's thereafter (spec §3.2).
 
         Parameters
         ----------
@@ -1022,45 +1121,54 @@ class TephigramAxes(Axes):
             The claiming family's accessor name, which keys the axis titles.
         family : IsoplethFamily
             The claiming family.
+        first : bool
+            Whether this claim is the edge's first under this owner — the
+            edge was unowned, or another family held it and has just been
+            released. Identity is installed only then; a repeat claim
+            re-applies nothing but a changed colour (spec §3.2).
         """
         axis = self._edge_axis(edge)
-        locator = _EdgeLocator(family, edge)
-        axis.set_major_locator(locator)
-        axis.set_major_formatter(_EdgeFormatter(locator))
-        # Crossings are exact positions; a minor tick between them means
-        # nothing. NullLocator is also matplotlib's linear-axis default, so
-        # release restores it.
-        axis.set_minor_locator(NullLocator())
-        axis.set_visible(True)
+        if first:
+            locator = _EdgeLocator(family, edge)
+            axis.set_major_locator(locator)
+            axis.set_major_formatter(_EdgeFormatter(locator))
+            # Crossings are exact positions; a minor tick between them means
+            # nothing. NullLocator is also matplotlib's linear-axis default, so
+            # release restores it.
+            axis.set_minor_locator(NullLocator())
+            # Visibility is identity, so a claim restores it on both paths:
+            # the ``Axis`` on every edge, and for top or right the secondary
+            # axes that hid with it, spine included. Showing the container
+            # alone would leave an ``Axis`` the user had hidden drawing no
+            # ticks on an edge that has just been claimed (spec §3.2).
+            axis.set_visible(True)
+            secondary = self._secondary_axes.get(edge)
+            if secondary is not None:
+                secondary.set_visible(True)
+            if not axis.get_label_text():
+                title = EDGE_AXIS_TITLES[name]
+                axis.set_label_text(title)
+                self._edge_titles[edge] = title
         # ``set_tick_params`` takes no alpha, and per-``Tick`` alpha would not
         # survive matplotlib rebuilding the tick artists on a locator change,
         # so the family's alpha is baked into the tick RGBA instead.
+        # The memory is keyed by owner as well as RGBA: it survives release,
+        # so a bare colour comparison would suppress a new owner's claim
+        # whenever its colour matched the last owner's, leaving the ticks in
+        # a colour that now ties them to nothing.
         rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
-        axis.set_tick_params(
-            color=rgba,
-            labelcolor=rgba,
-            labelsize=LABEL_FONTSIZE,
-            length=EDGE_TICK_LENGTH,
-            pad=EDGE_TICK_PAD,
-        )
-        # Making the axis visible would otherwise let ``ax.grid(True)`` — and
-        # ``rcParams["axes.grid"]``, which several styles set — draw lines of
-        # constant data-space x or y, which mean nothing on a tephigram. The
-        # ticks are the crossings, not a scale to rule off (spec §3.1/§3.2).
-        axis.grid(visible=False, which="both")
-        if edge == "bottom":
-            # The classic style mirrors ticks onto the opposite edge, which
-            # would collide with that edge's own family.
-            self.xaxis.set_ticks_position("bottom")
-        elif edge == "left":
-            self.yaxis.set_ticks_position("left")
-        if not axis.get_label_text():
-            title = EDGE_AXIS_TITLES[name]
-            axis.set_label_text(title)
-            self._edge_titles[edge] = title
+        if self._edge_tick_colors.get(edge) != (name, rgba):
+            axis.set_tick_params(color=rgba, labelcolor=rgba)
+            self._edge_tick_colors[edge] = (name, rgba)
 
     def _release_edge(self, edge: str) -> None:
         """Return one edge to its unclaimed state.
+
+        Teardown only: the locator and formatter go back to matplotlib's
+        linear-axis defaults, tephpy's own axis title is cleared and
+        forgotten, and the edge hides. Presentation is left exactly as it
+        is — it belongs to the user, and the hidden axis renders none of it
+        (spec §3.2).
 
         Parameters
         ----------
@@ -1068,24 +1176,25 @@ class TephigramAxes(Axes):
             The edge to release, one of ``EDGES``.
         """
         title = self._edge_titles.pop(edge, None)
-        if edge in {"top", "right"}:
-            # The whole secondary axis goes, and its ticks and title with it —
-            # so the title popped above is dead for these two edges, popped
-            # only to keep the bookkeeping uniform.
-            secondary = self._secondary_axes.pop(edge, None)
-            if secondary is not None:
-                secondary.remove()
+        secondary = self._secondary_axes.get(edge)
+        if secondary is None and edge in {"top", "right"}:
+            # Never claimed, so there is no secondary axes to return; the
+            # early exit also keeps ``_edge_axis`` below from building one.
             return
-        axis = self.xaxis if edge == "bottom" else self.yaxis
+        axis = self._edge_axis(edge)
         if title is not None and axis.get_label_text() == title:
             axis.set_label_text("")
         axis.set_major_locator(AutoLocator())
         axis.set_major_formatter(ScalarFormatter())
         axis.set_minor_locator(NullLocator())
-        # Resetting the tick params also restores the axis' grid state from
-        # ``rcParams["axes.grid"]``, undoing the claim's ``grid(False)``.
-        axis.set_tick_params(reset=True, which="both")
-        axis.set_visible(False)
+        if secondary is None:
+            axis.set_visible(False)
+        else:
+            # The whole secondary axes hides, not merely its ``Axis``, or the
+            # spine it owns would keep drawing. It is kept, not removed, so a
+            # handle held across a release stays live and its ticks and title
+            # survive the reclaim exactly as bottom and left do (spec §3.2).
+            secondary.set_visible(False)
 
     def _sync_edge_labels(self) -> None:
         """Match the claimed edges to what the five families now ask for.
@@ -1112,13 +1221,19 @@ class TephigramAxes(Axes):
             had_right = "right" in self._edge_owners
             for edge in EDGES:
                 owner = claims.get(edge)
-                if self._edge_owners.get(edge) not in (None, owner):
+                previous = self._edge_owners.get(edge)
+                if previous not in (None, owner):
                     self._release_edge(edge)
                 if owner is None:
                     self._edge_owners.pop(edge, None)
                 else:
                     self._edge_owners[edge] = owner
-                    self._claim_edge(edge, owner, self._families[owner])
+                    self._claim_edge(
+                        edge,
+                        owner,
+                        self._families[owner],
+                        first=previous != owner,
+                    )
             if had_right != ("right" in self._edge_owners):
                 self._relayout_side_panels()
         finally:
