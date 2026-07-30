@@ -37,8 +37,10 @@ towncrier.
   public name: `TephigramAxes.edge_axis`.
 - Run tests with `pixi run --frozen pytest ...`. Run the full gate with
   `pixi run --frozen lint`. `--frozen` is mandatory — never let pixi re-solve.
-- Commit on the `edge-styling` branch. Never commit to `main` (a `no-commit-to-branch`
-  pre-commit hook enforces this).
+- This plan and the spec bullets it implements ship as a docs-only PR (#55) on the
+  `edge-styling` branch. The implementation is a separate PR: once #55 has merged, branch
+  `edge-styling-impl` off an updated `main` and commit there. Never commit to `main`
+  (a `no-commit-to-branch` pre-commit hook enforces this).
 
 ---
 
@@ -1007,11 +1009,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Find the PR number**
 
-Fragments are named for the pull request, not the issue. Push the branch and open the PR
-first if it is not already open:
+Fragments are named for the pull request, not the issue. Push the implementation branch and
+open its PR if it is not already open — this is the code PR, distinct from the docs-only
+#55 that carried this plan:
 
 ```bash
-git push -u origin edge-styling
+git push -u origin edge-styling-impl
 gh pr create --repo bjlittle/tephpy --title "Give the edge-label ticks and titles their own styling control" --body "Closes #52"
 ```
 
