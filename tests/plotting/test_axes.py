@@ -17,6 +17,7 @@ import pytest
 from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
+    BARB_GUTTER_PAD,
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
@@ -879,7 +880,11 @@ def test_an_invisible_family_releases_its_edge():
         ax.isobars(visible=False)
         assert ax._edge_owners == {}
         assert not ax.yaxis.get_visible()
-        # Release must clear the auto-title it set (spec §3.2).
+        # Release clears the auto-title it set (spec §3.2).  That it clears
+        # *only* its own title and never a user's is a separate clause, and
+        # is pinned by the third leg of
+        # ``test_a_user_axis_title_wins_either_way`` — not by this assertion,
+        # which passes either way.
         assert ax.get_ylabel() == ""
         ax.isotherms(labels="left")
         assert ax._edge_owners == {"left": "isotherms"}
@@ -918,6 +923,11 @@ def test_right_edge_labels_widen_the_gutter_pad():
         ax.plot_barbs(snd)
         fig.canvas.draw()
         narrow = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        # Pinned, not merely ordered.  The load-bearing half of this test is
+        # that an unclaimed right edge leaves the layout exactly as it was
+        # before edges could be labelled at all; an inequality against
+        # ``wide`` would still pass if the unlabelled pad drifted.
+        assert narrow == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
         ax.isobars(labels="right")
         fig.canvas.draw()
         wide = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
