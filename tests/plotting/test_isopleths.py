@@ -804,6 +804,18 @@ def test_emphasis_non_numeric_key_raises():
         family.configure(emphasis={None: {}})
 
 
+@pytest.mark.parametrize("member", [float("nan"), float("inf"), float("-inf")])
+def test_emphasis_non_finite_key_raises(member):
+    """A non-finite member key builds a NaN polyline the view mask hides.
+
+    Rejected up front instead, alongside the ``linewidth``, ``alpha`` and
+    ``interval`` finiteness checks (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="member value must be a finite number"):
+        family.configure(emphasis={member: {}})
+
+
 def test_emphasis_style_not_a_mapping_raises():
     family = _make_family("isotherms")
     with pytest.raises(TypeError, match="must be a mapping of style overrides"):
@@ -984,6 +996,9 @@ def test_emphasis_outside_the_domain_is_a_silent_no_op():
     family = _make_family("isotherms")
     family.configure(emphasis={500.0: {}})
     family._build()
+    assert np.any(np.isclose(family._member_values, 500.0)), (
+        "emphasis must force the out-of-domain member into the build"
+    )
     view = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
     assert not np.any(
         family._view_mask(view) & np.isclose(family._member_values, 500.0)
@@ -1055,13 +1070,41 @@ def test_emphasised_member_gets_per_segment_properties(plain_axes):
 
 
 def test_plain_family_still_draws_one_colour(plain_axes):
-    """With nothing emphasised the collection is uniform, as before."""
+    """With nothing emphasised the collection is uniform, as before.
+
+    Uniform *and* scalar: the per-segment path is gated on ``emphasis``, so an
+    un-emphasised family carries one linewidth and a scalar alpha rather than
+    an N-long sequence of each. Pixels are the same either way; vector output
+    and the per-draw cost are not (spec §3.2).
+    """
     family = _make_family("isotherms")
     plain_axes.add_artist(family)
     plain_axes.figure.canvas.draw()
     colors = family._lines.get_color()
     assert len({tuple(row) for row in colors}) == 1
     assert set(family._lines.get_linewidth()) == {ISOPLETH_LINEWIDTH}
+    assert len(family._lines.get_linewidth()) == 1
+    assert family._lines.get_alpha() == ISOPLETH_ALPHA
+
+
+def test_clearing_emphasis_restores_the_plain_collection(plain_axes):
+    """Clearing ``emphasis`` returns every drawn property to its scalar default.
+
+    The per-segment path is gated on ``emphasis``, so the plain path has to
+    undo what an earlier emphasised draw left on the collection — a dashed
+    linestyle above all, which nothing else would overwrite (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linestyle": "--"}})
+    plain_axes.figure.canvas.draw()
+    family.configure(emphasis={})
+    plain_axes.figure.canvas.draw()
+    lines = family._lines
+    assert lines.get_linestyle() == [(0.0, None)]
+    assert len({tuple(row) for row in lines.get_color()}) == 1
+    np.testing.assert_allclose(lines.get_color()[0], mcolors.to_rgba(ISOTHERM_COLOR))
+    assert set(lines.get_linewidth()) == {ISOPLETH_LINEWIDTH}
 
 
 def test_emphasised_label_takes_the_emphasis_colour(plain_axes):

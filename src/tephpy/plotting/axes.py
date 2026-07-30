@@ -396,7 +396,15 @@ class TephigramAxes(Axes):
         Raises
         ------
         TypeError
-            If ``tephpy.config`` gives one diagram edge to two families.
+            If ``tephpy.config`` gives one diagram edge to two families, or
+            names an unknown label placement, or carries a malformed family
+            ``emphasis`` — a non-mapping, a member value that will not convert
+            to float, a style that is not a mapping, or an unknown style key
+            (spec §3.2).
+        ValueError
+            If a ``tephpy.config`` family ``emphasis`` gives a ``linewidth``
+            that is not positive and finite, or an ``alpha`` outside
+            ``[0, 1]``, or a family ``interval`` is not positive and finite.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
@@ -1460,8 +1468,8 @@ class TephigramAxes(Axes):
             If ``labels`` names an unknown placement, ``emphasis`` is malformed,
             or an edge another family already claims.
         ValueError
-            If an ``emphasis`` ``linewidth`` is not positive and finite, or an
-            ``alpha`` falls outside ``[0, 1]``.
+            If an ``emphasis`` member value is not finite, a ``linewidth`` is
+            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
         """
         return self._configure_family(
             "isotherms",
@@ -1519,7 +1527,7 @@ class TephigramAxes(Axes):
             Members to distinguish, keyed by member value in hPa.
             Each value is a mapping of style overrides — ``color``,
             ``linewidth``, ``linestyle``, ``alpha`` — and an omitted key falls
-            back to the family's own style, so ``{0.0: {}}`` draws that member
+            back to the family's own style, so ``{500.0: {}}`` draws that member
             at ``EMPHASIS_LINEWIDTH`` in the family's own colour. An emphasised
             member is always drawn, whatever the zoom ladder would select, so a
             value the interval never lands on still appears. An empty mapping
@@ -1538,8 +1546,8 @@ class TephigramAxes(Axes):
             If ``labels`` names an unknown placement, ``emphasis`` is malformed,
             or an edge another family already claims.
         ValueError
-            If an ``emphasis`` ``linewidth`` is not positive and finite, or an
-            ``alpha`` falls outside ``[0, 1]``.
+            If an ``emphasis`` member value is not finite, a ``linewidth`` is
+            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
         """
         return self._configure_family(
             "isobars",
@@ -1617,8 +1625,8 @@ class TephigramAxes(Axes):
             If ``labels`` names an unknown placement, ``emphasis`` is malformed,
             or an edge another family already claims.
         ValueError
-            If an ``emphasis`` ``linewidth`` is not positive and finite, or an
-            ``alpha`` falls outside ``[0, 1]``.
+            If an ``emphasis`` member value is not finite, a ``linewidth`` is
+            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
         """
         return self._configure_family(
             "dry_adiabats",
@@ -1699,8 +1707,8 @@ class TephigramAxes(Axes):
             If ``labels`` names an unknown placement, ``emphasis`` is malformed,
             or an edge another family already claims.
         ValueError
-            If an ``emphasis`` ``linewidth`` is not positive and finite, or an
-            ``alpha`` falls outside ``[0, 1]``.
+            If an ``emphasis`` member value is not finite, a ``linewidth`` is
+            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
         """
         return self._configure_family(
             "moist_adiabats",
@@ -1757,7 +1765,7 @@ class TephigramAxes(Axes):
             Members to distinguish, keyed by member value in g/kg.
             Each value is a mapping of style overrides — ``color``,
             ``linewidth``, ``linestyle``, ``alpha`` — and an omitted key falls
-            back to the family's own style, so ``{0.0: {}}`` draws that member
+            back to the family's own style, so ``{5.0: {}}`` draws that member
             at ``EMPHASIS_LINEWIDTH`` in the family's own colour. An emphasised
             member is always drawn, whatever the zoom ladder would select, so a
             value the ladder never selects still appears. An empty mapping
@@ -1776,8 +1784,8 @@ class TephigramAxes(Axes):
             If ``labels`` names an unknown placement, ``emphasis`` is malformed,
             or an edge another family already claims.
         ValueError
-            If an ``emphasis`` ``linewidth`` is not positive and finite, or an
-            ``alpha`` falls outside ``[0, 1]``.
+            If an ``emphasis`` member value is not finite, a ``linewidth`` is
+            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
         """
         return self._configure_family(
             "mixing_ratios",

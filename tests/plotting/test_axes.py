@@ -1402,20 +1402,92 @@ def test_accessor_emphasis_reaches_the_family(tephigram_axes):
 
 
 def test_accessor_emphasis_available_on_every_family(tephigram_axes):
-    for name in (
-        "isotherms",
-        "isobars",
-        "dry_adiabats",
-        "moist_adiabats",
-        "mixing_ratios",
-    ):
-        family = getattr(tephigram_axes, name)(emphasis={0.0: {}})
-        assert family.options.emphasis == {0.0: {}}
+    """Every accessor takes ``emphasis``, and every documented example draws.
+
+    Each family is emphasised at the value its own accessor docstring uses as
+    the example, then the figure is drawn and the member is looked for in what
+    was drawn. Configuring alone proves nothing: an example whose value warns
+    (``filterwarnings = ["error"]``) or falls outside the family's domain, so
+    it is built but never shown, is a failure here (spec §3.2).
+    """
+    examples = {
+        "isotherms": 0.0,
+        "isobars": 500.0,
+        "dry_adiabats": 0.0,
+        "moist_adiabats": 0.0,
+        "mixing_ratios": 5.0,
+    }
+    families = {}
+    for name, value in examples.items():
+        family = getattr(tephigram_axes, name)(emphasis={value: {}})
+        assert family.options.emphasis == {value: {}}
+        families[name] = family
+    tephigram_axes.figure.canvas.draw()
+    for name, value in examples.items():
+        drawn = [member.value for member in families[name]._selected_members()]
+        assert any(np.isclose(drawn, value)), (
+            f"{name} emphasis example {value} is documented but never drawn"
+        )
 
 
 def test_accessor_emphasis_error_propagates(tephigram_axes):
     with pytest.raises(TypeError, match="emphasis style key"):
         tephigram_axes.isotherms(emphasis={0.0: {"colour": "red"}})
+
+
+def test_accessor_emphasis_empty_mapping_clears_config():
+    """``ax.isotherms(emphasis={})`` opts one diagram out of a configured emphasis.
+
+    Goes through the accessor rather than ``family.configure``: the accessor
+    drops kwargs that are ``None``, not kwargs that are falsey, and an empty
+    mapping has to survive that filter for the documented opt-out to work
+    (spec §3.2).
+    """
+    with config.context(isotherms={"emphasis": {0.0: {}}}):
+        fig = plt.figure()
+        try:
+            ax = fig.add_subplot(projection="tephigram")
+            assert ax.isotherms().options.emphasis == {0.0: {}}
+            assert ax.isotherms(emphasis={}).options.emphasis == {}
+        finally:
+            plt.close(fig)
+
+
+def test_config_emphasis_type_error_surfaces_at_axes_creation():
+    """A malformed config-tier emphasis fails loud when the axes is built."""
+    fig = plt.figure()
+    try:
+        with (
+            config.context(isotherms={"emphasis": {0.0: {"colour": "red"}}}),
+            pytest.raises(TypeError, match=r"unknown 'isotherms' emphasis style key"),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    ("style", "match"),
+    [
+        ({"linewidth": -1.0}, r"'linewidth' for member 500 must be a positive"),
+        ({"alpha": 1.5}, r"'alpha' for member 500 must be between 0 and 1"),
+    ],
+)
+def test_config_emphasis_value_error_surfaces_at_axes_creation(style, match):
+    """An out-of-range config-tier emphasis raises ``ValueError`` at creation.
+
+    ``ValueError`` reaches the caller from ``TephigramAxes.clear``, which is
+    both the ``Axes.__init__`` path and ``ax.clear()`` (spec §3.2).
+    """
+    fig = plt.figure()
+    try:
+        with (
+            config.context(isobars={"emphasis": {500.0: style}}),
+            pytest.raises(ValueError, match=match),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
 
 
 def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):

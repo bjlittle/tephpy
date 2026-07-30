@@ -231,6 +231,7 @@ def test_printed_chart_edges():
 
 @pytest.mark.mpl_image_compare
 def test_member_emphasis():
+    """Isotherm member emphasis: 0 °C bold-grey, -20 °C dashed-cyan."""
     fig, ax = _tephigram_figure()
     _solo(ax, "isotherms")
     ax.isotherms(

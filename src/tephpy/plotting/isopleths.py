@@ -124,6 +124,13 @@ _EMPHASIS_STYLE_KEYS: Final[tuple[str, ...]] = (
 _EMPHASIS_RTOL: Final[float] = 1e-9
 _EMPHASIS_ATOL: Final[float] = 1e-9
 
+#: The linestyle a member draws with unless an emphasis override says otherwise.
+#: A family has no family-level ``linestyle`` (spec §3.2), so this is the
+#: ``LineCollection`` default rather than a convention a caller can set.
+#: Bare ``Final`` so the value narrows to ``Literal["solid"]``, which is what
+#: ``Collection.set_linestyle`` accepts.
+_DEFAULT_LINESTYLE: Final = "solid"
+
 
 def edge_crossings(
     xy: npt.NDArray[np.float64], edge: str, view: mtransforms.Bbox
@@ -322,7 +329,8 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
         If `value` is not a mapping, a key is not a number, a style is not a
         mapping, or a style names a key outside :data:`_EMPHASIS_STYLE_KEYS`.
     ValueError
-        If a ``linewidth`` or ``alpha`` override is out of range.
+        If a member value is not finite, or a ``linewidth`` or ``alpha``
+        override is out of range.
     """
     if not isinstance(value, Mapping):
         msg = (
@@ -337,6 +345,12 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
         except (TypeError, ValueError) as err:
             msg = f"{name!r} emphasis member value must be a number: {raw_member!r}"
             raise TypeError(msg) from err
+        if not math.isfinite(member):
+            # A non-finite key would build a full NaN polyline that the view
+            # mask silently drops, so it is rejected here alongside the
+            # ``linewidth``, ``alpha`` and ``interval`` finiteness checks.
+            msg = f"{name!r} emphasis member value must be a finite number: {member!r}"
+            raise ValueError(msg)
         if not isinstance(raw_style, Mapping):
             msg = (
                 f"{name!r} emphasis style for member {member:g} must be a mapping "
@@ -1001,7 +1015,13 @@ class IsoplethFamily(martist.Artist):
         renderer.open_group("isopleth-family", gid=self.get_gid())
         lines = self._lines
         lines.set_segments([m.xy for m in selected])
-        if selected:
+        # Only a family with something emphasised pays for per-segment state;
+        # with nothing emphasised the collection takes one scalar colour,
+        # linewidth and alpha, exactly as it did before emphasis existed, so a
+        # diagram with no ``emphasis`` renders identically -- including in
+        # vector output, where per-path stroke state would otherwise be emitted
+        # for every member.  ``_order_members`` is gated the same way (spec §3.2).
+        if selected and opts.emphasis:
             styles = [self._member_style(m.value) for m in selected]
             # Bake alpha into the RGBA colour rather than calling set_alpha with
             # a per-segment list.  LineCollection.set_color calls
@@ -1023,6 +1043,10 @@ class IsoplethFamily(martist.Artist):
         else:
             lines.set_color(opts.color)
             lines.set_linewidth(opts.linewidth)
+            # Back to the collection's own default, not just left alone: a
+            # per-segment list from an earlier emphasised draw would otherwise
+            # survive clearing ``emphasis`` and keep dashing a member.
+            lines.set_linestyle(_DEFAULT_LINESTYLE)
             lines.set_alpha(opts.alpha)
         lines.set_transform(axes.transData)
         lines.set_clip_box(axes.bbox)
@@ -1062,7 +1086,10 @@ class IsoplethFamily(martist.Artist):
         Raises
         ------
         ValueError
-            If the resolved ``interval`` is not a positive, finite number.
+            If the resolved ``interval`` is not a positive, finite number, or
+            the resolved ``emphasis`` gives a non-finite member value, a
+            ``linewidth`` that is not positive and finite, or an ``alpha``
+            outside ``[0, 1]``.
         TypeError
             If the resolved ``labels`` names an unknown placement, or
             ``emphasis`` is malformed.
@@ -1299,7 +1326,7 @@ class IsoplethFamily(martist.Artist):
         style: dict[str, object] = {
             "color": opts.color,
             "linewidth": opts.linewidth,
-            "linestyle": "solid",
+            "linestyle": _DEFAULT_LINESTYLE,
             "alpha": opts.alpha,
         }
         override = self._emphasis_style(value)

@@ -59,8 +59,11 @@ isotherm interval includes them:
         }
     )
 
-A value outside the diagram's domain is a silent no-op — it is simply never in
-view.
+A value outside the diagram's domain is a no-op — it is simply never in view.
+That is silent on the analytic families (isotherms, dry adiabats and isobars);
+the curved moist adiabats and mixing ratios build through MetPy, which can warn
+about a far-out value before the diagram ever gets to ignore it, so emphasise a
+value those families actually cover.
 
 Every family, every tier
 ------------------------
@@ -73,11 +76,18 @@ the same gesture:
     ax.isobars(emphasis={500.0: {}})
 
 and it takes the usual precedence — the accessor keyword over
-``tephpy.config`` over the convention default:
+``tephpy.config`` over the convention default. A family reads
+``tephpy.config`` when the axes is created, and re-reads it on ``ax.clear()``,
+so set the configuration before creating the diagram it should apply to:
 
 .. code-block:: python
 
+    import matplotlib.pyplot as plt
+
+    import tephpy
+
     tephpy.config.isotherms.emphasis = {0.0: {}}
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
 
 Passing an empty mapping at the accessor emphasises nothing, which is how one
 diagram opts out of a configured emphasis:
