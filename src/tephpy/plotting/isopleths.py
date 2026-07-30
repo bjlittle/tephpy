@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Final, cast, override
 
 from matplotlib import artist as martist
 from matplotlib.collections import LineCollection
+from matplotlib.colors import to_rgba
 from matplotlib.text import Text
 from matplotlib.ticker import Formatter, Locator
 import numpy as np
@@ -39,6 +40,7 @@ from tephpy._constants import (
     DRY_ADIABAT_COLOR,
     DRY_ADIABAT_STEPS,
     DRY_ADIABAT_ZORDER,
+    EMPHASIS_LINEWIDTH,
     ISOBAR_COLOR,
     ISOBAR_STEPS,
     ISOBAR_ZORDER,
@@ -995,13 +997,33 @@ class IsoplethFamily(martist.Artist):
         if axes is None:
             return
         opts = self._options
-        selected = self._selected_members()
+        selected = self._order_members(self._selected_members())
         renderer.open_group("isopleth-family", gid=self.get_gid())
         lines = self._lines
         lines.set_segments([m.xy for m in selected])
-        lines.set_color(opts.color)
-        lines.set_linewidth(opts.linewidth)
-        lines.set_alpha(opts.alpha)
+        if selected:
+            styles = [self._member_style(m.value) for m in selected]
+            # Bake alpha into the RGBA colour rather than calling set_alpha with
+            # a per-segment list.  LineCollection.set_color calls
+            # to_rgba_array(c, self._alpha) immediately; if self._alpha were a
+            # per-segment array from the previous draw and the segment count
+            # changed (zoom), the shapes would mismatch and raise.  Keeping
+            # self._alpha as None throughout this path avoids the conflict.
+            lines.set_alpha(None)  # clear any scalar from a prior else-branch draw
+            lines.set_color(
+                [
+                    to_rgba(cast("str", s["color"]), cast("float", s["alpha"]))
+                    for s in styles
+                ]
+            )
+            lines.set_linewidth([cast("float", s["linewidth"]) for s in styles])
+            lines.set_linestyle(
+                [cast("str", s["linestyle"]) for s in styles]  # type: ignore[misc]
+            )
+        else:
+            lines.set_color(opts.color)
+            lines.set_linewidth(opts.linewidth)
+            lines.set_alpha(opts.alpha)
         lines.set_transform(axes.transData)
         lines.set_clip_box(axes.bbox)
         lines.draw(renderer)
@@ -1255,6 +1277,60 @@ class IsoplethFamily(martist.Artist):
                 return style
         return None
 
+    def _member_style(self, value: float) -> dict[str, object]:
+        """Return the style one member draws with.
+
+        The family's own resolved style, with an emphasised member's overrides
+        applied over it. Emphasis with no overrides still thickens the line to
+        ``EMPHASIS_LINEWIDTH`` — the monochrome printed-chart idiom of same ink,
+        heavier line (spec §3.2).
+
+        Parameters
+        ----------
+        value : float
+            The member's isopleth value in the family's native units.
+
+        Returns
+        -------
+        dict of str to object
+            Keys ``color``, ``linewidth``, ``linestyle`` and ``alpha``.
+        """
+        opts = self._options
+        style: dict[str, object] = {
+            "color": opts.color,
+            "linewidth": opts.linewidth,
+            "linestyle": "solid",
+            "alpha": opts.alpha,
+        }
+        override = self._emphasis_style(value)
+        if override is not None:
+            style["linewidth"] = EMPHASIS_LINEWIDTH
+            style.update(override)
+        return style
+
+    def _order_members(self, selected: list[Member]) -> list[Member]:
+        """Order the drawn members plain first, emphasised last.
+
+        Draw order stays inside the family: an emphasised member wins against
+        its own family's neighbours, while the families drawn above this one
+        still cross it (spec §3.2).
+
+        Parameters
+        ----------
+        selected : list of Member
+            The members the view and zoom ladder selected, in build order.
+
+        Returns
+        -------
+        list of Member
+            The same members, emphasised ones moved to the end in build order.
+        """
+        if not self._options.emphasis:
+            return selected
+        plain = [m for m in selected if self._emphasis_style(m.value) is None]
+        emphasised = [m for m in selected if self._emphasis_style(m.value) is not None]
+        return plain + emphasised
+
     def _view_mask(self, view: mtransforms.Bbox) -> npt.NDArray[np.bool_]:
         """Select members whose bounding box overlaps the view rectangle.
 
@@ -1366,7 +1442,8 @@ class IsoplethFamily(martist.Artist):
 
         The label anchors at the middle in-view vertex, rotated to the
         local line direction in screen space and folded upright. Members
-        a claimed edge already ticks are dropped first (spec §3.2).
+        a claimed edge already ticks are dropped first (spec §3.2). An
+        emphasised member's label takes the emphasis colour and alpha.
 
         Parameters
         ----------
@@ -1378,7 +1455,6 @@ class IsoplethFamily(martist.Artist):
         axes = self.axes
         if axes is None:
             return
-        opts = self._options
         view = axes.viewLim
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
@@ -1404,8 +1480,9 @@ class IsoplethFamily(martist.Artist):
             angle = (angle + 90.0) % 180.0 - 90.0
             text.set_position((float(xy[mid, 0]), float(xy[mid, 1])))
             text.set_text(f"{member.value:g}")
-            text.set_color(opts.color)
-            text.set_alpha(opts.alpha)
+            style = self._member_style(member.value)
+            text.set_color(cast("str", style["color"]))
+            text.set_alpha(cast("float", style["alpha"]))
             text.set_rotation(angle)
             text.set_transform(axes.transData)
             text.set_clip_box(axes.bbox)

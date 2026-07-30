@@ -13,6 +13,7 @@ import warnings
 
 from hypothesis import given
 from hypothesis import strategies as st
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from metpy.calc import saturation_mixing_ratio, wet_bulb_potential_temperature
@@ -23,6 +24,9 @@ import pytest
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import (
+    EMPHASIS_LINEWIDTH,
+    ISOPLETH_ALPHA,
+    ISOPLETH_LINEWIDTH,
     ISOPLETH_SAMPLES,
     ISOTHERM_COLOR,
     MIXING_RATIO_VALUES,
@@ -992,3 +996,79 @@ def test_emphasis_style_lookup_matches_within_tolerance():
     assert family._emphasis_style(0.0) == {"color": "tab:cyan"}
     assert family._emphasis_style(1e-12) == {"color": "tab:cyan"}
     assert family._emphasis_style(10.0) is None
+
+
+def test_member_style_defaults_to_the_family_style():
+    family = _make_family("isotherms")
+    style = family._member_style(10.0)
+    assert style == {
+        "color": ISOTHERM_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "linestyle": "solid",
+        "alpha": ISOPLETH_ALPHA,
+    }
+
+
+def test_member_style_empty_emphasis_only_thickens():
+    """`{}` is the printed-chart idiom: same ink, heavier line (spec §3.2)."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    style = family._member_style(0.0)
+    assert style["color"] == ISOTHERM_COLOR
+    assert style["linewidth"] == EMPHASIS_LINEWIDTH
+
+
+def test_member_style_overrides_win_over_the_emphasis_default():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linewidth": 3.0}})
+    style = family._member_style(0.0)
+    assert style["color"] == "tab:cyan"
+    assert style["linewidth"] == 3.0
+
+
+def test_emphasised_member_draws_last(plain_axes):
+    """Emphasis wins against its own family's neighbours (spec §3.2)."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    segments = family._lines.get_segments()
+    assert len(segments) > 1
+    # An isotherm is vertical in (temperature, theta), so every vertex shares
+    # the member's temperature; the emphasised member is the final segment.
+    widths = family._lines.get_linewidth()
+    assert widths[-1] == EMPHASIS_LINEWIDTH
+    assert set(widths[:-1]) == {ISOPLETH_LINEWIDTH}
+
+
+def test_emphasised_member_gets_per_segment_properties(plain_axes):
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linestyle": "--"}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    lines = family._lines
+    colors = lines.get_color()
+    assert len(colors) == len(lines.get_segments())
+    np.testing.assert_allclose(colors[-1], mcolors.to_rgba("tab:cyan"))
+    np.testing.assert_allclose(colors[0], mcolors.to_rgba(ISOTHERM_COLOR))
+    assert len(lines.get_linestyle()) == len(lines.get_segments())
+
+
+def test_plain_family_still_draws_one_colour(plain_axes):
+    """With nothing emphasised the collection is uniform, as before."""
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = family._lines.get_color()
+    assert len({tuple(row) for row in colors}) == 1
+    assert set(family._lines.get_linewidth()) == {ISOPLETH_LINEWIDTH}
+
+
+def test_emphasised_label_takes_the_emphasis_colour(plain_axes):
+    """Exactly one label carries the emphasis colour: the emphasised member's."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = [mcolors.to_rgba(text.get_color()) for text in family._texts]
+    assert colors.count(mcolors.to_rgba("tab:cyan")) == 1
