@@ -402,9 +402,10 @@ class TephigramAxes(Axes):
             to float, a style that is not a mapping, or an unknown style key
             (spec §3.2).
         ValueError
-            If a ``tephpy.config`` family ``emphasis`` gives a ``linewidth``
-            that is not positive and finite, or an ``alpha`` outside
-            ``[0, 1]``, or a family ``interval`` is not positive and finite.
+            If a ``tephpy.config`` family ``emphasis`` keys a member value
+            that is not finite, or gives a ``linewidth`` that is not positive
+            and finite, or an ``alpha`` outside ``[0, 1]``, or a family
+            ``interval`` is not positive and finite.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
@@ -1469,7 +1470,8 @@ class TephigramAxes(Axes):
             or an edge another family already claims.
         ValueError
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
-            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
+            not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
+            ``interval`` is not positive and finite.
         """
         return self._configure_family(
             "isotherms",
@@ -1547,7 +1549,8 @@ class TephigramAxes(Axes):
             or an edge another family already claims.
         ValueError
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
-            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
+            not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
+            ``interval`` is not positive and finite.
         """
         return self._configure_family(
             "isobars",
@@ -1626,7 +1629,8 @@ class TephigramAxes(Axes):
             or an edge another family already claims.
         ValueError
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
-            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
+            not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
+            ``interval`` is not positive and finite.
         """
         return self._configure_family(
             "dry_adiabats",
@@ -1708,7 +1712,8 @@ class TephigramAxes(Axes):
             or an edge another family already claims.
         ValueError
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
-            not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
+            not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
+            ``interval`` is not positive and finite.
         """
         return self._configure_family(
             "moist_adiabats",
