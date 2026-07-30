@@ -224,6 +224,61 @@ Differences from tephi:
   that has just been claimed; an invisible secondary returns `None` from
   `get_tightbbox` and `Axes.clear` empties `child_axes` (both verified 2026-07-30), so the
   persistence costs nothing in layout and `TephigramAxes.clear` still reaps them.
+- **Any member of any family can be emphasised.** `emphasis=` on all five accessors and on
+  every `tephpy.config` family section maps a member value to a mapping of style overrides
+  — `color`, `linewidth`, `linestyle`, `alpha` — and an omitted key falls back to the
+  family's own resolved style, so `ax.isotherms(emphasis={0.0: {}})` is the 0 °C isotherm at
+  `EMPHASIS_LINEWIDTH` in the family's own ink, while an empty mapping (`emphasis={}`)
+  emphasises nothing and is how a `tephpy.config` emphasis is cleared at the accessor. The
+  motivating case is the freezing level, which operational practice singles out everywhere
+  and no library provides: MetPy's advanced-sounding example hand-rolls it (`# first, we add
+  a matplotlib axvline to highlight the 0-degree isotherm`), SHARPpy labels the 0, −20 and
+  −30 °C levels in dark blue, and NWS skew-T training treats the 0 °C crossing as a named
+  index (FRZ) — all verified 2026-07-30. On a tephigram that isotherm is *slanted*, so the
+  `axvline` escape hatch skew-T users rely on does not exist and a tephpy user today has no
+  supported way at all; tephi's documented customisation is whole-family and does not cover
+  isotherms at all. It is deliberately **not** a "zero isotherm" feature: −20 °C bounds the
+  airframe icing band, a mandatory isobar is the same gesture on another family, and one
+  option on the shared `LineOptions` beats five special cases. **Nothing is emphasised by
+  default** — every other tephpy default cites a printed-chart convention, and the evidence
+  found is operational software rather than Factsheet 13, whose published URL now 404s
+  (2026-07-30); defaulting it on would be inventing a convention, and flipping that decision
+  later is a one-line change. `EMPHASIS_LINEWIDTH` is the single new constant, because
+  emphasis defaults to the monochrome printed-chart idiom — same ink, heavier line — so no
+  colour convention is invented and the SHARPpy look stays one keyword away. `linestyle` is
+  accepted per member though the family has no family-level `linestyle`: dashing is the
+  dominant emphasis idiom, and the wider option can follow without conflict. Malformed
+  emphasis raises from `configure` inside its existing rollback — a non-mapping, a key that
+  will not convert to float, a member value that is not a mapping, or an unknown style key
+  all raise `TypeError` naming the family and listing the four accepted keys; a
+  non-positive or non-finite `linewidth`, or an `alpha` outside `[0, 1]`, raises
+  `ValueError` mirroring the `interval` check. `color` and `linestyle` are left to
+  matplotlib, exactly as the family-level `color` already is.
+- **Emphasis forces its member to be drawn**, which is what lets it double as the
+  reference-line mechanism rather than needing one: `emphasis` joins the geometry keys, its
+  keys union into the candidate values the family builds, and the zoom mask forces them
+  true, so `emphasis={-12.0: ..., -18.0: ...}` marks the dendritic growth zone's bounds on a
+  10 °C ladder that would never select them. The view mask still applies, so an off-screen
+  member stays off screen — which is also why a value outside the family's generous
+  `_constants` domain is a silent no-op rather than an error. Because `_selected_members` is
+  shared with `_EdgeLocator`, a forced member gets its edge tick for free; the tick's
+  *colour* does not follow, since `set_tick_params` is whole-axis and per-`Tick` styling
+  would fight the presentation-stamped-once rule above — a documented limitation, and
+  emphasis is a per-member gesture where inline labelling is the common case. Draw order
+  stays inside the family: `draw` partitions the selected members base-then-emphasised on
+  the single existing `LineCollection`, whose `color`, `linewidth`, `linestyle` and `alpha`
+  all accept per-segment sequences (verified on matplotlib 3.11.1, 2026-07-30; the declared
+  floor is 3.10). An emphasised member therefore wins against its own family's neighbours,
+  while the families above it still nick it with a 0.5 pt overpaint at each crossing —
+  accepted rather than bought off with a sixth axes-owned artist to create, sync and tear
+  down. Inline labels take the same per-member style, being per-member `Text` already. The
+  one trap: `mixing_ratios` selects by *stride over member index*, not by value, so an
+  emphasis-only addition would shift every later index and silently change which members the
+  stride picks at every zoom level; the build therefore records which members exist only
+  because emphasis asked for them, and the stride mask is computed over the canonical
+  members by their canonical position. The resolved mapping is deep-copied when it resolves,
+  for the same reason `values` materialises a generator to a tuple: the snapshot must not
+  alias a dict the caller can still mutate.
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and
@@ -654,7 +709,7 @@ signature rather than per-signature positional conventions.
   where tephi artifacts are actually copied (per case, via a NOTICE file if needed).
 - **Plotting:** image-baseline tests via pytest-mpl (small in-repo PNGs,
   tolerance-tuned) for each isopleth family, profiles, barbs, shading, the
-  printed-chart edge-labelling configuration, and the
+  printed-chart edge-labelling configuration, member emphasis, and the
   composed §4 figure. Deliberately not tephi's external image-hash repo, which is a
   contributor-hostile maintenance burden. Curved-family geometry is additionally
   cross-checked against recorded tephi outputs *informationally* — MetPy's and
@@ -1068,7 +1123,14 @@ them, ordered by owning plan.
 ## 11. Open questions (carried from research)
 
 - Which aviation-specific overlays (icing layers, MINTRA) do operational users
-  actually need built in, versus composing themselves?
+  actually need built in, versus composing themselves? Partly answered: member
+  emphasis (§3.2) gives the icing band's 0 °C and −20 °C bounds as isotherms, so
+  what remains open is whether the *shaded layer* between them is wanted, which
+  belongs with the layer highlights already deferred to v1.x (§10 item 12).
+- Whether a current Met Office Factsheet 13 — or a University of Reading blank
+  tephigram — shows the 0 °C isotherm drawn distinctively on the printed chart.
+  Its published URL 404s (2026-07-30), so member emphasis ships off by default;
+  a citation would justify revisiting that.
 - Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 - Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
