@@ -520,6 +520,60 @@ def test_validator_rejection_rolls_the_family_back():
     assert family.options.color == "red"
 
 
+def test_on_change_fires_once_per_successful_resolve():
+    """Every resolve notifies the owner; a rejected one must not."""
+
+    def veto(name, options):
+        if "right" in options.label_edges:
+            msg = f"{name} may not claim the right edge"
+            raise TypeError(msg)
+
+    calls = []
+
+    def notify():
+        calls.append(None)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(
+        spec, config.isobars, validate=veto, on_change=notify
+    )
+    # Creation resolves before the owner can hold the family, so it is silent.
+    assert calls == []
+    family.configure(labels="left")
+    assert len(calls) == 1
+    with pytest.raises(TypeError, match="may not claim the right edge"):
+        family.configure(labels="right")
+    assert len(calls) == 1
+    assert family.options.label_edges == ("left",)
+    family.configure(labels=True)
+    assert len(calls) == 2
+
+
+def test_set_visible_resolves_and_notifies_only_on_a_change():
+    """``set_visible`` is the visibility resolve, and it does not recurse."""
+    calls = []
+
+    def notify():
+        calls.append(None)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars, on_change=notify)
+    family.configure(labels=("bottom", "left"))
+    assert len(calls) == 1
+    family.set_visible(False)
+    assert len(calls) == 2
+    assert family.get_visible() is False
+    assert family.options.visible is False
+    assert family.options.label_edges == ()
+    family.set_visible(False)
+    assert len(calls) == 2
+    family.set_visible(True)
+    assert len(calls) == 3
+    assert family.get_visible() is True
+    assert family.options.label_edges == ("bottom", "left")
+    assert family.stale is True
+
+
 def test_selected_and_inline_members_at_the_default_extent():
     """Spec §3.2's coverage table, exercised through the family."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})

@@ -298,9 +298,10 @@ EDGE_TICK_LENGTH: Final[float] = 3.0
 #: Edge tick label padding from the tick mark, in points.
 EDGE_TICK_PAD: Final[float] = 2.0
 
-#: Side-panel padding substituted for the panel's own when the diagram's
-#: right edge carries isopleth ticks, in inches. ``BARB_GUTTER_PAD`` (0.1 in)
-#: is narrower than an 8 pt tick label, so right-edge labels would land on the
-#: gutter. Measured 2026-07-29: a right axis needs 0.479 in for its ticks,
-#: labels and title, so this leaves 0.07 in of clearance (spec §3.2).
+#: Side-panel padding substituted for the pad of the panel nearest the
+#: diagram when its right edge carries isopleth ticks, in inches. Both panel
+#: pads (0.1 in) are narrower than an 8 pt tick label, so right-edge labels
+#: would land on whichever panel abuts the diagram. Measured 2026-07-29: a
+#: right axis needs 0.479 in for its ticks, labels and title, so this leaves
+#: 0.07 in of clearance (spec §3.2).
 EDGE_LABEL_GUTTER_PAD: Final[float] = 0.55

@@ -924,6 +924,85 @@ def test_every_edge_can_be_claimed_at_once():
         plt.close(fig)
 
 
+def test_family_configure_claims_and_releases_an_edge():
+    """The family's own ``configure`` reaches the ownership layer too.
+
+    ``IsoplethFamily.configure`` is public and is what every accessor
+    returns, so a claim made through it must light up the edge exactly as
+    ``ax.isobars(labels=...)`` does — and dropping the claim must put the
+    inline labels back without leaving the edge ticked (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        family = ax.isobars()
+        family.configure(labels="left")
+        fig.canvas.draw()
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.yaxis.get_visible()
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        selected = family._selected_members()
+        assert len(family._inline_members(ax.viewLim, selected)) == 1
+        family.configure(labels=True)
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        assert ax.get_ylabel() == ""
+        assert family._inline_members(ax.viewLim, selected) == selected
+    finally:
+        plt.close(fig)
+
+
+def test_set_visible_releases_and_reclaims_an_edge():
+    """``Artist.set_visible`` is a resolve too: hiding drops the edge.
+
+    An invisible family draws nothing, so it holds no edge (spec §3.2) —
+    unconditionally, not only for the ``visible`` accessor option.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        family = ax.isobars(labels="left")
+        fig.canvas.draw()
+        family.set_visible(False)
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        assert ax.get_ylabel() == ""
+        assert _ticks(ax.yaxis)[:2] != ["150", "200"]
+        family.set_visible(True)
+        fig.canvas.draw()
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.yaxis.get_visible()
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_claimed_edge_draws_no_gridlines():
+    """Constant-x gridlines mean nothing on a tephigram (spec §3.2).
+
+    ``rcParams["axes.grid"]`` is set by several common styles, and the
+    native axes are hidden precisely because their scale is meaningless;
+    claiming an edge must not smuggle that scale back in as gridlines.
+    """
+    with plt.rc_context({"axes.grid": True}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+        try:
+            ax.isobars(labels="bottom")
+            fig.canvas.draw()
+            assert ax.xaxis.get_visible()
+            assert ax.xaxis.get_gridlines()
+            assert not any(line.get_visible() for line in ax.xaxis.get_gridlines())
+            # Release hands the axis back to the rcParams default.
+            ax.isobars(labels=True)
+            fig.canvas.draw()
+            assert ax.xaxis._major_tick_kw["gridOn"]
+        finally:
+            plt.close(fig)
+
+
 def test_config_top_claim_takes_effect_at_axes_creation():
     """A config-driven edge claim via the top secondary axis works end-to-end.
 

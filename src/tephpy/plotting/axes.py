@@ -367,6 +367,9 @@ class TephigramAxes(Axes):
     _edge_owners: dict[str, str]
     _secondary_axes: dict[str, SecondaryAxis]
     _edge_titles: dict[str, str]
+    #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
+    #: live before ``Axes.__init__`` reaches :meth:`clear`.
+    _edge_sync_busy: bool = False
 
     def clear(self) -> None:
         """Reset the axes to the tephigram projection defaults.
@@ -410,8 +413,13 @@ class TephigramAxes(Axes):
         self._edge_titles = {}
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
+            # The families arm their ``on_change`` only once constructed, so
+            # this loop builds all five before the first sync sees any.
             family = IsoplethFamily(
-                spec, getattr(config, name), self._check_label_edges
+                spec,
+                getattr(config, name),
+                validate=self._check_label_edges,
+                on_change=self._sync_edge_labels,
             )
             self.add_artist(family)
             self._families[name] = family
@@ -1031,6 +1039,11 @@ class TephigramAxes(Axes):
             length=EDGE_TICK_LENGTH,
             pad=EDGE_TICK_PAD,
         )
+        # Making the axis visible would otherwise let ``ax.grid(True)`` — and
+        # ``rcParams["axes.grid"]``, which several styles set — draw lines of
+        # constant data-space x or y, which mean nothing on a tephigram. The
+        # ticks are the crossings, not a scale to rule off (spec §3.1/§3.2).
+        axis.grid(visible=False, which="both")
         if edge == "bottom":
             # The classic style mirrors ticks onto the opposite edge, which
             # would collide with that edge's own family.
@@ -1052,7 +1065,9 @@ class TephigramAxes(Axes):
         """
         title = self._edge_titles.pop(edge, None)
         if edge in {"top", "right"}:
-            # The whole secondary axis goes, and its ticks and title with it.
+            # The whole secondary axis goes, and its ticks and title with it —
+            # so the title popped above is dead for these two edges, popped
+            # only to keep the bookkeeping uniform.
             secondary = self._secondary_axes.pop(edge, None)
             if secondary is not None:
                 secondary.remove()
@@ -1063,34 +1078,47 @@ class TephigramAxes(Axes):
         axis.set_major_locator(AutoLocator())
         axis.set_major_formatter(ScalarFormatter())
         axis.set_minor_locator(NullLocator())
+        # Resetting the tick params also restores the axis' grid state from
+        # ``rcParams["axes.grid"]``, undoing the claim's ``grid(False)``.
         axis.set_tick_params(reset=True)
         axis.set_visible(False)
 
     def _sync_edge_labels(self) -> None:
         """Match the claimed edges to what the five families now ask for.
 
-        Called after every family (re)configure and at the end of
-        :meth:`clear`. Ownership conflicts were already rejected by
-        :meth:`_check_label_edges`, so this only applies the outcome. A change
-        on the right edge also relayouts the side panels, whose pad widens to
-        clear the tick labels (spec §3.2).
+        Every successful family resolve lands here — the accessors, a direct
+        :meth:`~tephpy.plotting.isopleths.IsoplethFamily.configure`, an
+        ``Artist.set_visible`` — plus the end of :meth:`clear`. Ownership
+        conflicts were already rejected by :meth:`_check_label_edges`, so this
+        only applies the outcome. A change on the right edge also relayouts the
+        side panels, whose pad widens to clear the tick labels (spec §3.2).
+
+        Nothing on this path resolves a family's options, so a nested call
+        would have nothing new to apply; the guard makes that structural rather
+        than a standing assumption about matplotlib's axis internals.
         """
-        claims: dict[str, str] = {}
-        for name, family in self._families.items():
-            for edge in family.options.label_edges:
-                claims[edge] = name
-        had_right = "right" in self._edge_owners
-        for edge in EDGES:
-            owner = claims.get(edge)
-            if self._edge_owners.get(edge) not in (None, owner):
-                self._release_edge(edge)
-            if owner is None:
-                self._edge_owners.pop(edge, None)
-            else:
-                self._edge_owners[edge] = owner
-                self._claim_edge(edge, owner, self._families[owner])
-        if had_right != ("right" in self._edge_owners):
-            self._relayout_side_panels()
+        if self._edge_sync_busy:
+            return
+        self._edge_sync_busy = True
+        try:
+            claims: dict[str, str] = {}
+            for name, family in self._families.items():
+                for edge in family.options.label_edges:
+                    claims[edge] = name
+            had_right = "right" in self._edge_owners
+            for edge in EDGES:
+                owner = claims.get(edge)
+                if self._edge_owners.get(edge) not in (None, owner):
+                    self._release_edge(edge)
+                if owner is None:
+                    self._edge_owners.pop(edge, None)
+                else:
+                    self._edge_owners[edge] = owner
+                    self._claim_edge(edge, owner, self._families[owner])
+            if had_right != ("right" in self._edge_owners):
+                self._relayout_side_panels()
+        finally:
+            self._edge_sync_busy = False
 
     def plot_barbs(
         self,
@@ -1227,6 +1255,10 @@ class TephigramAxes(Axes):
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.
 
+        The family's own ``on_change`` runs :meth:`_sync_edge_labels`, so a
+        claim made here reaches the edges by the same route a direct
+        ``family.configure(...)`` takes (spec §3.2).
+
         Parameters
         ----------
         name : str
@@ -1250,7 +1282,6 @@ class TephigramAxes(Axes):
         provided = {key: value for key, value in kwargs.items() if value is not None}
         if provided:
             family.configure(**provided)
-            self._sync_edge_labels()
         return family
 
     # The accessors deliberately mirror their config sections as wide

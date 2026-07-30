@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import dataclasses
 import math
-from typing import TYPE_CHECKING, Final, cast
+from typing import TYPE_CHECKING, Final, cast, override
 
 from matplotlib import artist as martist
 from matplotlib.collections import LineCollection
@@ -626,6 +626,11 @@ class IsoplethFamily(martist.Artist):
         options resolve; raising rejects the change. The owning axes
         passes its one-family-per-edge check here so the rejection
         lands inside this class's rollback (spec §3.2).
+    on_change : callable, optional
+        Called with no arguments after the options resolve successfully,
+        whichever entry point resolved them. The owning axes passes its
+        edge-ownership sync here so a direct :meth:`configure` or
+        :meth:`set_visible` reaches it too (spec §3.2).
     """
 
     def __init__(
@@ -633,6 +638,7 @@ class IsoplethFamily(martist.Artist):
         spec: FamilySpec,
         section: object,
         validate: Callable[[str, ResolvedOptions], None] | None = None,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         """Initialise the family and snapshot its resolved options.
 
@@ -648,11 +654,21 @@ class IsoplethFamily(martist.Artist):
             options resolve; raising rejects the change. The owning axes
             passes its one-family-per-edge check here so the rejection
             lands inside this class's rollback (spec §3.2).
+        on_change : callable, optional
+            Called with no arguments after the options resolve
+            successfully, whichever entry point resolved them. The owning
+            axes passes its edge-ownership sync here so a direct
+            :meth:`configure` or :meth:`set_visible` reaches it too
+            (spec §3.2).
         """
         super().__init__()
         self._spec = spec
         self._section = section
         self._validate = validate
+        # Armed at the end of construction: the owner builds all five
+        # families before its first sync, and a half-built one calling back
+        # into that sync would find itself missing (spec §3.2).
+        self._on_change: Callable[[], None] | None = None
         self._overrides: dict[str, object] = {}
         self._members: list[Member] | None = None
         self._member_values: npt.NDArray[np.float64] = np.empty(0)
@@ -662,7 +678,10 @@ class IsoplethFamily(martist.Artist):
         self._texts: list[Text] = []
         self._options = self._resolve_validated()
         self.set_zorder(spec.zorder)
-        self.set_visible(self._options.visible)
+        # Artist.set_visible, not this class's override: the options are
+        # already resolved, and nothing may call back yet.
+        super().set_visible(self._options.visible)
+        self._on_change = on_change
 
     @property
     def options(self) -> ResolvedOptions:
@@ -683,7 +702,9 @@ class IsoplethFamily(martist.Artist):
         Re-reads ``tephpy.config`` now (spec §3.5 semantics). Passing
         ``None`` for an option removes any prior override so the value
         falls back to ``tephpy.config`` and then ``_constants``. A call
-        that raises leaves the family unchanged.
+        that raises leaves the family unchanged, and only a call that
+        succeeds notifies the owner's ``on_change`` — which is how an edge
+        claimed or released here reaches the diagram (spec §3.2).
 
         Parameters
         ----------
@@ -727,10 +748,43 @@ class IsoplethFamily(martist.Artist):
         except Exception:
             self._overrides = prior
             raise
-        self.set_visible(self._options.visible)
+        # Artist.set_visible, not this class's override: the visibility is
+        # already resolved, and the notify below covers it.
+        super().set_visible(self._options.visible)
         if _GEOMETRY_KEYS & set(kwargs):
             self._members = None
         self.stale = True
+        if self._on_change is not None:
+            self._on_change()
+
+    @override
+    def set_visible(self, b: bool) -> None:
+        """Show or hide the family, resolving its options as it goes.
+
+        The inherited ``Artist.set_visible`` only flips a flag; an isopleth
+        family's visibility is one of its resolved options, and an invisible
+        family draws nothing so it holds no edge (spec §3.2). Hiding is
+        therefore ``configure(visible=False)``, which releases any claimed
+        edge, and showing is ``configure(visible=True)``, which reclaims it.
+        Setting the value the family already has changes nothing, exactly as
+        the base class does.
+
+        Parameters
+        ----------
+        b : bool
+            Whether the family is drawn.
+
+        Raises
+        ------
+        TypeError
+            If showing the family would reclaim an edge another family took
+            while it was hidden; the family stays hidden (see
+            :meth:`configure`).
+        """
+        if bool(b) == bool(self.get_visible()):
+            super().set_visible(b)
+            return
+        self.configure(visible=bool(b))
 
     def set_figure(self, fig: Figure | SubFigure) -> None:
         """Propagate the owning figure to the managed child artists.
