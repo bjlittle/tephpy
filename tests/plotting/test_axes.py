@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoLocator
 from metpy.units import units
 import numpy as np
 import pytest
@@ -801,6 +802,42 @@ def test_top_and_right_use_lazily_created_secondary_axes():
         ax.clear()
         assert ax.child_axes == []
         assert ax._secondary_axes == {}
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_can_move_its_own_edge():
+    """Top to right in one resolve: a release and a claim in the same sync.
+
+    The only transition that releases one secondary axes and builds another
+    inside a single ``_sync_edge_labels``.  The released edge must come away
+    fully unclaimed — hidden, untitled and back on matplotlib's linear-axis
+    defaults — while the claimed edge comes up ticked and titled (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="top")
+        fig.canvas.draw()
+        top = ax.edge_axis("top")
+        assert _ticks(top) == ["150", "200", "200"]
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        assert ax._edge_owners == {"right": "isobars"}
+        # The top secondary hides rather than being destroyed, so the handle
+        # taken before the move is still the live axis afterwards.
+        assert ax._secondary_axes["top"].xaxis is top
+        assert not ax._secondary_axes["top"].get_visible()
+        assert top.get_label_text() == ""
+        # Not just hidden: the locator goes back to matplotlib's default, so
+        # the released edge no longer holds the family through an
+        # ``_EdgeLocator``.
+        assert isinstance(top.get_major_locator(), AutoLocator)
+        right = ax.edge_axis("right")
+        assert ax._secondary_axes["right"].get_visible()
+        assert right.get_label_text() == EDGE_AXIS_TITLES["isobars"]
+        assert _ticks(right) == ["200", "250", "300"]
+        assert ax._edge_titles == {"right": EDGE_AXIS_TITLES["isobars"]}
+        assert len(ax.child_axes) == 2
     finally:
         plt.close(fig)
 
