@@ -991,9 +991,9 @@ class TephigramAxes(Axes):
         if secondary is None:
             identity = mtransforms.IdentityTransform()
             secondary = (
-                self.secondary_xaxis(edge, functions=identity)  # type: ignore[arg-type]
+                self.secondary_xaxis("top", functions=identity)
                 if edge == "top"
-                else self.secondary_yaxis(edge, functions=identity)  # type: ignore[arg-type]
+                else self.secondary_yaxis("right", functions=identity)
             )
             self._secondary_axes[edge] = secondary
         return secondary.xaxis if edge == "top" else secondary.yaxis

@@ -759,6 +759,14 @@ def test_a_user_axis_title_wins_either_way():
         ax.set_xlabel("Still mine")
         ax.isobars(labels=True)
         assert ax.get_xlabel() == "Still mine"
+        # Third leg: auto title applied → user replaces it → release must not
+        # clear the user's replacement.  A weakened guard (`if title is not
+        # None:` without `== title`) would clear the user's text here.
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.set_ylabel("User's ylabel")
+        ax.isobars(labels=True)
+        assert ax.get_ylabel() == "User's ylabel"
     finally:
         plt.close(fig)
 
@@ -832,9 +840,12 @@ def test_an_invisible_family_releases_its_edge():
     try:
         ax.isobars(labels="left")
         assert ax._edge_owners == {"left": "isobars"}
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
         ax.isobars(visible=False)
         assert ax._edge_owners == {}
         assert not ax.yaxis.get_visible()
+        # Release must clear the auto-title it set (spec §3.2).
+        assert ax.get_ylabel() == ""
         ax.isotherms(labels="left")
         assert ax._edge_owners == {"left": "isotherms"}
     finally:
@@ -891,13 +902,11 @@ def test_edge_ticks_follow_set_extent():
         fig.canvas.draw()
         zoomed = _ticks(ax.yaxis)
         assert zoomed != wide
-        # The zoomed view shows a strictly narrower pressure range than the
-        # full view.  An absolute 500-900 hPa guard fails because the view
-        # extent defines corners in (pressure, temperature) space; the left
-        # edge of the resulting x-y rectangle cuts through isobars slightly
-        # below 500 hPa, so some ticks below 500 are geometrically correct.
-        assert min(float(t) for t in zoomed) > min(float(t) for t in wide)
-        assert max(float(t) for t in zoomed) < max(float(t) for t in wide)
+        # The left edge is a vertical line in (x, y) tephigram data space, not
+        # a constant-pressure line.  At the top-left corner (P=500, T=-10) the
+        # left edge sweeps down to ~457 hPa, so isobars in the 460-480 hPa band
+        # genuinely cross it; a naive 500-900 hPa guard would be wrong.
+        assert zoomed == [str(v) for v in range(460, 900, 20)]
     finally:
         plt.close(fig)
 
@@ -911,5 +920,23 @@ def test_every_edge_can_be_claimed_at_once():
         fig.canvas.draw()
         assert set(ax._edge_owners) == set(EDGES)
         assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
+def test_config_top_claim_takes_effect_at_axes_creation():
+    """A config-driven edge claim via the top secondary axis works end-to-end.
+
+    This is the only path that builds a secondary axes from inside
+    ``Axes.__init__`` → ``clear``; it verifies the claim is live
+    immediately without a separate configure call.
+    """
+    with config.context(mixing_ratios={"labels": "top"}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        assert ax._edge_owners["top"] == "mixing_ratios"
+        assert "top" in ax._secondary_axes
+        assert len(ax.child_axes) == 1
+        fig.canvas.draw()
     finally:
         plt.close(fig)
