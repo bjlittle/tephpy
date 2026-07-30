@@ -1153,6 +1153,60 @@ def test_tick_colour_tracks_its_own_family_only():
         plt.close(fig)
 
 
+def test_a_new_owner_restamps_the_edge_tick_colour():
+    """A new owner's colour lands even when it matches the last one's.
+
+    The RGBA memory survives release, so keying it by colour alone would
+    suppress this claim and strand the ticks in the user's colour — tied to
+    a family that no longer owns the edge (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        ax.edge_axis("left").set_tick_params(color="red", labelcolor="red")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("red"))
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_claim_restores_an_edge_axis_the_user_hid():
+    """Visibility is identity, so a claim restores it on all four edges.
+
+    Hiding the ``Axis`` alone leaves a top or right secondary axes visible,
+    so restoring only the container would give the reclaimed edge no ticks
+    while bottom and left came back (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_visible(False)
+        ax.edge_axis("left").set_visible(False)
+        ax.mixing_ratios(labels=False)
+        ax.isobars(labels=False)
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_visible()
+        assert ax._secondary_axes["top"].get_visible()
+        assert ax.edge_axis("left").get_visible()
+        assert _ticks(ax.edge_axis("top"))
+        assert _ticks(ax.yaxis)
+    finally:
+        plt.close(fig)
+
+
 def test_a_cleared_axis_title_stays_cleared():
     """``set_ylabel("")`` durably means "ticks, no title" (spec §3.2).
 

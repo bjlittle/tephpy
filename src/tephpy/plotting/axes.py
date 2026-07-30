@@ -368,11 +368,13 @@ class TephigramAxes(Axes):
     _edge_owners: dict[str, str]
     _secondary_axes: dict[str, SecondaryAxis]
     _edge_titles: dict[str, str]
-    #: The RGBA last applied to each claimed edge's ticks, so a sync
-    #: re-applies only what the owning family actually changed. Survives
-    #: release, which is what makes a family visibility toggle a true round
-    #: trip; only :meth:`clear` empties it (spec §3.2).
-    _edge_tick_colors: dict[str, tuple[float, float, float, float]]
+    #: The owner and RGBA last applied to each claimed edge's ticks, so a
+    #: sync re-applies only what the owning family actually changed.
+    #: Survives release, which is what makes a family visibility toggle a
+    #: true round trip; the owner is part of the key so a new owner's colour
+    #: still lands when it matches the last one's. Only :meth:`clear` empties
+    #: it (spec §3.2).
+    _edge_tick_colors: dict[str, tuple[str, tuple[float, float, float, float]]]
     #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
     #: live before ``Axes.__init__`` reaches :meth:`clear`.
     _edge_sync_busy: bool = False
@@ -968,7 +970,8 @@ class TephigramAxes(Axes):
         ``ax.edge_axis("top").set_tick_params(labelsize=12)``, or
         ``set_label_text("")`` to keep the ticks and drop the axis title.
         The only thing tephpy changes afterwards is the tick colour, and
-        only when the owning family's own colour or alpha changes.
+        only when the owning family's own colour or alpha changes, or
+        another family takes the edge.
 
         Parameters
         ----------
@@ -985,10 +988,10 @@ class TephigramAxes(Axes):
         TypeError
             If `edge` is not one of ``EDGES``.
         ValueError
-            If no family labels that edge. Probing one must not build a
-            secondary axes nothing is using, and a claim stamps the owning
-            family's tick colour, so a colour set before the claim would not
-            survive it.
+            If no family labels that edge. An unclaimed edge renders
+            nothing to style — bottom and left are hidden, and top and
+            right have no axis yet — and probing one must not build a
+            secondary axes nothing is using.
         """
         if edge not in EDGES:
             msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
@@ -1133,10 +1136,14 @@ class TephigramAxes(Axes):
             # nothing. NullLocator is also matplotlib's linear-axis default, so
             # release restores it.
             axis.set_minor_locator(NullLocator())
+            # Visibility is identity, so a claim restores it on both paths:
+            # the ``Axis`` on every edge, and for top or right the secondary
+            # axes that hid with it, spine included. Showing the container
+            # alone would leave an ``Axis`` the user had hidden drawing no
+            # ticks on an edge that has just been claimed (spec §3.2).
+            axis.set_visible(True)
             secondary = self._secondary_axes.get(edge)
-            if secondary is None:
-                axis.set_visible(True)
-            else:
+            if secondary is not None:
                 secondary.set_visible(True)
             if not axis.get_label_text():
                 title = EDGE_AXIS_TITLES[name]
@@ -1145,10 +1152,14 @@ class TephigramAxes(Axes):
         # ``set_tick_params`` takes no alpha, and per-``Tick`` alpha would not
         # survive matplotlib rebuilding the tick artists on a locator change,
         # so the family's alpha is baked into the tick RGBA instead.
+        # The memory is keyed by owner as well as RGBA: it survives release,
+        # so a bare colour comparison would suppress a new owner's claim
+        # whenever its colour matched the last owner's, leaving the ticks in
+        # a colour that now ties them to nothing.
         rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
-        if self._edge_tick_colors.get(edge) != rgba:
+        if self._edge_tick_colors.get(edge) != (name, rgba):
             axis.set_tick_params(color=rgba, labelcolor=rgba)
-            self._edge_tick_colors[edge] = rgba
+            self._edge_tick_colors[edge] = (name, rgba)
 
     def _release_edge(self, edge: str) -> None:
         """Return one edge to its unclaimed state.
