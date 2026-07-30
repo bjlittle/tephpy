@@ -187,14 +187,30 @@ from
 to
 
 ```python
-        del vmax
-        return [p for p in self() if p >= vmin]
+        return [p for p in self() if vmin <= p <= vmax]
 ```
+
+Both bounds are required: left-edge positions are tephigram y-coordinates in the
+~1690–1744 range, so a `vmin`-only filter with `vmin=0.0` is a no-op and the
+break would not discriminate.
 
 Run: `pixi run --frozen pytest tests/plotting/test_isopleths.py::test_edge_locator_tracks_the_view -q`
 
-Expected: FAIL on `assert ticks == zoomed`. The old assertion would have passed here —
-that is the point of the change. **Revert the edit to `isopleths.py` immediately.**
+Expected: FAIL on `assert ticks == zoomed` — the filtered return is empty while
+`zoomed` holds the 22 crossings.
+
+Note what this does and does not prove. It proves the *new* assertions are
+falsifiable. It does **not** show the old assertion passing under the same break:
+`self()` inside the broken body still assigns the full list to `self.positions`,
+so `tick_values(...) == locator.positions` compares `[]` against 22 items and
+fails too. The old assertion's defect was never value-equality — it was
+*identity*. An honest `tick_values` returns the very object it assigned to
+`self.positions`, making the comparison `x == x`. No break to `tick_values` can
+falsify it while leaving the method honest, so its unfalsifiability is provable
+by inspection rather than by experiment. That is exactly why the replacement
+compares against an independently captured snapshot instead.
+
+**Revert the edit to `isopleths.py` immediately.**
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -376,10 +392,12 @@ Insert between `test_top_and_right_use_lazily_created_secondary_axes` and
 def test_a_family_can_move_its_own_edge():
     """Top to right in one resolve: a release and a claim in the same sync.
 
-    The only transition that releases one secondary axes and builds another
-    inside a single ``_sync_edge_labels``.  The released edge must come away
-    fully unclaimed — hidden, untitled and back on matplotlib's linear-axis
-    defaults — while the claimed edge comes up ticked and titled (spec §3.2).
+    One of the two transitions that release one secondary axes and build
+    another inside a single ``_sync_edge_labels``; the ``right`` to ``top``
+    mirror claims before it releases, because ``EDGES`` visits ``top`` first.
+    The released edge must come away fully unclaimed — hidden, untitled and
+    back on matplotlib's linear-axis defaults — while the claimed edge comes
+    up ticked and titled (spec §3.2).
     """
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:

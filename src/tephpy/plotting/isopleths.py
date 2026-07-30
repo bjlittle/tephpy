@@ -1101,7 +1101,7 @@ class IsoplethFamily(martist.Artist):
     def _inline_members(
         self, view: mtransforms.Bbox, selected: list[Member]
     ) -> list[Member]:
-        """Return the selected members that no claimed edge labels.
+        """Return the selected members no claimed edge already labels.
 
         The automatic remainder of spec §3.2: listed edges label the members
         that reach them, and every member left over is labelled inline. With

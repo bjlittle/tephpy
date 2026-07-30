@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoLocator
 from metpy.units import units
 import numpy as np
 import pytest
@@ -17,6 +18,7 @@ import pytest
 from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
+    BARB_GUTTER_PAD,
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
@@ -804,6 +806,44 @@ def test_top_and_right_use_lazily_created_secondary_axes():
         plt.close(fig)
 
 
+def test_a_family_can_move_its_own_edge():
+    """Top to right in one resolve: a release and a claim in the same sync.
+
+    One of the two transitions that release one secondary axes and build
+    another inside a single ``_sync_edge_labels``; the ``right`` to ``top``
+    mirror claims before it releases, because ``EDGES`` visits ``top`` first.
+    The released edge must come away fully unclaimed — hidden, untitled and
+    back on matplotlib's linear-axis defaults — while the claimed edge comes
+    up ticked and titled (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="top")
+        fig.canvas.draw()
+        top = ax.edge_axis("top")
+        assert _ticks(top) == ["150", "200", "200"]
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        assert ax._edge_owners == {"right": "isobars"}
+        # The top secondary hides rather than being destroyed, so the handle
+        # taken before the move is still the live axis afterwards.
+        assert ax._secondary_axes["top"].xaxis is top
+        assert not ax._secondary_axes["top"].get_visible()
+        assert top.get_label_text() == ""
+        # Not just hidden: the locator goes back to matplotlib's default, so
+        # the released edge no longer holds the family through an
+        # ``_EdgeLocator``.
+        assert isinstance(top.get_major_locator(), AutoLocator)
+        right = ax.edge_axis("right")
+        assert ax._secondary_axes["right"].get_visible()
+        assert right.get_label_text() == EDGE_AXIS_TITLES["isobars"]
+        assert _ticks(right) == ["200", "250", "300"]
+        assert ax._edge_titles == {"right": EDGE_AXIS_TITLES["isobars"]}
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
 def test_one_family_per_edge():
     """Two claimants raise, naming both and the edge (spec §3.2)."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
@@ -879,7 +919,11 @@ def test_an_invisible_family_releases_its_edge():
         ax.isobars(visible=False)
         assert ax._edge_owners == {}
         assert not ax.yaxis.get_visible()
-        # Release must clear the auto-title it set (spec §3.2).
+        # Release clears the auto-title it set (spec §3.2).  That it clears
+        # *only* its own title and never a user's is a separate clause, and
+        # is pinned by the third leg of
+        # ``test_a_user_axis_title_wins_either_way`` — not by this assertion,
+        # which passes either way.
         assert ax.get_ylabel() == ""
         ax.isotherms(labels="left")
         assert ax._edge_owners == {"left": "isotherms"}
@@ -918,6 +962,11 @@ def test_right_edge_labels_widen_the_gutter_pad():
         ax.plot_barbs(snd)
         fig.canvas.draw()
         narrow = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        # Pinned, not merely ordered.  The load-bearing half of this test is
+        # that an unclaimed right edge leaves the layout exactly as it was
+        # before edges could be labelled at all; an inequality against
+        # ``wide`` would still pass if the unlabelled pad drifted.
+        assert narrow == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
         ax.isobars(labels="right")
         fig.canvas.draw()
         wide = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
