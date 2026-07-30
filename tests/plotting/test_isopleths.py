@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
+import warnings
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -406,3 +407,312 @@ def test_configure_failure_leaves_family_unchanged():
     family.configure(color="red")
     assert family.options.color == "red"
     assert family.options.interval is None
+
+
+VIEW = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
+
+
+def test_edge_crossings_isotherm_bottom_is_analytic():
+    """An isotherm x - y = 2T meets y = y0 at exactly x = y0 + 2T."""
+    (member,) = isopleths.isotherm_members([20.0])
+    crossings = isopleths.edge_crossings(member.xy, "bottom", VIEW)
+    np.testing.assert_allclose(crossings, [VIEW.y0 + 40.0], rtol=1e-12)
+
+
+def test_edge_crossings_isotherm_left_is_analytic():
+    """An isotherm x - y = 2T meets x = x0 at exactly y = x0 - 2T."""
+    (member,) = isopleths.isotherm_members([-50.0])
+    crossings = isopleths.edge_crossings(member.xy, "left", VIEW)
+    np.testing.assert_allclose(crossings, [VIEW.x0 + 100.0], rtol=1e-12)
+
+
+def test_edge_crossings_outside_the_edge_span_are_dropped():
+    """A crossing of the infinite line beyond the edge segment is not a hit."""
+    tiny = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1600.0, 1822.0)
+    (member,) = isopleths.isotherm_members([20.0])
+    assert isopleths.edge_crossings(member.xy, "bottom", tiny).size == 0
+
+
+def test_edge_crossings_vertex_on_the_edge_counts_once():
+    """A vertex sitting exactly on the edge yields one crossing, not two."""
+    xy = np.array([[1700.0, 1600.0], [1700.0, 1671.0], [1700.0, 1750.0]])
+    crossings = isopleths.edge_crossings(xy, "bottom", VIEW)
+    np.testing.assert_allclose(crossings, [1700.0])
+
+
+def test_edge_crossings_terminal_vertex_on_the_edge_counts():
+    """The last vertex starts no segment, but still lies on the edge.
+
+    The same geometric vertex must give the same answer wherever it sits in
+    the polyline, so this is pinned against the interior placement above.
+    """
+    terminal = np.array([[1700.0, 1750.0], [1700.0, 1671.0]])
+    np.testing.assert_allclose(
+        isopleths.edge_crossings(terminal, "bottom", VIEW), [1700.0]
+    )
+    leading = np.array([[1700.0, 1671.0], [1700.0, 1750.0]])
+    np.testing.assert_allclose(
+        isopleths.edge_crossings(leading, "bottom", VIEW), [1700.0]
+    )
+
+
+def test_edge_crossings_ignores_non_finite_segments():
+    """Truncated members carry NaN vertices; those segments never hit."""
+    xy = np.array([[1700.0, 1600.0], [np.nan, np.nan], [1700.0, 1750.0]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+@pytest.mark.parametrize("infinity", [np.inf, -np.inf])
+def test_edge_crossings_ignores_infinite_endpoints(infinity):
+    """``np.sign`` maps +/-inf to +/-1, which would fake a sign change.
+
+    ``-inf`` is the dangerous one: it used to return a finite, wholly
+    fictitious crossing rather than nothing at all.
+    """
+    xy = np.array([[1700.0, 1750.0], [1750.0, infinity]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_opposing_infinities_are_silent():
+    """Opposing infinities divide inf by inf; mask before doing the maths."""
+    xy = np.array([[1700.0, -np.inf], [1750.0, np.inf]])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_needs_two_vertices():
+    """A degenerate polyline has no segments to intersect."""
+    xy = np.array([[1700.0, 1671.0]])
+    assert isopleths.edge_crossings(xy, "bottom", VIEW).size == 0
+
+
+def test_edge_crossings_rejects_an_unknown_edge():
+    """Fail loud on an unknown edge name (spec §6)."""
+    (member,) = isopleths.isotherm_members([0.0])
+    with pytest.raises(TypeError, match=r"unknown edge 'middle'.*bottom"):
+        isopleths.edge_crossings(member.xy, "middle", VIEW)
+
+
+def test_edges_are_the_four_diagram_edges():
+    assert isopleths.EDGES == ("bottom", "top", "left", "right")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, (True, ())),
+        (True, (True, ())),
+        (False, (False, ())),
+        ("bottom", (True, ("bottom",))),
+        (("bottom", "left"), (True, ("bottom", "left"))),
+        (("left", "bottom"), (True, ("left", "bottom"))),
+        (("bottom", "bottom"), (True, ("bottom",))),
+        ((), (False, ())),
+    ],
+)
+def test_normalize_labels(raw, expected):
+    """A bare string and a one-tuple are identical; duplicates collapse."""
+    assert isopleths._normalize_labels(raw, "isobars") == expected
+
+
+@pytest.mark.parametrize("raw", ["middle", ("bottom", "middle"), (0,), 3.5])
+def test_normalize_labels_rejects_unknown_placements(raw):
+    """Fail loud, naming the placement and the valid set (spec §6)."""
+    with pytest.raises(TypeError, match=r"'isobars' label placement"):
+        isopleths._normalize_labels(raw, "isobars")
+
+
+def test_resolved_label_edges_and_invisibility():
+    """An invisible family labels nothing and holds no edge (spec §3.2)."""
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars)
+    assert family.options.labels is True
+    assert family.options.label_edges == ()
+    family.configure(labels=("bottom", "left"))
+    assert family.options.label_edges == ("bottom", "left")
+    family.configure(visible=False)
+    assert family.options.label_edges == ()
+    family.configure(visible=True)
+    assert family.options.label_edges == ("bottom", "left")
+    family.configure(labels=True)
+    assert family.options.label_edges == ()
+
+
+def test_validator_rejection_rolls_the_family_back():
+    """A validator veto leaves the family exactly as it was."""
+
+    def veto(name, options):
+        if options.label_edges:
+            msg = f"{name} may not claim an edge"
+            raise TypeError(msg)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars, validate=veto)
+    family.configure(color="red")
+    with pytest.raises(TypeError, match="may not claim an edge"):
+        family.configure(labels="left", color="blue")
+    assert family.options.label_edges == ()
+    assert family.options.color == "red"
+
+
+def test_on_change_fires_once_per_successful_resolve():
+    """Every resolve notifies the owner; a rejected one must not."""
+
+    def veto(name, options):
+        if "right" in options.label_edges:
+            msg = f"{name} may not claim the right edge"
+            raise TypeError(msg)
+
+    calls = []
+
+    def notify():
+        calls.append(None)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(
+        spec, config.isobars, validate=veto, on_change=notify
+    )
+    # Creation resolves before the owner can hold the family, so it is silent.
+    assert calls == []
+    family.configure(labels="left")
+    assert len(calls) == 1
+    with pytest.raises(TypeError, match="may not claim the right edge"):
+        family.configure(labels="right")
+    assert len(calls) == 1
+    assert family.options.label_edges == ("left",)
+    family.configure(labels=True)
+    assert len(calls) == 2
+
+
+def test_set_visible_resolves_and_notifies_only_on_a_change():
+    """``set_visible`` is the visibility resolve, and it does not recurse."""
+    calls = []
+
+    def notify():
+        calls.append(None)
+
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    family = isopleths.IsoplethFamily(spec, config.isobars, on_change=notify)
+    family.configure(labels=("bottom", "left"))
+    assert len(calls) == 1
+    family.set_visible(False)
+    assert len(calls) == 2
+    assert family.get_visible() is False
+    assert family.options.visible is False
+    assert family.options.label_edges == ()
+    family.set_visible(False)
+    assert len(calls) == 2
+    family.set_visible(True)
+    assert len(calls) == 3
+    assert family.get_visible() is True
+    assert family.options.label_edges == ("bottom", "left")
+    assert family.stale is True
+
+
+def test_selected_and_inline_members_at_the_default_extent():
+    """Spec §3.2's coverage table, exercised through the family."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        view = ax.viewLim
+
+        isobars = ax.isobars(labels=("bottom", "left"))
+        selected = isobars._selected_members()
+        assert [member.value for member in selected][:3] == [150.0, 200.0, 250.0]
+        assert len(selected) == 19
+        assert isobars._inline_members(view, selected) == []
+
+        # Release the edges before the isotherms take them: Task 5 makes a
+        # second claimant an error, and this test must keep passing.
+        ax.isobars(labels=True)
+        isotherms = ax.isotherms(labels=("bottom", "left"))
+        selected = isotherms._selected_members()
+        assert len(selected) == 19
+        remainder = isotherms._inline_members(view, selected)
+        assert [member.value for member in remainder] == [-120.0]
+
+        adiabats = ax.dry_adiabats()
+        selected = adiabats._selected_members()
+        assert adiabats._inline_members(view, selected) == selected
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_matches_the_coverage_table():
+    """Spec §3.2's measured coverage, through the locator (spec §7)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "left")
+        positions = locator()
+        assert len(positions) == 18
+        assert locator.values == [float(p) for p in range(150, 1050, 50)]
+        assert locator.positions == positions
+
+        locator = isopleths._EdgeLocator(ax.mixing_ratios(), "top")
+        locator()
+        assert locator.values == [0.05, 0.2, 1.0, 2.0, 4.0, 7.0, 14.0, 28.0]
+
+        locator = isopleths._EdgeLocator(ax.isotherms(), "bottom")
+        locator()
+        assert locator.values == [float(t) for t in range(-40, 70, 10)]
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_ticks_every_crossing():
+    """200 hPa leaves and re-enters the view across the top edge."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "top")
+        locator()
+        assert locator.values == [150.0, 200.0, 200.0]
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_tracks_the_view():
+    """Matplotlib calls the locator every draw, so zoom needs no plumbing."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.isobars(), "left")
+        wide = locator()
+        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        fig.canvas.draw()
+        assert locator() != wide
+        # Note: The zoomed extent may include isobars outside the nominal
+        # 500-900 hPa range because isobars curve and may enter from the view
+        # edges; edge_crossings filters to members that actually reach the
+        # requested edge within the view bounds.
+        assert all(450.0 <= value <= 900.0 for value in locator.values)
+        assert locator.tick_values(0.0, 1.0) == locator.positions
+    finally:
+        plt.close(fig)
+
+
+def test_edge_formatter_reads_the_cached_values():
+    """No inverse math: the formatter reads the value beside the position."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        locator = isopleths._EdgeLocator(ax.mixing_ratios(), "top")
+        formatter = isopleths._EdgeFormatter(locator)
+        positions = locator()
+        assert formatter(positions[0]) == "0.05"
+        assert formatter(positions[-1]) == "28"
+        assert formatter(positions[0] + 1.0) == ""
+    finally:
+        plt.close(fig)
+
+
+def test_edge_locator_without_axes_is_empty():
+    """A detached family has no view to intersect."""
+    spec = isopleths._FAMILY_SPECS["isobars"]
+    locator = isopleths._EdgeLocator(
+        isopleths.IsoplethFamily(spec, config.isobars), "left"
+    )
+    assert locator() == []
+    assert locator.values == []

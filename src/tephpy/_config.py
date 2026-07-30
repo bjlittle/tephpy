@@ -54,8 +54,12 @@ class LineOptions:
     #: Line and label alpha.
     alpha: float | None = None
 
-    #: Whether member values are labelled on the lines.
-    labels: bool | None = None
+    #: Whether member values are labelled, and where: ``True`` (every member
+    #: labelled inline — the default), ``False`` (none), or the diagram edge
+    #: names ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly as a
+    #: bare string or together as a tuple. Listed edges label the members that
+    #: reach them; every member left over is labelled inline (spec §3.2).
+    labels: bool | str | tuple[str, ...] | None = None
 
     #: Whether the family is drawn at all.
     visible: bool | None = None

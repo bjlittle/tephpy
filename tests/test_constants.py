@@ -147,3 +147,24 @@ def test_io_conventions():
     assert "TEXT:CSV" in constants.WYOMING_URL
     assert constants.WYOMING_TIMEOUT > 0.0
     assert constants.IGRA_MISSING == (-9999, -8888)
+
+
+def test_edge_axis_titles_cover_every_family():
+    """One axis title per family accessor, in the accessor's own units."""
+    assert set(constants.EDGE_AXIS_TITLES) == {
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    }
+    assert constants.EDGE_AXIS_TITLES["isobars"] == "Pressure (hPa)"
+    assert all(title.strip() for title in constants.EDGE_AXIS_TITLES.values())
+
+
+def test_edge_label_gutter_pad_clears_a_tick_label():
+    """The substituted pad is wider than the panel pads it replaces."""
+    assert constants.EDGE_LABEL_GUTTER_PAD > constants.BARB_GUTTER_PAD
+    assert constants.EDGE_LABEL_GUTTER_PAD > constants.INDICES_PANEL_PAD
+    assert constants.EDGE_TICK_LENGTH > 0.0
+    assert constants.EDGE_TICK_PAD >= 0.0

@@ -27,10 +27,12 @@ from typing import TYPE_CHECKING, Any, Final, cast, overload
 import warnings
 
 from matplotlib.axes import Axes
+import matplotlib.colors as mcolors
 from matplotlib.figure import FigureBase
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.projections import register_projection
+from matplotlib.ticker import AutoLocator, NullLocator, ScalarFormatter
 import matplotlib.transforms as mtransforms
 from mpl_toolkits.axes_grid1 import axes_size, make_axes_locatable
 import numpy as np
@@ -47,10 +49,15 @@ from tephpy._constants import (
     CIN_COLOR,
     CURSOR_FIELDS,
     DEFAULT_EXTENT,
+    EDGE_AXIS_TITLES,
+    EDGE_LABEL_GUTTER_PAD,
+    EDGE_TICK_LENGTH,
+    EDGE_TICK_PAD,
     INDICES_PANEL_FONTSIZE,
     INDICES_PANEL_PAD,
     INDICES_PANEL_ROWS,
     INDICES_PANEL_WIDTH,
+    LABEL_FONTSIZE,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -62,15 +69,24 @@ from tephpy._units import as_quantity, check_units_mapping
 from tephpy.exceptions import MissingDataError
 from tephpy.plotting import shading
 from tephpy.plotting.barbs import BarbStaff
-from tephpy.plotting.isopleths import _FAMILY_SPECS, IsoplethFamily
+from tephpy.plotting.isopleths import (
+    _FAMILY_SPECS,
+    EDGES,
+    IsoplethFamily,
+    _EdgeFormatter,
+    _EdgeLocator,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
+    from matplotlib.axes._secondary_axes import SecondaryAxis
+    from matplotlib.axis import Axis
     from matplotlib.lines import Line2D
     from mpl_toolkits.axes_grid1.axes_divider import AxesDivider
 
     from tephpy.calc import Profile, SoundingIndices
+    from tephpy.plotting.isopleths import ResolvedOptions
     from tephpy.sounding import Sounding
 
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
@@ -337,7 +353,9 @@ class TephigramAxes(Axes):
     The temperature/theta mapping is exposed as
     :attr:`tephigram_transform`; artists plot in (temperature, theta)
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
-    x/y ticks carry no meteorological meaning and are hidden.
+    x/y ticks carry no meteorological meaning and are hidden until
+    a family claims an edge for its labels — ``labels=("bottom", "left")``
+    turns them into that family's scale (spec §3.2).
     """
 
     name = "tephigram"
@@ -347,6 +365,12 @@ class TephigramAxes(Axes):
     _indices_panel: Axes | None
     _barb_gutter: Axes | None
     _side_divider: AxesDivider | None
+    _edge_owners: dict[str, str]
+    _secondary_axes: dict[str, SecondaryAxis]
+    _edge_titles: dict[str, str]
+    #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
+    #: live before ``Axes.__init__`` reaches :meth:`clear`.
+    _edge_sync_busy: bool = False
 
     def clear(self) -> None:
         """Reset the axes to the tephigram projection defaults.
@@ -354,12 +378,18 @@ class TephigramAxes(Axes):
         Matplotlib calls this during ``Axes.__init__`` and on user
         ``ax.clear()``; both paths recreate the projection-owned state:
         the tephigram transform, equal aspect, hidden native axes, the
-        five background isopleth families, and the default extent
+        five background isopleth families, any edges they claim for their
+        labels, and the default extent
         (``tephpy.config`` diagram extent, else ``DEFAULT_EXTENT``).
         Side panels — the barb gutter and the indices panel — are
         removed with the diagram they annotated, except when the figure
         is clearing itself: it removes every axes anyway, and it is
         iterating a snapshot this one must not delete from.
+
+        Raises
+        ------
+        TypeError
+            If ``tephpy.config`` gives one diagram edge to two families.
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
@@ -379,11 +409,22 @@ class TephigramAxes(Axes):
         self._indices_panel = None
         self._barb_gutter = None
         self._side_divider = None
+        self._edge_owners = {}
+        self._secondary_axes = {}
+        self._edge_titles = {}
         self._families = {}
         for name, spec in _FAMILY_SPECS.items():
-            family = IsoplethFamily(spec, getattr(config, name))
+            # The families arm their ``on_change`` only once constructed, so
+            # this loop builds all five before the first sync sees any.
+            family = IsoplethFamily(
+                spec,
+                getattr(config, name),
+                validate=self._check_label_edges,
+                on_change=self._sync_edge_labels,
+            )
             self.add_artist(family)
             self._families[name] = family
+        self._sync_edge_labels()
         extent = config.diagram.extent
         self.set_extent(DEFAULT_EXTENT if extent is None else extent)
 
@@ -870,7 +911,10 @@ class TephigramAxes(Axes):
         divider's horizontal sizes as diagram, barb gutter, indices
         panel — skipping absent panels — and reassigns every locator, so
         the spec §3.2 order holds regardless of the order the panel
-        methods were called in.
+        methods were called in. The panel nearest the diagram takes
+        ``EDGE_LABEL_GUTTER_PAD`` in place of its own pad while the right
+        edge carries isopleth ticks, which are wider than the 0.1 in
+        conventions (spec §3.2).
         """
         divider = self._side_divider
         if divider is None:
@@ -881,16 +925,204 @@ class TephigramAxes(Axes):
             (self._barb_gutter, BARB_GUTTER_PAD, BARB_GUTTER_WIDTH),
             (self._indices_panel, INDICES_PANEL_PAD, INDICES_PANEL_WIDTH),
         )
+        right_labelled = "right" in self._edge_owners
         for panel, pad, width in panels:
             if panel is None:
                 continue
-            horizontal.append(axes_size.Fixed(pad))
+            # The first panel abuts the diagram, so it is the one the right
+            # edge's tick labels would land on (spec §3.2).
+            gap = EDGE_LABEL_GUTTER_PAD if right_labelled and not slots else pad
+            horizontal.append(axes_size.Fixed(gap))
             horizontal.append(axes_size.from_any(width, fraction_ref=horizontal[0]))
             slots.append((panel, len(horizontal) - 1))
         divider.set_horizontal(horizontal)
         self.set_axes_locator(divider.new_locator(nx=0, ny=0))
         for panel, nx in slots:
             panel.set_axes_locator(divider.new_locator(nx=nx, ny=0))
+
+    def _check_label_edges(self, name: str, options: ResolvedOptions) -> None:
+        """Reject an edge claim another family already holds.
+
+        The axes owns all five families, so it is the only place that can see
+        a collision; handing this to each family as its validator puts the
+        rejection inside ``IsoplethFamily.configure``'s rollback, and running
+        it during family creation surfaces a ``tephpy.config`` conflict at
+        axes creation rather than at first draw (spec §3.2).
+
+        Parameters
+        ----------
+        name : str
+            The family the candidate options belong to.
+        options : ResolvedOptions
+            The candidate options, not yet in force.
+
+        Raises
+        ------
+        TypeError
+            If another family already claims one of the candidate's edges.
+        """
+        claimed = set(options.label_edges)
+        if not claimed:
+            return
+        for other_name, other in self._families.items():
+            if other_name == name:
+                continue
+            clash = claimed & set(other.options.label_edges)
+            if clash:
+                msg = (
+                    f"the {min(clash)!r} edge is already labelled by "
+                    f"{other_name!r}: one family per edge, so release it "
+                    f"before {name!r} can claim it (spec §3.2)"
+                )
+                raise TypeError(msg)
+
+    def _edge_axis(self, edge: str) -> Axis:
+        """Return the axis that draws one diagram edge's ticks.
+
+        Bottom and left reclaim the axes' own hidden ``xaxis``/``yaxis``
+        (spec §3.1); top and right take a secondary axis, created on first
+        demand and cached. The identity transform keeps the secondary axis in
+        the parent's data coordinates, which is what the crossings are in.
+
+        Parameters
+        ----------
+        edge : str
+            The edge, one of ``EDGES``.
+
+        Returns
+        -------
+        matplotlib.axis.Axis
+            The axis to point a locator and formatter at.
+        """
+        if edge == "bottom":
+            return self.xaxis
+        if edge == "left":
+            return self.yaxis
+        secondary = self._secondary_axes.get(edge)
+        if secondary is None:
+            identity = mtransforms.IdentityTransform()
+            secondary = (
+                self.secondary_xaxis("top", functions=identity)
+                if edge == "top"
+                else self.secondary_yaxis("right", functions=identity)
+            )
+            self._secondary_axes[edge] = secondary
+        return secondary.xaxis if edge == "top" else secondary.yaxis
+
+    def _claim_edge(self, edge: str, name: str, family: IsoplethFamily) -> None:
+        """Point one edge's ticks at a family. Idempotent.
+
+        Re-applied on every sync so a family's restyle reaches its ticks.
+
+        Parameters
+        ----------
+        edge : str
+            The edge to claim, one of ``EDGES``.
+        name : str
+            The claiming family's accessor name, which keys the axis titles.
+        family : IsoplethFamily
+            The claiming family.
+        """
+        axis = self._edge_axis(edge)
+        locator = _EdgeLocator(family, edge)
+        axis.set_major_locator(locator)
+        axis.set_major_formatter(_EdgeFormatter(locator))
+        # Crossings are exact positions; a minor tick between them means
+        # nothing. NullLocator is also matplotlib's linear-axis default, so
+        # release restores it.
+        axis.set_minor_locator(NullLocator())
+        axis.set_visible(True)
+        # ``set_tick_params`` takes no alpha, and per-``Tick`` alpha would not
+        # survive matplotlib rebuilding the tick artists on a locator change,
+        # so the family's alpha is baked into the tick RGBA instead.
+        rgba = mcolors.to_rgba(family.options.color, family.options.alpha)
+        axis.set_tick_params(
+            color=rgba,
+            labelcolor=rgba,
+            labelsize=LABEL_FONTSIZE,
+            length=EDGE_TICK_LENGTH,
+            pad=EDGE_TICK_PAD,
+        )
+        # Making the axis visible would otherwise let ``ax.grid(True)`` — and
+        # ``rcParams["axes.grid"]``, which several styles set — draw lines of
+        # constant data-space x or y, which mean nothing on a tephigram. The
+        # ticks are the crossings, not a scale to rule off (spec §3.1/§3.2).
+        axis.grid(visible=False, which="both")
+        if edge == "bottom":
+            # The classic style mirrors ticks onto the opposite edge, which
+            # would collide with that edge's own family.
+            self.xaxis.set_ticks_position("bottom")
+        elif edge == "left":
+            self.yaxis.set_ticks_position("left")
+        if not axis.get_label_text():
+            title = EDGE_AXIS_TITLES[name]
+            axis.set_label_text(title)
+            self._edge_titles[edge] = title
+
+    def _release_edge(self, edge: str) -> None:
+        """Return one edge to its unclaimed state.
+
+        Parameters
+        ----------
+        edge : str
+            The edge to release, one of ``EDGES``.
+        """
+        title = self._edge_titles.pop(edge, None)
+        if edge in {"top", "right"}:
+            # The whole secondary axis goes, and its ticks and title with it —
+            # so the title popped above is dead for these two edges, popped
+            # only to keep the bookkeeping uniform.
+            secondary = self._secondary_axes.pop(edge, None)
+            if secondary is not None:
+                secondary.remove()
+            return
+        axis = self.xaxis if edge == "bottom" else self.yaxis
+        if title is not None and axis.get_label_text() == title:
+            axis.set_label_text("")
+        axis.set_major_locator(AutoLocator())
+        axis.set_major_formatter(ScalarFormatter())
+        axis.set_minor_locator(NullLocator())
+        # Resetting the tick params also restores the axis' grid state from
+        # ``rcParams["axes.grid"]``, undoing the claim's ``grid(False)``.
+        axis.set_tick_params(reset=True, which="both")
+        axis.set_visible(False)
+
+    def _sync_edge_labels(self) -> None:
+        """Match the claimed edges to what the five families now ask for.
+
+        Every successful family resolve lands here — the accessors, a direct
+        :meth:`~tephpy.plotting.isopleths.IsoplethFamily.configure`, an
+        ``Artist.set_visible`` — plus the end of :meth:`clear`. Ownership
+        conflicts were already rejected by :meth:`_check_label_edges`, so this
+        only applies the outcome. A change on the right edge also relayouts the
+        side panels, whose pad widens to clear the tick labels (spec §3.2).
+
+        Nothing on this path resolves a family's options, so a nested call
+        would have nothing new to apply; the guard makes that structural rather
+        than a standing assumption about matplotlib's axis internals.
+        """
+        if self._edge_sync_busy:
+            return
+        self._edge_sync_busy = True
+        try:
+            claims: dict[str, str] = {}
+            for name, family in self._families.items():
+                for edge in family.options.label_edges:
+                    claims[edge] = name
+            had_right = "right" in self._edge_owners
+            for edge in EDGES:
+                owner = claims.get(edge)
+                if self._edge_owners.get(edge) not in (None, owner):
+                    self._release_edge(edge)
+                if owner is None:
+                    self._edge_owners.pop(edge, None)
+                else:
+                    self._edge_owners[edge] = owner
+                    self._claim_edge(edge, owner, self._families[owner])
+            if had_right != ("right" in self._edge_owners):
+                self._relayout_side_panels()
+        finally:
+            self._edge_sync_busy = False
 
     def plot_barbs(
         self,
@@ -1027,6 +1259,10 @@ class TephigramAxes(Axes):
     def _configure_family(self, name: str, kwargs: dict[str, object]) -> IsoplethFamily:
         """Apply non-``None`` accessor kwargs to a family and return it.
 
+        The family's own ``on_change`` runs :meth:`_sync_edge_labels`, so a
+        claim made here reaches the edges by the same route a direct
+        ``family.configure(...)`` takes (spec §3.2).
+
         Parameters
         ----------
         name : str
@@ -1039,6 +1275,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The (possibly reconfigured) family artist.
+
+        Raises
+        ------
+        TypeError
+            If an option name or ``labels`` placement is unknown, or if another
+            family already claims a requested edge.
         """
         family = self._families[name]
         provided = {key: value for key, value in kwargs.items() if value is not None}
@@ -1057,7 +1299,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the isotherm family.
@@ -1078,8 +1320,14 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1087,6 +1335,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The isotherm family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "isotherms",
@@ -1109,7 +1363,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the isobar family.
@@ -1130,8 +1384,14 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1139,6 +1399,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The isobar family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "isobars",
@@ -1161,7 +1427,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the dry-adiabat family.
@@ -1183,8 +1449,14 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1192,6 +1464,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The dry-adiabat family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "dry_adiabats",
@@ -1215,7 +1493,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the moist-adiabat family.
@@ -1239,8 +1517,14 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge. An edge crowded
+            by closely spaced members is thinned with ``interval=``; edge
+            labelling never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1248,6 +1532,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The moist-adiabat family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "moist_adiabats",
@@ -1270,7 +1560,7 @@ class TephigramAxes(Axes):
         color: str | None = None,
         linewidth: float | None = None,
         alpha: float | None = None,
-        labels: bool | None = None,
+        labels: bool | str | tuple[str, ...] | None = None,
         visible: bool | None = None,
     ) -> IsoplethFamily:
         """Return (and optionally reconfigure) the mixing-ratio family.
@@ -1290,8 +1580,14 @@ class TephigramAxes(Axes):
             Line width in points.
         alpha : float, optional
             Line and label alpha.
-        labels : bool, optional
-            Whether member values are labelled.
+        labels : bool or str or tuple of str, optional
+            Where member values are labelled: ``True`` (every member inline —
+            the default), ``False`` (none), or the diagram edge names
+            ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly or as a
+            tuple. Listed edges label the members that reach them; every member
+            left over is labelled inline. One family per edge. An edge crowded
+            by a large member set is thinned with ``values=``; edge labelling
+            never drops a member's label itself.
         visible : bool, optional
             Whether the family is drawn.
 
@@ -1299,6 +1595,12 @@ class TephigramAxes(Axes):
         -------
         IsoplethFamily
             The mixing-ratio family artist.
+
+        Raises
+        ------
+        TypeError
+            If ``labels`` names an unknown placement, or an edge another family
+            already claims.
         """
         return self._configure_family(
             "mixing_ratios",

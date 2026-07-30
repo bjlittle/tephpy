@@ -279,3 +279,29 @@ LABEL_BOX_COLOR: Final[str] = "white"
 
 #: Isopleth label box alpha.
 LABEL_BOX_ALPHA: Final[float] = 0.6
+
+#: Axis titles for edge-labelled isopleth families, keyed by accessor name.
+#: A claimed edge takes its family's title only when the axis has none, so a
+#: user's ``set_xlabel`` wins whichever side of the accessor call it lands on,
+#: and releasing the edge clears the title again (spec §3.2).
+EDGE_AXIS_TITLES: Final[dict[str, str]] = {
+    "isotherms": "Temperature (°C)",
+    "isobars": "Pressure (hPa)",
+    "dry_adiabats": "Potential temperature (°C)",
+    "moist_adiabats": "Wet-bulb potential temperature (°C)",
+    "mixing_ratios": "Mixing ratio (g kg⁻¹)",
+}
+
+#: Edge tick mark length in points.
+EDGE_TICK_LENGTH: Final[float] = 3.0
+
+#: Edge tick label padding from the tick mark, in points.
+EDGE_TICK_PAD: Final[float] = 2.0
+
+#: Side-panel padding substituted for the pad of the panel nearest the
+#: diagram when its right edge carries isopleth ticks, in inches. Both panel
+#: pads (0.1 in) are narrower than an 8 pt tick label, so right-edge labels
+#: would land on whichever panel abuts the diagram. Measured 2026-07-29: a
+#: right axis needs 0.479 in for its ticks, labels and title, so this leaves
+#: 0.07 in of clearance (spec §3.2).
+EDGE_LABEL_GUTTER_PAD: Final[float] = 0.55
