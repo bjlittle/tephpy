@@ -40,10 +40,13 @@ towncrier.
   branch `debt/edge-label-hardening-impl` off an updated `main` and run Tasks 1-5 there.
   Tasks 1-5 below are the *implementation* PR; the plan PR is already done by the time
   Task 1 starts.
-- `.github/labeler.yml` is path-based, not branch-based, despite what the label
-  descriptions say. `docs/**` auto-labels `type: documentation`, `tests/**` auto-labels
-  `type: testing`. `type: tech-debt` has no rule and must be applied by hand on both
-  PRs.
+- **Type labels are applied automatically — never pass `--label` for one.** Two
+  mechanisms run on every PR, and both fire. `.github/workflows/ci-label.yml` matches
+  the **branch prefix**: `startsWith(head.ref, 'debt')` adds `type: tech-debt`, so both
+  PRs in this work earn it from the branch name alone — which is the reason the branch
+  is named `debt/...`. `.github/labeler.yml` matches **changed paths**: `docs/**` adds
+  `type: documentation`, `tests/**` adds `type: testing`, `.github/**` adds `type: ci`.
+  The one label needing a hand is `skip-changelog`, and only on the docs-only plan PR.
 - Never commit to `main` (a `no-commit-to-branch` pre-commit hook enforces this).
 - Execute in a git worktree (superpowers:using-git-worktrees). Once inside it, every
   Bash command, edit and build must use the worktree path — never `cd` to
@@ -596,7 +599,6 @@ fragment.
 git push -u origin debt/edge-label-hardening-impl
 gh pr create --repo bjlittle/tephpy \
   --title "Harden the edge-label tests and tidy the residual bookkeeping" \
-  --label "type: tech-debt" \
   --body "$(cat <<'EOF'
 Closes #53. Implements the plan merged in the preceding docs-only PR.
 
