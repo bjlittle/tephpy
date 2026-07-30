@@ -682,13 +682,25 @@ def test_edge_locator_tracks_the_view():
         wide = locator()
         ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
         fig.canvas.draw()
-        assert locator() != wide
-        # Note: The zoomed extent may include isobars outside the nominal
-        # 500-900 hPa range because isobars curve and may enter from the view
-        # edges; edge_crossings filters to members that actually reach the
-        # requested edge within the view bounds.
+        zoomed = locator()
+        assert zoomed != wide
+        # Two separate reasons the ticks reach below the 500 hPa the extent
+        # names.  The zoom ladder promotes the isobar step to 20 hPa at this
+        # view width, which is what puts 460 and 480 in the family at all;
+        # and the left edge is a vertical line in (x, y) space rather than a
+        # constant-pressure line, so it sweeps down to ~457 hPa at the
+        # top-left corner and those two members genuinely cross it.  The
+        # curvature is why the 450 bound cannot be read off the corner
+        # pressures; the ladder is why these particular members exist.
         assert all(450.0 <= value <= 900.0 for value in locator.values)
-        assert locator.tick_values(0.0, 1.0) == locator.positions
+        # ``tick_values`` must ignore the interval matplotlib hands it and
+        # return the crossings.  Compared against the snapshot above, never
+        # against ``locator.positions``: ``__call__`` returns the very list
+        # it assigns there, so ``tick_values(...) == locator.positions`` is
+        # an identity comparison that cannot fail.
+        ticks = locator.tick_values(0.0, 1.0)
+        assert ticks is not zoomed
+        assert ticks == zoomed
     finally:
         plt.close(fig)
 
