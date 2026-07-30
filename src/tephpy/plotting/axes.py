@@ -956,6 +956,50 @@ class TephigramAxes(Axes):
         for panel, nx in slots:
             panel.set_axes_locator(divider.new_locator(nx=nx, ny=0))
 
+    def edge_axis(self, edge: str) -> Axis:
+        """Return the matplotlib axis drawing one diagram edge's ticks.
+
+        The uniform handle on all four edges (spec §3.2), keyed by the same
+        names the ``labels`` option takes. Bottom and left are the axes' own
+        ``xaxis``/``yaxis``; top and right belong to a secondary axes that
+        has no other public handle. tephpy stamps its tick conventions on an
+        edge axis once, when that axis is created, so everything stock
+        matplotlib offers is the caller's from the claim onwards — e.g.
+        ``ax.edge_axis("top").set_tick_params(labelsize=12)``, or
+        ``set_label_text("")`` to keep the ticks and drop the axis title.
+        The only thing tephpy changes afterwards is the tick colour, and
+        only when the owning family's own colour or alpha changes.
+
+        Parameters
+        ----------
+        edge : str
+            The edge, one of ``EDGES``.
+
+        Returns
+        -------
+        matplotlib.axis.Axis
+            The axis drawing that edge's ticks.
+
+        Raises
+        ------
+        TypeError
+            If `edge` is not one of ``EDGES``.
+        ValueError
+            If no family labels that edge. Styling an unclaimed edge would
+            be overwritten by the conventions its claim stamps, and probing
+            one must not build a secondary axes nothing is using.
+        """
+        if edge not in EDGES:
+            msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
+            raise TypeError(msg)
+        if edge not in self._edge_owners:
+            msg = (
+                f"the {edge!r} edge carries no isopleth labels; claim it "
+                f'first, e.g. ax.isobars(labels="{edge}") (spec §3.2)'
+            )
+            raise ValueError(msg)
+        return self._edge_axis(edge)
+
     def _check_label_edges(self, name: str, options: ResolvedOptions) -> None:
         """Reject an edge claim another family already holds.
 

@@ -1232,3 +1232,57 @@ def test_a_released_secondary_axes_is_hidden_not_destroyed():
         assert _ticks(axis)
     finally:
         plt.close(fig)
+
+
+def test_edge_axis_returns_each_edge_s_axis():
+    """The uniform public handle on all four edges (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        ax.dry_adiabats(labels="right")
+        fig.canvas.draw()
+        assert ax.edge_axis("bottom") is ax.xaxis
+        assert ax.edge_axis("left") is ax.yaxis
+        assert ax.edge_axis("top") is ax._secondary_axes["top"].xaxis
+        assert ax.edge_axis("right") is ax._secondary_axes["right"].yaxis
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_rejects_an_unknown_or_unclaimed_edge():
+    """An unknown name is a TypeError; an unlabelled edge a ValueError."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        with pytest.raises(TypeError, match="unknown edge 'middle'"):
+            ax.edge_axis("middle")
+        with pytest.raises(ValueError, match="'top' edge carries no isopleth"):
+            ax.edge_axis("top")
+        # Probing must not have built a secondary axes nothing is using.
+        assert ax._secondary_axes == {}
+        assert ax.child_axes == []
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_styling_reaches_top_and_survives_a_reclaim():
+    """Stock matplotlib styling now reaches top and right, and sticks."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_tick_params(labelsize=12)
+        ax.edge_axis("top").set_label_text("W")
+        fig.canvas.draw()
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
+        ax.mixing_ratios(labels=False)
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_label_text() == "W"
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
+    finally:
+        plt.close(fig)
