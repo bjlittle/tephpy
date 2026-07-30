@@ -196,8 +196,21 @@ break would not discriminate.
 
 Run: `pixi run --frozen pytest tests/plotting/test_isopleths.py::test_edge_locator_tracks_the_view -q`
 
-Expected: FAIL on `assert ticks == zoomed`. The old assertion would have passed here —
-that is the point of the change. **Revert the edit to `isopleths.py` immediately.**
+Expected: FAIL on `assert ticks == zoomed` — the filtered return is empty while
+`zoomed` holds the 22 crossings.
+
+Note what this does and does not prove. It proves the *new* assertions are
+falsifiable. It does **not** show the old assertion passing under the same break:
+`self()` inside the broken body still assigns the full list to `self.positions`,
+so `tick_values(...) == locator.positions` compares `[]` against 22 items and
+fails too. The old assertion's defect was never value-equality — it was
+*identity*. An honest `tick_values` returns the very object it assigned to
+`self.positions`, making the comparison `x == x`. No break to `tick_values` can
+falsify it while leaving the method honest, so its unfalsifiability is provable
+by inspection rather than by experiment. That is exactly why the replacement
+compares against an independently captured snapshot instead.
+
+**Revert the edit to `isopleths.py` immediately.**
 
 - [ ] **Step 4: Run the test to verify it passes**
 
