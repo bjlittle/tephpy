@@ -1108,27 +1108,37 @@ class TephigramAxes(Axes):
     def _release_edge(self, edge: str) -> None:
         """Return one edge to its unclaimed state.
 
+        Teardown only: the locator and formatter go back to matplotlib's
+        linear-axis defaults, tephpy's own axis title is cleared and
+        forgotten, and the edge hides. Presentation is left exactly as it
+        is — it belongs to the user, and the hidden axis renders none of it
+        (spec §3.2).
+
         Parameters
         ----------
         edge : str
             The edge to release, one of ``EDGES``.
         """
         title = self._edge_titles.pop(edge, None)
-        if edge in {"top", "right"}:
-            # The whole secondary axis goes, and its ticks and title with it —
-            # so the title popped above is dead for these two edges, popped
-            # only to keep the bookkeeping uniform.
-            secondary = self._secondary_axes.pop(edge, None)
-            if secondary is not None:
-                secondary.remove()
+        secondary = self._secondary_axes.get(edge)
+        if secondary is None and edge in {"top", "right"}:
+            # Never claimed, so there is no secondary axes to return; the
+            # early exit also keeps ``_edge_axis`` below from building one.
             return
-        axis = self.xaxis if edge == "bottom" else self.yaxis
+        axis = self._edge_axis(edge)
         if title is not None and axis.get_label_text() == title:
             axis.set_label_text("")
         axis.set_major_locator(AutoLocator())
         axis.set_major_formatter(ScalarFormatter())
         axis.set_minor_locator(NullLocator())
-        axis.set_visible(False)
+        if secondary is None:
+            axis.set_visible(False)
+        else:
+            # The whole secondary axes hides, not merely its ``Axis``, or the
+            # spine it owns would keep drawing. It is kept, not removed, so a
+            # handle held across a release stays live and its ticks and title
+            # survive the reclaim exactly as bottom and left do (spec §3.2).
+            secondary.set_visible(False)
 
     def _sync_edge_labels(self) -> None:
         """Match the claimed edges to what the five families now ask for.

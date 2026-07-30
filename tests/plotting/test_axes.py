@@ -774,7 +774,7 @@ def test_a_user_axis_title_wins_either_way():
 
 
 def test_top_and_right_use_lazily_created_secondary_axes():
-    """Claiming creates one child axes; releasing removes it."""
+    """Claiming creates one child axes; releasing hides it (spec §3.2)."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         ax.mixing_ratios(labels="top")
@@ -792,8 +792,9 @@ def test_top_and_right_use_lazily_created_secondary_axes():
         ]
         ax.mixing_ratios(labels=True)
         fig.canvas.draw()
-        assert ax.child_axes == []
-        assert ax._secondary_axes == {}
+        assert len(ax.child_axes) == 1
+        assert not ax.child_axes[0].get_visible()
+        assert set(ax._secondary_axes) == {"top"}
     finally:
         plt.close(fig)
 
@@ -1199,5 +1200,35 @@ def test_a_family_visibility_round_trip_preserves_edge_styling():
         assert mcolors.to_rgba(
             ax.yaxis.get_ticklabels()[0].get_color()
         ) == pytest.approx(mcolors.to_rgba("black"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_released_secondary_axes_is_hidden_not_destroyed():
+    """A held handle must stay live across a release and reclaim (spec §3.2).
+
+    Destroying the secondary axes took its ticks and title with it, so top
+    and right could not behave like bottom and left, which are merely
+    hidden. An invisible secondary returns ``None`` from ``get_tightbbox``,
+    so the persistence costs nothing in layout.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        secondary = ax._secondary_axes["top"]
+        axis = secondary.xaxis
+        assert len(ax.child_axes) == 1
+        ax.mixing_ratios(labels=True)
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert not secondary.get_visible()
+        assert secondary.get_tightbbox() is None
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert secondary.xaxis is axis
+        assert secondary.get_visible()
+        assert _ticks(axis)
     finally:
         plt.close(fig)
