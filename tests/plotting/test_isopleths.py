@@ -1034,8 +1034,7 @@ def test_emphasised_member_draws_last(plain_axes):
     plain_axes.figure.canvas.draw()
     segments = family._lines.get_segments()
     assert len(segments) > 1
-    # An isotherm is vertical in (temperature, theta), so every vertex shares
-    # the member's temperature; the emphasised member is the final segment.
+    # The emphasised member draws last; its EMPHASIS_LINEWIDTH identifies it.
     widths = family._lines.get_linewidth()
     assert widths[-1] == EMPHASIS_LINEWIDTH
     assert set(widths[:-1]) == {ISOPLETH_LINEWIDTH}
@@ -1052,6 +1051,7 @@ def test_emphasised_member_gets_per_segment_properties(plain_axes):
     np.testing.assert_allclose(colors[-1], mcolors.to_rgba("tab:cyan"))
     np.testing.assert_allclose(colors[0], mcolors.to_rgba(ISOTHERM_COLOR))
     assert len(lines.get_linestyle()) == len(lines.get_segments())
+    assert lines.get_linestyle()[-1] != lines.get_linestyle()[0]
 
 
 def test_plain_family_still_draws_one_colour(plain_axes):
@@ -1072,3 +1072,20 @@ def test_emphasised_label_takes_the_emphasis_colour(plain_axes):
     plain_axes.figure.canvas.draw()
     colors = [mcolors.to_rgba(text.get_color()) for text in family._texts]
     assert colors.count(mcolors.to_rgba("tab:cyan")) == 1
+
+
+def test_emphasis_alpha_reaches_the_segment_colour_channel(plain_axes):
+    """A non-default emphasis alpha is baked into the segment's RGBA channel.
+
+    ``ISOPLETH_ALPHA`` is 1.0, so any test using the default alpha cannot
+    distinguish a correct baked-alpha from a missing one.  This test uses
+    0.4 to confirm the value reaches the line even though ``ISOPLETH_ALPHA``
+    would produce the same pixel.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"alpha": 0.4}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = family._lines.get_color()
+    assert colors[-1][3] == pytest.approx(0.4)
+    assert colors[0][3] == pytest.approx(ISOPLETH_ALPHA)
