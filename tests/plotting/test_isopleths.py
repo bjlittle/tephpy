@@ -913,20 +913,61 @@ def test_emphasis_does_not_shift_the_mixing_ratio_stride():
         assert np.any(np.isclose(got, 6.0))
 
 
-def test_emphasis_respects_the_view_mask(plain_axes):
-    """An emphasised isobar above the view is still gated by the view mask.
+def test_zoom_mask_strides_by_canonical_position():
+    """``_zoom_mask`` strides over canonical positions, not physical indices.
 
-    50 hPa is a canonical member (PRESSURE_DOMAIN starts at 50 hPa) that lies
-    above the plain_axes view (its tephigram y-coordinates exceed the view
-    y-maximum). Emphasis forces it through the zoom mask but the view mask must
-    still exclude it, so it never appears in ``_selected_members()``.
+    When an emphasis-only extra sits at physical index 0, the canonical members
+    occupy physical indices 1 onward.  The ``cumsum`` phase fix assigns canonical
+    position 0 to physical index 1 — so at a stride of 4 (width 600) the member
+    at physical index 1 is selected, not the member at physical index 4 (which
+    ``np.arange(count) % stride`` would pick instead).
+
+    ``_build`` cannot produce this arrangement today because extras are always
+    appended, so the extra always lands at the last index and both
+    ``np.arange`` and ``cumsum`` produce the same canonical selection.  This
+    test bypasses ``_build`` to guard against a future sorted builder that
+    inserts emphasis values mid-list.
+    """
+    family = _make_family("mixing_ratios")
+    # Inject an extra at physical index 0 directly — bypassing _build.
+    # cumsum(~extra) - 1 gives canonical positions [-1, 0, 1, 2, 3].
+    # At stride 4 (width=600) canonical position 0 → physical index 1 is
+    # selected; np.arange would put position 4 at index 4 and pick that instead.
+    family._member_values = np.array([99.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+    family._member_extra = np.array([True, False, False, False, False])
+    family._zoom_adaptive = True
+    mask = family._zoom_mask(600.0)
+    assert not mask[0], "extra at index 0 must not be selected by the stride"
+    assert mask[1], (
+        "canonical position 0 (physical index 1) must be selected at stride 4"
+    )
+    assert not mask[2], "canonical position 1 must not be selected at stride 4"
+    assert not mask[3], "canonical position 2 must not be selected at stride 4"
+    assert not mask[4], "canonical position 3 must not be selected at stride 4"
+
+
+def test_emphasis_respects_the_view_mask(plain_axes):
+    """A forced-in member that is above the view is still gated by the view mask.
+
+    55 hPa is not a canonical isobar at the plain_axes zoom step (55 / 50 = 1.1
+    is rejected by the 50 hPa step ladder at view width 311), so emphasis is the
+    sole reason it enters ``_zoom_mask`` via ``forced``.  Its tephigram bounding
+    box lies above the plain_axes view (ymin ≈ 1878 > view.y1 = 1822), so
+    ``_view_mask`` must still exclude it from ``_selected_members()``.
     """
     family = _make_family("isobars")
-    family.configure(emphasis={50.0: {}})
+    family.configure(emphasis={55.0: {}})
     plain_axes.add_artist(family)
     plain_axes.figure.canvas.draw()
+    view = plain_axes.viewLim
+    zoom_selected = family._member_values[family._zoom_mask(view.width)]
+    assert np.any(np.isclose(zoom_selected, 55.0)), (
+        "emphasis must force 55 hPa into the zoom mask"
+    )
     drawn = [m.value for m in family._selected_members()]
-    assert not any(math.isclose(value, 50.0) for value in drawn)
+    assert not any(math.isclose(value, 55.0) for value in drawn), (
+        "view mask must exclude the off-screen member"
+    )
 
 
 def test_emphasis_outside_the_domain_is_a_silent_no_op():
