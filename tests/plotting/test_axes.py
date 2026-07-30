@@ -809,10 +809,12 @@ def test_top_and_right_use_lazily_created_secondary_axes():
 def test_a_family_can_move_its_own_edge():
     """Top to right in one resolve: a release and a claim in the same sync.
 
-    The only transition that releases one secondary axes and builds another
-    inside a single ``_sync_edge_labels``.  The released edge must come away
-    fully unclaimed — hidden, untitled and back on matplotlib's linear-axis
-    defaults — while the claimed edge comes up ticked and titled (spec §3.2).
+    One of the two transitions that release one secondary axes and build
+    another inside a single ``_sync_edge_labels``; the ``right`` to ``top``
+    mirror claims before it releases, because ``EDGES`` visits ``top`` first.
+    The released edge must come away fully unclaimed — hidden, untitled and
+    back on matplotlib's linear-axis defaults — while the claimed edge comes
+    up ticked and titled (spec §3.2).
     """
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:

@@ -1,9 +1,9 @@
 Hardened the isopleth edge-label tests and tidied the bookkeeping they left
-behind (:issue:`53`). Two assertions that could not fail were replaced: the edge
+behind (:issue:`53`). An assertion that could not fail was replaced: the edge
 locator's ``tick_values`` was compared against the very list object its
-``__call__`` assigns to ``positions``, and the side-panel gutter test ordered its
-unlabelled pad against the widened one instead of pinning it. New coverage was
-added for a family moving its own claim from the top edge to the right — the one
-transition that releases one secondary axes and builds another inside a single
-resolve. ``TephigramAxes._claim_edge`` no longer takes the family that its
-``name`` argument already identifies. (:user:`claude`)
+``__call__`` assigns to ``positions``. The side-panel gutter test's unlabelled
+pad, until now only ordered against the widened one, is pinned to its expected
+value. New coverage was added for a family moving its own claim from the top
+edge to the right — a transition that releases one secondary axes and builds
+another inside a single resolve. ``TephigramAxes._claim_edge`` no longer takes
+the family that its ``name`` argument already identifies. (:user:`claude`)
