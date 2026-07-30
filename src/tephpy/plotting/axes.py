@@ -1760,7 +1760,7 @@ class TephigramAxes(Axes):
             back to the family's own style, so ``{0.0: {}}`` draws that member
             at ``EMPHASIS_LINEWIDTH`` in the family's own colour. An emphasised
             member is always drawn, whatever the zoom ladder would select, so a
-            value the interval never lands on still appears. An empty mapping
+            value the ladder never selects still appears. An empty mapping
             emphasises nothing.
         visible : bool, optional
             Whether the family is drawn.

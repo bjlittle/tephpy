@@ -1,0 +1,8 @@
+Added the ``emphasis`` option to every isopleth family, so a member can be drawn
+with a distinguishing style: :meth:`~tephpy.plotting.axes.TephigramAxes.isotherms`
+and its four siblings, and the matching ``tephpy.config`` sections, map a
+member value to ``color``, ``linewidth``, ``linestyle`` and ``alpha`` overrides.
+An emphasised member is always drawn, whatever the zoom ladder would select, so
+``ax.isotherms(emphasis={0.0: {}})`` marks the freezing level and
+``emphasis={-12.0: {}, -18.0: {}}`` marks the dendritic growth zone that no
+isotherm interval lands on. (:user:`claude`)
