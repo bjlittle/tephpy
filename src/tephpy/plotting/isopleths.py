@@ -94,6 +94,9 @@ __all__ = [
 ]
 
 #: Options that require rebuilding the cached member geometry when changed.
+#: Every name is also a :class:`ResolvedOptions` field, because
+#: :meth:`IsoplethFamily.configure` decides whether to rebuild by comparing the
+#: resolved values rather than by inspecting which keywords a caller passed.
 #: ``emphasis`` is here as well as in the style keys because an emphasised value
 #: the zoom ladder would never select is added to the build (spec §3.2).
 _GEOMETRY_KEYS: Final[frozenset[str]] = frozenset(
@@ -906,7 +909,10 @@ class IsoplethFamily(martist.Artist):
     def configure(self, **kwargs: object) -> None:
         """Reconfigure the family (the accessor-kwargs precedence tier).
 
-        Re-reads ``tephpy.config`` now (spec §3.5 semantics). Passing
+        Re-reads ``tephpy.config`` now (spec §3.5 semantics), so any tier
+        may move — a geometry option changed there takes effect on the next
+        call whether or not that call mentions it, and the cached members
+        are rebuilt whenever the resolved geometry differs. Passing
         ``None`` for an option removes any prior override so the value
         falls back to ``tephpy.config`` and then ``_constants``. A call
         that raises leaves the family unchanged, and only a call that
@@ -952,6 +958,7 @@ class IsoplethFamily(martist.Artist):
                     override_value = value
                 overrides[key] = override_value
         prior = self._overrides
+        previous = self._options
         self._overrides = overrides
         try:
             self._options = self._resolve_validated()
@@ -961,7 +968,16 @@ class IsoplethFamily(martist.Artist):
         # Artist.set_visible, not this class's override: the visibility is
         # already resolved, and the notify below covers it.
         super().set_visible(self._options.visible)
-        if _GEOMETRY_KEYS & set(kwargs):
+        # Compare what the geometry resolved to, not which keywords arrived.
+        # The resolve above re-reads every tier, so a geometry option changed
+        # in ``tephpy.config`` lands in the snapshot whatever this call was
+        # about -- keying off ``kwargs`` left the cache stale, and the family
+        # advertised a geometry it did not draw. It also spared a rebuild when
+        # a caller re-passes a value the family already has.
+        if any(
+            getattr(previous, key) != getattr(self._options, key)
+            for key in _GEOMETRY_KEYS
+        ):
             self._members = None
         self.stale = True
         if self._on_change is not None:

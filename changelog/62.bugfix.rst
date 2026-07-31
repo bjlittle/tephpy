@@ -1,0 +1,7 @@
+Fixed an isopleth family drawing a stale geometry after a ``tephpy.config``
+change (:issue:`63`): :meth:`~tephpy.plotting.isopleths.IsoplethFamily.configure`
+decided whether to rebuild its cached members from the keyword names it was
+handed, so a ``values``, ``interval``, ``truncation`` or ``emphasis`` set on
+``tephpy.config`` was reported by the family's resolved options yet never drawn.
+It now compares the resolved geometry, which also spares a rebuild when a caller
+re-passes a value the family already has. (:user:`claude`)

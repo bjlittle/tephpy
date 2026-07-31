@@ -240,6 +240,63 @@ def test_every_family_draws_on_the_default_view(plain_axes):
             assert len(artist._lines.get_segments()) > 0
 
 
+def _geometry_probe(family):
+    """Summarize the built geometry, in the terms every geometry option moves.
+
+    ``values``, ``interval`` and ``emphasis`` change which members exist;
+    ``truncation`` leaves the member list alone and shortens the polylines,
+    which the bounding boxes carry.
+    """
+    return family._member_values.copy(), family._member_bboxes.copy()
+
+
+@pytest.mark.parametrize(
+    ("name", "option", "value"),
+    [
+        ("isotherms", "values", (0.0, 10.0)),
+        ("isotherms", "interval", 2.0),
+        ("moist_adiabats", "truncation", -30.0),
+        ("isotherms", "emphasis", {-12.0: {}}),
+    ],
+)
+def test_config_tier_geometry_change_rebuilds_members(name, option, value):
+    """A geometry change rebuilds whichever tier it came from (:issue:`63`).
+
+    ``configure`` re-reads ``tephpy.config`` on every call, so a geometry
+    option changed there lands in the snapshot even when the call is about
+    something else entirely. Deciding whether to rebuild from the keyword
+    names left the cache stale, and the family then advertised a geometry
+    through ``options`` that its members did not carry.
+    """
+    family = _make_family(name)
+    family._build()
+    before_values, before_bboxes = _geometry_probe(family)
+    with config.context(**{name: {option: value}}):
+        family.configure(color="red")
+        assert getattr(family.options, option) == value
+        assert family._members is None
+        family._build()
+        after_values, after_bboxes = _geometry_probe(family)
+    assert not (
+        np.array_equal(before_values, after_values)
+        and np.array_equal(before_bboxes, after_bboxes)
+    )
+
+
+def test_configure_keeps_members_when_the_geometry_is_unchanged():
+    """Re-passing a value the family already has must not force a rebuild.
+
+    The old keyword-name test threw the cache away on every ``interval``
+    keyword, whatever it resolved to.
+    """
+    family = _make_family("isotherms")
+    family.configure(interval=2.0)
+    family._build()
+    members = family._members
+    family.configure(interval=2.0, color="red")
+    assert family._members is members
+
+
 def test_family_does_not_participate_in_autoscale(plain_axes):
     family = _make_family("isobars")
     plain_axes.add_artist(family)
