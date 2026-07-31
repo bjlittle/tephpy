@@ -64,6 +64,15 @@ class LineOptions:
     #: Whether the family is drawn at all.
     visible: bool | None = None
 
+    #: Members drawn with a distinguishing style, keyed by member value in the
+    #: family's native units. Each value is a mapping of style overrides --
+    #: ``color``, ``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted
+    #: key falls back to the family's own style, so ``{0.0: {}}`` is the 0 °C
+    #: member at ``EMPHASIS_LINEWIDTH`` in the family's own colour. An emphasised
+    #: member is always drawn, whatever the zoom ladder would select. An empty
+    #: mapping emphasises nothing (spec §3.2).
+    emphasis: Mapping[float, Mapping[str, object]] | None = None
+
 
 @dataclasses.dataclass
 class FamilyOptions(LineOptions):

@@ -13,6 +13,7 @@ import warnings
 
 from hypothesis import given
 from hypothesis import strategies as st
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from metpy.calc import saturation_mixing_ratio, wet_bulb_potential_temperature
@@ -23,6 +24,9 @@ import pytest
 from tephpy import transforms
 from tephpy._config import config
 from tephpy._constants import (
+    EMPHASIS_LINEWIDTH,
+    ISOPLETH_ALPHA,
+    ISOPLETH_LINEWIDTH,
     ISOPLETH_SAMPLES,
     ISOTHERM_COLOR,
     MIXING_RATIO_VALUES,
@@ -234,6 +238,63 @@ def test_every_family_draws_on_the_default_view(plain_axes):
     for artist in plain_axes.get_children():
         if isinstance(artist, isopleths.IsoplethFamily):
             assert len(artist._lines.get_segments()) > 0
+
+
+def _geometry_probe(family):
+    """Summarize the built geometry, in the terms every geometry option moves.
+
+    ``values``, ``interval`` and ``emphasis`` change which members exist;
+    ``truncation`` leaves the member list alone and shortens the polylines,
+    which the bounding boxes carry.
+    """
+    return family._member_values.copy(), family._member_bboxes.copy()
+
+
+@pytest.mark.parametrize(
+    ("name", "option", "value"),
+    [
+        ("isotherms", "values", (0.0, 10.0)),
+        ("isotherms", "interval", 2.0),
+        ("moist_adiabats", "truncation", -30.0),
+        ("isotherms", "emphasis", {-12.0: {}}),
+    ],
+)
+def test_config_tier_geometry_change_rebuilds_members(name, option, value):
+    """A geometry change rebuilds whichever tier it came from (:issue:`63`).
+
+    ``configure`` re-reads ``tephpy.config`` on every call, so a geometry
+    option changed there lands in the snapshot even when the call is about
+    something else entirely. Deciding whether to rebuild from the keyword
+    names left the cache stale, and the family then advertised a geometry
+    through ``options`` that its members did not carry.
+    """
+    family = _make_family(name)
+    family._build()
+    before_values, before_bboxes = _geometry_probe(family)
+    with config.context(**{name: {option: value}}):
+        family.configure(color="red")
+        assert getattr(family.options, option) == value
+        assert family._members is None
+        family._build()
+        after_values, after_bboxes = _geometry_probe(family)
+    assert not (
+        np.array_equal(before_values, after_values)
+        and np.array_equal(before_bboxes, after_bboxes)
+    )
+
+
+def test_configure_keeps_members_when_the_geometry_is_unchanged():
+    """Re-passing a value the family already has must not force a rebuild.
+
+    The old keyword-name test threw the cache away on every ``interval``
+    keyword, whatever it resolved to.
+    """
+    family = _make_family("isotherms")
+    family.configure(interval=2.0)
+    family._build()
+    members = family._members
+    family.configure(interval=2.0, color="red")
+    assert family._members is members
 
 
 def test_family_does_not_participate_in_autoscale(plain_axes):
@@ -728,3 +789,434 @@ def test_edge_locator_without_axes_is_empty():
     )
     assert locator() == []
     assert locator.values == []
+
+
+def test_emphasis_defaults_to_empty():
+    """A family emphasises nothing until asked (spec §3.2)."""
+    family = _make_family("isotherms")
+    assert family.options.emphasis == {}
+
+
+def test_emphasis_normalizes_keys_to_float():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0: {}, -20: {"color": "tab:cyan"}})
+    assert family.options.emphasis == {0.0: {}, -20.0: {"color": "tab:cyan"}}
+    assert all(isinstance(key, float) for key in family.options.emphasis)
+
+
+def test_emphasis_accepts_every_style_key():
+    family = _make_family("isotherms")
+    style = {
+        "color": "tab:cyan",
+        "linewidth": 2.0,
+        "linestyle": "--",
+        "alpha": 0.5,
+    }
+    family.configure(emphasis={0.0: style})
+    assert family.options.emphasis[0.0] == style
+
+
+def test_emphasis_snapshot_does_not_alias_the_caller():
+    """Mutating the caller's mapping afterwards must not reach the family."""
+    family = _make_family("isotherms")
+    style = {"color": "tab:cyan"}
+    emphasis = {0.0: style}
+    family.configure(emphasis=emphasis)
+    emphasis[10.0] = {"color": "red"}
+    style["color"] = "red"
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_snapshot_rejects_mutation():
+    """The caller cannot write into the snapshot either (the other direction).
+
+    ``options`` is public, and a write there would enter a member that never
+    went through ``_normalize_emphasis`` and that the member cache was never
+    invalidated for. Both levels are proxies, so both writes raise: before
+    this, ``emphasis[0.0]["linewidth"] = -5.0`` put a negative linewidth
+    straight onto the collection.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    emphasis = family.options.emphasis
+    with pytest.raises(TypeError, match="mappingproxy"):
+        emphasis[-12.0] = {}  # type: ignore[index]
+    with pytest.raises(TypeError, match="mappingproxy"):
+        emphasis[0.0]["linewidth"] = -5.0  # type: ignore[index]
+    with pytest.raises(TypeError, match="mappingproxy"):
+        del emphasis[0.0]  # type: ignore[attr-defined]
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_empty_snapshot_rejects_mutation():
+    """A family with nothing emphasised shares one read-only empty snapshot."""
+    family = _make_family("isotherms")
+    other = _make_family("isobars")
+    with pytest.raises(TypeError, match="mappingproxy"):
+        family.options.emphasis[0.0] = {}  # type: ignore[index]
+    assert family.options.emphasis == {}
+    assert other.options.emphasis == {}
+
+
+def test_emphasis_none_resets_to_config():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    family.configure(emphasis=None)
+    assert family.options.emphasis == {}
+
+
+def test_emphasis_empty_mapping_clears_config():
+    """An empty mapping is how an accessor clears a config-tier emphasis."""
+    with config.context(isotherms={"emphasis": {0.0: {"color": "tab:cyan"}}}):
+        family = _make_family("isotherms")
+        assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+        family.configure(emphasis={})
+        assert family.options.emphasis == {}
+
+
+def test_emphasis_config_tier_resolves():
+    with config.context(isotherms={"emphasis": {0.0: {"color": "tab:cyan"}}}):
+        family = _make_family("isotherms")
+        assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_not_a_mapping_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="'isotherms' emphasis must be a mapping"):
+        family.configure(emphasis=[0.0])
+
+
+def test_emphasis_non_numeric_key_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="member value must be a number"):
+        family.configure(emphasis={None: {}})
+
+
+@pytest.mark.parametrize("member", [float("nan"), float("inf"), float("-inf")])
+def test_emphasis_non_finite_key_raises(member):
+    """A non-finite member key builds a NaN polyline the view mask hides.
+
+    Rejected up front instead, alongside the ``linewidth``, ``alpha`` and
+    ``interval`` finiteness checks (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="member value must be a finite number"):
+        family.configure(emphasis={member: {}})
+
+
+def test_emphasis_style_not_a_mapping_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match="must be a mapping of style overrides"):
+        family.configure(emphasis={0.0: "tab:cyan"})
+
+
+def test_emphasis_unknown_style_key_raises():
+    family = _make_family("isotherms")
+    with pytest.raises(TypeError, match=r"unknown 'isotherms' emphasis style key"):
+        family.configure(emphasis={0.0: {"colour": "tab:cyan"}})
+
+
+@pytest.mark.parametrize("linewidth", [0.0, -1.0, float("inf")])
+def test_emphasis_bad_linewidth_raises(linewidth):
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="must be a positive, finite number"):
+        family.configure(emphasis={0.0: {"linewidth": linewidth}})
+
+
+@pytest.mark.parametrize("alpha", [-0.1, 1.1])
+def test_emphasis_bad_alpha_raises(alpha):
+    family = _make_family("isotherms")
+    with pytest.raises(ValueError, match="must be between 0 and 1"):
+        family.configure(emphasis={0.0: {"alpha": alpha}})
+
+
+def test_emphasis_failure_leaves_family_unchanged():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    with pytest.raises(TypeError):
+        family.configure(emphasis={0.0: {"colour": "red"}})
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_is_a_geometry_key():
+    """Changing emphasis invalidates the cached member geometry (spec §3.2)."""
+    family = _make_family("isotherms")
+    family._build()
+    assert family._members is not None
+    family.configure(emphasis={0.0: {}})
+    assert family._members is None
+
+
+def test_emphasis_accepted_by_every_family():
+    for name in (
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    ):
+        family = _make_family(name)
+        family.configure(emphasis={0.0: {}})
+        assert family.options.emphasis == {0.0: {}}
+
+
+def test_emphasis_adds_an_off_ladder_member():
+    """-12 °C is on no isotherm ladder step, so emphasis must build it."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={-12.0: {}})
+    family._build()
+    assert np.any(np.isclose(family._member_values, -12.0))
+
+
+def test_emphasis_does_not_duplicate_an_existing_member():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    family._build()
+    assert np.count_nonzero(np.isclose(family._member_values, 0.0)) == 1
+
+
+def test_emphasis_marks_only_the_added_member_as_extra():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}, -12.0: {}})
+    family._build()
+    extra = family._member_values[family._member_extra]
+    np.testing.assert_allclose(extra, [-12.0])
+
+
+def test_emphasis_forces_an_off_ladder_member_into_the_zoom_mask():
+    family = _make_family("isotherms")
+    family.configure(emphasis={-12.0: {}})
+    family._build()
+    selected = family._member_values[family._zoom_mask(600.0)]
+    assert np.any(np.isclose(selected, -12.0))
+
+
+def test_emphasis_forces_an_on_grid_member_the_ladder_would_drop():
+    """5 °C is a canonical member but not a 20 °C ladder step."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={5.0: {}})
+    family._build()
+    selected = family._member_values[family._zoom_mask(600.0)]
+    assert np.any(np.isclose(selected, 5.0))
+    plain = _make_family("isotherms")
+    plain._build()
+    assert not np.any(np.isclose(plain._member_values[plain._zoom_mask(600.0)], 5.0))
+
+
+def test_emphasis_does_not_shift_the_mixing_ratio_stride():
+    """A list family strides by canonical position, so an addition cannot shift it."""
+    plain = _make_family("mixing_ratios")
+    plain._build()
+    emphasised = _make_family("mixing_ratios")
+    emphasised.configure(emphasis={6.0: {}})
+    emphasised._build()
+    for width in (600.0, 300.0, 100.0):
+        expected = plain._member_values[plain._zoom_mask(width)]
+        got = emphasised._member_values[emphasised._zoom_mask(width)]
+        np.testing.assert_allclose(got[~np.isclose(got, 6.0)], expected)
+        assert np.any(np.isclose(got, 6.0))
+
+
+def test_zoom_mask_strides_by_canonical_position():
+    """``_zoom_mask`` strides over canonical positions, not physical indices.
+
+    When an emphasis-only extra sits at physical index 0, the canonical members
+    occupy physical indices 1 onward.  The ``cumsum`` phase fix assigns canonical
+    position 0 to physical index 1 — so at a stride of 4 (width 600) the member
+    at physical index 1 is selected, not the member at physical index 4 (which
+    ``np.arange(count) % stride`` would pick instead).
+
+    ``_build`` cannot produce this arrangement today because extras are always
+    appended, so the extra always lands at the last index and both
+    ``np.arange`` and ``cumsum`` produce the same canonical selection.  This
+    test bypasses ``_build`` to guard against a future sorted builder that
+    inserts emphasis values mid-list.
+    """
+    family = _make_family("mixing_ratios")
+    # Inject an extra at physical index 0 directly — bypassing _build.
+    # cumsum(~extra) - 1 gives canonical positions [-1, 0, 1, 2, 3].
+    # At stride 4 (width=600) canonical position 0 → physical index 1 is
+    # selected; np.arange would put position 4 at index 4 and pick that instead.
+    family._member_values = np.array([99.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+    family._member_extra = np.array([True, False, False, False, False])
+    family._zoom_adaptive = True
+    mask = family._zoom_mask(600.0)
+    assert not mask[0], "extra at index 0 must not be selected by the stride"
+    assert mask[1], (
+        "canonical position 0 (physical index 1) must be selected at stride 4"
+    )
+    assert not mask[2], "canonical position 1 must not be selected at stride 4"
+    assert not mask[3], "canonical position 2 must not be selected at stride 4"
+    assert not mask[4], "canonical position 3 must not be selected at stride 4"
+
+
+def test_emphasis_respects_the_view_mask(plain_axes):
+    """A forced-in member that is above the view is still gated by the view mask.
+
+    55 hPa is not a canonical isobar at the plain_axes zoom step (55 / 50 = 1.1
+    is rejected by the 50 hPa step ladder at view width 311), so emphasis is the
+    sole reason it enters ``_zoom_mask`` via ``forced``.  Its tephigram bounding
+    box lies above the plain_axes view (ymin ≈ 1878 > view.y1 = 1822), so
+    ``_view_mask`` must still exclude it from ``_selected_members()``.
+    """
+    family = _make_family("isobars")
+    family.configure(emphasis={55.0: {}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    view = plain_axes.viewLim
+    zoom_selected = family._member_values[family._zoom_mask(view.width)]
+    assert np.any(np.isclose(zoom_selected, 55.0)), (
+        "emphasis must force 55 hPa into the zoom mask"
+    )
+    drawn = [m.value for m in family._selected_members()]
+    assert not any(math.isclose(value, 55.0) for value in drawn), (
+        "view mask must exclude the off-screen member"
+    )
+
+
+def test_emphasis_outside_the_domain_is_a_silent_no_op():
+    """``TEMPERATURE_DOMAIN`` ends at 60 °C, so 500 °C is built but never shown.
+
+    500 °C is outside the temperature domain; the skewed tephigram coordinate
+    puts its bounding box entirely to the right of the plain-axes view, so it
+    passes ``_build`` as an extra member but ``_view_mask`` correctly excludes it.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={500.0: {}})
+    family._build()
+    assert np.any(np.isclose(family._member_values, 500.0)), (
+        "emphasis must force the out-of-domain member into the build"
+    )
+    view = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
+    assert not np.any(
+        family._view_mask(view) & np.isclose(family._member_values, 500.0)
+    )
+
+
+def test_emphasis_style_lookup_matches_within_tolerance():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    assert family._emphasis_style(0.0) == {"color": "tab:cyan"}
+    assert family._emphasis_style(1e-12) == {"color": "tab:cyan"}
+    assert family._emphasis_style(10.0) is None
+
+
+def test_member_style_defaults_to_the_family_style():
+    family = _make_family("isotherms")
+    style = family._member_style(10.0)
+    assert style == {
+        "color": ISOTHERM_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "linestyle": "solid",
+        "alpha": ISOPLETH_ALPHA,
+    }
+
+
+def test_member_style_empty_emphasis_only_thickens():
+    """`{}` is the printed-chart idiom: same ink, heavier line (spec §3.2)."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    style = family._member_style(0.0)
+    assert style["color"] == ISOTHERM_COLOR
+    assert style["linewidth"] == EMPHASIS_LINEWIDTH
+
+
+def test_member_style_overrides_win_over_the_emphasis_default():
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linewidth": 3.0}})
+    style = family._member_style(0.0)
+    assert style["color"] == "tab:cyan"
+    assert style["linewidth"] == 3.0
+
+
+def test_emphasised_member_draws_last(plain_axes):
+    """Emphasis wins against its own family's neighbours (spec §3.2)."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    segments = family._lines.get_segments()
+    assert len(segments) > 1
+    # The emphasised member draws last; its EMPHASIS_LINEWIDTH identifies it.
+    widths = family._lines.get_linewidth()
+    assert widths[-1] == EMPHASIS_LINEWIDTH
+    assert set(widths[:-1]) == {ISOPLETH_LINEWIDTH}
+
+
+def test_emphasised_member_gets_per_segment_properties(plain_axes):
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linestyle": "--"}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    lines = family._lines
+    colors = lines.get_color()
+    assert len(colors) == len(lines.get_segments())
+    np.testing.assert_allclose(colors[-1], mcolors.to_rgba("tab:cyan"))
+    np.testing.assert_allclose(colors[0], mcolors.to_rgba(ISOTHERM_COLOR))
+    assert len(lines.get_linestyle()) == len(lines.get_segments())
+    assert lines.get_linestyle()[-1] != lines.get_linestyle()[0]
+
+
+def test_plain_family_still_draws_one_colour(plain_axes):
+    """With nothing emphasised the collection is uniform, as before.
+
+    Uniform *and* scalar: the per-segment path is gated on ``emphasis``, so an
+    un-emphasised family carries one linewidth and a scalar alpha rather than
+    an N-long sequence of each. Pixels are the same either way; vector output
+    and the per-draw cost are not (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = family._lines.get_color()
+    assert len({tuple(row) for row in colors}) == 1
+    assert set(family._lines.get_linewidth()) == {ISOPLETH_LINEWIDTH}
+    assert len(family._lines.get_linewidth()) == 1
+    assert family._lines.get_alpha() == ISOPLETH_ALPHA
+
+
+def test_clearing_emphasis_restores_the_plain_collection(plain_axes):
+    """Clearing ``emphasis`` returns every drawn property to its scalar default.
+
+    The per-segment path is gated on ``emphasis``, so the plain path has to
+    undo what an earlier emphasised draw left on the collection — a dashed
+    linestyle above all, which nothing else would overwrite (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    family.configure(emphasis={0.0: {"color": "tab:cyan", "linestyle": "--"}})
+    plain_axes.figure.canvas.draw()
+    family.configure(emphasis={})
+    plain_axes.figure.canvas.draw()
+    lines = family._lines
+    assert lines.get_linestyle() == [(0.0, None)]
+    assert len({tuple(row) for row in lines.get_color()}) == 1
+    np.testing.assert_allclose(lines.get_color()[0], mcolors.to_rgba(ISOTHERM_COLOR))
+    assert set(lines.get_linewidth()) == {ISOPLETH_LINEWIDTH}
+
+
+def test_emphasised_label_takes_the_emphasis_colour(plain_axes):
+    """Exactly one label carries the emphasis colour: the emphasised member's."""
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = [mcolors.to_rgba(text.get_color()) for text in family._texts]
+    assert colors.count(mcolors.to_rgba("tab:cyan")) == 1
+
+
+def test_emphasis_alpha_reaches_the_segment_colour_channel(plain_axes):
+    """A non-default emphasis alpha is baked into the segment's RGBA channel.
+
+    ``ISOPLETH_ALPHA`` is 1.0, so any test using the default alpha cannot
+    distinguish a correct baked-alpha from a missing one.  This test uses
+    0.4 to confirm the value reaches the line even though ``ISOPLETH_ALPHA``
+    would produce the same pixel.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"alpha": 0.4}})
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    colors = family._lines.get_color()
+    assert colors[-1][3] == pytest.approx(0.4)
+    assert colors[0][3] == pytest.approx(ISOPLETH_ALPHA)

@@ -22,13 +22,15 @@ and potential temperatures in degrees Celsius, mixing ratios in g/kg.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 import dataclasses
 import math
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast, override
 
 from matplotlib import artist as martist
 from matplotlib.collections import LineCollection
+from matplotlib.colors import to_rgba
 from matplotlib.text import Text
 from matplotlib.ticker import Formatter, Locator
 import numpy as np
@@ -39,6 +41,7 @@ from tephpy._constants import (
     DRY_ADIABAT_COLOR,
     DRY_ADIABAT_STEPS,
     DRY_ADIABAT_ZORDER,
+    EMPHASIS_LINEWIDTH,
     ISOBAR_COLOR,
     ISOBAR_STEPS,
     ISOBAR_ZORDER,
@@ -91,11 +94,18 @@ __all__ = [
 ]
 
 #: Options that require rebuilding the cached member geometry when changed.
-_GEOMETRY_KEYS: Final[frozenset[str]] = frozenset({"values", "interval", "truncation"})
+#: Every name is also a :class:`ResolvedOptions` field, because
+#: :meth:`IsoplethFamily.configure` decides whether to rebuild by comparing the
+#: resolved values rather than by inspecting which keywords a caller passed.
+#: ``emphasis`` is here as well as in the style keys because an emphasised value
+#: the zoom ladder would never select is added to the build (spec §3.2).
+_GEOMETRY_KEYS: Final[frozenset[str]] = frozenset(
+    {"values", "interval", "truncation", "emphasis"}
+)
 
 #: Style and visibility options shared by every family.
 _STYLE_KEYS: Final[frozenset[str]] = frozenset(
-    {"color", "linewidth", "alpha", "labels", "visible"}
+    {"color", "linewidth", "alpha", "labels", "visible", "emphasis"}
 )
 
 #: Options accepted by the interval-based families.
@@ -103,6 +113,32 @@ _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
 
 #: The diagram edges an isopleth family may claim for its labels (spec §3.2).
 EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
+
+#: Style keys one emphasised member may override; an omitted key falls back to
+#: the family's own style (spec §3.2).
+_EMPHASIS_STYLE_KEYS: Final[tuple[str, ...]] = (
+    "color",
+    "linewidth",
+    "linestyle",
+    "alpha",
+)
+
+#: Tolerance for matching a member value against an emphasis key. ``abs_tol``
+#: carries the 0 °C case, where a relative tolerance alone matches nothing.
+_EMPHASIS_RTOL: Final[float] = 1e-9
+_EMPHASIS_ATOL: Final[float] = 1e-9
+
+#: The linestyle a member draws with unless an emphasis override says otherwise.
+#: A family has no family-level ``linestyle`` (spec §3.2), so this is the
+#: ``LineCollection`` default rather than a convention a caller can set.
+#: Bare ``Final`` so the value narrows to ``Literal["solid"]``, which is what
+#: ``Collection.set_linestyle`` accepts.
+_DEFAULT_LINESTYLE: Final = "solid"
+
+#: The resolved ``emphasis`` when nothing is emphasised. Shared, and a proxy
+#: like every other resolved ``emphasis``, so a caller cannot write a member
+#: into the snapshot of a family that has none.
+_NO_EMPHASIS: Final[Mapping[float, Mapping[str, object]]] = MappingProxyType({})
 
 
 def edge_crossings(
@@ -222,6 +258,165 @@ def _normalize_labels(value: object, name: str) -> tuple[bool, tuple[str, ...]]:
         if placement not in edges:
             edges.append(placement)
     return bool(edges), tuple(edges)
+
+
+def _emphasis_number(value: object, key: str, name: str, member: float) -> float:
+    """Validate one numeric style override on an emphasised member.
+
+    Parameters
+    ----------
+    value : object
+        The resolved override value.
+    key : str
+        The style key, ``"linewidth"`` or ``"alpha"``.
+    name : str
+        The family name, for the error message.
+    member : float
+        The member value the style belongs to, for the error message.
+
+    Returns
+    -------
+    float
+        The validated number.
+
+    Raises
+    ------
+    TypeError
+        If `value` is not a number.
+    ValueError
+        If a ``linewidth`` is not positive and finite, or an ``alpha`` falls
+        outside ``[0, 1]``.
+    """
+    try:
+        number = float(cast("SupportsFloat", value))
+    except (TypeError, ValueError) as err:
+        msg = (
+            f"{name!r} emphasis {key!r} for member {member:g} must be a "
+            f"number: {value!r}"
+        )
+        raise TypeError(msg) from err
+    if key == "linewidth":
+        valid = number > 0.0 and math.isfinite(number)
+        expected = "a positive, finite number"
+    else:
+        valid = 0.0 <= number <= 1.0
+        expected = "between 0 and 1"
+    if not valid:
+        msg = (
+            f"{name!r} emphasis {key!r} for member {member:g} must be "
+            f"{expected}: {number!r}"
+        )
+        raise ValueError(msg)
+    return number
+
+
+def _normalize_emphasis(
+    value: object, name: str
+) -> Mapping[float, Mapping[str, object]]:
+    """Validate and copy a raw ``emphasis`` option (spec §3.2).
+
+    Keys become floats and each style mapping is copied into a fresh dict, so
+    the family's snapshot never aliases a mapping the caller can still mutate --
+    the same reason ``values`` materialises a generator to a tuple. Both levels
+    are then wrapped in a read-only proxy, because the result is reachable
+    through the public :attr:`IsoplethFamily.options`: a write there would enter
+    a member that skipped this validation and that the member cache was never
+    invalidated for, so the family would advertise a style it does not draw.
+    ``color`` and ``linestyle`` are left to matplotlib to validate at draw time,
+    exactly as the family-level ``color`` already is.
+
+    Parameters
+    ----------
+    value : object
+        The resolved ``emphasis`` option, from any precedence tier.
+    name : str
+        The family name, for the error messages.
+
+    Returns
+    -------
+    Mapping of float to Mapping of str to object
+        Member value mapped to its validated style overrides, read-only at
+        both levels; empty when nothing is emphasised.
+
+    Raises
+    ------
+    TypeError
+        If `value` is not a mapping, a key is not a number, a style is not a
+        mapping, or a style names a key outside :data:`_EMPHASIS_STYLE_KEYS`.
+    ValueError
+        If a member value is not finite, or a ``linewidth`` or ``alpha``
+        override is out of range.
+    """
+    if not isinstance(value, Mapping):
+        msg = (
+            f"{name!r} emphasis must be a mapping of member value to style "
+            f"overrides, not {type(value).__name__}"
+        )
+        raise TypeError(msg)
+    emphasis: dict[float, Mapping[str, object]] = {}
+    for raw_member, raw_style in cast("Mapping[object, object]", value).items():
+        try:
+            member = float(cast("SupportsFloat", raw_member))
+        except (TypeError, ValueError) as err:
+            msg = f"{name!r} emphasis member value must be a number: {raw_member!r}"
+            raise TypeError(msg) from err
+        if not math.isfinite(member):
+            # A non-finite key would build a full NaN polyline that the view
+            # mask silently drops, so it is rejected here alongside the
+            # ``linewidth``, ``alpha`` and ``interval`` finiteness checks.
+            msg = f"{name!r} emphasis member value must be a finite number: {member!r}"
+            raise ValueError(msg)
+        if not isinstance(raw_style, Mapping):
+            msg = (
+                f"{name!r} emphasis style for member {member:g} must be a mapping "
+                f"of style overrides, not {type(raw_style).__name__}"
+            )
+            raise TypeError(msg)
+        style = dict(cast("Mapping[str, object]", raw_style))
+        unknown = set(style) - set(_EMPHASIS_STYLE_KEYS)
+        if unknown:
+            msg = (
+                f"unknown {name!r} emphasis style key(s) {sorted(unknown)!r} for "
+                f"member {member:g}; expected {list(_EMPHASIS_STYLE_KEYS)!r}"
+            )
+            raise TypeError(msg)
+        for key in ("linewidth", "alpha"):
+            if key in style:
+                style[key] = _emphasis_number(style[key], key, name, member)
+        emphasis[member] = MappingProxyType(style)
+    return MappingProxyType(emphasis)
+
+
+def _close_index(
+    values: npt.NDArray[np.float64], targets: npt.NDArray[np.float64]
+) -> npt.NDArray[np.int64]:
+    """Match each value against a target list within the emphasis tolerance.
+
+    Member values are floats built by arithmetic over a ladder interval, and
+    emphasis keys are floats a user typed, so the two are compared with a
+    tolerance rather than for equality.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        The values to match, shape ``(n,)``.
+    targets : numpy.ndarray
+        The values to match against, shape ``(m,)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(n,)`` of int64: the index into `targets` of the first match
+        for each value, or ``-1`` where there is none.
+    """
+    if values.size == 0 or targets.size == 0:
+        return np.full(values.size, -1, dtype=np.int64)
+    close = np.isclose(
+        values[:, None], targets[None, :], rtol=_EMPHASIS_RTOL, atol=_EMPHASIS_ATOL
+    )
+    return np.asarray(
+        np.where(close.any(axis=1), close.argmax(axis=1), -1), dtype=np.int64
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -425,7 +620,11 @@ class ResolvedOptions:
     Resolution precedence: accessor kwargs > ``tephpy.config`` >
     ``_constants`` (spec §3.5). ``values``/``interval`` of ``None`` mean the
     zoom-adaptive default ladder is in force. An empty `label_edges` means
-    the family labels inline only.
+    the family labels inline only, and an empty `emphasis` means no member is
+    distinguished. The snapshot is immutable throughout: the class is frozen
+    against rebinding, and `emphasis` -- its one field with any container
+    depth -- is a read-only proxy at both levels over dicts the family copied
+    for itself when it resolved.
     """
 
     values: tuple[float, ...] | None
@@ -437,6 +636,7 @@ class ResolvedOptions:
     labels: bool
     label_edges: tuple[str, ...]
     visible: bool
+    emphasis: Mapping[float, Mapping[str, object]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -682,6 +882,7 @@ class IsoplethFamily(martist.Artist):
         self._members: list[Member] | None = None
         self._member_values: npt.NDArray[np.float64] = np.empty(0)
         self._member_bboxes: npt.NDArray[np.float64] = np.empty((0, 4))
+        self._member_extra: npt.NDArray[np.bool_] = np.empty(0, dtype=bool)
         self._zoom_adaptive = True
         self._lines = LineCollection([])
         self._texts: list[Text] = []
@@ -708,7 +909,10 @@ class IsoplethFamily(martist.Artist):
     def configure(self, **kwargs: object) -> None:
         """Reconfigure the family (the accessor-kwargs precedence tier).
 
-        Re-reads ``tephpy.config`` now (spec §3.5 semantics). Passing
+        Re-reads ``tephpy.config`` now (spec §3.5 semantics), so any tier
+        may move — a geometry option changed there takes effect on the next
+        call whether or not that call mentions it, and the cached members
+        are rebuilt whenever the resolved geometry differs. Passing
         ``None`` for an option removes any prior override so the value
         falls back to ``tephpy.config`` and then ``_constants``. A call
         that raises leaves the family unchanged, and only a call that
@@ -726,7 +930,7 @@ class IsoplethFamily(martist.Artist):
         TypeError
             If an option name is unknown for this family, if ``labels`` names
             an unknown placement, or if the owning axes rejects an edge claim
-            already held by another family.
+            already held by another family, or if ``emphasis`` is malformed.
         ValueError
             If an option value is invalid, e.g. a non-positive
             ``interval``.
@@ -742,15 +946,19 @@ class IsoplethFamily(martist.Artist):
                 overrides.pop(key, None)
             else:
                 # Materialize one-shot iterables (e.g., generators) to tuple
-                # so they survive later reconfigures (spec §3.5, §7 item 1).
+                # so they survive later reconfigures (spec §3.5, §7 item 1),
+                # and copy an emphasis mapping for the same reason.
                 if key == "values":
                     override_value: object = tuple(
                         float(v) for v in cast("Iterable[SupportsFloat]", value)
                     )
+                elif key == "emphasis":
+                    override_value = _normalize_emphasis(value, self._spec.name)
                 else:
                     override_value = value
                 overrides[key] = override_value
         prior = self._overrides
+        previous = self._options
         self._overrides = overrides
         try:
             self._options = self._resolve_validated()
@@ -760,7 +968,16 @@ class IsoplethFamily(martist.Artist):
         # Artist.set_visible, not this class's override: the visibility is
         # already resolved, and the notify below covers it.
         super().set_visible(self._options.visible)
-        if _GEOMETRY_KEYS & set(kwargs):
+        # Compare what the geometry resolved to, not which keywords arrived.
+        # The resolve above re-reads every tier, so a geometry option changed
+        # in ``tephpy.config`` lands in the snapshot whatever this call was
+        # about -- keying off ``kwargs`` left the cache stale, and the family
+        # advertised a geometry it did not draw. It also spared a rebuild when
+        # a caller re-passes a value the family already has.
+        if any(
+            getattr(previous, key) != getattr(self._options, key)
+            for key in _GEOMETRY_KEYS
+        ):
             self._members = None
         self.stale = True
         if self._on_change is not None:
@@ -823,13 +1040,43 @@ class IsoplethFamily(martist.Artist):
         if axes is None:
             return
         opts = self._options
-        selected = self._selected_members()
+        selected = self._order_members(self._selected_members())
         renderer.open_group("isopleth-family", gid=self.get_gid())
         lines = self._lines
         lines.set_segments([m.xy for m in selected])
-        lines.set_color(opts.color)
-        lines.set_linewidth(opts.linewidth)
-        lines.set_alpha(opts.alpha)
+        # Only a family with something emphasised pays for per-segment state;
+        # with nothing emphasised the collection takes one scalar colour,
+        # linewidth and alpha, exactly as it did before emphasis existed, so a
+        # diagram with no ``emphasis`` renders identically -- including in
+        # vector output, where per-path stroke state would otherwise be emitted
+        # for every member.  ``_order_members`` is gated the same way (spec §3.2).
+        if selected and opts.emphasis:
+            styles = [self._member_style(m.value) for m in selected]
+            # Bake alpha into the RGBA colour rather than calling set_alpha with
+            # a per-segment list.  LineCollection.set_color calls
+            # to_rgba_array(c, self._alpha) immediately; if self._alpha were a
+            # per-segment array from the previous draw and the segment count
+            # changed (zoom), the shapes would mismatch and raise.  Keeping
+            # self._alpha as None throughout this path avoids the conflict.
+            lines.set_alpha(None)  # clear any scalar from a prior else-branch draw
+            lines.set_color(
+                [
+                    to_rgba(cast("str", s["color"]), cast("float", s["alpha"]))
+                    for s in styles
+                ]
+            )
+            lines.set_linewidth([cast("float", s["linewidth"]) for s in styles])
+            lines.set_linestyle(
+                [cast("str", s["linestyle"]) for s in styles]  # type: ignore[misc]
+            )
+        else:
+            lines.set_color(opts.color)
+            lines.set_linewidth(opts.linewidth)
+            # Back to the collection's own default, not just left alone: a
+            # per-segment list from an earlier emphasised draw would otherwise
+            # survive clearing ``emphasis`` and keep dashing a member.
+            lines.set_linestyle(_DEFAULT_LINESTYLE)
+            lines.set_alpha(opts.alpha)
         lines.set_transform(axes.transData)
         lines.set_clip_box(axes.bbox)
         lines.draw(renderer)
@@ -868,9 +1115,13 @@ class IsoplethFamily(martist.Artist):
         Raises
         ------
         ValueError
-            If the resolved ``interval`` is not a positive, finite number.
+            If the resolved ``interval`` is not a positive, finite number, or
+            the resolved ``emphasis`` gives a non-finite member value, a
+            ``linewidth`` that is not positive and finite, or an ``alpha``
+            outside ``[0, 1]``.
         TypeError
-            If the resolved ``labels`` names an unknown placement.
+            If the resolved ``labels`` names an unknown placement, or
+            ``emphasis`` is malformed.
         """
         spec = self._spec
         pick = self._pick
@@ -903,6 +1154,12 @@ class IsoplethFamily(martist.Artist):
         labels, label_edges = _normalize_labels(raw_labels, spec.name)
         raw_visible = pick("visible")
         visible = True if raw_visible is None else bool(raw_visible)
+        raw_emphasis = pick("emphasis")
+        emphasis = (
+            _NO_EMPHASIS
+            if raw_emphasis is None
+            else _normalize_emphasis(raw_emphasis, spec.name)
+        )
         return ResolvedOptions(
             values=values,
             interval=interval,
@@ -922,6 +1179,7 @@ class IsoplethFamily(martist.Artist):
             # An invisible family draws nothing, so it holds no edge (spec §3.2).
             label_edges=label_edges if visible else (),
             visible=visible,
+            emphasis=emphasis,
         )
 
     def _resolve_validated(self) -> ResolvedOptions:
@@ -967,13 +1225,28 @@ class IsoplethFamily(martist.Artist):
         return np.asarray(values, dtype=np.float64)
 
     def _build(self) -> None:
-        """Build and cache the member polylines and their bounding boxes."""
+        """Build and cache the member polylines, boxes and emphasis marks.
+
+        Emphasised values the canonical set does not already carry are appended
+        to the build, so a member the zoom ladder would never select still
+        exists to be forced in by :meth:`_zoom_mask` (spec §3.2). Which members
+        those are is recorded, because a list family strides by member index and
+        an addition must not shift that phase.
+        """
         opts = self._options
-        members = self._spec.builder(self._candidate_values(), opts.truncation)
+        canonical = self._candidate_values()
+        keys = np.asarray(sorted(opts.emphasis), dtype=np.float64)
+        extra = keys[_close_index(keys, canonical) < 0]
+        members = self._spec.builder(
+            np.concatenate([canonical, extra]), opts.truncation
+        )
         self._members = members
         self._member_values = np.array(
             [member.value for member in members], dtype=np.float64
         )
+        # By value, not by build position: a builder may drop members (the moist
+        # adiabats truncate), so positions do not survive the round trip.
+        self._member_extra = np.asarray(_close_index(self._member_values, extra) >= 0)
         if members:
             self._member_bboxes = np.array(
                 [
@@ -994,6 +1267,12 @@ class IsoplethFamily(martist.Artist):
     def _zoom_mask(self, width: float) -> npt.NDArray[np.bool_]:
         """Select members for the zoom level via the convention ladder.
 
+        An emphasised member is always selected, whatever the ladder would pick
+        — that is what lets emphasis mark a reference isopleth the interval
+        never lands on (spec §3.2). A list family strides by member index, so
+        the stride runs over the canonical members by their canonical position
+        and an emphasis-only addition cannot shift its phase.
+
         Parameters
         ----------
         width : float
@@ -1007,6 +1286,11 @@ class IsoplethFamily(martist.Artist):
         count = self._member_values.size
         if not self._zoom_adaptive:
             return np.ones(count, dtype=bool)
+        extra = self._member_extra
+        if extra.size != count:
+            extra = np.zeros(count, dtype=bool)
+        keys = np.asarray(sorted(self._options.emphasis), dtype=np.float64)
+        forced = np.asarray(_close_index(self._member_values, keys) >= 0)
         spec = self._spec
         if spec.steps is not None:
             step = spec.steps[-1][1]
@@ -1015,14 +1299,95 @@ class IsoplethFamily(martist.Artist):
                     step = ladder_step
                     break
             ratio = self._member_values / step
-            return np.asarray(np.abs(ratio - np.round(ratio)) < 1e-6)
+            mask = np.asarray(np.abs(ratio - np.round(ratio)) < 1e-6)
+            return np.asarray(mask | forced)
         stride = 1
         if spec.strides is not None:
             for min_width, ladder_stride in spec.strides:
                 if width >= min_width:
                     stride = ladder_stride
                     break
-        return np.asarray((np.arange(count) % stride) == 0)
+        # Position among the canonical members, so an emphasis-only addition
+        # never shifts which members the stride picks.
+        position = np.cumsum(~extra) - 1
+        mask = np.asarray((position % stride) == 0) & ~extra
+        return np.asarray(mask | forced)
+
+    def _emphasis_style(self, value: float) -> Mapping[str, object] | None:
+        """Return the emphasis overrides for one member value.
+
+        Parameters
+        ----------
+        value : float
+            The member's isopleth value in the family's native units.
+
+        Returns
+        -------
+        Mapping of str to object or None
+            The member's style overrides -- read-only, straight out of the
+            snapshot -- or ``None`` when it is not emphasised.
+        """
+        emphasis = self._options.emphasis
+        if not emphasis:
+            return None
+        for key, style in emphasis.items():
+            if math.isclose(key, value, rel_tol=_EMPHASIS_RTOL, abs_tol=_EMPHASIS_ATOL):
+                return style
+        return None
+
+    def _member_style(self, value: float) -> dict[str, object]:
+        """Return the style one member draws with.
+
+        The family's own resolved style, with an emphasised member's overrides
+        applied over it. Emphasis with no overrides still thickens the line to
+        ``EMPHASIS_LINEWIDTH`` — the monochrome printed-chart idiom of same ink,
+        heavier line (spec §3.2).
+
+        Parameters
+        ----------
+        value : float
+            The member's isopleth value in the family's native units.
+
+        Returns
+        -------
+        dict of str to object
+            Keys ``color``, ``linewidth``, ``linestyle`` and ``alpha``.
+        """
+        opts = self._options
+        style: dict[str, object] = {
+            "color": opts.color,
+            "linewidth": opts.linewidth,
+            "linestyle": _DEFAULT_LINESTYLE,
+            "alpha": opts.alpha,
+        }
+        override = self._emphasis_style(value)
+        if override is not None:
+            style["linewidth"] = EMPHASIS_LINEWIDTH
+            style.update(override)
+        return style
+
+    def _order_members(self, selected: list[Member]) -> list[Member]:
+        """Order the drawn members plain first, emphasised last.
+
+        Draw order stays inside the family: an emphasised member wins against
+        its own family's neighbours, while the families drawn above this one
+        still cross it (spec §3.2).
+
+        Parameters
+        ----------
+        selected : list of Member
+            The members the view and zoom ladder selected, in build order.
+
+        Returns
+        -------
+        list of Member
+            The same members, emphasised ones moved to the end in build order.
+        """
+        if not self._options.emphasis:
+            return selected
+        plain = [m for m in selected if self._emphasis_style(m.value) is None]
+        emphasised = [m for m in selected if self._emphasis_style(m.value) is not None]
+        return plain + emphasised
 
     def _view_mask(self, view: mtransforms.Bbox) -> npt.NDArray[np.bool_]:
         """Select members whose bounding box overlaps the view rectangle.
@@ -1135,7 +1500,8 @@ class IsoplethFamily(martist.Artist):
 
         The label anchors at the middle in-view vertex, rotated to the
         local line direction in screen space and folded upright. Members
-        a claimed edge already ticks are dropped first (spec §3.2).
+        a claimed edge already ticks are dropped first (spec §3.2). An
+        emphasised member's label takes the emphasis colour and alpha.
 
         Parameters
         ----------
@@ -1147,7 +1513,6 @@ class IsoplethFamily(martist.Artist):
         axes = self.axes
         if axes is None:
             return
-        opts = self._options
         view = axes.viewLim
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
@@ -1173,8 +1538,9 @@ class IsoplethFamily(martist.Artist):
             angle = (angle + 90.0) % 180.0 - 90.0
             text.set_position((float(xy[mid, 0]), float(xy[mid, 1])))
             text.set_text(f"{member.value:g}")
-            text.set_color(opts.color)
-            text.set_alpha(opts.alpha)
+            style = self._member_style(member.value)
+            text.set_color(cast("str", style["color"]))
+            text.set_alpha(cast("float", style["alpha"]))
             text.set_rotation(angle)
             text.set_transform(axes.transData)
             text.set_clip_box(axes.bbox)

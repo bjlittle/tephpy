@@ -260,25 +260,38 @@ Differences from tephi:
   true, so `emphasis={-12.0: ..., -18.0: ...}` marks the dendritic growth zone's bounds on a
   10 °C ladder that would never select them. The view mask still applies, so an off-screen
   member stays off screen — which is also why a value outside the family's generous
-  `_constants` domain is a silent no-op rather than an error. Because `_selected_members` is
+  `_constants` domain is a no-op rather than an error. That no-op is *silent* on the three
+  straight/analytic families; on the curved two the builder can complain before the mask
+  ever runs — `moist_adiabats(emphasis={500.0: {}})` emits a MetPy `UserWarning` about an
+  undefined saturation mixing ratio and `mixing_ratios(emphasis={0.0: {}})` two numpy
+  `RuntimeWarning`s (both verified 2026-07-30). The fragility is the builders', not
+  emphasis's — `values=[0.0]` does the same without any emphasis — so it is not a
+  regression, but it is why the curved families' accessor docstrings pick an in-domain
+  example rather than promising a silence they cannot deliver. Because `_selected_members` is
   shared with `_EdgeLocator`, a forced member gets its edge tick for free; the tick's
   *colour* does not follow, since `set_tick_params` is whole-axis and per-`Tick` styling
   would fight the presentation-stamped-once rule above — a documented limitation, and
   emphasis is a per-member gesture where inline labelling is the common case. Draw order
   stays inside the family: `draw` partitions the selected members base-then-emphasised on
-  the single existing `LineCollection`, whose `color`, `linewidth`, `linestyle` and `alpha`
-  all accept per-segment sequences (verified on matplotlib 3.11.1, 2026-07-30; the declared
-  floor is 3.10). An emphasised member therefore wins against its own family's neighbours,
-  while the families above it still nick it with a 0.5 pt overpaint at each crossing —
-  accepted rather than bought off with a sixth axes-owned artist to create, sync and tear
-  down. Inline labels take the same per-member style, being per-member `Text` already. The
-  one trap: `mixing_ratios` selects by *stride over member index*, not by value, so an
-  emphasis-only addition would shift every later index and silently change which members the
-  stride picks at every zoom level; the build therefore records which members exist only
-  because emphasis asked for them, and the stride mask is computed over the canonical
-  members by their canonical position. The resolved mapping is deep-copied when it resolves,
-  for the same reason `values` materialises a generator to a tuple: the snapshot must not
-  alias a dict the caller can still mutate.
+  the single existing `LineCollection`, whose `color`, `linewidth` and `linestyle` all
+  accept per-segment sequences (verified on matplotlib 3.11.1, 2026-07-30; the declared
+  floor is 3.10). `alpha` is the exception: it takes a per-segment sequence within a single
+  call but not *across* redraws, because `LineCollection.set_color` calls
+  `to_rgba_array(c, self._alpha)` eagerly, so an array-valued `_alpha` left over from the
+  previous draw raises the moment the segment count changes — which is every zoom. Emphasis
+  alpha is therefore baked into the RGBA 4-tuple and `_alpha` is held at `None` on that
+  path; that is load-bearing, not incidental, and "simplifying" it back to a per-segment
+  `set_alpha` reintroduces the crash. An emphasised member therefore wins against its own
+  family's neighbours, while the families above it still nick it with a 0.5 pt overpaint at
+  each crossing — accepted rather than bought off with a sixth axes-owned artist to create,
+  sync and tear down. Inline labels take the same per-member style, being per-member `Text`
+  already. The one trap: `mixing_ratios` selects by *stride over member index*, not by
+  value, so an emphasis-only addition would shift every later index and silently change
+  which members the stride picks at every zoom level; the build therefore records which
+  members exist only because emphasis asked for them, and the stride mask is computed over
+  the canonical members by their canonical position. The resolved mapping is deep-copied
+  when it resolves, for the same reason `values` materialises a generator to a tuple: the
+  snapshot must not alias a dict the caller can still mutate.
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and

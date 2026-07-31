@@ -227,3 +227,17 @@ def test_printed_chart_edges():
     ax.isobars(labels=("bottom", "left"), interval=150)
     ax.mixing_ratios(labels="top")
     return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_member_emphasis():
+    """Isotherm member emphasis: 0 °C bold-grey, -20 °C dashed-cyan."""
+    fig, ax = _tephigram_figure()
+    _solo(ax, "isotherms")
+    ax.isotherms(
+        emphasis={
+            0.0: {},
+            -20.0: {"color": "tab:cyan", "linestyle": "--"},
+        }
+    )
+    return fig

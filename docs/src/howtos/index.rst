@@ -1,4 +1,9 @@
 How-To Guides
 =============
 
-Task-focused recipes will appear here as the package grows.
+Task-focused recipes.
+
+.. toctree::
+    :maxdepth: 1
+
+    emphasis
