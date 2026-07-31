@@ -811,7 +811,8 @@ def test_a_family_can_move_its_own_edge():
 
     One of the two transitions that release one secondary axes and build
     another inside a single ``_sync_edge_labels``; the ``right`` to ``top``
-    mirror claims before it releases, because ``EDGES`` visits ``top`` first.
+    mirror is ``test_a_family_can_move_its_own_edge_the_other_way``, which
+    claims before it releases because ``EDGES`` visits ``top`` first.
     The released edge must come away fully unclaimed — hidden, untitled and
     back on matplotlib's linear-axis defaults — while the claimed edge comes
     up ticked and titled (spec §3.2).
@@ -839,6 +840,47 @@ def test_a_family_can_move_its_own_edge():
         assert right.get_label_text() == EDGE_AXIS_TITLES["isobars"]
         assert _ticks(right) == ["200", "250", "300"]
         assert ax._edge_titles == {"right": EDGE_AXIS_TITLES["isobars"]}
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_can_move_its_own_edge_the_other_way():
+    """The mirror of ``test_a_family_can_move_its_own_edge``: right to top.
+
+    The harder ordering of the two. ``_sync_edge_labels`` releases per edge
+    from inside its ``EDGES`` loop, which visits ``top`` before ``right``, so
+    this direction *claims* the new edge and only then releases the old one —
+    and for the rest of that loop ``_edge_owners`` transiently holds both
+    edges for the same family, which the forward direction never does. The
+    outcome must be the same either way: one edge fully unclaimed, the other
+    ticked and titled (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        right = ax.edge_axis("right")
+        assert _ticks(right) == ["200", "250", "300"]
+        ax.isobars(labels="top")
+        fig.canvas.draw()
+        # The transient is gone by the time the sync returns: one owner, on
+        # the edge just claimed.
+        assert ax._edge_owners == {"top": "isobars"}
+        # The right secondary hides rather than being destroyed, so the handle
+        # taken before the move is still the live axis afterwards.
+        assert ax._secondary_axes["right"].yaxis is right
+        assert not ax._secondary_axes["right"].get_visible()
+        assert right.get_label_text() == ""
+        # Not just hidden: the locator goes back to matplotlib's default, so
+        # the released edge no longer holds the family through an
+        # ``_EdgeLocator``.
+        assert isinstance(right.get_major_locator(), AutoLocator)
+        top = ax.edge_axis("top")
+        assert ax._secondary_axes["top"].get_visible()
+        assert top.get_label_text() == EDGE_AXIS_TITLES["isobars"]
+        assert _ticks(top) == ["150", "200", "200"]
+        assert ax._edge_titles == {"top": EDGE_AXIS_TITLES["isobars"]}
         assert len(ax.child_axes) == 2
     finally:
         plt.close(fig)
@@ -948,20 +990,29 @@ def test_clear_drops_every_edge_claim():
         plt.close(fig)
 
 
-def test_right_edge_labels_widen_the_gutter_pad():
-    """The relayout helper substitutes the wider pad (spec §3.2)."""
-    pressure = np.array([1000.0, 900.0, 800.0]) * units.hPa
-    snd = Sounding(
-        pressure=pressure,
+def _barb_sounding():
+    """Return a minimal sounding carrying wind, for a barb gutter."""
+    return Sounding(
+        pressure=np.array([1000.0, 900.0, 800.0]) * units.hPa,
         temperature=np.array([20.0, 14.0, 8.0]) * units.degC,
         wind_speed=np.array([10.0, 20.0, 30.0]) * units.knots,
         wind_direction=np.array([180.0, 200.0, 220.0]) * units.deg,
     )
+
+
+def _gutter_pad(ax):
+    """Return the gap in pixels between the diagram and the barb gutter."""
+    return ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+
+
+def test_right_edge_labels_widen_the_gutter_pad():
+    """The relayout helper substitutes the wider pad (spec §3.2)."""
+    snd = _barb_sounding()
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         ax.plot_barbs(snd)
         fig.canvas.draw()
-        narrow = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        narrow = _gutter_pad(ax)
         # Pinned, not merely ordered.  The load-bearing half of this test is
         # that an unclaimed right edge leaves the layout exactly as it was
         # before edges could be labelled at all; an inequality against
@@ -969,9 +1020,73 @@ def test_right_edge_labels_widen_the_gutter_pad():
         assert narrow == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
         ax.isobars(labels="right")
         fig.canvas.draw()
-        wide = ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+        wide = _gutter_pad(ax)
         assert wide == pytest.approx(EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0)
         assert wide > narrow
+    finally:
+        plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected_owners"),
+    [("top", {"top": "isobars"}), (False, {})],
+    ids=["moved-to-top", "dropped"],
+)
+def test_releasing_the_right_edge_narrows_the_gutter_pad_back(labels, expected_owners):
+    """``_relayout_side_panels`` runs on the release flip too (spec §3.2).
+
+    ``_sync_edge_labels`` relayouts whenever ``had_right`` changes in
+    *either* direction, and the widening half is pinned by
+    ``test_right_edge_labels_widen_the_gutter_pad``. Both routes here give
+    the right edge up, but reach the relayout by different paths through the
+    ``EDGES`` loop: moving the claim to ``top`` claims before it releases,
+    while dropping labels altogether claims nothing at all. Either way the
+    pad must come back to ``BARB_GUTTER_PAD`` exactly, not merely narrow.
+
+    ``labels=False`` is the drop, not ``labels=None``: an accessor reads
+    ``None`` as "not passed" and never reconfigures the family at all.
+    """
+    snd = _barb_sounding()
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        assert _gutter_pad(ax) == pytest.approx(
+            EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0
+        )
+        ax.isobars(labels=labels)
+        fig.canvas.draw()
+        assert ax._edge_owners == expected_owners
+        assert _gutter_pad(ax) == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
+    finally:
+        plt.close(fig)
+
+
+def test_a_no_op_labels_argument_leaves_the_gutter_pad_alone():
+    """``labels=None`` means "not passed" on an accessor, so nothing moves.
+
+    The accessors drop ``None`` kwargs before reaching
+    ``IsoplethFamily.configure`` (spec §3.5), so this cannot be the route
+    that gives an edge up — a claimed right edge, and the widened pad that
+    goes with it, both survive the call untouched. Passing ``None`` straight
+    to ``configure`` *does* release, by removing the override so ``labels``
+    falls back through the tiers; that tier behaviour belongs to
+    ``test_configure_none_resets_override`` in
+    ``tests/plotting/test_isopleths.py``, not to this module.
+    """
+    snd = _barb_sounding()
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        ax.isobars(labels=None)
+        fig.canvas.draw()
+        assert ax._edge_owners == {"right": "isobars"}
+        assert _gutter_pad(ax) == pytest.approx(
+            EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0
+        )
     finally:
         plt.close(fig)
 

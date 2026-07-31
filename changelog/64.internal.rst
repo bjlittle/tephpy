@@ -1,0 +1,10 @@
+Covered the two isopleth edge-label transitions that had none (:issue:`60`).
+The ``right`` to ``top`` claim move is now pinned alongside its ``top`` to
+``right`` mirror — the harder of the two orderings, because ``EDGES`` visits
+``top`` first, so it claims the new edge before releasing the old one. The
+barb gutter pad, until now only pinned as it widens to clear the right edge's
+tick labels, is pinned as it narrows back on release too, by both routes that
+give the edge up: moving the claim to another edge, and dropping the labels
+with ``labels=False``. A third test records that
+:meth:`~tephpy.plotting.axes.TephigramAxes.isobars` reads ``labels=None`` as
+"not passed" and so releases nothing. (:user:`claude`)
