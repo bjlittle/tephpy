@@ -1,6 +1,6 @@
 .. _howto-emphasis:
 
-Emphasise a reference isopleth
+Emphasise a Reference Isopleth
 ==============================
 
 Forecasters read a tephigram against a handful of reference lines — the 0 °C
@@ -8,7 +8,7 @@ isotherm for the freezing level, −20 °C for the cold limit of the airframe
 icing band, a mandatory pressure level. The ``emphasis`` option distinguishes
 any member of any isopleth family.
 
-The freezing level
+The Freezing Level
 ------------------
 
 Map the member value to an empty style. The member keeps its family's colour and
@@ -24,7 +24,7 @@ ink, heavier line:
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     ax.isotherms(emphasis={0.0: {}})
 
-Colour and dashes
+Colour and Dashes
 -----------------
 
 Any of ``color``, ``linewidth``, ``linestyle`` and ``alpha`` overrides that
@@ -43,7 +43,7 @@ An omitted key falls back to the family's own style, so
 ``{0.0: {"linestyle": "--"}}`` is a dashed member in the family's colour at the
 emphasis width.
 
-Values the interval never lands on
+Values the Interval Never Lands On
 ----------------------------------
 
 An emphasised member is always drawn, whatever the zoom ladder would select, so
@@ -65,7 +65,7 @@ the curved moist adiabats and mixing ratios build through MetPy, which can warn
 about a far-out value before the diagram ever gets to ignore it, so emphasise a
 value those families actually cover.
 
-Every family, every tier
+Every Family, Every Tier
 ------------------------
 
 The option is the same on all five families, so a mandatory pressure level is
