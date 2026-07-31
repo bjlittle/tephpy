@@ -770,6 +770,37 @@ def test_emphasis_snapshot_does_not_alias_the_caller():
     assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
 
 
+def test_emphasis_snapshot_rejects_mutation():
+    """The caller cannot write into the snapshot either (the other direction).
+
+    ``options`` is public, and a write there would enter a member that never
+    went through ``_normalize_emphasis`` and that the member cache was never
+    invalidated for. Both levels are proxies, so both writes raise: before
+    this, ``emphasis[0.0]["linewidth"] = -5.0`` put a negative linewidth
+    straight onto the collection.
+    """
+    family = _make_family("isotherms")
+    family.configure(emphasis={0.0: {"color": "tab:cyan"}})
+    emphasis = family.options.emphasis
+    with pytest.raises(TypeError, match="mappingproxy"):
+        emphasis[-12.0] = {}  # type: ignore[index]
+    with pytest.raises(TypeError, match="mappingproxy"):
+        emphasis[0.0]["linewidth"] = -5.0  # type: ignore[index]
+    with pytest.raises(TypeError, match="mappingproxy"):
+        del emphasis[0.0]  # type: ignore[attr-defined]
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_emphasis_empty_snapshot_rejects_mutation():
+    """A family with nothing emphasised shares one read-only empty snapshot."""
+    family = _make_family("isotherms")
+    other = _make_family("isobars")
+    with pytest.raises(TypeError, match="mappingproxy"):
+        family.options.emphasis[0.0] = {}  # type: ignore[index]
+    assert family.options.emphasis == {}
+    assert other.options.emphasis == {}
+
+
 def test_emphasis_none_resets_to_config():
     family = _make_family("isotherms")
     family.configure(emphasis={0.0: {}})

@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 import dataclasses
 import math
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast, override
 
 from matplotlib import artist as martist
@@ -130,6 +131,11 @@ _EMPHASIS_ATOL: Final[float] = 1e-9
 #: Bare ``Final`` so the value narrows to ``Literal["solid"]``, which is what
 #: ``Collection.set_linestyle`` accepts.
 _DEFAULT_LINESTYLE: Final = "solid"
+
+#: The resolved ``emphasis`` when nothing is emphasised. Shared, and a proxy
+#: like every other resolved ``emphasis``, so a caller cannot write a member
+#: into the snapshot of a family that has none.
+_NO_EMPHASIS: Final[Mapping[float, Mapping[str, object]]] = MappingProxyType({})
 
 
 def edge_crossings(
@@ -301,14 +307,20 @@ def _emphasis_number(value: object, key: str, name: str, member: float) -> float
     return number
 
 
-def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, object]]:
+def _normalize_emphasis(
+    value: object, name: str
+) -> Mapping[float, Mapping[str, object]]:
     """Validate and copy a raw ``emphasis`` option (spec §3.2).
 
     Keys become floats and each style mapping is copied into a fresh dict, so
     the family's snapshot never aliases a mapping the caller can still mutate --
-    the same reason ``values`` materialises a generator to a tuple. ``color`` and
-    ``linestyle`` are left to matplotlib to validate at draw time, exactly as the
-    family-level ``color`` already is.
+    the same reason ``values`` materialises a generator to a tuple. Both levels
+    are then wrapped in a read-only proxy, because the result is reachable
+    through the public :attr:`IsoplethFamily.options`: a write there would enter
+    a member that skipped this validation and that the member cache was never
+    invalidated for, so the family would advertise a style it does not draw.
+    ``color`` and ``linestyle`` are left to matplotlib to validate at draw time,
+    exactly as the family-level ``color`` already is.
 
     Parameters
     ----------
@@ -319,9 +331,9 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
 
     Returns
     -------
-    dict of float to dict of str to object
-        Member value mapped to its validated style overrides; empty when
-        nothing is emphasised.
+    Mapping of float to Mapping of str to object
+        Member value mapped to its validated style overrides, read-only at
+        both levels; empty when nothing is emphasised.
 
     Raises
     ------
@@ -338,7 +350,7 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
             f"overrides, not {type(value).__name__}"
         )
         raise TypeError(msg)
-    emphasis: dict[float, dict[str, object]] = {}
+    emphasis: dict[float, Mapping[str, object]] = {}
     for raw_member, raw_style in cast("Mapping[object, object]", value).items():
         try:
             member = float(cast("SupportsFloat", raw_member))
@@ -368,8 +380,8 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
         for key in ("linewidth", "alpha"):
             if key in style:
                 style[key] = _emphasis_number(style[key], key, name, member)
-        emphasis[member] = style
-    return emphasis
+        emphasis[member] = MappingProxyType(style)
+    return MappingProxyType(emphasis)
 
 
 def _close_index(
@@ -606,9 +618,10 @@ class ResolvedOptions:
     ``_constants`` (spec §3.5). ``values``/``interval`` of ``None`` mean the
     zoom-adaptive default ladder is in force. An empty `label_edges` means
     the family labels inline only, and an empty `emphasis` means no member is
-    distinguished. The class is frozen against rebinding; `emphasis` is a plain
-    dict the family owns outright, copied from the caller's mapping when it
-    resolves.
+    distinguished. The snapshot is immutable throughout: the class is frozen
+    against rebinding, and `emphasis` -- its one field with any container
+    depth -- is a read-only proxy at both levels over dicts the family copied
+    for itself when it resolved.
     """
 
     values: tuple[float, ...] | None
@@ -620,7 +633,7 @@ class ResolvedOptions:
     labels: bool
     label_edges: tuple[str, ...]
     visible: bool
-    emphasis: dict[float, dict[str, object]]
+    emphasis: Mapping[float, Mapping[str, object]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1127,7 +1140,9 @@ class IsoplethFamily(martist.Artist):
         visible = True if raw_visible is None else bool(raw_visible)
         raw_emphasis = pick("emphasis")
         emphasis = (
-            {} if raw_emphasis is None else _normalize_emphasis(raw_emphasis, spec.name)
+            _NO_EMPHASIS
+            if raw_emphasis is None
+            else _normalize_emphasis(raw_emphasis, spec.name)
         )
         return ResolvedOptions(
             values=values,
@@ -1282,7 +1297,7 @@ class IsoplethFamily(martist.Artist):
         mask = np.asarray((position % stride) == 0) & ~extra
         return np.asarray(mask | forced)
 
-    def _emphasis_style(self, value: float) -> dict[str, object] | None:
+    def _emphasis_style(self, value: float) -> Mapping[str, object] | None:
         """Return the emphasis overrides for one member value.
 
         Parameters
@@ -1292,9 +1307,9 @@ class IsoplethFamily(martist.Artist):
 
         Returns
         -------
-        dict of str to object or None
-            The member's style overrides, or ``None`` when it is not
-            emphasised.
+        Mapping of str to object or None
+            The member's style overrides -- read-only, straight out of the
+            snapshot -- or ``None`` when it is not emphasised.
         """
         emphasis = self._options.emphasis
         if not emphasis:
