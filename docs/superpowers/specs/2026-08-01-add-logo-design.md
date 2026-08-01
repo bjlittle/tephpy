@@ -41,7 +41,7 @@ below spends those inputs on a dpi-independent, theme-aware placement built from
 | What the position is relative to | The **target** — a `Figure` anchors in figure fraction, an `Axes` in axes fraction | Same rule as `legend`: the thing you call it on defines the box. No separate `relative_to=` kwarg |
 | Default form | `"lockup"` | It carries the wordmark at the smallest height of the three (§3.3), so the brand is legible in the least plot area. A bare icon is meaningless to anyone who does not already know the brand |
 | Theme selection | `theme="auto"` from target facecolor luminance | Correct without being asked on both the default white figure and a `dark_background` style. `"light"`/`"dark"` name the **background**, matching the asset filenames |
-| Asset packaging | Copies under `src/tephpy/plotting/_static/`, declared in `[tool.setuptools.package-data]` | The function must work from a wheel with no docs tree and no network. Explicit over `include-package-data`, which would silently depend on the setuptools_scm file finder |
+| Asset packaging | Copies under `src/tephpy/plotting/_static/`, declared in `[tool.setuptools.package-data]` and `MANIFEST.in` | The function must work from a wheel with no docs tree and no network. **Measured:** while the files are git-tracked, `include-package-data` (on by default) plus the setuptools_scm file finder already ships them — the declaration is belt-and-braces that survives losing either, not the load-bearing mechanism, and the spec does not pretend otherwise |
 | Asset drift | A test hashes the six copies against `logo-bundle.zip` | The zip is the source of truth; the copies are derived. Without the guard they diverge silently on the next rebrand |
 | Return value | The `AnnotationBbox` | The caller can restyle or `.remove()` it. Matches matplotlib's artist-returning convention |
 | Tinted mono variant (`color=`) | **Deferred**, tracked as an issue | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
@@ -75,11 +75,18 @@ def add_logo(
     size: str | float = "small",
     theme: str = "auto",
     loc: str | tuple[float, float] = "lower left",
-    pad: float = 6.0,
-    zorder: float = 100.0,
+    pad: float | None = None,
+    zorder: float | None = None,
     **kwargs: Any,
 ) -> AnnotationBbox:
 ```
+
+`pad` and `zorder` take `None` sentinels rather than literals because their values
+are numeric conventions, and the parent spec's §3.5 rule is that nothing numeric is
+hard-coded at point of use — a signature default is a point of use. They resolve to
+`LOGO_PAD` (6.0) and `LOGO_ZORDER` (100.0) from `_constants`. The string defaults stay
+literal: they are API vocabulary, not conventions, and reading them off the signature
+is worth more than routing them through a constant.
 
 | Parameter | Accepts | Meaning |
 |---|---|---|
@@ -88,8 +95,8 @@ def add_logo(
 | `size` | `"small"`, `"large"`, or a float | Preset (§3.3) or an explicit **height in inches** |
 | `theme` | `"auto"`, `"light"`, `"dark"` | Which variant; the name is the **background** the logo is drawn on |
 | `loc` | ten `legend` strings, or `(x, y)` | Where (§3.4) |
-| `pad` | float | Points between the logo and the target edge. Ignored when `loc` is a tuple |
-| `zorder` | float | Draw order; the default sits above lines (2), text (3) and legends (5) |
+| `pad` | float, `None` | Points between the logo and the target edge; `None` takes `LOGO_PAD`. Ignored when `loc` is a tuple |
+| `zorder` | float, `None` | Draw order; `None` takes `LOGO_ZORDER`, which sits above lines (2), text (3) and legends (5) |
 | `**kwargs` | `alpha`, `interpolation`, `resample`, `filternorm`, `filterrad` | Forwarded to `OffsetImage` |
 
 `target=None` resolves through `plt.gcf()`, so `add_logo()` on its own brands the current
@@ -270,7 +277,9 @@ user-correctable *data* input (parent spec §6) and are not used here.
   two-element sequence holding a non-finite value → `ValueError`. Coordinates outside
   `[0, 1]` are **allowed** — they place the logo outside the target box, which
   `annotation_clip=False` renders and which `legend` permits for the same reason.
-- A `target` that is neither a `Figure` nor an `Axes` → `TypeError`.
+- A `target` that is neither a `Figure` nor an `Axes` → `TypeError`. An `Axes` whose
+  `.figure` is a `SubFigure` also raises `TypeError`: `SubFigure` is out of scope
+  (§8), and saying so beats returning something typed `Figure` that is not one.
 
 ## 6. Testing
 
@@ -289,7 +298,9 @@ Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
   figure box, distinguishable because the two boxes differ.
 - **Asset drift:** the six shipped PNGs hash equal to their `logo-bundle.zip` counterparts.
 - **Packaging:** the six PNGs are present in a built wheel — the failure mode a source-tree
-  test cannot see.
+  test cannot see. It guards the *outcome*, not the mechanism: the mutation that fails it is
+  removing an asset from the source tree, not deleting the `package-data` line, which
+  `include-package-data` would cover for.
 - **Errors:** each case in §5.
 - **Import discipline:** `logo.py` reads no asset at import time.
 - **Image baseline:** one `pytest-mpl` comparison, per parent spec §7.
@@ -318,9 +329,10 @@ emit SVG rather than consume it). The light masters cannot substitute as an alph
 measured, they are three-tone with substantial white knockout (19.2% of `icon-512-light.png`
 is pure white), so flattening them by alpha collapses the mark.
 
-**Explicitly not in scope:** collision detection (`loc="best"`), animation, per-artist logo
-placement on subplots other than through repeated calls, and any change to the published
-brand assets.
+**Explicitly not in scope:** collision detection (`loc="best"`), animation, `SubFigure`
+targets, per-artist logo placement on subplots other than through repeated calls, a
+`tephpy.config` section (this work adds exactly one public name), and any change to the
+published brand assets.
 
 ## 9. References
 
