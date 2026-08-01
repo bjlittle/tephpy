@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/src/_static/brand/logo-stacked-light.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_static/brand/logo-stacked-dark.svg">
-    <img alt="tephpy" src="docs/src/_static/brand/logo-stacked-light.png" width="180">
+    <source media="(prefers-color-scheme: light)" srcset="docs/src/_static/brand/svg/stacked-tiera-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_static/brand/svg/stacked-tiera-dark.svg">
+    <img alt="tephpy" src="docs/src/_static/brand/png/stacked-256-light.png" width="180">
     </picture>
 </p>
 
@@ -19,10 +19,10 @@
 
 Plot and analyse tephigrams. `tephpy` renders tephigrams on a rotated
 temperature-entropy coordinate system and delegates thermodynamic analysis
-(parcel ascent, CAPE, CIN, LCL/LFC/EL) to MetPy.
+(parcel ascent, CAPE, CIN, LCL/LFC/EL) to [MetPy](https://github.com/Unidata/MetPy).
 
 Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 > [!NOTE]
 > **Status:** early development — the plotting and analysis API is being built
-> out plan by plan. See https://github.com/bjlittle/tephpy/tree/main/docs/superpowers/specs for the design.
+> out plan by plan for the [design](https://github.com/bjlittle/tephpy/tree/main/docs/superpowers/specs).
