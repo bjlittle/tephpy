@@ -509,6 +509,14 @@ def test_nonfinite_pad_is_rejected():
     plt.close(figure)
 
 
+def test_string_pad_raises_value_error():
+    """``float('three')`` raises ``ValueError``, not ``TypeError`` (logo spec §5)."""
+    figure, axes = plt.subplots()
+    with pytest.raises(ValueError, match="could not convert"):
+        add_logo(axes, pad="three")
+    plt.close(figure)
+
+
 def test_nonfinite_zorder_is_rejected():
     figure, axes = plt.subplots()
     with pytest.raises(ValueError, match="zorder must be a finite"):
@@ -516,11 +524,27 @@ def test_nonfinite_zorder_is_rejected():
     plt.close(figure)
 
 
-def test_annotation_clip_false_places_a_logo_outside_axes_bounds():
-    """``annotation_clip=False`` means a pair outside [0, 1] renders unclipped."""
+def test_pair_loc_outside_unit_box_places_extent_past_axes_edge():
+    """A pair loc outside [0, 1] positions the logo's extent outside the axes."""
     figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
     box = _extent(add_logo(axes, loc=(1.05, 1.05)), figure)
     target = axes.get_window_extent()
     assert box.x0 > target.x1
     assert box.y0 > target.y1
+    plt.close(figure)
+
+
+def test_annotation_clip_false_draws_logo_outside_axes_bounds():
+    """``annotation_clip=False`` means a loc outside [0, 1] is actually drawn.
+
+    ``get_window_extent`` is computed unconditionally; only rendered output
+    can confirm the artist is drawn.
+    """
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    artist = add_logo(axes, loc=(1.05, 1.05))
+    figure.canvas.draw()
+    drawn = figure.canvas.buffer_rgba().tobytes()  # copy: the buffer is reused
+    artist.set_annotation_clip(True)
+    figure.canvas.draw()
+    assert drawn != figure.canvas.buffer_rgba().tobytes()
     plt.close(figure)

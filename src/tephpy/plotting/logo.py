@@ -376,13 +376,15 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
     ------
     TypeError
         If `target` is neither a figure nor an axes, if `loc` is neither a
-        placement string nor a pair of floats, if `pad` or `zorder` is not a
-        real number, or if a keyword is not a
+        placement string nor a pair of floats, if `pad` or `zorder` is not
+        a string or a number (e.g., a list), or if a keyword is not a
         :class:`matplotlib.offsetbox.OffsetImage` option.
     ValueError
         If `form`, `size`, `theme` or `loc` names something that does not
         exist, if `size` is not a positive finite height, if a `loc` pair
-        holds a non-finite coordinate, or if `pad` or `zorder` is not finite.
+        holds a non-finite coordinate, if `pad` or `zorder` is a string
+        that does not represent a number, or if `pad` or `zorder` is not
+        finite.
     """
     figure, axes = _resolve_target(target)
     height = _resolve_size(size, form)
