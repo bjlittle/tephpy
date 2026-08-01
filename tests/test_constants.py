@@ -181,4 +181,5 @@ def test_logo_conventions():
     assert constants.LOGO_PAD > 0.0
     assert constants.LOGO_ZORDER > 5.0
     assert 0.0 < constants.LOGO_LUMINANCE_THRESHOLD < 1.0
+    assert constants.LOGO_LUMINANCE_WEIGHTS == (0.2126, 0.7152, 0.0722)
     assert sum(constants.LOGO_LUMINANCE_WEIGHTS) == pytest.approx(1.0)

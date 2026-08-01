@@ -174,6 +174,15 @@ def test_resolve_target_rejects_a_subfigure_axes():
     plt.close(figure)
 
 
+def test_resolve_target_rejects_a_removed_axes():
+    """An axes removed from its figure has no parent; say so accurately."""
+    figure, axes = plt.subplots()
+    axes.remove()
+    with pytest.raises(TypeError, match="removed"):
+        logo._resolve_target(axes)
+    plt.close(figure)
+
+
 @pytest.mark.parametrize("form", ["icon", "lockup", "stacked"])
 @pytest.mark.parametrize("size", ["small", "large"])
 def test_resolve_size_preset(form, size):
@@ -201,7 +210,7 @@ def test_resolve_size_rejects_a_nonpositive_or_nonfinite_height(size):
 
 
 def test_resolve_size_rejects_a_sequence():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="must be a string or a real number"):
         logo._resolve_size([1.0, 2.0], "lockup")
 
 
@@ -292,6 +301,21 @@ def test_loc_table_covers_the_legend_vocabulary():
 def test_resolve_loc_string(loc, anchor, alignment, offset):
     """The pad pushes inward from whichever edge the anchor sits on."""
     assert logo._resolve_loc(loc, 6.0) == (anchor, alignment, offset)
+
+
+@pytest.mark.parametrize(
+    ("loc", "pad", "expected_offset"),
+    [
+        ("lower left", 10.0, (10.0, 10.0)),
+        ("upper right", 10.0, (-10.0, -10.0)),
+        ("lower right", 4.0, (-4.0, 4.0)),
+        ("center right", 3.0, (-3.0, 0.0)),
+    ],
+)
+def test_resolve_loc_string_pad_scales_offset(loc, pad, expected_offset):
+    """The offset is ``pad * signs``; using a fixed constant would break these."""
+    _, _, offset = logo._resolve_loc(loc, pad)
+    assert offset == expected_offset
 
 
 def test_resolve_loc_pair_places_the_lower_left_corner_and_ignores_pad():

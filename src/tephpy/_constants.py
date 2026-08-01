@@ -325,8 +325,9 @@ LOGO_SIZES: Final[dict[str, dict[str, float]]] = {
     "stacked": {"small": 0.70, "large": 1.15},
 }
 
-#: Default gap in points between the logo and its target's edge, matching the
-#: legend's ``borderaxespad`` of 0.5 font-size units at the 10 pt default font.
+#: Default gap in points between the logo and its target's edge: a comfortable
+#: inset a shade wider than the legend's ``borderaxespad`` of 5.0 pt (0.5
+#: font-size units at the 10 pt default font).
 LOGO_PAD: Final[float] = 6.0
 
 #: Default logo draw order: above lines (2), text (3) and legends (5).

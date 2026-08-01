@@ -86,8 +86,9 @@ def _resolve_target(target: Figure | Axes | None) -> tuple[Figure, Axes | None]:
     Raises
     ------
     TypeError
-        If `target` is neither a figure nor an axes, or is an axes belonging to
-        a :class:`matplotlib.figure.SubFigure`.
+        If `target` is neither a figure nor an axes, is an axes belonging to
+        a :class:`matplotlib.figure.SubFigure`, or is an axes that has been
+        removed from its figure.
     """
     if target is None:
         # Local: keeps pyplot out of ``import tephpy`` (logo spec §3.2).
@@ -99,7 +100,15 @@ def _resolve_target(target: Figure | Axes | None) -> tuple[Figure, Axes | None]:
     # against. Narrow it back and mypy calls the final ``raise`` dead code.
     resolved: object = target
     if isinstance(resolved, Axes):
-        figure = resolved.figure
+        # ``get_figure(root=False)`` returns the direct parent (added in 3.10);
+        # ``.figure`` resolved to the root Figure at the floor, hiding the
+        # SubFigure guard, and at 3.10 without an explicit ``root`` argument it
+        # emits a deprecation warning that ``filterwarnings = ["error"]`` makes
+        # fatal.  ``root=False`` is the safe spelling across the support range.
+        figure = resolved.get_figure(root=False)
+        if figure is None:
+            msg = "target axes has been removed from its figure."
+            raise TypeError(msg)
         if not isinstance(figure, Figure):
             msg = "target axes must belong to a Figure, not a SubFigure."
             raise TypeError(msg)
@@ -127,6 +136,8 @@ def _resolve_size(size: str | float, form: str) -> float:
 
     Raises
     ------
+    TypeError
+        If `size` is not a string or a real number.
     ValueError
         If `form` names no mark, if `size` names no preset, or if `size` is not
         a positive finite height.
