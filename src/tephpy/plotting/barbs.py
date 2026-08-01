@@ -32,6 +32,7 @@ from tephpy._constants import (
     KELVIN_ZERO,
     MA,
     P_REF,
+    POINTS_PER_INCH,
 )
 
 if TYPE_CHECKING:
@@ -251,7 +252,7 @@ class BarbStaff(martist.Artist):
         indices = np.flatnonzero(candidate)
         if indices.size:
             offsets = np.column_stack([np.full(indices.size, self._x), y[indices]])
-            separation = self._minimum_separation * figure.dpi / 72.0
+            separation = self._minimum_separation * figure.dpi / POINTS_PER_INCH
             display = gutter.transData.transform(offsets)[:, 1]
             keep[indices] = select_barbs(display, minimum_separation=separation)
         if self._barbs is None:

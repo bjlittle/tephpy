@@ -16,13 +16,21 @@ from __future__ import annotations
 from functools import cache
 from importlib.resources import files
 from io import BytesIO
-from typing import TYPE_CHECKING, Final
+import math
+from typing import TYPE_CHECKING, Any, Final
 
+from matplotlib.axes import Axes
+import matplotlib.colors as mcolors
+from matplotlib.figure import Figure
 import matplotlib.image as mimage
 
-if TYPE_CHECKING:
-    from typing import Any
+from tephpy._constants import (
+    LOGO_LUMINANCE_THRESHOLD,
+    LOGO_LUMINANCE_WEIGHTS,
+    LOGO_SIZES,
+)
 
+if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
 
@@ -34,6 +42,238 @@ _MASTERS: Final[dict[tuple[str, str], str]] = {
     ("stacked", "light"): "stacked-512-light.png",
     ("stacked", "dark"): "stacked-512-dark.png",
 }
+
+#: Placement string to ``(anchor, box_alignment, offset signs)``. The anchor is a
+#: point in the target's fraction coordinates, the alignment names which corner
+#: of the logo lands on it, and the signs turn ``pad`` into an inward offset in
+#: points (logo spec §3.4). ``right`` aliases ``center right``, as in ``legend``.
+_LOC: Final[
+    dict[str, tuple[tuple[float, float], tuple[float, float], tuple[float, float]]]
+] = {
+    "upper right": ((1.0, 1.0), (1.0, 1.0), (-1.0, -1.0)),
+    "upper left": ((0.0, 1.0), (0.0, 1.0), (1.0, -1.0)),
+    "lower left": ((0.0, 0.0), (0.0, 0.0), (1.0, 1.0)),
+    "lower right": ((1.0, 0.0), (1.0, 0.0), (-1.0, 1.0)),
+    "right": ((1.0, 0.5), (1.0, 0.5), (-1.0, 0.0)),
+    "center left": ((0.0, 0.5), (0.0, 0.5), (1.0, 0.0)),
+    "center right": ((1.0, 0.5), (1.0, 0.5), (-1.0, 0.0)),
+    "lower center": ((0.5, 0.0), (0.5, 0.0), (0.0, 1.0)),
+    "upper center": ((0.5, 1.0), (0.5, 1.0), (0.0, -1.0)),
+    "center": ((0.5, 0.5), (0.5, 0.5), (0.0, 0.0)),
+}
+
+#: The ``OffsetImage`` options ``add_logo`` forwards. Anything else is a typo
+#: worth naming, because ``OffsetImage`` reports it as an ``AttributeError``
+#: raised by ``BboxImage.set`` (logo spec §5).
+_IMAGE_KEYS: Final[frozenset[str]] = frozenset(
+    {"alpha", "filternorm", "filterrad", "interpolation", "resample"}
+)
+
+
+def _resolve_target(target: Figure | Axes | None) -> tuple[Figure, Axes | None]:
+    """Split the target into the figure that owns it and the axes, if any.
+
+    Parameters
+    ----------
+    target : matplotlib.figure.Figure or matplotlib.axes.Axes or None
+        What to brand. ``None`` takes the current figure.
+
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes or None)
+        The owning figure, and the axes when one was given.
+
+    Raises
+    ------
+    TypeError
+        If `target` is neither a figure nor an axes, or is an axes belonging to
+        a :class:`matplotlib.figure.SubFigure`.
+    """
+    if target is None:
+        # Local: keeps pyplot out of ``import tephpy`` (logo spec §3.2).
+        import matplotlib.pyplot as plt  # noqa: PLC0415
+
+        target = plt.gcf()
+    # Widened so the guard below stays reachable under mypy's ``warn_unreachable``
+    # for a caller who ignores the annotation — which is the caller it protects
+    # against. Narrow it back and mypy calls the final ``raise`` dead code.
+    resolved: object = target
+    if isinstance(resolved, Axes):
+        figure = resolved.figure
+        if not isinstance(figure, Figure):
+            msg = "target axes must belong to a Figure, not a SubFigure."
+            raise TypeError(msg)
+        return figure, resolved
+    if isinstance(resolved, Figure):
+        return resolved, None
+    msg = f"target must be a Figure or an Axes, got {type(resolved).__name__}."
+    raise TypeError(msg)
+
+
+def _resolve_size(size: str | float, form: str) -> float:
+    """Turn a preset name or an explicit height into a height in inches.
+
+    Parameters
+    ----------
+    size : str or float
+        A key of the `form`'s ``LOGO_SIZES`` entry, or a height in inches.
+    form : str
+        Which mark, which selects the preset table.
+
+    Returns
+    -------
+    float
+        The logo height in inches.
+
+    Raises
+    ------
+    ValueError
+        If `form` names no mark, if `size` names no preset, or if `size` is not
+        a positive finite height.
+    """
+    presets = LOGO_SIZES.get(form)
+    if presets is None:
+        valid = ", ".join(sorted(LOGO_SIZES))
+        msg = f"unknown form {form!r}, expected one of: {valid}."
+        raise ValueError(msg)
+    if isinstance(size, str):
+        height = presets.get(size)
+        if height is None:
+            valid = ", ".join(sorted(presets))
+            msg = (
+                f"unknown size {size!r}, expected one of: {valid}, "
+                "or a height in inches."
+            )
+            raise ValueError(msg)
+        return height
+    height = float(size)
+    if not math.isfinite(height) or height <= 0.0:
+        msg = f"size must be a positive finite height in inches, got {size!r}."
+        raise ValueError(msg)
+    return height
+
+
+def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
+    """Choose the light or dark variant, reading the background when asked to.
+
+    ``"auto"`` measures the sRGB relative luminance of the first opaque
+    facecolor among the axes and then the figure, so a transparent axes defers
+    to the figure showing through it (logo spec §3.5).
+
+    Parameters
+    ----------
+    theme : str
+        ``"auto"``, ``"light"`` or ``"dark"``, naming the *background*.
+    figure : matplotlib.figure.Figure
+        The owning figure, measured when the axes is absent or transparent.
+    axes : matplotlib.axes.Axes or None
+        The target axes, measured first when there is one.
+
+    Returns
+    -------
+    str
+        ``"light"`` or ``"dark"``.
+
+    Raises
+    ------
+    ValueError
+        If `theme` is none of the three accepted names.
+    """
+    if theme in {"dark", "light"}:
+        return theme
+    if theme != "auto":
+        msg = f"unknown theme {theme!r}, expected one of: auto, dark, light."
+        raise ValueError(msg)
+    for artist in (axes, figure):
+        if artist is None:
+            continue
+        red, green, blue, alpha = mcolors.to_rgba(artist.get_facecolor())
+        if alpha == 0.0:
+            continue
+        weight_red, weight_green, weight_blue = LOGO_LUMINANCE_WEIGHTS
+        luminance = weight_red * red + weight_green * green + weight_blue * blue
+        return "dark" if luminance < LOGO_LUMINANCE_THRESHOLD else "light"
+    return "light"
+
+
+def _resolve_loc(
+    loc: str | tuple[float, float], pad: float
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+    """Turn a placement into an anchor, a box alignment and an offset in points.
+
+    A pair places the logo's lower-left corner at those fraction coordinates and
+    ignores `pad`, because the caller has already said exactly where they want
+    it (logo spec §3.4).
+
+    Parameters
+    ----------
+    loc : str or tuple of float
+        A key of ``_LOC``, or an ``(x, y)`` pair in fraction coordinates.
+    pad : float
+        Points between the logo and the target's edge, for the string form.
+
+    Returns
+    -------
+    tuple of (tuple of float, tuple of float, tuple of float)
+        The anchor, the box alignment, and the offset in points.
+
+    Raises
+    ------
+    TypeError
+        If `loc` is neither a string nor a pair of floats.
+    ValueError
+        If `loc` names no placement, or holds a non-finite coordinate.
+    """
+    if isinstance(loc, str):
+        placement = _LOC.get(loc)
+        if placement is None:
+            valid = ", ".join(sorted(_LOC))
+            detail = (
+                "loc='best' is unsupported: add_logo performs no collision detection"
+                if loc == "best"
+                else f"unknown loc {loc!r}"
+            )
+            msg = f"{detail}, expected one of: {valid}, or an (x, y) pair."
+            raise ValueError(msg)
+        anchor, alignment, signs = placement
+        return anchor, alignment, (signs[0] * pad, signs[1] * pad)
+    try:
+        x, y = (float(value) for value in loc)
+    except (TypeError, ValueError) as err:
+        msg = (
+            f"loc must be a placement string or an (x, y) pair of floats, got {loc!r}."
+        )
+        raise TypeError(msg) from err
+    if not (math.isfinite(x) and math.isfinite(y)):
+        msg = f"loc coordinates must be finite, got {loc!r}."
+        raise ValueError(msg)
+    return (x, y), (0.0, 0.0), (0.0, 0.0)
+
+
+def _image_options(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Check the forwarded keywords against what ``OffsetImage`` accepts.
+
+    Parameters
+    ----------
+    kwargs : dict
+        The caller's surplus keyword arguments.
+
+    Returns
+    -------
+    dict
+        `kwargs` unchanged, once every key is known.
+
+    Raises
+    ------
+    TypeError
+        If any key is not an ``OffsetImage`` option.
+    """
+    unknown = sorted(set(kwargs) - _IMAGE_KEYS)
+    if unknown:
+        valid = ", ".join(sorted(_IMAGE_KEYS))
+        msg = f"unknown option {', '.join(unknown)}; expected one of: {valid}."
+        raise TypeError(msg)
+    return kwargs
 
 
 @cache

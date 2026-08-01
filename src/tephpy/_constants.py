@@ -311,3 +311,29 @@ EDGE_TICK_PAD: Final[float] = 2.0
 #: right axis needs 0.479 in for its ticks, labels and title, so this leaves
 #: 0.07 in of clearance (spec §3.2).
 EDGE_LABEL_GUTTER_PAD: Final[float] = 0.55
+
+#: Points per inch, the typographic unit matplotlib sizes text and offsets in.
+POINTS_PER_INCH: Final[float] = 72.0
+
+#: Logo height in inches for each ``(form, size)`` preset of ``add_logo``.
+#: The presets are per-form because the forms give the wordmark different
+#: shares of their height — 44.1% for the lockup, 17.8% for the stacked
+#: form — so a shared pair would leave one of them illegible (logo spec §3.3).
+LOGO_SIZES: Final[dict[str, dict[str, float]]] = {
+    "icon": {"small": 0.40, "large": 0.70},
+    "lockup": {"small": 0.30, "large": 0.55},
+    "stacked": {"small": 0.70, "large": 1.15},
+}
+
+#: Default gap in points between the logo and its target's edge, matching the
+#: legend's ``borderaxespad`` of 0.5 font-size units at the 10 pt default font.
+LOGO_PAD: Final[float] = 6.0
+
+#: Default logo draw order: above lines (2), text (3) and legends (5).
+LOGO_ZORDER: Final[float] = 100.0
+
+#: sRGB relative luminance below which ``theme="auto"`` calls a background dark.
+LOGO_LUMINANCE_THRESHOLD: Final[float] = 0.5
+
+#: Rec. 709 relative-luminance weights for the red, green and blue channels.
+LOGO_LUMINANCE_WEIGHTS: Final[tuple[float, float, float]] = (0.2126, 0.7152, 0.0722)

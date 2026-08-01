@@ -10,6 +10,7 @@ import dataclasses
 from datetime import UTC, datetime
 
 import numpy as np
+import pytest
 
 from tephpy import _constants as constants
 from tephpy.calc import SoundingIndices
@@ -168,3 +169,16 @@ def test_edge_label_gutter_pad_clears_a_tick_label():
     assert constants.EDGE_LABEL_GUTTER_PAD > constants.INDICES_PANEL_PAD
     assert constants.EDGE_TICK_LENGTH > 0.0
     assert constants.EDGE_TICK_PAD >= 0.0
+
+
+def test_logo_conventions():
+    """Every form has both presets, ordered, and the luminance weights are Rec. 709."""
+    assert constants.POINTS_PER_INCH == 72.0
+    assert set(constants.LOGO_SIZES) == {"icon", "lockup", "stacked"}
+    for presets in constants.LOGO_SIZES.values():
+        assert set(presets) == {"small", "large"}
+        assert 0.0 < presets["small"] < presets["large"]
+    assert constants.LOGO_PAD > 0.0
+    assert constants.LOGO_ZORDER > 5.0
+    assert 0.0 < constants.LOGO_LUMINANCE_THRESHOLD < 1.0
+    assert sum(constants.LOGO_LUMINANCE_WEIGHTS) == pytest.approx(1.0)
