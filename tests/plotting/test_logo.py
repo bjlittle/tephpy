@@ -17,8 +17,8 @@ import zipfile
 import matplotlib.pyplot as plt
 import pytest
 
-from tephpy._constants import LOGO_SIZES
-from tephpy.plotting import logo
+from tephpy._constants import LOGO_PAD, LOGO_SIZES, LOGO_ZORDER, POINTS_PER_INCH
+from tephpy.plotting import add_logo, logo
 
 REPO = Path(__file__).parents[2]
 STATIC = REPO / "src" / "tephpy" / "plotting" / "_static"
@@ -364,3 +364,122 @@ def test_image_options_rejects_an_unknown_key():
 def test_image_options_names_every_unknown_key():
     with pytest.raises(TypeError, match="unknown option bogus, spurious"):
         logo._image_options({"spurious": 2, "bogus": 1})
+
+
+def _extent(artist, figure):
+    """Return the artist's rendered box in display units, after a draw."""
+    figure.canvas.draw()
+    return artist.get_window_extent(figure.canvas.get_renderer())
+
+
+@pytest.mark.parametrize("dpi", [100, 300, 600])
+@pytest.mark.parametrize("form", ["icon", "lockup", "stacked"])
+@pytest.mark.parametrize("size", ["small", "large"])
+def test_rendered_height_is_the_requested_inches_at_any_dpi(dpi, form, size):
+    """The whole point of the zoom calculation (logo spec §3.3)."""
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=dpi)
+    box = _extent(add_logo(axes, form=form, size=size), figure)
+    assert box.height / dpi == pytest.approx(LOGO_SIZES[form][size], abs=1e-6)
+    plt.close(figure)
+
+
+def test_annotation_bbox_pad_is_zero():
+    """``AnnotationBbox``'s default 0.4 font-size units adds 0.111 in at 10 pt."""
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    box = _extent(add_logo(axes, form="lockup", size="small"), figure)
+    assert box.height / 100 == pytest.approx(0.30, abs=1e-6)
+    plt.close(figure)
+
+
+def test_explicit_height_in_inches_is_honoured():
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    box = _extent(add_logo(axes, size=1.25), figure)
+    assert box.height / 100 == pytest.approx(1.25, abs=1e-6)
+    plt.close(figure)
+
+
+@pytest.mark.parametrize(("dpi", "figsize"), [(100, (6, 4)), (300, (4.5, 6))])
+@pytest.mark.parametrize("loc", sorted(logo._LOC))
+def test_every_placement_lands_where_its_table_row_says(loc, dpi, figsize):
+    """One arithmetic check per row, so a transposed sign cannot hide.
+
+    Two dpi and two aspect ratios, because the gap is in points and the anchor
+    is a fraction — either could be right at one shape and wrong at the other.
+    """
+    figure, axes = plt.subplots(figsize=figsize, dpi=dpi)
+    box = _extent(add_logo(axes, loc=loc, pad=LOGO_PAD), figure)
+    target = axes.get_window_extent()
+    scale = dpi / POINTS_PER_INCH
+    anchor, alignment, signs = logo._LOC[loc]
+    x = target.x0 + anchor[0] * target.width + signs[0] * LOGO_PAD * scale
+    y = target.y0 + anchor[1] * target.height + signs[1] * LOGO_PAD * scale
+    assert box.x0 == pytest.approx(x - alignment[0] * box.width, abs=0.01)
+    assert box.y0 == pytest.approx(y - alignment[1] * box.height, abs=0.01)
+    plt.close(figure)
+
+
+def test_a_pair_places_the_lower_left_corner_and_ignores_pad():
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    box = _extent(add_logo(axes, loc=(0.35, 0.2), pad=50.0), figure)
+    target = axes.get_window_extent()
+    assert box.x0 == pytest.approx(target.x0 + 0.35 * target.width, abs=0.01)
+    assert box.y0 == pytest.approx(target.y0 + 0.2 * target.height, abs=0.01)
+    plt.close(figure)
+
+
+def test_a_figure_target_anchors_to_the_figure_not_the_axes():
+    """The distinguishing property: the figure box is strictly outside the axes box."""
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    on_figure = _extent(add_logo(figure, loc="lower left"), figure)
+    on_axes = _extent(add_logo(axes, loc="lower left"), figure)
+    assert on_figure.x0 < on_axes.x0
+    assert on_figure.y0 < on_axes.y0
+    assert on_figure.x0 == pytest.approx(LOGO_PAD * 100 / POINTS_PER_INCH, abs=0.01)
+    plt.close(figure)
+
+
+def test_the_artist_is_returned_attached_and_removable():
+    """The caller can restyle or drop it — the reason it is returned at all."""
+    figure, axes = plt.subplots()
+    artist = add_logo(axes)
+    assert artist in axes.artists
+    assert artist.get_zorder() == LOGO_ZORDER
+    artist.remove()
+    assert artist not in axes.artists
+    plt.close(figure)
+
+
+def test_image_options_reach_the_offsetimage():
+    figure, axes = plt.subplots()
+    artist = add_logo(axes, alpha=0.5)
+    assert artist.offsetbox.get_children()[0].get_alpha() == 0.5
+    plt.close(figure)
+
+
+def test_no_target_brands_the_current_figure():
+    figure = plt.figure(figsize=(6, 4), dpi=100)
+    assert add_logo().figure is figure
+    plt.close(figure)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error", "match"),
+    [
+        ({"form": "wordmark"}, ValueError, "unknown form"),
+        ({"size": "medium"}, ValueError, "unknown size"),
+        ({"theme": "sepia"}, ValueError, "unknown theme"),
+        ({"loc": "best"}, ValueError, "no collision detection"),
+        ({"bogus": 1}, TypeError, "unknown option"),
+    ],
+)
+def test_every_resolver_is_wired_into_the_public_call(kwargs, error, match):
+    """Each resolver's rejection must survive the trip through ``add_logo``."""
+    figure, axes = plt.subplots()
+    with pytest.raises(error, match=match):
+        add_logo(axes, **kwargs)
+    plt.close(figure)
+
+
+def test_an_unusable_target_is_rejected():
+    with pytest.raises(TypeError, match="Figure or an Axes"):
+        add_logo("figure")

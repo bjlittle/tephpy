@@ -23,12 +23,18 @@ from matplotlib.axes import Axes
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 import matplotlib.image as mimage
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
 from tephpy._constants import (
     LOGO_LUMINANCE_THRESHOLD,
     LOGO_LUMINANCE_WEIGHTS,
+    LOGO_PAD,
     LOGO_SIZES,
+    LOGO_ZORDER,
+    POINTS_PER_INCH,
 )
+
+__all__ = ["add_logo"]
 
 if TYPE_CHECKING:
     import numpy as np
@@ -312,3 +318,91 @@ def _load_master(form: str, variant: str) -> npt.NDArray[np.floating[Any]]:
     image = mimage.imread(BytesIO(resource.read_bytes()), format="png")
     image.setflags(write=False)
     return image
+
+
+def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
+    target: Figure | Axes | None = None,
+    *,
+    form: str = "lockup",
+    size: str | float = "small",
+    theme: str = "auto",
+    loc: str | tuple[float, float] = "lower left",
+    pad: float | None = None,
+    zorder: float | None = None,
+    **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
+) -> AnnotationBbox:
+    """Draw the tephpy logo on a figure or an axes.
+
+    The logo is an :class:`matplotlib.offsetbox.AnnotationBbox` anchored in the
+    target's own fraction coordinates, so a figure target places it against the
+    figure edges and an axes target against the axes edges, exactly as ``legend``
+    does (logo spec §3.4). Its rendered height is the number of inches asked for
+    whatever the figure dpi (logo spec §3.3).
+
+    Parameters
+    ----------
+    target : matplotlib.figure.Figure or matplotlib.axes.Axes, optional
+        What to brand, and what the position is relative to. ``None`` takes the
+        current figure.
+    form : str, optional
+        Which mark to draw: ``"lockup"``, ``"stacked"`` or ``"icon"``.
+    size : str or float, optional
+        A preset, ``"small"`` or ``"large"``, or an explicit height in inches.
+    theme : str, optional
+        Which variant to draw: ``"auto"``, ``"light"`` or ``"dark"``. The name is
+        the *background* the logo is drawn on, so ``"dark"`` is the variant for a
+        dark background. ``"auto"`` reads the target's facecolor.
+    loc : str or tuple of float, optional
+        A ``legend`` placement string, or an ``(x, y)`` pair in the target's
+        fraction coordinates giving the logo's lower-left corner.
+    pad : float, optional
+        Points between the logo and the target's edge, ignored when `loc` is a
+        pair. ``None`` takes ``LOGO_PAD``.
+    zorder : float, optional
+        Draw order. ``None`` takes ``LOGO_ZORDER``, which is above lines, text
+        and legends.
+    **kwargs : Any
+        Passed through to :class:`matplotlib.offsetbox.OffsetImage`: ``alpha``,
+        ``filternorm``, ``filterrad``, ``interpolation`` and ``resample``.
+
+    Returns
+    -------
+    matplotlib.offsetbox.AnnotationBbox
+        The artist, already added to the target, for restyling or removal.
+
+    Raises
+    ------
+    TypeError
+        If `target` is neither a figure nor an axes, if `loc` is neither a
+        placement string nor a pair of floats, or if a keyword is not an
+        ``OffsetImage`` option.
+    ValueError
+        If `form`, `size`, `theme` or `loc` names something that does not exist,
+        if `size` is not a positive finite height, or if a `loc` pair holds a
+        non-finite coordinate.
+    """
+    figure, axes = _resolve_target(target)
+    height = _resolve_size(size, form)
+    variant = _resolve_theme(theme, figure, axes)
+    anchor, alignment, offset = _resolve_loc(
+        loc, LOGO_PAD if pad is None else float(pad)
+    )
+    options = _image_options(kwargs)
+    image = _load_master(form, variant)
+    artist = AnnotationBbox(
+        OffsetImage(image, zoom=height * POINTS_PER_INCH / image.shape[0], **options),
+        xy=anchor,
+        xycoords="axes fraction" if axes is not None else "figure fraction",
+        xybox=offset,
+        boxcoords="offset points",
+        box_alignment=alignment,
+        frameon=False,
+        # Mandatory: the AnnotationBbox default of 0.4 font-size units adds a
+        # constant 0.111 in to the rendered box at the 10 pt default font.
+        pad=0.0,
+        zorder=LOGO_ZORDER if zorder is None else float(zorder),
+        annotation_clip=False,
+    )
+    owner: Figure | Axes = figure if axes is None else axes
+    owner.add_artist(artist)
+    return artist
