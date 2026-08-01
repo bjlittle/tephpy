@@ -459,6 +459,33 @@ def test_labels_disabled(plain_axes):
     assert family._texts == []
 
 
+@pytest.mark.parametrize(
+    "stop_labelling",
+    [
+        lambda family: family.configure(labels=False),
+        lambda family: family.set_visible(False),
+    ],
+    ids=["labels-off", "family-hidden"],
+)
+def test_a_family_that_stops_labelling_gives_up_its_pool(plain_axes, stop_labelling):
+    """Turning labelling off must release the pool, not merely stop drawing.
+
+    Both routes short-circuit ``draw`` *before* ``_draw_labels``, so the trim
+    inside it never runs — the branch that decides not to label has to do the
+    release itself. ``test_labels_disabled`` covers a family that never
+    labelled; the leak is in the transition, which only a family that drew
+    labels first can show.
+    """
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    figure = plain_axes.figure
+    figure.canvas.draw()
+    assert family._texts
+    stop_labelling(family)
+    figure.canvas.draw()
+    assert family._texts == []
+
+
 def test_moist_adiabat_truncation_configurable():
     family = _make_family("moist_adiabats")
     family.configure(truncation=-30.0)

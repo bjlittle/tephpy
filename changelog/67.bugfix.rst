@@ -5,5 +5,7 @@ draw, but never gave the surplus back. Anything that shrinks the labelled set â€
 zooming back out after a finer ladder step, or claiming an edge, which hands
 the members reaching it to the axis ticks â€” left the high-water mark pinned for
 the life of the axes; a round trip through the default view's zoom ladder
-retained 40 labels that would never be drawn again. The pool is now trimmed to
-what each draw actually labels. (:user:`claude`)
+retained 40 labels that would never be drawn again. Switching labelling off, or
+hiding the family, stranded the whole pool the same way. The pool is now
+trimmed to what each draw actually labels, and released outright when a draw
+labels nothing. (:user:`claude`)

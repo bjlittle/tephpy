@@ -1035,6 +1035,9 @@ class IsoplethFamily(martist.Artist):
             The active renderer.
         """
         if not self.get_visible():
+            # A hidden family holds nothing: it gives its pooled labels up on
+            # the same terms as its claimed edge (spec §3.2).
+            self._texts.clear()
             return
         axes = self.axes
         if axes is None:
@@ -1082,6 +1085,10 @@ class IsoplethFamily(martist.Artist):
         lines.draw(renderer)
         if opts.labels:
             self._draw_labels(renderer, selected)
+        else:
+            # ``_draw_labels`` owns the trim, so labelling switched off after a
+            # labelled draw would otherwise strand the whole pool here.
+            self._texts.clear()
         renderer.close_group("isopleth-family")
         self.stale = False
 
