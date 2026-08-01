@@ -419,6 +419,38 @@ def test_labels_drawn_and_upright(plain_axes):
         assert rotation <= 90.0 or rotation >= 270.0
 
 
+def test_label_pool_does_not_outgrow_the_labelled_set(plain_axes):
+    """The pool tracks what is labelled, in both directions (spec §3.2).
+
+    ``_draw_labels`` grows the pool to fit, and a zoom that promotes a finer
+    ladder step grows it further. Zooming back out must give the surplus up
+    again: the pool is a cache sized to the current draw, not a high-water
+    mark held until ``ax.clear()``. The surplus is never drawn — the draw
+    loop's ``zip(..., strict=False)`` stops at the shorter sequence — so
+    nothing but the pool length can catch this.
+    """
+    family = _make_family("isobars")
+    plain_axes.add_artist(family)
+    figure = plain_axes.figure
+
+    def labelled():
+        selected = family._order_members(family._selected_members())
+        return len(family._inline_members(plain_axes.viewLim, selected))
+
+    figure.canvas.draw()
+    assert len(family._texts) == labelled()
+    # Zoom in far enough for the convention ladder to promote a finer step,
+    # which is what grows the pool beyond the wide-view count.
+    plain_axes.set(xlim=(1700.0, 1750.0), ylim=(1700.0, 1750.0))
+    figure.canvas.draw()
+    zoomed = len(family._texts)
+    assert zoomed == labelled()
+    plain_axes.set(xlim=(1591.0, 1902.0), ylim=(1671.0, 1822.0))
+    figure.canvas.draw()
+    assert zoomed > labelled()
+    assert len(family._texts) == labelled()
+
+
 def test_labels_disabled(plain_axes):
     family = _make_family("isobars")
     family.configure(labels=False)

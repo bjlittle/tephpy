@@ -1517,6 +1517,11 @@ class IsoplethFamily(martist.Artist):
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
             self._texts.append(self._make_text())
+        # ... and give the surplus back when the labelled set shrinks -- a zoom
+        # out, or an edge claiming the members it now ticks.  The pool is a
+        # cache sized to the current draw, not a high-water mark: nothing but
+        # this list holds a pooled label, so dropping it is the whole release.
+        del self._texts[len(labelled) :]
         for member, text in zip(labelled, self._texts, strict=False):
             xy = member.xy
             inside = (
