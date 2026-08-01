@@ -1529,6 +1529,12 @@ class IsoplethFamily(martist.Artist):
         # cache sized to the current draw, not a high-water mark: nothing but
         # this list holds a pooled label, so dropping it is the whole release.
         del self._texts[len(labelled) :]
+        # The grow-then-trim above makes these two exactly equal in length, so
+        # ``strict=True`` would pass today and is what the rest of the codebase
+        # uses -- this is deliberately the one exception.  The zip runs inside
+        # ``draw``, where raising costs the caller the whole figure; a future
+        # desync should cost one label instead, and the pool-length tests are
+        # what catch it.
         for member, text in zip(labelled, self._texts, strict=False):
             xy = member.xy
             inside = (
