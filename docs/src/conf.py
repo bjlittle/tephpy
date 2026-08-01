@@ -109,12 +109,12 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
-html_favicon = "_static/brand/favicon.png"
+html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",
     "logo": {
-        "image_light": "_static/brand/logo-flat-light.svg",
-        "image_dark": "_static/brand/logo-flat-dark.svg",
+        "image_light": "_static/brand/svg/lockup-tiera-light.svg",
+        "image_dark": "_static/brand/svg/lockup-tiera-dark.svg",
     },
     "navbar_align": "left",
 }
