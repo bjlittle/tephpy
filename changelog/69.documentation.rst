@@ -1,0 +1,10 @@
+Fixed the project banner not rendering on PyPI: the ``<picture>`` sources in
+``README.md`` were repository-relative paths, which resolve on GitHub but 404
+once PyPI serves the same markup from ``pypi.org``, so they are now absolute
+``raw.githubusercontent.com`` URLs. Added
+``docs/src/_static/brand/assets/README.md`` mapping every published brand file
+to its counterpart in ``logo-bundle.zip``, recording which are consumed by
+``conf.py`` and the project README, and naming what the bundle carries that
+tephpy does not ship. Kept that directory out of the built site with
+``exclude_patterns``, whose entries are matched relative to the
+``html_static_path`` root for static-file copying. (:user:`claude`)
