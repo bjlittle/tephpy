@@ -46,7 +46,7 @@ def _load_master(form: str, variant: str) -> npt.NDArray[np.floating[Any]]:
     Parameters
     ----------
     form : str
-        Which mark: a key of the first element of ``_MASTERS``.
+        Which mark: the first element of a ``_MASTERS`` key.
     variant : str
         Which background the mark is drawn on: ``"light"`` or ``"dark"``.
 
