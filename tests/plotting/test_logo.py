@@ -16,6 +16,8 @@ import zipfile
 
 import pytest
 
+from tephpy.plotting import logo
+
 REPO = Path(__file__).parents[2]
 STATIC = REPO / "src" / "tephpy" / "plotting" / "_static"
 BUNDLE = REPO / "docs" / "src" / "_static" / "brand" / "assets" / "logo-bundle.zip"
@@ -81,3 +83,58 @@ def test_masters_ship_in_the_wheel(tmp_path):
             if name.startswith("tephpy/plotting/_static/")
         }
     assert packaged == set(MASTERS)
+
+
+@pytest.mark.parametrize(
+    ("form", "variant", "shape"),
+    [
+        ("icon", "light", (512, 512)),
+        ("icon", "dark", (512, 512)),
+        ("lockup", "light", (256, 716)),
+        ("lockup", "dark", (256, 716)),
+        ("stacked", "light", (720, 512)),
+        ("stacked", "dark", (720, 512)),
+    ],
+)
+def test_load_master_shape(form, variant, shape):
+    """Height first: the zoom calculation divides by ``shape[0]`` (logo spec §3.3)."""
+    image = logo._load_master(form, variant)
+    assert image.shape == (*shape, 4)
+
+
+def test_load_master_is_read_only():
+    """One shared array per variant; a caller mutating it would poison every figure."""
+    with pytest.raises(ValueError, match="read-only"):
+        logo._load_master("icon", "light")[0, 0, 0] = 1.0
+
+
+def test_load_master_caches():
+    """Decoding a 512x720 PNG per call would cost more than drawing the figure."""
+    assert logo._load_master("stacked", "dark") is logo._load_master("stacked", "dark")
+
+
+def test_masters_table_covers_every_shipped_file():
+    """The table and the packaged directory must not drift apart."""
+    assert sorted(logo._MASTERS.values()) == sorted(MASTERS)
+
+
+def test_importing_reads_no_asset():
+    """A logo nobody asked for costs nothing (logo spec §3.6)."""
+    code = (
+        "from tephpy.plotting import logo;"
+        " info = logo._load_master.cache_info();"
+        " raise SystemExit(0 if info.hits == 0 and info.currsize == 0 else 1)"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
+
+
+def test_import_tephpy_does_not_import_pyplot():
+    """``pyplot`` is an interactive-session import, not a library one.
+
+    See logo spec §3.2.
+    """
+    code = (
+        "import sys, tephpy;"
+        " raise SystemExit(1 if 'matplotlib.pyplot' in sys.modules else 0)"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
