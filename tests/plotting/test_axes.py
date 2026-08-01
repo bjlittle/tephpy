@@ -1153,6 +1153,30 @@ def test_family_configure_claims_and_releases_an_edge():
         plt.close(fig)
 
 
+def test_claiming_an_edge_gives_up_the_inline_label_artists():
+    """A claim shrinks the pool, it does not just stop drawing from it.
+
+    The edge takes over the members that reach it, so the inline remainder
+    collapses (spec §3.2) — and the ``Text`` artists for the members the
+    edge now labels are the family's to release. They are never drawn
+    again, but they still carry a figure reference, so a pool that only
+    ever grows pins them for the life of the axes.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        family = ax.isobars()
+        fig.canvas.draw()
+        inline = len(family._inline_members(ax.viewLim, family._selected_members()))
+        assert len(family._texts) == inline
+        family.configure(labels="left")
+        fig.canvas.draw()
+        claimed = len(family._inline_members(ax.viewLim, family._selected_members()))
+        assert claimed < inline
+        assert len(family._texts) == claimed
+    finally:
+        plt.close(fig)
+
+
 def test_set_visible_releases_and_reclaims_an_edge():
     """``Artist.set_visible`` is a resolve too: hiding drops the edge.
 

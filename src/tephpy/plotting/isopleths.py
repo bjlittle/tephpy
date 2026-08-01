@@ -1035,6 +1035,9 @@ class IsoplethFamily(martist.Artist):
             The active renderer.
         """
         if not self.get_visible():
+            # A hidden family holds nothing: it gives its pooled labels up on
+            # the same terms as its claimed edge (spec §3.2).
+            self._texts.clear()
             return
         axes = self.axes
         if axes is None:
@@ -1082,6 +1085,10 @@ class IsoplethFamily(martist.Artist):
         lines.draw(renderer)
         if opts.labels:
             self._draw_labels(renderer, selected)
+        else:
+            # ``_draw_labels`` owns the trim, so labelling switched off after a
+            # labelled draw would otherwise strand the whole pool here.
+            self._texts.clear()
         renderer.close_group("isopleth-family")
         self.stale = False
 
@@ -1517,6 +1524,17 @@ class IsoplethFamily(martist.Artist):
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
             self._texts.append(self._make_text())
+        # ... and give the surplus back when the labelled set shrinks -- a zoom
+        # out, or an edge claiming the members it now ticks.  The pool is a
+        # cache sized to the current draw, not a high-water mark: nothing but
+        # this list holds a pooled label, so dropping it is the whole release.
+        del self._texts[len(labelled) :]
+        # The grow-then-trim above makes these two exactly equal in length, so
+        # ``strict=True`` would pass today and is what the rest of the codebase
+        # uses -- this is deliberately the one exception.  The zip runs inside
+        # ``draw``, where raising costs the caller the whole figure; a future
+        # desync should cost one label instead, and the pool-length tests are
+        # what catch it.
         for member, text in zip(labelled, self._texts, strict=False):
             xy = member.xy
             inside = (
