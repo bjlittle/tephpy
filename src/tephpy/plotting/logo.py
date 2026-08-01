@@ -335,9 +335,10 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
 
     The logo is an :class:`matplotlib.offsetbox.AnnotationBbox` anchored in the
     target's own fraction coordinates, so a figure target places it against the
-    figure edges and an axes target against the axes edges, exactly as ``legend``
-    does (logo spec §3.4). Its rendered height is the number of inches asked for
-    whatever the figure dpi (logo spec §3.3).
+    figure edges and an axes target against the axes edges, exactly as
+    :meth:`matplotlib.axes.Axes.legend` does (logo spec §3.4). Its rendered
+    height is the number of inches asked for whatever the figure dpi
+    (logo spec §3.3).
 
     Parameters
     ----------
@@ -353,8 +354,9 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
         the *background* the logo is drawn on, so ``"dark"`` is the variant for a
         dark background. ``"auto"`` reads the target's facecolor.
     loc : str or tuple of float, optional
-        A ``legend`` placement string, or an ``(x, y)`` pair in the target's
-        fraction coordinates giving the logo's lower-left corner.
+        A :meth:`matplotlib.axes.Axes.legend` placement string, or an
+        ``(x, y)`` pair in the target's fraction coordinates giving the
+        logo's lower-left corner.
     pad : float, optional
         Points between the logo and the target's edge, ignored when `loc` is a
         pair. ``None`` takes ``LOGO_PAD``.
@@ -374,21 +376,28 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
     ------
     TypeError
         If `target` is neither a figure nor an axes, if `loc` is neither a
-        placement string nor a pair of floats, or if a keyword is not an
-        ``OffsetImage`` option.
+        placement string nor a pair of floats, if `pad` or `zorder` is not a
+        real number, or if a keyword is not a
+        :class:`matplotlib.offsetbox.OffsetImage` option.
     ValueError
-        If `form`, `size`, `theme` or `loc` names something that does not exist,
-        if `size` is not a positive finite height, or if a `loc` pair holds a
-        non-finite coordinate.
+        If `form`, `size`, `theme` or `loc` names something that does not
+        exist, if `size` is not a positive finite height, if a `loc` pair
+        holds a non-finite coordinate, or if `pad` or `zorder` is not finite.
     """
     figure, axes = _resolve_target(target)
     height = _resolve_size(size, form)
     variant = _resolve_theme(theme, figure, axes)
-    anchor, alignment, offset = _resolve_loc(
-        loc, LOGO_PAD if pad is None else float(pad)
-    )
+    effective_pad = LOGO_PAD if pad is None else float(pad)
+    if not math.isfinite(effective_pad):
+        msg = f"pad must be a finite number of points, got {pad!r}."
+        raise ValueError(msg)
+    anchor, alignment, offset = _resolve_loc(loc, effective_pad)
     options = _image_options(kwargs)
     image = _load_master(form, variant)
+    effective_zorder = LOGO_ZORDER if zorder is None else float(zorder)
+    if not math.isfinite(effective_zorder):
+        msg = f"zorder must be a finite number, got {zorder!r}."
+        raise ValueError(msg)
     artist = AnnotationBbox(
         OffsetImage(image, zoom=height * POINTS_PER_INCH / image.shape[0], **options),
         xy=anchor,
@@ -397,10 +406,12 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
         boxcoords="offset points",
         box_alignment=alignment,
         frameon=False,
-        # Mandatory: the AnnotationBbox default of 0.4 font-size units adds a
-        # constant 0.111 in to the rendered box at the 10 pt default font.
+        # Mandatory: without this, get_window_extent and
+        # savefig(bbox_inches="tight") include the invisible FancyBboxPatch,
+        # inflating the measured extent by 0.4 font-size units (≈0.111 in at
+        # the 10 pt default font).
         pad=0.0,
-        zorder=LOGO_ZORDER if zorder is None else float(zorder),
+        zorder=effective_zorder,
         annotation_clip=False,
     )
     owner: Figure | Axes = figure if axes is None else axes

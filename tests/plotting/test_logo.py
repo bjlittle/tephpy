@@ -483,3 +483,44 @@ def test_every_resolver_is_wired_into_the_public_call(kwargs, error, match):
 def test_an_unusable_target_is_rejected():
     with pytest.raises(TypeError, match="Figure or an Axes"):
         add_logo("figure")
+
+
+def test_explicit_pad_is_forwarded_not_ignored():
+    """A non-default pad reaches the offset, visibly moving the logo."""
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    box = _extent(add_logo(axes, loc="lower left", pad=2 * LOGO_PAD), figure)
+    target = axes.get_window_extent()
+    gap = 2 * LOGO_PAD * 100 / POINTS_PER_INCH
+    assert box.x0 == pytest.approx(target.x0 + gap, abs=0.01)
+    assert box.y0 == pytest.approx(target.y0 + gap, abs=0.01)
+    plt.close(figure)
+
+
+def test_explicit_zorder_is_forwarded_not_ignored():
+    figure, axes = plt.subplots()
+    assert add_logo(axes, zorder=7).get_zorder() == 7
+    plt.close(figure)
+
+
+def test_nonfinite_pad_is_rejected():
+    figure, axes = plt.subplots()
+    with pytest.raises(ValueError, match="pad must be a finite"):
+        add_logo(axes, pad=float("nan"))
+    plt.close(figure)
+
+
+def test_nonfinite_zorder_is_rejected():
+    figure, axes = plt.subplots()
+    with pytest.raises(ValueError, match="zorder must be a finite"):
+        add_logo(axes, zorder=float("inf"))
+    plt.close(figure)
+
+
+def test_annotation_clip_false_places_a_logo_outside_axes_bounds():
+    """``annotation_clip=False`` means a pair outside [0, 1] renders unclipped."""
+    figure, axes = plt.subplots(figsize=(6, 4), dpi=100)
+    box = _extent(add_logo(axes, loc=(1.05, 1.05)), figure)
+    target = axes.get_window_extent()
+    assert box.x0 > target.x1
+    assert box.y0 > target.y1
+    plt.close(figure)
