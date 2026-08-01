@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/src/_static/brand/svg/stacked-tiera-light.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_static/brand/svg/stacked-tiera-dark.svg">
-    <img alt="tephpy" src="docs/src/_static/brand/png/stacked-256-light.png" width="180">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/bjlittle/tephpy/main/docs/src/_static/brand/svg/stacked-tiera-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bjlittle/tephpy/main/docs/src/_static/brand/svg/stacked-tiera-dark.svg">
+    <img alt="tephpy" src="https://raw.githubusercontent.com/bjlittle/tephpy/main/docs/src/_static/brand/png/stacked-256-light.png" width="180">
     </picture>
 </p>
 

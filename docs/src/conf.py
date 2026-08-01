@@ -109,6 +109,13 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
+# The brand asset bundle and its README are repository files, not site content.
+# Sphinx already keeps ``html_static_path`` out of *document* discovery, so this
+# is purely to stop ``copy_html_static_files`` publishing a 270 KiB zip nothing
+# links to.  The pattern is deliberately not prefixed ``_static/``: static
+# copying matches each entry relative to the ``html_static_path`` root, so an
+# ``_static/``-prefixed pattern silently matches nothing and the zip ships.
+exclude_patterns = ["brand/assets/*"]
 html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",
