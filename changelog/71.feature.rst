@@ -1,0 +1,8 @@
+Added :func:`~tephpy.plotting.logo.add_logo`, which places the tephpy logo on a
+figure or an axes in one call. The position is relative to whatever it is called
+on — an axes anchors inside the plotting box, a figure against the figure edges —
+using the :meth:`~matplotlib.axes.Axes.legend` placement vocabulary, and ``size`` is a height in inches, so
+``add_logo(ax, loc="lower right")`` renders the same size at 100 dpi and at 600.
+``theme="auto"`` picks the light or dark variant from the target's background.
+The six brand masters ship inside the wheel, so it needs no docs tree and no
+network. (:user:`claude`)
