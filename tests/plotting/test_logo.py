@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import zipfile
 
 import pytest
@@ -43,6 +45,19 @@ def test_master_matches_the_bundle(name):
 
 def test_masters_ship_in_the_wheel(tmp_path):
     """A source-tree copy nobody packaged is the failure tests cannot see."""
+    # Export the committed tree; untracked files are invisible to git-archive,
+    # so the test genuinely fails if a master was never committed (logo spec §2).
+    src_tar = tmp_path / "src.tar"
+    subprocess.run(  # noqa: S603
+        ["git", "archive", "--format=tar", f"--output={src_tar}", "HEAD"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+    )
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    with tarfile.open(src_tar) as tar:
+        tar.extractall(src_dir, filter="data")
     subprocess.run(  # noqa: S603
         [
             sys.executable,
@@ -52,16 +67,17 @@ def test_masters_ship_in_the_wheel(tmp_path):
             "--no-isolation",
             "--outdir",
             str(tmp_path),
-            str(REPO),
+            str(src_dir),
         ],
         check=True,
         capture_output=True,
+        env={**os.environ, "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_TEPHPY": "0.0.0"},
     )
     (wheel,) = tmp_path.glob("*.whl")
-    with zipfile.ZipFile(wheel) as archive:
+    with zipfile.ZipFile(wheel) as whl:
         packaged = {
             Path(name).name
-            for name in archive.namelist()
+            for name in whl.namelist()
             if name.startswith("tephpy/plotting/_static/")
         }
     assert packaged == set(MASTERS)
