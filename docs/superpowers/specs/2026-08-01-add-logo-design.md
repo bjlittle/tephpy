@@ -192,8 +192,8 @@ zero offset. `pad` is ignored in this case, and that is documented on the parame
 than raised as an error: the caller who gave exact coordinates has already said where they
 want it.
 
-`pad` defaults to 6.0 points, matching `legend`'s `borderaxespad` of 0.5 font-size units at
-the 10 pt default font.
+`pad` defaults to 6.0 points, a shade wider than `legend`'s `borderaxespad` of 5.0 pt (0.5
+font-size units at the 10 pt default font).
 
 ### 3.5 Theme resolution
 
@@ -201,11 +201,22 @@ the 10 pt default font.
 also how the asset filenames are named, so there is one vocabulary and no inversion to
 remember.
 
-`theme="auto"` reads the target's facecolor and picks by sRGB relative luminance
-(0.2126 R + 0.7152 G + 0.0722 B), choosing `dark` below 0.5 and `light` at or above it. An
-`Axes` target is read from `ax.get_facecolor()` and a `Figure` from `fig.get_facecolor()`. If
-the resolved colour is fully transparent — `facecolor="none"` on an Axes — resolution falls
-through to the figure's facecolor, and if that is also transparent it assumes `light`.
+`theme="auto"` reads the target's facecolor and picks by Rec. 709 luma over the
+gamma-encoded sRGB channels (0.2126 R + 0.7152 G + 0.0722 B), choosing `dark` below 0.5
+and `light` at or above it. This is luma, not relative luminance: the latter applies the
+same weights but linearises each channel first, which scores mid grey `#808080` at 0.216
+instead of 0.502 and so pulls the crossover well into the light half of the range.
+Weighting the encoded values keeps the threshold where a reader would put it by eye,
+which is all it has to do to choose between two artwork files. An
+An `Axes` target is read from `ax.get_facecolor()` and a `Figure` from `fig.get_facecolor()`.
+Because either may be translucent, they are alpha-composited back to front — an assumed white
+page, then the figure, then the axes — and the luma is measured on the result, so the test
+matches what shows through rather than what a layer's own channels say. Judging a layer alone
+would score 10% black over a white figure at 0.0 and pick the dark mark for a background the
+reader sees as near-white. The two ends of that range are the behaviour named above: a fully
+transparent axes — `facecolor="none"` — contributes nothing and so falls through to the
+figure, and if the figure is also transparent the assumed white page carries the answer,
+`light`. A fully opaque layer hides everything under it exactly as before.
 
 **Documented limitation:** `savefig(transparent=True)` does not change any facecolor; it
 overrides alpha at draw time. `auto` therefore still sees white and picks `light`, which is

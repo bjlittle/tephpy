@@ -31,6 +31,24 @@ Filenames encode the rendered pixel width, and the three forms have fixed
 aspect ratios: icon 1:1 (64×64), lockup 179:64, stacked 64:90. So
 `stacked-256-light.png` is 256×360, and `lockup-358-dark.png` is 358×128.
 
+## What the wheel ships
+
+`tephpy.plotting.add_logo` draws from six masters copied into the package under
+`src/tephpy/plotting/_static/`, so the function works from a wheel with no docs
+tree and no network:
+
+| In the package | From the bundle |
+|---|---|
+| `icon-512-{light,dark}.png` | `bundle/png/` |
+| `lockup-716-{light,dark}.png` | `bundle/png/` |
+| `stacked-512-{light,dark}.png` | `bundle/png/` |
+
+These are the largest raster of each form, downscaled at draw time to the height
+in inches the caller asks for. Like everything else here they are byte-identical
+to the bundle, and `tests/plotting/test_logo.py` hashes them against it — the
+snippet below covers `brand/` only, because it matches on basename within that
+directory.
+
 ## What the bundle has that `brand/` does not
 
 - **Tiers B and C** — reduced-lattice and no-lattice drawings for 24–32px and
@@ -39,7 +57,8 @@ aspect ratios: icon 1:1 (64×64), lockup 179:64, stacked 64:90. So
 - **Mono variants** — single `currentColor`, the only files that are genuinely
   background-independent. Reach for these before recolouring a light or dark
   file, whose halos assume a background value.
-- **Larger sizes** — icon at 256/512, lockup at 716, stacked at 512.
+- **Larger sizes** — icon at 256. The 512/716 masters are not published under
+  `brand/`; they ship inside the wheel instead (see "What the wheel ships").
 - **The rest of the favicon set** — 16/32px PNGs, a theme-aware `favicon.svg`,
   `apple-touch-icon.png` and `site.webmanifest`. `html_favicon` accepts one
   file, so shipping the others would need a custom `layout.html`.

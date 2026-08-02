@@ -7,3 +7,4 @@ Task-focused recipes.
     :maxdepth: 1
 
     emphasis
+    logo

@@ -20,6 +20,7 @@ import pytest
 
 # Importing tephpy (via any of its names) registers the "tephigram" projection.
 from tephpy import Sounding, calc
+from tephpy.plotting import add_logo
 
 FAMILIES = ("isotherms", "isobars", "dry_adiabats", "moist_adiabats", "mixing_ratios")
 
@@ -240,4 +241,11 @@ def test_member_emphasis():
             -20.0: {"color": "tab:cyan", "linestyle": "--"},
         }
     )
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_logo_on_a_tephigram():
+    fig, ax = _tephigram_figure()
+    add_logo(ax, loc="lower right")
     return fig
