@@ -1,7 +1,13 @@
 # tephpy — design specification
 
-- **Date:** 2026-07-22
-- **Status:** approved design, pre-implementation
+> **Living document.** This specification is maintained alongside the code, not archived
+> behind it. tephpy's source cites it by section — you will find `spec §6` and the like
+> throughout `src/` — so these sections *are* the reasoning behind what the code does, and
+> where the two ever diverge it is the specification that gets corrected. Read it as current.
+
+- **Date:** 2026-07-22 (originated; maintained since)
+- **Status:** living design specification, implemented incrementally by the plans in
+  [`../plans/`](../plans/)
 - **License:** BSD-3-Clause (repo already carries it)
 - **Repository:** https://github.com/bjlittle/tephpy (PyPI name `tephpy` verified free on 2026-07-22)
 - **Engineering standards baseline:** [bjlittle/geovista](https://github.com/bjlittle/geovista)
@@ -110,6 +116,11 @@ recording input/output pairs with a provenance header (generation script and tep
 version) — generated outputs, not copied source.
 
 ### 3.2 `plotting`
+
+> **Extended by a child specification.** Branding — `tephpy.plotting.add_logo`, which places
+> the tephpy logo on a figure or an axes — is specified separately in
+> [`2026-08-01-add-logo-design.md`](2026-08-01-add-logo-design.md), which inherits this
+> document's error-handling (§6), testing (§7) and engineering-standards (§8) rules unchanged.
 
 `TephigramAxes` draws the exactly-orthogonal isotherm/dry-adiabat grid and the three
 curved families as zoom-aware artists, reimplementing tephi's locator/refresh design

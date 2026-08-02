@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Point-in-time record.** This plan states what was intended *before* implementation and is not updated afterwards. The review loop routinely revised what it records, so its code blocks drift from what shipped. The code is authoritative, and the design specification in [`../specs/`](../specs/) is the living statement of intent — read this for how the work was approached, not for how tephpy behaves today.
+
 **Goal:** Deliver the five zoom-aware background isopleth families (isotherms, isobars, dry adiabats, moist adiabats, humidity mixing-ratio lines) with per-family accessor methods, `set_extent`, the `tephpy.config` runtime layer, and the pytest-mpl image-baseline infrastructure — so `plt.subplots(subplot_kw={"projection": "tephigram"})` yields the first real, labelled tephigram.
 
 **Architecture:** `plotting/isopleths.py` holds pure geometry builders (one per family; the two curved families call MetPy behind function-local imports) plus one `IsoplethFamily` matplotlib `Artist` class instantiated five times per axes — members precomputed over a generous physical domain, cached, and selected per `draw()` by a convention-driven zoom ladder plus a vectorized view-bbox mask, with labels re-placed each draw. `_config.py` adds the typed `tephpy.config` singleton (precedence: accessor kwargs > `tephpy.config` > `_constants`); `_constants.py` accretes the family conventions; `TephigramAxes` gains a `clear()` override (the PolarAxes projection pattern) that creates the families on by default, the five accessors, and `set_extent`.

@@ -1,7 +1,12 @@
 # tephpy `add_logo` — design specification
 
-- **Date:** 2026-08-01
-- **Status:** approved design, pre-implementation
+> **Living document.** This specification is maintained alongside the code, not archived
+> behind it. `src/tephpy/plotting/logo.py` cites it by section — `logo spec §3.5` and the
+> like — so these sections *are* the reasoning behind what the code does, and where the two
+> ever diverge it is the specification that gets corrected. Read it as current.
+
+- **Date:** 2026-08-01 (originated; maintained since)
+- **Status:** living design specification, implemented in #71
 - **Scope:** one new public function, `tephpy.plotting.add_logo`, plus six bundled PNG masters
 - **Parent spec:** [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md) — this extends
   §3.2 `plotting` with a branding artist and inherits its error-handling (§6), testing (§7)
