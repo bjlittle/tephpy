@@ -201,8 +201,13 @@ the 10 pt default font.
 also how the asset filenames are named, so there is one vocabulary and no inversion to
 remember.
 
-`theme="auto"` reads the target's facecolor and picks by sRGB relative luminance
-(0.2126 R + 0.7152 G + 0.0722 B), choosing `dark` below 0.5 and `light` at or above it. An
+`theme="auto"` reads the target's facecolor and picks by Rec. 709 luma over the
+gamma-encoded sRGB channels (0.2126 R + 0.7152 G + 0.0722 B), choosing `dark` below 0.5
+and `light` at or above it. This is luma, not relative luminance: the latter applies the
+same weights but linearises each channel first, which scores mid grey `#808080` at 0.216
+instead of 0.502 and so pulls the crossover well into the light half of the range.
+Weighting the encoded values keeps the threshold where a reader would put it by eye,
+which is all it has to do to choose between two artwork files. An
 `Axes` target is read from `ax.get_facecolor()` and a `Figure` from `fig.get_facecolor()`. If
 the resolved colour is fully transparent — `facecolor="none"` on an Axes — resolution falls
 through to the figure's facecolor, and if that is also transparent it assumes `light`.

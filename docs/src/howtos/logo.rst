@@ -3,17 +3,17 @@
 Add the tephpy Logo
 ===================
 
-:func:`~tephpy.plotting.logo.add_logo` brands a figure or an axes in one call. It draws an
-:class:`matplotlib.offsetbox.AnnotationBbox`, so the logo is a normal artist —
-returned for restyling, and removable.
+:func:`~tephpy.plotting.logo.add_logo` brands a figure or an axes in one call.
+It draws an :class:`matplotlib.offsetbox.AnnotationBbox`, so the logo is a
+normal artist — returned for restyling, and removable.
 
 On the Plot or Around It
 ------------------------
 
 What you call it on decides what the position is relative to, exactly as
-:meth:`~matplotlib.axes.Axes.legend` does. Pass the axes to place the logo inside the plotting box, or the
-figure to place it against the figure edges — in the margin, clear of the
-diagram:
+:meth:`~matplotlib.axes.Axes.legend` does. Pass the axes to place the logo
+inside the plotting box, or the figure to place it against the figure edges —
+in the margin, clear of the diagram:
 
 .. code-block:: python
 
@@ -69,10 +69,10 @@ Override it when you are compositing the figure onto something else:
 
     add_logo(ax, theme="dark")
 
-One case ``"auto"`` cannot get right: ``savefig(transparent=True)`` does not change
-any facecolor, it overrides alpha at draw time. ``"auto"`` still reads white and
-picks the light variant — correct for a figure destined for a white page, wrong
-for a dark one. Say which you meant:
+One case ``"auto"`` cannot get right: ``savefig(transparent=True)`` does not
+change any facecolor, it overrides alpha at draw time. ``"auto"`` still reads
+white and picks the light variant — correct for a figure destined for a white
+page, wrong for a dark one. Say which you meant:
 
 .. code-block:: python
 
@@ -82,9 +82,10 @@ for a dark one. Say which you meant:
 Exact Placement
 ---------------
 
-``loc`` takes the :meth:`~matplotlib.axes.Axes.legend` placement strings, with ``pad`` setting the gap in
-points from the edge. ``loc="best"`` is not among them: :func:`~tephpy.plotting.logo.add_logo` does no
-collision detection, and silently guessing wrong is worse than saying so.
+``loc`` takes the :meth:`~matplotlib.axes.Axes.legend` placement strings, with
+``pad`` setting the gap in points from the edge. ``loc="best"`` is not among
+them: :func:`~tephpy.plotting.logo.add_logo` does no collision detection, and
+silently guessing wrong is worse than saying so.
 
 For a position no string names, pass an ``(x, y)`` pair in the target's fraction
 coordinates. It places the logo's lower-left corner and ignores ``pad``:
