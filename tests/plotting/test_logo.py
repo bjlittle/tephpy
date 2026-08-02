@@ -246,6 +246,36 @@ def test_resolve_theme_auto_falls_through_a_transparent_axes():
     plt.close(figure)
 
 
+def test_resolve_theme_auto_composites_a_translucent_axes_over_the_figure():
+    """10% black over white reads as nearly white, so the logo needs the light mark.
+
+    Judging the axes on its own channels would score this 0.0 and pick the dark
+    mark, which is the low-contrast answer on a background the reader sees as
+    near-white (logo spec §3.5).
+    """
+    figure, axes = plt.subplots()
+    axes.set_facecolor((0.0, 0.0, 0.0, 0.1))
+    assert logo._resolve_theme("auto", figure, axes) == "light"
+    plt.close(figure)
+
+
+def test_resolve_theme_auto_composites_a_translucent_axes_the_other_way():
+    """The same arithmetic must be able to darken, not only lighten."""
+    figure, axes = plt.subplots()
+    figure.set_facecolor("black")
+    axes.set_facecolor((1.0, 1.0, 1.0, 0.1))
+    assert logo._resolve_theme("auto", figure, axes) == "dark"
+    plt.close(figure)
+
+
+def test_resolve_theme_auto_composites_a_translucent_figure_over_the_page():
+    """Nothing sits under the figure, so it composites over the assumed white page."""
+    figure = plt.figure()
+    figure.set_facecolor((0.0, 0.0, 0.0, 0.1))
+    assert logo._resolve_theme("auto", figure, None) == "light"
+    plt.close(figure)
+
+
 def test_resolve_theme_auto_under_the_dark_background_style():
     with plt.style.context("dark_background"):
         figure, axes = plt.subplots()

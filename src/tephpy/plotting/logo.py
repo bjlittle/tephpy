@@ -173,18 +173,18 @@ def _resolve_size(size: str | float, form: str) -> float:
 def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     """Choose the light or dark variant, reading the background when asked to.
 
-    ``"auto"`` measures the Rec. 709 luma of the first opaque facecolor among
-    the axes and then the figure, so a transparent axes defers to the figure
-    showing through it (logo spec §3.5).
+    ``"auto"`` composites the axes facecolor over the figure's and both over an
+    assumed white page, then measures the Rec. 709 luma of the result, so a
+    translucent background is judged on what shows through it (logo spec §3.5).
 
     Parameters
     ----------
     theme : str
         ``"auto"``, ``"light"`` or ``"dark"``, naming the *background*.
     figure : matplotlib.figure.Figure
-        The owning figure, measured when the axes is absent or transparent.
+        The owning figure, composited under the axes.
     axes : matplotlib.axes.Axes or None
-        The target axes, measured first when there is one.
+        The target axes, composited over the figure when there is one.
 
     Returns
     -------
@@ -201,16 +201,22 @@ def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     if theme != "auto":
         msg = f"unknown theme {theme!r}, expected one of: auto, dark, light."
         raise ValueError(msg)
-    for artist in (axes, figure):
+    # Composite back to front over an assumed white page, so a translucent
+    # facecolor is judged on what the reader actually sees rather than on its
+    # own channels: 10% black over white is near-white, not black. Alpha 0
+    # leaves the accumulator untouched, which is how a transparent axes still
+    # defers to the figure and a transparent figure still assumes light.
+    red = green = blue = 1.0
+    for artist in (figure, axes):
         if artist is None:
             continue
-        red, green, blue, alpha = mcolors.to_rgba(artist.get_facecolor())
-        if alpha == 0.0:
-            continue
-        weight_red, weight_green, weight_blue = LOGO_LUMINANCE_WEIGHTS
-        luminance = weight_red * red + weight_green * green + weight_blue * blue
-        return "dark" if luminance < LOGO_LUMINANCE_THRESHOLD else "light"
-    return "light"
+        over_red, over_green, over_blue, alpha = mcolors.to_rgba(artist.get_facecolor())
+        red = alpha * over_red + (1.0 - alpha) * red
+        green = alpha * over_green + (1.0 - alpha) * green
+        blue = alpha * over_blue + (1.0 - alpha) * blue
+    weight_red, weight_green, weight_blue = LOGO_LUMINANCE_WEIGHTS
+    luminance = weight_red * red + weight_green * green + weight_blue * blue
+    return "dark" if luminance < LOGO_LUMINANCE_THRESHOLD else "light"
 
 
 def _resolve_loc(

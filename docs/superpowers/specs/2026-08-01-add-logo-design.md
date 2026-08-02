@@ -208,9 +208,15 @@ same weights but linearises each channel first, which scores mid grey `#808080` 
 instead of 0.502 and so pulls the crossover well into the light half of the range.
 Weighting the encoded values keeps the threshold where a reader would put it by eye,
 which is all it has to do to choose between two artwork files. An
-`Axes` target is read from `ax.get_facecolor()` and a `Figure` from `fig.get_facecolor()`. If
-the resolved colour is fully transparent — `facecolor="none"` on an Axes — resolution falls
-through to the figure's facecolor, and if that is also transparent it assumes `light`.
+An `Axes` target is read from `ax.get_facecolor()` and a `Figure` from `fig.get_facecolor()`.
+Because either may be translucent, they are alpha-composited back to front — an assumed white
+page, then the figure, then the axes — and the luma is measured on the result, so the test
+matches what shows through rather than what a layer's own channels say. Judging a layer alone
+would score 10% black over a white figure at 0.0 and pick the dark mark for a background the
+reader sees as near-white. The two ends of that range are the behaviour named above: a fully
+transparent axes — `facecolor="none"` — contributes nothing and so falls through to the
+figure, and if the figure is also transparent the assumed white page carries the answer,
+`light`. A fully opaque layer hides everything under it exactly as before.
 
 **Documented limitation:** `savefig(transparent=True)` does not change any facecolor; it
 overrides alpha at draw time. `auto` therefore still sees white and picks `light`, which is
