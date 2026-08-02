@@ -333,8 +333,9 @@ LOGO_PAD: Final[float] = 6.0
 #: Default logo draw order: above lines (2), text (3) and legends (5).
 LOGO_ZORDER: Final[float] = 100.0
 
-#: sRGB relative luminance below which ``theme="auto"`` calls a background dark.
+#: sRGB luma (Rec. 709 weights over gamma-encoded channels) below which
+#: ``theme="auto"`` calls a background dark.
 LOGO_LUMINANCE_THRESHOLD: Final[float] = 0.5
 
-#: Rec. 709 relative-luminance weights for the red, green and blue channels.
+#: Rec. 709 luma weights for the red, green and blue channels.
 LOGO_LUMINANCE_WEIGHTS: Final[tuple[float, float, float]] = (0.2126, 0.7152, 0.0722)

@@ -192,8 +192,8 @@ zero offset. `pad` is ignored in this case, and that is documented on the parame
 than raised as an error: the caller who gave exact coordinates has already said where they
 want it.
 
-`pad` defaults to 6.0 points, matching `legend`'s `borderaxespad` of 0.5 font-size units at
-the 10 pt default font.
+`pad` defaults to 6.0 points, a shade wider than `legend`'s `borderaxespad` of 5.0 pt (0.5
+font-size units at the 10 pt default font).
 
 ### 3.5 Theme resolution
 

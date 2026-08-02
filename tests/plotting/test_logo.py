@@ -15,6 +15,7 @@ import tarfile
 import zipfile
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 
 from tephpy._constants import LOGO_PAD, LOGO_SIZES, LOGO_ZORDER, POINTS_PER_INCH
@@ -357,12 +358,12 @@ def test_image_options_passes_known_keys_through():
 
 def test_image_options_rejects_an_unknown_key():
     """``OffsetImage`` would raise ``AttributeError`` from deep inside; be clearer."""
-    with pytest.raises(TypeError, match="unknown option bogus"):
+    with pytest.raises(TypeError, match=r"unknown option \['bogus'\]"):
         logo._image_options({"bogus": 1})
 
 
 def test_image_options_names_every_unknown_key():
-    with pytest.raises(TypeError, match="unknown option bogus, spurious"):
+    with pytest.raises(TypeError, match=r"unknown option \['bogus', 'spurious'\]"):
         logo._image_options({"spurious": 2, "bogus": 1})
 
 
@@ -456,6 +457,32 @@ def test_image_options_reach_the_offsetimage():
     plt.close(figure)
 
 
+def test_dark_theme_draws_the_dark_master():
+    """``add_logo(ax, theme='dark')`` on a white figure must draw the dark artwork.
+
+    A default (white) figure resolves to ``'light'`` under ``theme='auto'``, so
+    explicit ``theme='dark'`` is the sharpest case: it cannot be satisfied by
+    accident. If the artwork call ignores ``variant`` this assertion fails.
+    """
+    figure, axes = plt.subplots()
+    artist = add_logo(axes, theme="dark")
+    array = artist.offsetbox.get_children()[0].get_array()
+    np.testing.assert_array_equal(array, logo._load_master("lockup", "dark"))
+    plt.close(figure)
+
+
+def test_form_selects_the_correct_master():
+    """``add_logo(ax, form='stacked')`` must draw the stacked artwork, not the icon.
+
+    If the artwork call ignores ``form`` this assertion fails.
+    """
+    figure, axes = plt.subplots()
+    artist = add_logo(axes, form="stacked")
+    array = artist.offsetbox.get_children()[0].get_array()
+    np.testing.assert_array_equal(array, logo._load_master("stacked", "light"))
+    plt.close(figure)
+
+
 def test_no_target_brands_the_current_figure():
     figure = plt.figure(figsize=(6, 4), dpi=100)
     assert add_logo().figure is figure
@@ -510,9 +537,9 @@ def test_nonfinite_pad_is_rejected():
 
 
 def test_string_pad_raises_value_error():
-    """``float('three')`` raises ``ValueError``, not ``TypeError`` (logo spec §5)."""
+    """A string ``pad`` raises ``ValueError`` naming the parameter (logo spec §5)."""
     figure, axes = plt.subplots()
-    with pytest.raises(ValueError, match="could not convert"):
+    with pytest.raises(ValueError, match="pad must be a finite number of points"):
         add_logo(axes, pad="three")
     plt.close(figure)
 

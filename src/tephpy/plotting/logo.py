@@ -173,9 +173,9 @@ def _resolve_size(size: str | float, form: str) -> float:
 def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     """Choose the light or dark variant, reading the background when asked to.
 
-    ``"auto"`` measures the sRGB relative luminance of the first opaque
-    facecolor among the axes and then the figure, so a transparent axes defers
-    to the figure showing through it (logo spec §3.5).
+    ``"auto"`` measures the Rec. 709 luma of the first opaque facecolor among
+    the axes and then the figure, so a transparent axes defers to the figure
+    showing through it (logo spec §3.5).
 
     Parameters
     ----------
@@ -288,7 +288,7 @@ def _image_options(kwargs: dict[str, Any]) -> dict[str, Any]:
     unknown = sorted(set(kwargs) - _IMAGE_KEYS)
     if unknown:
         valid = ", ".join(sorted(_IMAGE_KEYS))
-        msg = f"unknown option {', '.join(unknown)}; expected one of: {valid}."
+        msg = f"unknown option {unknown!r}; expected one of: {valid}."
         raise TypeError(msg)
     return kwargs
 
@@ -297,8 +297,10 @@ def _image_options(kwargs: dict[str, Any]) -> dict[str, Any]:
 def _load_master(form: str, variant: str) -> npt.NDArray[np.floating[Any]]:
     """Read one packaged master, decoded once and shared thereafter.
 
-    The array is marked read-only because every figure drawing that variant
-    holds the same object (logo spec §3.6).
+    The array is marked read-only to protect the shared cache entry:
+    ``BboxImage.set_data`` copies it for each artist, so each figure drawing
+    gets its own array, but the flag prevents accidental mutation of the cached
+    source before that copy is made (logo spec §3.6).
 
     Parameters
     ----------
@@ -358,8 +360,9 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
         ``(x, y)`` pair in the target's fraction coordinates giving the
         logo's lower-left corner.
     pad : float, optional
-        Points between the logo and the target's edge, ignored when `loc` is a
-        pair. ``None`` takes ``LOGO_PAD``.
+        Points between the logo and the target's edge. ``None`` takes
+        ``LOGO_PAD``. Ignored when `loc` is a pair, but still validated:
+        ``add_logo(ax, loc=(0.5, 0.5), pad=float("nan"))`` raises.
     zorder : float, optional
         Draw order. ``None`` takes ``LOGO_ZORDER``, which is above lines, text
         and legends.
@@ -376,30 +379,47 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
     ------
     TypeError
         If `target` is neither a figure nor an axes, if `loc` is neither a
-        placement string nor a pair of floats, if `pad` or `zorder` is not
-        a string or a number (e.g., a list), or if a keyword is not a
+        placement string nor a pair of floats, if `pad` or `zorder` is not a
+        real number (e.g., a list), or if a keyword is not a
         :class:`matplotlib.offsetbox.OffsetImage` option.
     ValueError
         If `form`, `size`, `theme` or `loc` names something that does not
         exist, if `size` is not a positive finite height, if a `loc` pair
-        holds a non-finite coordinate, if `pad` or `zorder` is a string
-        that does not represent a number, or if `pad` or `zorder` is not
-        finite.
+        holds a non-finite coordinate, if `pad` or `zorder` is a string, or
+        if `pad` or `zorder` is not finite.
     """
     figure, axes = _resolve_target(target)
     height = _resolve_size(size, form)
     variant = _resolve_theme(theme, figure, axes)
-    effective_pad = LOGO_PAD if pad is None else float(pad)
-    if not math.isfinite(effective_pad):
-        msg = f"pad must be a finite number of points, got {pad!r}."
-        raise ValueError(msg)
+    if pad is None:
+        effective_pad = LOGO_PAD
+    else:
+        # Widened so the isinstance guard stays reachable under mypy's
+        # ``warn_unreachable`` for a caller who ignores the annotation —
+        # which is the caller it protects against (logo spec §5).
+        pad_arg: object = pad
+        if isinstance(pad_arg, str):
+            msg = f"pad must be a finite number of points, got {pad!r}."
+            raise ValueError(msg)
+        effective_pad = float(pad)
+        if not math.isfinite(effective_pad):
+            msg = f"pad must be a finite number of points, got {pad!r}."
+            raise ValueError(msg)
     anchor, alignment, offset = _resolve_loc(loc, effective_pad)
     options = _image_options(kwargs)
     image = _load_master(form, variant)
-    effective_zorder = LOGO_ZORDER if zorder is None else float(zorder)
-    if not math.isfinite(effective_zorder):
-        msg = f"zorder must be a finite number, got {zorder!r}."
-        raise ValueError(msg)
+    if zorder is None:
+        effective_zorder = LOGO_ZORDER
+    else:
+        # Same widening as pad_arg above (logo spec §5).
+        zorder_arg: object = zorder
+        if isinstance(zorder_arg, str):
+            msg = f"zorder must be a finite number, got {zorder!r}."
+            raise ValueError(msg)
+        effective_zorder = float(zorder)
+        if not math.isfinite(effective_zorder):
+            msg = f"zorder must be a finite number, got {zorder!r}."
+            raise ValueError(msg)
     artist = AnnotationBbox(
         OffsetImage(image, zoom=height * POINTS_PER_INCH / image.shape[0], **options),
         xy=anchor,
