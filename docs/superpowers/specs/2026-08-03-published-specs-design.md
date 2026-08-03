@@ -197,20 +197,30 @@ One-off work, performed once and then finished:
 
 1. `git mv` both directories under `docs/src/developer/`; add the `exclude_patterns`
    entry; record the superpowers path preference in `AGENTS.md`.
-2. Add `docs/src/developer/specs/index.rst` and reference it from the developer guide
+2. Repoint `MANIFEST.in`. `prune docs/superpowers` is load-bearing — setuptools_scm puts
+   every tracked file in the sdist, and the rest of `docs/` ships — so after the move that
+   line silently stops matching and the plans start shipping. It becomes
+   `prune docs/src/developer/plans`. The specifications ship from then on, which is right:
+   they are published documentation like every other page under `docs/src/`.
+3. Add `docs/src/developer/specs/index.rst` and reference it from the developer guide
    toctree.
-3. Add anchors to the 25 numbered headings in the parent specification and the 15 in the
+4. Add anchors to the 25 numbered headings in the parent specification and the 15 in the
    `add_logo` specification.
-4. Repoint the parent specification's header link to the plans at an absolute GitHub URL.
+5. Repoint the parent specification's header link to the plans at an absolute GitHub URL.
    It is the build's only warning, and it fails precisely *because* the plans are
    deliberately unpublished: `../plans/` still resolves in a checkout and on GitHub, but
    Sphinx cannot resolve a link to a page it was told not to build. An absolute URL keeps
    the affordance for a reader of the published page, who has no checkout to fall back on.
-5. Correct the stale repository paths (§3.4): §10 of the parent specification names
+6. Correct the stale repository paths (§3.4): §10 of the parent specification names
    `docs/superpowers/plans/`, `README.md` links to `docs/superpowers/specs` on GitHub, and
    twelve plans name their originating specification by its old path. The README link
-   points at the published page instead, now that one exists.
-6. Audit §10's sixteen items and §11's four questions, establish the true status of each,
+   follows the directory to its new GitHub tree path; it becomes a link to the published
+   page when the Read the Docs project is activated (§10, service provisioning), not
+   before — there is no site to link to yet. What is *not* corrected: the
+   code blocks in three plans that reproduce a file's contents or a PR or issue body
+   already published. Those record what was written, not where a document lives, and §3.4
+   does not reach them.
+7. Audit §10's sixteen items and §11's four questions, establish the true status of each,
    apply the §3.5 tags, and file `design: open` issues for whatever is genuinely open.
 
 (docs-spec-6)=
@@ -220,6 +230,7 @@ The docs build runs with `--fail-on-warning --keep-going` and nitpicky cross-ref
 so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 
 - `_build/html/developer/plans/` does not exist, and no plan page is reachable.
+- The sdist carries the specifications and not the plans (item 2).
 - Both existing specification pages render, and this one alongside them.
 - Every anchor named in §3.3 appears as a section `id` in the built HTML.
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds
