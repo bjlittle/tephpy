@@ -58,7 +58,7 @@ it is at `docs/superpowers/specs/2026-08-03-published-specs-design.md`.)
   path in a plan may be corrected when the thing it names moves. A path inside a fenced code
   block that reproduces a file's contents, a PR body, or an issue body is a record of what
   was written, not a pointer — leave it exactly as it is.
-- **The specifications' technical content is not edited** (docs spec §7). Tasks 5 and 6 add
+- **The specifications' technical content is not edited** (docs spec §7). Tasks 4 and 5 add
   status tags and issue pointers; they do not rewrite the reasoning. Every edit to §10 and
   §11 is purely additive — existing prose is preserved verbatim.
 - **Two pull requests, following the repository's convention** (#58 → #59, #61 → #62): the
