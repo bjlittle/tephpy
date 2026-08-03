@@ -24,9 +24,9 @@ setuptools, pixi, pre-commit, towncrier, Sphinx.
 
 ## Global Constraints
 
-- Logo spec: `docs/superpowers/specs/2026-08-01-add-logo-design.md`. Cite it as
+- Logo spec: `docs/src/developer/specs/2026-08-01-add-logo-design.md`. Cite it as
   `(logo spec §N)` in comments and docstrings — **not** `(spec §N)`, which the surrounding
-  code already uses for the master spec `docs/superpowers/specs/2026-07-22-tephpy-design.md`.
+  code already uses for the master spec `docs/src/developer/specs/2026-07-22-tephpy-design.md`.
   Both are cited in this plan; keep the two prefixes distinct in everything you write.
 - Every module starts with the 4-line BSD copyright header (enforced by ruff's
   `flake8-copyright`) and `from __future__ import annotations`. This includes new test

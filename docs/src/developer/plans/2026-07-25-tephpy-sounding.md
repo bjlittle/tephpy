@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), pint (MetPy's registry), metpy (runtime dep, function-local imports), pandas/xarray (runtime deps, never imported by tephpy at runtime), hypothesis, pytest, pytest-mpl, pixi tasks.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.4 (authority for `Sounding`), §5 (units policy — authority for `_units`), §6 (error handling — authority for `exceptions`), §3.2 (`plot_profile`/`plot_sounding`), §1 item 4 + §4 (overlays, legends, canonical usage), §7/§8.5 (profile image baselines), §10 (Plan 4 row; resolved items 2, 8, 9, 10).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.4 (authority for `Sounding`), §5 (units policy — authority for `_units`), §6 (error handling — authority for `exceptions`), §3.2 (`plot_profile`/`plot_sounding`), §1 item 4 + §4 (overlays, legends, canonical usage), §7/§8.5 (profile image baselines), §10 (Plan 4 row; resolved items 2, 8, 9, 10).
 
 This is **Plan 4 of 7** (spec §10). It produces working software: after it merges, `Sounding` ingests quantified/bare/DataFrame/Dataset profiles with validation at construction, and `ax.plot_sounding(snd)` draws red/green temperature/dewpoint profiles with derived legends over the Plan 3 diagram. Plans 5 and 6 are unblocked and may proceed in parallel.
 

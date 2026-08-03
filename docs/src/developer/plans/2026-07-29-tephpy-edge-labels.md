@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib 3.11 (`Locator`/`Formatter`, `secondary_xaxis`/`secondary_yaxis`, `mpl_toolkits.axes_grid1` divider), pytest + pytest-mpl, pixi tasks. No new dependencies, no new modules — four source files and five test files are modified; the changelog fragment and one image baseline are the only new files.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.1 (hidden native ticks, reclaimed here), §3.2 (the edge-labelling bullet, the coverage table, the side-of-axes layout contract's right-edge paragraph), §3.5 (the option ladder), §6 (fail-loud `TypeError`), §7 (the pytest-mpl baseline list). Post-roadmap addition (not a §10 plan row).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.1 (hidden native ticks, reclaimed here), §3.2 (the edge-labelling bullet, the coverage table, the side-of-axes layout contract's right-edge paragraph), §3.5 (the option ladder), §6 (fail-loud `TypeError`), §7 (the pytest-mpl baseline list). Post-roadmap addition (not a §10 plan row).
 
 ## Global Constraints
 

@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), metpy (runtime dep, function-local imports), hypothesis, pytest, pytest-mpl, pixi tasks, tephi 0.4.0.post0 (oracle only — a throwaway venv, never a runtime dependency).
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.2 (authority for this plan), §3.5 (`_constants` + `tephpy.config`), §7/§8.5 (image baselines; informational tephi cross-check for curved families), §10 (Plan 3 row; resolved items 6, 7, 15).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.2 (authority for this plan), §3.5 (`_constants` + `tephpy.config`), §7/§8.5 (image baselines; informational tephi cross-check for curved families), §10 (Plan 3 row; resolved items 6, 7, 15).
 
 This is **Plan 3 of 7** (spec §10). It produces working software: after `import tephpy`, creating a `"tephigram"` axes draws the full labelled background grid, zoom/pan re-select members automatically, and PDF/SVG export works.
 

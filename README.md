@@ -25,4 +25,4 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 > [!NOTE]
 > **Status:** early development — the plotting and analysis API is being built
-> out plan by plan for the [design](https://github.com/bjlittle/tephpy/tree/main/docs/superpowers/specs).
+> out plan by plan for the [design](https://tephpy.readthedocs.io/en/latest/developer/specs/index.html).

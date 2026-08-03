@@ -973,7 +973,7 @@ covering the domain terms above.
 ## 10. Plan roadmap
 
 Seven plans deliver the v1 scope (§9). Each plan gets its own spec-derived implementation
-plan in `docs/superpowers/plans/`, and a plan is executed and merged before any plan that
+plan in `docs/src/developer/plans/`, and a plan is executed and merged before any plan that
 *depends on it* is written. The dependencies form a partial order, not a chain: Plans 5
 and 6 are mutually independent and may proceed in parallel once Plan 4 has merged. The
 ordering follows the §3 layering (`transforms` ← `plotting` ← (`calc`, `sounding`, `io`)):

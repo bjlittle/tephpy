@@ -12,7 +12,7 @@
 
 This is **Plan 1 of 7** (see the spec's plan roadmap, §10). It produces working software: `pip install -e .` succeeds, `import tephpy` exposes a `setuptools_scm` version, `pixi run tests` and `pixi run docs` pass, and pre-commit is green. No tephigram functionality yet — that begins in Plan 2.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` (§8 is the authority for this plan).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` (§8 is the authority for this plan).
 
 ## Global Constraints
 
