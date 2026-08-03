@@ -1025,7 +1025,7 @@ Enumerated so they are visible decisions, not silent drift. Items 1–2 are deci
 roadmap makes; the remainder are open questions assigned to the plan that must answer
 them, ordered by owning plan.
 
-1. **Resolved** (2026-07-27, PR #19, #26, #40) — **The Plan 4–6 slicing is inferred, not inherited.** Only Plans 1–3 and 7 were anchored
+1. **Resolved** (2026-07-28, PR #19, #26, #40) — **The Plan 4–6 slicing is inferred, not inherited.** Only Plans 1–3 and 7 were anchored
    in writing when Plan 1 shipped ("Plan 3" for image tests, "Plan 7" for the gallery).
    The split above keeps one subsystem per plan along the §3 layering; viable alternatives
    (barbs inside Plan 4; `io` as its own plan; examples accreting per-plan instead of
@@ -1163,7 +1163,7 @@ them, ordered by owning plan.
     - **Deferred** (Plan 7 — [#76](https://github.com/bjlittle/tephpy/issues/76)): the §8.3 packaging-guide SPEC 0 statement.
     - **Resolved** (2026-07-24, PR #15): the `tests-clean` task, with `baselines` alongside it.
     - **Resolved** (2026-07-23, PR #9): the wheel-install smoke test.
-    - **On hold** ([#77](https://github.com/bjlittle/tephpy/issues/77)): the check-manifest CI gate — restarts when the wheel carries domain code.
+    - **Open** ([#77](https://github.com/bjlittle/tephpy/issues/77)): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
 16. **Resolved** (2026-07-29, PR #41) — **matplotlib floor vs. `Artist.get_figure(root=...)`.** §8.1 names matplotlib without
     a version and the pins carried `>=3.9`, but the `root` keyword arrived only in
     matplotlib 3.10, and three zoom-aware artists pass it: `isopleths.py` (Plan 3),
