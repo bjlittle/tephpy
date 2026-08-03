@@ -16,6 +16,7 @@
 [![pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/bjlittle/tephpy/graph/badge.svg?token=SEEKTK92JU)](https://codecov.io/gh/bjlittle/tephpy)
+[![RTD](https://app.readthedocs.org/projects/tephpy/badge/?version=latest)](https://tephpy.readthedocs.io/en/latest/?badge=latest)
 
 Plot and analyse tephigrams. `tephpy` renders tephigrams on a rotated
 temperature-entropy coordinate system and delegates thermodynamic analysis
