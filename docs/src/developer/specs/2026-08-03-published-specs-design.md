@@ -140,17 +140,16 @@ what a plan *says* — the intent it recorded, including where implementation la
 from it. It does not govern the pointers a plan uses to name other documents.
 
 So one carve-out, stated here so the boundary is not re-litigated: **a repository path or
-link in a plan may be corrected when the thing it names moves; nothing else in a plan may
-be edited.** A plan whose reference to its own specification no longer resolves is a worse
-historical record, not a purer one — a reader who cannot reach the specification the plan
-was derived from cannot evaluate the plan at all. Git history holds the original text
-either way.
+link in a plan may be corrected when the thing it names moves; nothing else in a frozen
+plan may be edited.** A plan whose reference to its own specification no longer resolves is
+a worse historical record, not a purer one — a reader who cannot reach the specification
+the plan was derived from cannot evaluate the plan at all. Git history holds the original
+text either way.
 
 A plan is frozen when its implementation PR merges, not when the plan itself does. While a
 plan is still being executed, a correction to what it asks for is a correction to work that
 has not happened yet — the point-in-time record is of what was intended, and intent that
-was wrong on the facts is worth fixing before it is acted on. Once the implementation
-lands, only pointers may change.
+was wrong on the facts is worth fixing before it is acted on.
 
 (docs-spec-3-5)=
 ### 3.5 Status vocabulary and the open-item contract
@@ -171,8 +170,10 @@ vocabulary:
 | **On hold** | Deliberately paused | why, and what would restart it |
 | **Open** | Not yet addressed | — |
 
-The date is the date the decision was taken, not the date the pull request merged; where
-an item's prose records no decision date, the last cited pull request's merge date is used.
+The date is the date the decision was taken, not the date the pull request merged; where an
+item's prose carries no date for the *tagged* event — a **Refined** item whose refinement
+is undated, say, though its earlier resolution is not — the last cited pull request's merge
+date is used.
 
 **The contract: any item not `Resolved`, `Refined`, or `Rejected` must cite a tracked
 issue.** The specification carries the pointer; the issue carries the discussion and the
