@@ -74,8 +74,8 @@ exclude_patterns = ["brand/assets/*", "developer/plans/*"]
 ```
 
 The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-#73 link to [`../specs/`](https://github.com/bjlittle/tephpy/tree/main/docs/src/developer/specs), and the parent specification refers to the plans in
-the other direction. Any layout that published the specifications while leaving the plans
+#73 link to `../specs/`, and the parent specification refers to the plans in the other
+direction. Any layout that published the specifications while leaving the plans
 elsewhere would break one direction and not the other, which is the confusing failure.
 
 `docs/superpowers/` no longer exists. The superpowers skills default to writing
