@@ -94,7 +94,7 @@ must state two things a reader cannot infer from any single document:
 
   | citation | document | count |
   |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 310 |
+  | `spec §…` | `2026-07-22-tephpy-design.md` | 312 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 23 |
   | `docs spec §…` | this document | 0 |
 
@@ -104,6 +104,23 @@ must state two things a reader cannot infer from any single document:
 
 Each specification declares its own prefix in its header banner. A new specification
 chooses a prefix that is unique across the collection and states it there.
+
+Three details of the citation form, each of which a reader — or a checker — has to get
+right. The word `spec` is matched without regard to case, so a sentence may open with
+`Spec §3.2`. Where several sections are cited together the prefix carries across the whole
+run, so `spec §3.3, §10` and `spec §3.1/§10` each name two sections of the parent; the
+separators are a comma or a solidus. And a citation with no prefix at all — a bare `§N` —
+means the *containing document's* §N:
+
+> **A bare `§N` means this document. A reference to any other document names it.**
+
+Inside a specification the bare form is the ordinary way to point at a neighbouring
+section, and the parent uses it 130 times. Outside the collection it is always an error:
+`src/` and `tests/` own no sections, so a bare `§N` in a docstring has nothing to be
+relative to and is read as the parent's only by habit. Stating the rule this way is what
+makes the unqualified form *safe* — its meaning is fixed by where it is written rather
+than by what the reader assumes, and the one case it cannot be is a silent reference to
+somewhere else.
 
 (docs-spec-3-3)=
 ### 3.3 Section anchors
@@ -194,6 +211,50 @@ happens to have the right headings would leave live work sitting unseen in exact
 published pages the contract exists to protect, and a reader has no way to know that the
 absence of a tag means "not covered" rather than "nothing outstanding".
 
+(docs-spec-3-6)=
+### 3.6 Citation integrity
+
+§3.2 and §3.3 are conventions, and a convention that nothing checks decays. Renumbering a
+section, or inserting one, strands every citation that named the old number — and the
+failure is invisible, because a stale citation is still a well-formed sentence in a
+docstring that still renders. A pre-commit hook therefore asserts three properties:
+
+1. **Resolution.** Every citation names an anchor that exists.
+2. **Keying.** Every `(prefix-N)=` target sits immediately above the heading numbered N.
+3. **Coverage.** Every numbered heading carries a target.
+
+Resolution is the one that catches renumbering. Keying and coverage are what keep
+resolution meaningful: an anchor that has drifted onto the wrong heading still resolves,
+and a heading with no anchor is unaddressable rather than wrongly addressed, so neither
+shows up as a broken citation.
+
+The check derives its registry rather than declaring one. It reads the anchors out of
+`docs/src/developer/specs/*.md`, and the set of valid prefixes falls out of them; a
+citation then resolves by replacing the spaces in its prefix with hyphens and asking
+whether that anchor exists. Because Sphinx labels are global (§3.3), resolution never
+needs to know which file a citation targets, and no prefix-to-document map exists to fall
+out of date. A new specification is governed from the day its first anchor lands, with
+nothing to register — which is the whole point. A hand-maintained registry fails by
+silently not covering something, and silent non-coverage is the failure this check exists
+to remove.
+
+Fenced code blocks are skipped. That is not a refinement: §3.3 illustrates the anchor rule
+with a literal `(spec-3-2)=` and its heading *inside* a fence, so a checker that reads
+fences finds a duplicate anchor and a heading in the wrong document, and fails on the very
+passage documenting the rule it enforces.
+
+The corpus is `src/`, `tests/`, the specifications themselves, `docs/src/conf.py` and
+`AGENTS.md`. The plans are excluded: they are point-in-time records (§3.4), so their
+citations are frozen with them and a renumbering is not a defect in a plan.
+
+**What this cannot catch.** A citation that is well formed and resolves, but names the
+wrong section, is indistinguishable from a correct one. That is not hypothetical — it is
+how the seven `design: open` issues failed, each footed `spec §3.5` where `docs spec §3.5`
+was meant, sending readers to the parent's `_constants` section. This check is syntactic.
+What narrows that class is the §3.2 rule giving the unqualified form a local, safe
+meaning, together with review; it is not this hook, and nothing here should be read as
+claiming otherwise.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -253,7 +314,8 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 - Both existing specification pages render, and this one alongside them.
 - Every anchor named in §3.3 appears as a section `id` in the built HTML.
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds
-  to an anchor that exists — a one-off check at implementation time.
+  to an anchor that exists. This began as a one-off check at implementation time; §3.6
+  makes it continuous.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
@@ -267,11 +329,14 @@ Not in this change:
   into Sphinx cross-references.** 101 rendered citations across 60 public objects would
   become `:ref:` targets. The anchors in §3.3 are its prerequisite, which is why it becomes
   cheap afterwards rather than never.
-- **Deferred** ([#86](https://github.com/bjlittle/tephpy/issues/86)) — **a citation-integrity
-  pre-commit hook.** Nothing verifies that `spec §3.2` still names the right heading;
-  renumbering would strand 149 citations silently. Every citation resolves correctly today,
-  so the anchors make now the cheap moment to adopt one — as a follow-up, once the anchors
-  are stable.
+- **Deferred** ([#86](https://github.com/bjlittle/tephpy/issues/86)) — **implementing the
+  citation-integrity hook.** §3.6 settles what it asserts and why; the script, its hook
+  registration, and the corpus corrections adopting it requires land separately. Those
+  corrections are the reason it is not free: 36 citations do not yet meet the §3.2 rule.
+  Eleven are in `src/` and `tests/`, across ten sites, carrying a bare `§N` in a file that
+  owns no sections. The other 25 are in the two child specifications, where a bare `§N`
+  means the *parent's* section — the `add_logo` banner's "extends §3.2 `plotting`" among
+  them — and resolves silently to the child's own section of that number instead.
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
