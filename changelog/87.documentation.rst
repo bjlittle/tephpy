@@ -1,0 +1,8 @@
+Brought every published design specification under the status contract, not
+just the parent one. The contract — each unsettled item carries a status tag
+and points at a tracked issue — was written around the parent specification's
+"Assumptions and open decisions" and "Open questions" sections, which the
+:func:`~tephpy.plotting.logo.add_logo` and published-specifications documents
+do not have, so both sat outside it while carrying untracked work. A
+specification with neither section now records its open items in its scope
+section instead, to the same rule. (:user:`claude`)
