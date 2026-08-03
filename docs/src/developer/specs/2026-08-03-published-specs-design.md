@@ -156,9 +156,9 @@ was wrong on the facts is worth fixing before it is acted on.
 
 A living specification records not only what was decided but what remains undecided. Those
 records are useful only if a reader can tell, at a glance, which is which and where the
-trail continues. Every item in the parent specification's §10 *Assumptions and open
-decisions* and §11 *Open questions* therefore carries a leading status tag from a fixed
-vocabulary:
+trail continues. Every item in a specification's open-item sections — the parent's §10
+*Assumptions and open decisions* and §11 *Open questions* — therefore carries a leading
+status tag from a fixed vocabulary:
 
 | status | meaning | must carry |
 |---|---|---|
@@ -186,6 +186,14 @@ directions: every pointer in a specification must resolve to an issue, and every
 carrying the label must be cited by a specification. A one-directional check lets an
 issue be closed while the specification still claims the item is open.
 
+The parent specification is not the only document this governs. A specification with no §10
+or §11 — the `add_logo` specification, or this one — records its unsettled items in its
+**§Scope** section instead, and those entries carry the same tags and the same issue
+pointers. The section differs; the contract does not. Scoping it to the one document that
+happens to have the right headings would leave live work sitting unseen in exactly the
+published pages the contract exists to protect, and a reader has no way to know that the
+absence of a tag means "not covered" rather than "nothing outstanding".
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -197,8 +205,9 @@ A contributor changing behaviour that a specification section describes updates 
 section in the same pull request. A contributor who finds the code and the specification
 disagreeing has found a specification defect, and reports it as one.
 
-An item that cannot be settled now is written into §10 or §11 with a status tag, filed as
-an issue labelled `design: open`, and cited from the item.
+An item that cannot be settled now is written into the specification's open-item section —
+§10 or §11 in the parent, §Scope elsewhere — with a status tag, filed as an issue labelled
+`design: open`, and cited from the item.
 
 (docs-spec-5)=
 ## 5. Migration
@@ -254,15 +263,18 @@ through myst produced exactly one warning, the `../plans/` link of item 4 above.
 
 Not in this change:
 
-- **Converting citations into Sphinx cross-references.** 101 rendered citations across 60
-  public objects would become `:ref:` targets. The anchors in §3.3 are its prerequisite,
-  which is why it becomes cheap afterwards rather than never.
-- **A citation-integrity pre-commit hook.** Nothing verifies that `spec §3.2` still names
-  the right heading; renumbering would strand 149 citations silently. Every citation
-  resolves correctly today, so the anchors make now the cheap moment to adopt one — as a
-  follow-up, once the anchors are stable.
-- **Editing the specifications' technical content.** They are published as they stand.
-  The §3.5 pass adds status tags and issue pointers; it does not rewrite the reasoning.
+- **Deferred** ([#85](https://github.com/bjlittle/tephpy/issues/85)) — **converting citations
+  into Sphinx cross-references.** 101 rendered citations across 60 public objects would
+  become `:ref:` targets. The anchors in §3.3 are its prerequisite, which is why it becomes
+  cheap afterwards rather than never.
+- **Deferred** ([#86](https://github.com/bjlittle/tephpy/issues/86)) — **a citation-integrity
+  pre-commit hook.** Nothing verifies that `spec §3.2` still names the right heading;
+  renumbering would strand 149 citations silently. Every citation resolves correctly today,
+  so the anchors make now the cheap moment to adopt one — as a follow-up, once the anchors
+  are stable.
+- **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
+  published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
+  rewrite the reasoning.
 
 (docs-spec-8)=
 ## 8. References

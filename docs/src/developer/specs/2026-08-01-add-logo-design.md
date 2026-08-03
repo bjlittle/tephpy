@@ -51,7 +51,7 @@ below spends those inputs on a dpi-independent, theme-aware placement built from
 | Asset packaging | Copies under `src/tephpy/plotting/_static/`, declared in `[tool.setuptools.package-data]` and `MANIFEST.in` | The function must work from a wheel with no docs tree and no network. **Measured:** while the files are git-tracked, `include-package-data` (on by default) plus the setuptools_scm file finder already ships them — the declaration is belt-and-braces that survives losing either, not the load-bearing mechanism, and the spec does not pretend otherwise |
 | Asset drift | A test hashes the six copies against `logo-bundle.zip` | The zip is the source of truth; the copies are derived. Without the guard they diverge silently on the next rebrand |
 | Return value | The `AnnotationBbox` | The caller can restyle or `.remove()` it. Matches matplotlib's artist-returning convention |
-| Tinted mono variant (`color=`) | **Deferred**, tracked as an issue | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
+| Tinted mono variant (`color=`) | **Deferred** ([#72](https://github.com/bjlittle/tephpy/issues/72)) | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
 
 (logo-spec-3)=
 ## 3. Architecture
@@ -350,19 +350,21 @@ Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
 
 **In scope:** everything in §3.
 
-**Deferred — tracked as an issue, not built here:** a `color=` kwarg tinting a monochrome
-mark to an arbitrary colour. This is the honest fix for the transparent-background case in
-§3.5 and for figures whose background is neither light nor dark. It is deferred because it
-needs `lockup-tiera-mono.svg` and its siblings rasterised **offline** into a third variant —
-tephpy cannot rasterise SVG at runtime (Pillow does not, and the bundle's own generators
-emit SVG rather than consume it). The light masters cannot substitute as an alpha mask:
+**Deferred** ([#72](https://github.com/bjlittle/tephpy/issues/72)) — a `color=` kwarg tinting
+a monochrome mark to an arbitrary colour. This is the honest fix for the
+transparent-background case in §3.5 and for figures whose background is neither light nor
+dark. It is deferred because it needs `lockup-tiera-mono.svg` and its siblings rasterised
+**offline** into a third variant — tephpy cannot rasterise SVG at runtime (Pillow does not,
+and the bundle's own generators emit SVG rather than consume it). The light masters cannot
+substitute as an alpha mask:
 measured, they are three-tone with substantial white knockout (19.2% of `icon-512-light.png`
 is pure white), so flattening them by alpha collapses the mark.
 
-**Explicitly not in scope:** collision detection (`loc="best"`), animation, `SubFigure`
-targets, per-artist logo placement on subplots other than through repeated calls, a
-`tephpy.config` section (this work adds exactly one public name), and any change to the
-published brand assets.
+**Rejected** (2026-08-01) — explicitly not in scope: collision detection (`loc="best"`),
+animation, `SubFigure` targets, per-artist logo placement on subplots other than through
+repeated calls, a `tephpy.config` section (this work adds exactly one public name), and any
+change to the published brand assets. Each is a deliberate omission rather than an unbuilt
+intention, so none carries an issue (docs spec §3.5).
 
 (logo-spec-9)=
 ## 9. References
