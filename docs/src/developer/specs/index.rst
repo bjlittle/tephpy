@@ -7,8 +7,8 @@ specification diverge, it is the specification that gets corrected — so read t
 current, and report a divergence as a specification defect.
 
 tephpy's source cites them by section. You will meet ``spec §3.2`` and ``logo spec §3.5``
-in comments and docstrings throughout ``src/`` and ``tests/``, and each resolves to a
-section on one of the pages below. The prefix identifies the document, and it is
+in comments and docstrings throughout ``src/`` and ``tests/``, and each names a section
+on one of the pages below. The prefix identifies the document, and it is
 load-bearing rather than decorative: ``logo spec §3.6`` names a section that has no
 counterpart in the parent specification.
 

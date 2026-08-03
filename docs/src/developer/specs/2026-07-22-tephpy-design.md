@@ -1018,6 +1018,9 @@ Outside the roadmap:
   *Verified 2026-08-03:* the RTD project is live — it builds `latest` from `main` and
   reports a `docs/readthedocs.org:tephpy` check on pull requests. Versioned hosting
   (`stable`, `v0.x`) still waits on the first tag, per release execution above.
+  The GitHub Discussions link in the issue templates resolves — Discussions are enabled
+  and `.github/ISSUE_TEMPLATE/config.yml` carries the contact link. Only the production
+  PyPI Trusted Publisher is still genuinely unverified, pending the first `v*` tag.
 
 ### Assumptions and open decisions
 
@@ -1074,7 +1077,7 @@ them, ordered by owning plan.
    an explicit `label=` always wins, and with neither there is no legend entry.
    Forecast-vs-observed distinguishability is the label override's job — no dedicated
    field. §3.2/§3.4 updated accordingly.
-9. **Refined** (2026-07-25, PR #19) — **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
+9. **Refined** (2026-07-26, PR #19) — **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
    and the §2 ingest decision need pandas/xarray, but §8.1's runtime list omits them
    (today they arrive transitively via MetPy). Decide: direct declaration, optional
    extra, or typing-only treatment. *Resolved 2026-07-25:* declared directly — the

@@ -118,7 +118,7 @@ html_static_path = ["_static"]
 # ``developer/plans/*`` is the second entry for a different reason: the plans are
 # tracked in the repository but deliberately unpublished (docs spec §3.1) — a plan
 # is a point-in-time record, not a living document.
-exclude_patterns = ["brand/assets/*", "developer/plans/*"]
+exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",

@@ -70,7 +70,7 @@ Sphinx reads the specifications natively. The plans are withheld by a single
 `exclude_patterns` entry in `docs/src/conf.py`:
 
 ```python
-exclude_patterns = ["brand/assets/*", "developer/plans/*"]
+exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
 The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
@@ -146,6 +146,12 @@ historical record, not a purer one — a reader who cannot reach the specificati
 was derived from cannot evaluate the plan at all. Git history holds the original text
 either way.
 
+A plan is frozen when its implementation PR merges, not when the plan itself does. While a
+plan is still being executed, a correction to what it asks for is a correction to work that
+has not happened yet — the point-in-time record is of what was intended, and intent that
+was wrong on the facts is worth fixing before it is acted on. Once the implementation
+lands, only pointers may change.
+
 (docs-spec-3-5)=
 ### 3.5 Status vocabulary and the open-item contract
 
@@ -165,11 +171,14 @@ vocabulary:
 | **On hold** | Deliberately paused | why, and what would restart it |
 | **Open** | Not yet addressed | — |
 
-**The contract: any item not `Resolved` or `Rejected` must cite a tracked issue.** The
-specification carries the pointer; the issue carries the discussion and the current state.
-This is what stops a specification becoming a place where live work sits unseen — the
-failure mode that a published document makes worse, because publication invites a reader
-to trust it.
+The date is the date the decision was taken, not the date the pull request merged; where
+an item's prose records no decision date, the last cited pull request's merge date is used.
+
+**The contract: any item not `Resolved`, `Refined`, or `Rejected` must cite a tracked
+issue.** The specification carries the pointer; the issue carries the discussion and the
+current state. This is what stops a specification becoming a place where live work sits
+unseen — the failure mode that a published document makes worse, because publication
+invites a reader to trust it.
 
 Those issues carry the `design: open` label, which makes the contract checkable in both
 directions: every pointer in a specification must resolve to an issue, and every issue
