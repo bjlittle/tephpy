@@ -84,7 +84,7 @@ it is at `docs/superpowers/specs/2026-08-03-published-specs-design.md`.)
 | `docs/src/developer/specs/2026-07-22-tephpy-design.md` | 25 anchors; header link; §10 path; §10/§11 status tags | 1, 2, 3, 5 |
 | `docs/src/developer/specs/2026-08-01-add-logo-design.md` | 15 anchors | 2 |
 | `docs/src/developer/plans/*.md` | 13 spec pointers repointed | 3 |
-| `README.md` | The design link follows the directory | 3 |
+| `README.md` | The design link becomes the published page | 3 |
 | `changelog/<PR>.documentation.rst` (new) | Towncrier fragment | 6 |
 
 ---
@@ -660,9 +660,10 @@ plan in `docs/src/developer/plans/`, and a plan is executed and merged before an
 - [ ] **Step 4: Repoint the README**
 
 `README.md:28` links to the specifications directory on GitHub, which will 404 after the
-move. Point it at the new tree path — *not* at a Read the Docs URL: the RTD project is not
-yet activated (spec §10, service provisioning), so there is no published page to link to.
-Swapping this for the rendered page belongs with RTD activation.
+move. Point it at the *published* page, not at the new tree path (docs spec §5 item 6):
+the Read the Docs project is live and builds `latest` from `main`, so the rendered
+collection index exists as soon as this branch merges. Use `/en/latest/`, not `/en/stable/`
+— there is no tagged release yet, and `stable` 404s until one exists.
 
 Replace:
 
@@ -673,7 +674,7 @@ Replace:
 with:
 
 ```markdown
-> out plan by plan for the [design](https://github.com/bjlittle/tephpy/tree/main/docs/src/developer/specs).
+> out plan by plan for the [design](https://tephpy.readthedocs.io/en/latest/developer/specs/index.html).
 ```
 
 - [ ] **Step 5: Re-run the audit and confirm only the five records remain**
@@ -896,17 +897,18 @@ one of them must be cited or the bidirectional check fails.
 ### Task 5: Apply the status vocabulary to §10 and §11
 
 Establishes the true status of §10's sixteen items and §11's four questions and tags each
-one. Every edit is **purely additive** — a leading status tag is prefixed to the item, and
-where an item's parts differ a tagged sub-list is appended. No existing prose is reworded,
-reordered or deleted (docs spec §7).
+one, and appends one verification note to §10's service-provisioning bullet. Every edit is
+**purely additive** — a leading status tag is prefixed to the item, and where an item's
+parts differ a tagged sub-list is appended. No existing prose is reworded, reordered or
+deleted (docs spec §7).
 
 The statuses below were established against the repository on 2026-08-03: the plan-to-PR map
 is Plan 1 → #1, Plan 2 → #9, Plan 3 → #15, Plan 4 → #19, Plan 5 → #26, Plan 6 → #40 with
 hardening in #41.
 
 **Files:**
-- Modify: `docs/src/developer/specs/2026-07-22-tephpy-design.md` (§10 items 1-16, §11's four
-  questions)
+- Modify: `docs/src/developer/specs/2026-07-22-tephpy-design.md` (§10 items 1-16, §10's
+  service-provisioning bullet, §11's four questions)
 
 **Interfaces:**
 - Consumes: issue numbers **A**-**G** from Task 4's Step 10 table.
@@ -1002,7 +1004,28 @@ and append, at the item's four-space continuation indent:
     *Residual:* **Deferred** (Plan 7 — [#C](https://github.com/bjlittle/tephpy/issues/C)) — the lowest-direct-resolution gate.
 ```
 
-- [ ] **Step 4: Tag §11's four questions**
+- [ ] **Step 4: Record the Read the Docs project as verified**
+
+§10's *Outside the roadmap* service-provisioning bullet — the last bullet before
+`### Assumptions and open decisions` — says "the production PyPI Trusted Publisher (first
+exercised by a `v*` tag), the RTD project, and the GitHub Discussions link in the issue
+templates remain to be verified." The RTD project is no longer unverified: it builds
+`latest` from `main`, `https://tephpy.readthedocs.io/en/latest/` returns 200, and pull
+requests carry a `docs/readthedocs.org:tephpy` check. Leaving that clause standing on a
+page this change publishes tells a reader the site they are reading does not exist yet.
+
+The bullet is prose, not a tagged item, so it takes an appended verification note in the
+spec's existing inline-marker style rather than a status tag — and appending keeps Step 9's
+additive check honest. Do **not** reword the existing sentence. Append, at the bullet's
+two-space continuation indent, immediately after `remain to be verified.`:
+
+```markdown
+  *Verified 2026-08-03:* the RTD project is live — it builds `latest` from `main` and
+  reports a `docs/readthedocs.org:tephpy` check on pull requests. Versioned hosting
+  (`stable`, `v0.x`) still waits on the first tag, per release execution above.
+```
+
+- [ ] **Step 5: Tag §11's four questions**
 
 Each is a top-level bullet. Prefix each with its tag, leaving the question text verbatim:
 
@@ -1021,7 +1044,7 @@ So the third becomes:
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 ```
 
-- [ ] **Step 5: Verify the contract holds in both directions**
+- [ ] **Step 6: Verify the contract holds in both directions**
 
 ```bash
 pixi run --frozen python - <<'PY'
@@ -1055,7 +1078,7 @@ Expected: the two sets are identical (the seven numbers from Task 4), both diffe
 read `none`, exit 0. A `cited but unlabelled` entry means a placeholder `A`-`G` was left
 unresolved; a `labelled but uncited` entry means an issue was filed that no item points at.
 
-- [ ] **Step 6: Confirm no placeholder survived**
+- [ ] **Step 7: Confirm no placeholder survived**
 
 ```bash
 grep -n "issues/[A-G]" docs/src/developer/specs/2026-07-22-tephpy-design.md
@@ -1063,7 +1086,7 @@ grep -n "issues/[A-G]" docs/src/developer/specs/2026-07-22-tephpy-design.md
 
 Expected: no output. Every `#A`-`#G` must have become a real number.
 
-- [ ] **Step 7: Rebuild the docs**
+- [ ] **Step 8: Rebuild the docs**
 
 ```bash
 pixi run --frozen docs 2>&1 | tail -10
@@ -1071,7 +1094,7 @@ pixi run --frozen docs 2>&1 | tail -10
 
 Expected: `build succeeded.`, exit 0.
 
-- [ ] **Step 8: Confirm the edits were additive**
+- [ ] **Step 9: Confirm the edits were additive**
 
 ```bash
 git diff --stat docs/src/developer/specs/2026-07-22-tephpy-design.md
@@ -1083,7 +1106,7 @@ lines that gained a prefix and nothing else. Read the diff and confirm every `-`
 matching `+` line that contains the original text unchanged after the inserted tag. Any `-`
 line with no such counterpart is prose that was deleted, which docs spec §7 forbids.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add docs/src/developer/specs/2026-07-22-tephpy-design.md

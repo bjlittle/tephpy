@@ -214,12 +214,12 @@ One-off work, performed once and then finished:
 6. Correct the stale repository paths (§3.4): §10 of the parent specification names
    `docs/superpowers/plans/`, `README.md` links to `docs/superpowers/specs` on GitHub, and
    twelve plans name their originating specification by its old path. The README link
-   follows the directory to its new GitHub tree path; it becomes a link to the published
-   page when the Read the Docs project is activated (§10, service provisioning), not
-   before — there is no site to link to yet. What is *not* corrected: the
-   code blocks in three plans that reproduce a file's contents or a PR or issue body
-   already published. Those record what was written, not where a document lives, and §3.4
-   does not reach them.
+   becomes the *published* page rather than a second GitHub tree path: the Read the Docs
+   project is live and builds `latest` from `main`, so once this change lands the rendered
+   collection — toctree, namespace table and all — is what a reader following "the design"
+   should land on. What is *not* corrected: the code blocks in three plans that reproduce
+   a file's contents or a PR or issue body already published. Those record what was
+   written, not where a document lives, and §3.4 does not reach them.
 7. Audit §10's sixteen items and §11's four questions, establish the true status of each,
    apply the §3.5 tags, and file `design: open` issues for whatever is genuinely open.
 
