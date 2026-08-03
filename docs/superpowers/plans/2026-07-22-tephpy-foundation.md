@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Point-in-time record.** This plan states what was intended *before* implementation and is not updated afterwards. The review loop routinely revised what it records, so its code blocks drift from what shipped. The code is authoritative, and the design specification in [`../specs/`](../specs/) is the living statement of intent — read this for how the work was approached, not for how tephpy behaves today.
+
 **Goal:** Stand up an installable, linted, type-checked, tested, documented, CI-gated `tephpy` package skeleton that meets the geovista engineering standard, so subsequent plans add domain code onto a solid base.
 
 **Architecture:** `src/` layout package built with `setuptools` + `setuptools_scm`; pixi is the primary environment/workflow tool (config in `pyproject.toml`); quality enforced by ruff (`ALL`), mypy `strict`, numpydoc, and the geovista pre-commit suite; docs are a Diátaxis skeleton on `pydata-sphinx-theme` with `sphinx-autoapi` and towncrier; CI runs the v1 core gates.

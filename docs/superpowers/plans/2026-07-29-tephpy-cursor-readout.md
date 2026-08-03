@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Point-in-time record.** This plan states what was intended *before* implementation and is not updated afterwards. The review loop routinely revised what it records, so its code blocks drift from what shipped. The code is authoritative, and the design specification in [`../specs/`](../specs/) is the living statement of intent — read this for how the work was approached, not for how tephpy behaves today.
+
 **Goal:** Replace the navigation toolbar's raw tephigram (x, y) readout with diagram-meaningful values — `850 hPa, -4.2 °C, θ 8.6 °C` by default — selected from a five-field registry via `config.cursor.fields`, with stock `ax.format_coord = fn` assignment as the documented full-custom path.
 
 **Architecture:** `TephigramAxes.format_coord(x, y)` (the stock matplotlib toolbar hook) inverts the cursor position through the existing `transforms.temperature_theta_from_xy`, derives pressure via `transforms.pressure_from_temperature_theta`, and joins per-field formatter outputs in listed order. The formatters live in a module-level registry in `plotting/axes.py` keyed by field name — closed-form `pressure`/`temperature`/`theta` (the `_constants.CURSOR_FIELDS` default), opt-in `mixing_ratio`/`theta_w` via function-local `metpy.calc`. Field selection reads `config.cursor.fields` live on every call (unlike the families' read-at-creation snapshot), so `config.context(cursor={"fields": ...})` scopes over existing axes; instance assignment of `format_coord` shadows the method — the "accessor tier" of the ladder — for free.
