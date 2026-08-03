@@ -19,7 +19,7 @@ towncrier.
 
 ## Global Constraints
 
-- Spec: `docs/superpowers/specs/2026-07-22-tephpy-design.md` §3.2. Cite it as
+- Spec: `docs/src/developer/specs/2026-07-22-tephpy-design.md` §3.2. Cite it as
   `(spec §3.2)` in comments and docstrings, exactly as the surrounding code does.
 - Line length 88 (`ruff`, `line-length = 88` in `pyproject.toml`). This binds comments
   and docstrings too.

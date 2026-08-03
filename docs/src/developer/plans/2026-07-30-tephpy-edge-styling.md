@@ -23,7 +23,7 @@ towncrier.
 
 ## Global Constraints
 
-- Spec: `docs/superpowers/specs/2026-07-22-tephpy-design.md` §3.2 (the three bullets
+- Spec: `docs/src/developer/specs/2026-07-22-tephpy-design.md` §3.2 (the three bullets
   beginning "A claimed edge's ticks are stock matplotlib and yours to style"). Cite it as
   `(spec §3.2)` in comments and docstrings, exactly as the surrounding code does.
 - Every module starts with the 4-line BSD copyright header and `from __future__ import

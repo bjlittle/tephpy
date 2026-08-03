@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), metpy 1.7.1 (`saturation_mixing_ratio`, `wet_bulb_potential_temperature`, function-local), pytest, pixi tasks. No new dependencies, no new files (three source files and three test files are modified; the changelog fragment is the only new file).
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.2 (the `ax.format_coord` bullet), §3.5 (the `config.cursor` section and its live-read exception), §6 (fail-loud `TypeError` conventions). Post-roadmap addition (not a §10 plan row).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.2 (the `ax.format_coord` bullet), §3.5 (the `config.cursor` section and its live-read exception), §6 (fail-loud `TypeError` conventions). Post-roadmap addition (not a §10 plan row).
 
 ## Global Constraints
 

@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), hypothesis, pytest, pixi tasks, tephi 0.4.0.post0 (oracle only — a throwaway venv, never a runtime dependency).
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.1 (authority for this plan), §5 (units exemption), §7 (transforms test battery), §10 (Plan 2 row; resolved items 3–5).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.1 (authority for this plan), §5 (units exemption), §7 (transforms test battery), §10 (Plan 2 row; resolved items 3–5).
 
 This is **Plan 2 of 7** (spec §10). It produces working software: after `import tephpy`, `plt.subplots(subplot_kw={"projection": "tephigram"})` yields working rotated axes, and the full test battery passes on all three Pythons.
 

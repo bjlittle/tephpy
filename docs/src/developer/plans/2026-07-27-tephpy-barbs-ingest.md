@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests; `mpl_toolkits.axes_grid1` divider + `matplotlib.quiver.Barbs`), pint (MetPy's registry), metpy ≥ 1.6 (`wind_components`, function-local), stdlib `urllib`/`zipfile`/`csv` (no new dependency), pytest, pytest-mpl, pixi tasks.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.2 (`plot_barbs`, the side-of-axes contract and its 2026-07-27 resolution), §3.4 (readers), §5 (units policy), §6 (`TephpyIOError`, `MissingDataError` for absent wind, NaN gaps are data), §7 (recorded-fixture IO tests, no live network in CI), §10 (Plan 6 row; items 10 and 13 Plan 6 slices).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.2 (`plot_barbs`, the side-of-axes contract and its 2026-07-27 resolution), §3.4 (readers), §5 (units policy), §6 (`TephpyIOError`, `MissingDataError` for absent wind, NaN gaps are data), §7 (recorded-fixture IO tests, no live network in CI), §10 (Plan 6 row; items 10 and 13 Plan 6 slices).
 
 This is **Plan 6 of 7** (spec §10). It produces working software: after it merges, `wyoming.fetch("03808", "2026-07-21 12:00")` returns a validated `Sounding` and `ax.plot_barbs(snd)` draws its winds beside the diagram, composing with Plan 5's panel in either call order. Plan 7 (examples & docs completion) needs the union of Plans 5 and 6 — including the composed §4-figure baseline this plan deliberately does not add.
 

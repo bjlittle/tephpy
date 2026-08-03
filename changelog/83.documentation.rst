@@ -1,0 +1,8 @@
+Published tephpy's design specifications in the developer guide
+(:issue:`65`). The ``spec §…`` citations throughout ``src/`` and ``tests/``
+now resolve to a section a reader can reach: every numbered section carries
+a stable anchor keyed to its number, rather than the slug docutils derives
+from the heading text — which discarded the number and silently collided
+where two sections shared a title. The implementation plans stay tracked in
+the repository but are deliberately unpublished. Every unresolved item in
+the roadmap now carries a status tag and a tracked issue. (:user:`claude`)

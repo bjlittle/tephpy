@@ -23,7 +23,7 @@ pixi, pre-commit, towncrier, Sphinx.
 
 ## Global Constraints
 
-- Spec: `docs/superpowers/specs/2026-07-22-tephpy-design.md` §3.2 (the two bullets
+- Spec: `docs/src/developer/specs/2026-07-22-tephpy-design.md` §3.2 (the two bullets
   beginning "Any member of any family can be emphasised" and "Emphasis forces its member
   to be drawn"). Cite it as `(spec §3.2)` in comments and docstrings, exactly as the
   surrounding code does.

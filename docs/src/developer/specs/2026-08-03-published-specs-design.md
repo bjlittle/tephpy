@@ -70,12 +70,12 @@ Sphinx reads the specifications natively. The plans are withheld by a single
 `exclude_patterns` entry in `docs/src/conf.py`:
 
 ```python
-exclude_patterns = ["brand/assets/*", "developer/plans/*"]
+exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
 The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-#73 link to [`../specs/`](../specs/), and the parent specification refers to the plans in
-the other direction. Any layout that published the specifications while leaving the plans
+#73 link to `../specs/`, and the parent specification refers to the plans in the other
+direction. Any layout that published the specifications while leaving the plans
 elsewhere would break one direction and not the other, which is the confusing failure.
 
 `docs/superpowers/` no longer exists. The superpowers skills default to writing
@@ -140,11 +140,16 @@ what a plan *says* — the intent it recorded, including where implementation la
 from it. It does not govern the pointers a plan uses to name other documents.
 
 So one carve-out, stated here so the boundary is not re-litigated: **a repository path or
-link in a plan may be corrected when the thing it names moves; nothing else in a plan may
-be edited.** A plan whose reference to its own specification no longer resolves is a worse
-historical record, not a purer one — a reader who cannot reach the specification the plan
-was derived from cannot evaluate the plan at all. Git history holds the original text
-either way.
+link in a plan may be corrected when the thing it names moves; nothing else in a frozen
+plan may be edited.** A plan whose reference to its own specification no longer resolves is
+a worse historical record, not a purer one — a reader who cannot reach the specification
+the plan was derived from cannot evaluate the plan at all. Git history holds the original
+text either way.
+
+A plan is frozen when its implementation PR merges, not when the plan itself does. While a
+plan is still being executed, a correction to what it asks for is a correction to work that
+has not happened yet — the point-in-time record is of what was intended, and intent that
+was wrong on the facts is worth fixing before it is acted on.
 
 (docs-spec-3-5)=
 ### 3.5 Status vocabulary and the open-item contract
@@ -165,11 +170,16 @@ vocabulary:
 | **On hold** | Deliberately paused | why, and what would restart it |
 | **Open** | Not yet addressed | — |
 
-**The contract: any item not `Resolved` or `Rejected` must cite a tracked issue.** The
-specification carries the pointer; the issue carries the discussion and the current state.
-This is what stops a specification becoming a place where live work sits unseen — the
-failure mode that a published document makes worse, because publication invites a reader
-to trust it.
+The date is the date the decision was taken, not the date the pull request merged; where an
+item's prose carries no date for the *tagged* event — a **Refined** item whose refinement
+is undated, say, though its earlier resolution is not — the last cited pull request's merge
+date is used.
+
+**The contract: any item not `Resolved`, `Refined`, or `Rejected` must cite a tracked
+issue.** The specification carries the pointer; the issue carries the discussion and the
+current state. This is what stops a specification becoming a place where live work sits
+unseen — the failure mode that a published document makes worse, because publication
+invites a reader to trust it.
 
 Those issues carry the `design: open` label, which makes the contract checkable in both
 directions: every pointer in a specification must resolve to an issue, and every issue
@@ -214,12 +224,12 @@ One-off work, performed once and then finished:
 6. Correct the stale repository paths (§3.4): §10 of the parent specification names
    `docs/superpowers/plans/`, `README.md` links to `docs/superpowers/specs` on GitHub, and
    twelve plans name their originating specification by its old path. The README link
-   follows the directory to its new GitHub tree path; it becomes a link to the published
-   page when the Read the Docs project is activated (§10, service provisioning), not
-   before — there is no site to link to yet. What is *not* corrected: the
-   code blocks in three plans that reproduce a file's contents or a PR or issue body
-   already published. Those record what was written, not where a document lives, and §3.4
-   does not reach them.
+   becomes the *published* page rather than a second GitHub tree path: the Read the Docs
+   project is live and builds `latest` from `main`, so once this change lands the rendered
+   collection — toctree, namespace table and all — is what a reader following "the design"
+   should land on. What is *not* corrected: the code blocks in three plans that reproduce
+   a file's contents or a PR or issue body already published. Those record what was
+   written, not where a document lives, and §3.4 does not reach them.
 7. Audit §10's sixteen items and §11's four questions, establish the true status of each,
    apply the §3.5 tags, and file `design: open` issues for whatever is genuinely open.
 

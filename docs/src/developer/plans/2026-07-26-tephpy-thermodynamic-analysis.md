@@ -10,7 +10,7 @@
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests; `mpl_toolkits.axes_grid1` for the panel), pint (MetPy's registry), metpy ≥ 1.6 (function-local imports), pytest, pytest-mpl, pixi tasks.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.3 (authority for `calc`), §3.2 (the `plot_profile` overload, shading, `annotate_indices`, side-of-axes contract), §5 (units policy), §6 (analysis-time errors, NaN-versus-zero semantics), §7 (calc testing = composition; the worked example), §10 (Plan 5 row; resolved items 2, 10, 11, 12, 13, 14).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.3 (authority for `calc`), §3.2 (the `plot_profile` overload, shading, `annotate_indices`, side-of-axes contract), §5 (units policy), §6 (analysis-time errors, NaN-versus-zero semantics), §7 (calc testing = composition; the worked example), §10 (Plan 5 row; resolved items 2, 10, 11, 12, 13, 14).
 
 This is **Plan 5 of 7** (spec §10). It produces working software: after it merges, `tephpy.calc.parcel_path(snd)` computes a parcel ascent that `ax.plot_profile(parcel, ...)` draws, `ax.shade_cape`/`shade_cin` fill exactly the regions `cape_cin` integrates, and `ax.annotate_indices(tephpy.calc.indices(snd))` puts the ten derived parameters beside the diagram. Plan 6 (barbs & ingest) is independent and may already be in flight; Plan 7 needs both.
 

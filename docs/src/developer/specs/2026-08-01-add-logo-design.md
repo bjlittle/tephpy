@@ -16,6 +16,7 @@
 - **Brand assets:** `docs/src/_static/brand/assets/logo-bundle.zip`, catalogued by
   `docs/src/_static/brand/assets/README.md` (PR #69)
 
+(logo-spec-1)=
 ## 1. Purpose
 
 Give users a one-call way to brand a figure:
@@ -35,6 +36,7 @@ light-background and a dark-background variant, all published in the brand bundl
 below spends those inputs on a dpi-independent, theme-aware placement built from
 `AnnotationBbox`, whose positioning vocabulary users already know from `legend`.
 
+(logo-spec-2)=
 ## 2. Decisions
 
 | Decision | Choice | Rationale |
@@ -51,6 +53,7 @@ below spends those inputs on a dpi-independent, theme-aware placement built from
 | Return value | The `AnnotationBbox` | The caller can restyle or `.remove()` it. Matches matplotlib's artist-returning convention |
 | Tinted mono variant (`color=`) | **Deferred**, tracked as an issue | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
 
+(logo-spec-3)=
 ## 3. Architecture
 
 ```
@@ -70,6 +73,7 @@ nothing from tephpy beyond `_constants`; it does not touch `transforms`, `axes` 
 `isopleths`, and nothing imports it back. `tephpy.plotting.__init__` grows
 `from tephpy.plotting.logo import add_logo` and the matching `__all__` entry.
 
+(logo-spec-3-1)=
 ### 3.1 Public API
 
 ```python
@@ -110,6 +114,7 @@ figure — the MetPy-equivalent zero-argument call.
 The artist is attached with `fig.add_artist(ab)` for a `Figure` target and `ax.add_artist(ab)`
 for an `Axes` target; the latter is what makes `xycoords="axes fraction"` resolvable.
 
+(logo-spec-3-2)=
 ### 3.2 Bundled assets and packaging
 
 The six masters are byte-for-byte copies of `bundle/png/` members of
@@ -143,6 +148,7 @@ tephpy = ["py.typed", "plotting/_static/*.png"]
 relying on the setuptools_scm file finder — the same implicit mechanism this table replaces
 for the PNGs.
 
+(logo-spec-3-3)=
 ### 3.3 Sizing
 
 `size` is a **height in inches**. Width follows from the master's aspect ratio, so a form is
@@ -163,6 +169,7 @@ either shrink the stacked wordmark to mush or make the lockup gratuitously large
 is 1.6–1.8× `"small"` in each case. The icon carries no wordmark and so has no legibility
 floor to meet; its presets sit between the other two forms'.
 
+(logo-spec-3-4)=
 ### 3.4 Placement
 
 `loc` takes matplotlib's `legend` vocabulary minus `'best'`: `'upper right'`, `'upper left'`,
@@ -200,6 +207,7 @@ want it.
 `pad` defaults to 6.0 points, a shade wider than `legend`'s `borderaxespad` of 5.0 pt (0.5
 font-size units at the 10 pt default font).
 
+(logo-spec-3-5)=
 ### 3.5 Theme resolution
 
 `theme="light"` and `theme="dark"` name the **background** the logo will sit on, which is
@@ -229,6 +237,7 @@ the right answer for a figure destined for a white page and the wrong one for a 
 Callers in that position pass `theme=` explicitly. Closing this properly is the deferred
 `color=` work (§8).
 
+(logo-spec-3-6)=
 ### 3.6 Rendering
 
 ```python
@@ -259,6 +268,7 @@ lockup measures 0.411 in instead of 0.300 in and a `"large"` one 0.661 in instea
 This is the single most easily reintroduced bug in the module and §6 pins it with a
 regression test.
 
+(logo-spec-4)=
 ## 4. Canonical usage
 
 ```python
@@ -275,6 +285,7 @@ add_logo(ax, size="large", loc=(0.35, 0.02))        # exact placement, pad ignor
 add_logo(ax, theme="dark", alpha=0.6)               # explicit variant, watermark weight
 ```
 
+(logo-spec-5)=
 ## 5. Error handling
 
 The plotting layer raises builtin exceptions; `TephpyError` and its subclasses are for
@@ -297,6 +308,7 @@ user-correctable *data* input (parent spec §6) and are not used here.
   `.figure` is a `SubFigure` also raises `TypeError`: `SubFigure` is out of scope
   (§8), and saying so beats returning something typed `Figure` that is not one.
 
+(logo-spec-6)=
 ## 6. Testing
 
 Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
@@ -321,6 +333,7 @@ Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
 - **Import discipline:** `logo.py` reads no asset at import time.
 - **Image baseline:** one `pytest-mpl` comparison, per parent spec §7.
 
+(logo-spec-7)=
 ## 7. Documentation
 
 - A how-to under `docs/src/howtos/`, added to that `toctree`, covering the default call, the
@@ -332,6 +345,7 @@ Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
   are also shipped inside the wheel at `tephpy/plotting/_static/`, so a future rebrand knows
   to update both.
 
+(logo-spec-8)=
 ## 8. Scope
 
 **In scope:** everything in §3.
@@ -350,6 +364,7 @@ targets, per-artist logo placement on subplots other than through repeated calls
 `tephpy.config` section (this work adds exactly one public name), and any change to the
 published brand assets.
 
+(logo-spec-9)=
 ## 9. References
 
 - Parent spec: [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md), §3.2
