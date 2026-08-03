@@ -7,7 +7,7 @@
 
 - **Date:** 2026-07-22 (originated; maintained since)
 - **Status:** living design specification, implemented incrementally by the plans in
-  [`../plans/`](../plans/)
+  [`docs/src/developer/plans/`](https://github.com/bjlittle/tephpy/tree/main/docs/src/developer/plans)
 - **License:** BSD-3-Clause (repo already carries it)
 - **Repository:** https://github.com/bjlittle/tephpy (PyPI name `tephpy` verified free on 2026-07-22)
 - **Engineering standards baseline:** [bjlittle/geovista](https://github.com/bjlittle/geovista)

@@ -115,7 +115,10 @@ html_static_path = ["_static"]
 # links to.  The pattern is deliberately not prefixed ``_static/``: static
 # copying matches each entry relative to the ``html_static_path`` root, so an
 # ``_static/``-prefixed pattern silently matches nothing and the zip ships.
-exclude_patterns = ["brand/assets/*"]
+# ``developer/plans/*`` is the second entry for a different reason: the plans are
+# tracked in the repository but deliberately unpublished (docs spec §3.1) — a plan
+# is a point-in-time record, not a living document.
+exclude_patterns = ["brand/assets/*", "developer/plans/*"]
 html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",

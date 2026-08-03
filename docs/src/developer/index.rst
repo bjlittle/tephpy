@@ -5,3 +5,4 @@ Developer Guide
     :maxdepth: 1
 
     docs-style
+    specs/index

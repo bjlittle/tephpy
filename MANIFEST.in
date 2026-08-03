@@ -4,4 +4,4 @@ recursive-include src/tephpy/plotting/_static *.png
 recursive-include requirements *.txt
 exclude src/tephpy/_version.py
 prune .github
-prune docs/superpowers
+prune docs/src/developer/plans
