@@ -115,9 +115,13 @@ html_static_path = ["_static"]
 # links to.  The pattern is deliberately not prefixed ``_static/``: static
 # copying matches each entry relative to the ``html_static_path`` root, so an
 # ``_static/``-prefixed pattern silently matches nothing and the zip ships.
-# ``developer/plans/*`` is the second entry for a different reason: the plans are
+# ``developer/plans/**`` is the second entry for a different reason: the plans are
 # tracked in the repository but deliberately unpublished (docs spec §3.1) — a plan
-# is a point-in-time record, not a living document.
+# is a point-in-time record, not a living document.  It is ``**`` rather than ``*``
+# because Sphinx compiles ``*`` to ``[^/]*``, which does not cross a ``/``, while
+# ``MANIFEST.in``'s ``prune docs/src/developer/plans`` is recursive: under ``*`` a
+# plan filed in a subdirectory would be pruned from the sdist yet published on the
+# site — the asymmetry, in the direction that leaks.
 exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
