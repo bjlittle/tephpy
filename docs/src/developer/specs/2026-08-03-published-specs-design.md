@@ -438,12 +438,11 @@ Settled since:
   and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
   child specifications where a bare `§N` meant the *parent's* section and resolved
   silently to the child's own.
-- **Resolved** (2026-08-04, [#85](https://github.com/bjlittle/tephpy/issues/85)) —
-  **citations render as cross-references** (§3.7). The item was deferred here as "101
-  rendered citations across 60 public objects"; both figures were wrong, and the measured
-  count is 95 across 54. Neither turned out to be the number that mattered, because the
-  conversion happens in the doctree rather than in the sources: it reaches every citation
-  the site renders, 312 of them, and edits none.
+- **Resolved** (2026-08-04, PR #90) — **citations render as cross-references** (§3.7).
+  The item was deferred here as "101 rendered citations across 60 public objects"; both
+  figures were wrong, and the measured count is 95 across 54. Neither turned out to be
+  the number that mattered, because the conversion happens in the doctree rather than in
+  the sources: it reaches every citation the site renders, 312 of them, and edits none.
 
 (docs-spec-8)=
 ## 8. References
