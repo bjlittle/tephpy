@@ -147,3 +147,13 @@ def test_a_duplicate_anchor_is_reported(tmp_path):
     b.write_text("(spec-1)=\n## 1. B\n")
     with pytest.raises(SystemExit):
         cc.collect_anchors([a, b])
+
+
+def test_the_repository_satisfies_the_citation_contract(capsys):
+    """The live tree passes all three assertions (docs spec §3.6).
+
+    The pre-commit hook is the primary gate, but hooks are not installed in a
+    fresh clone, so this is what catches a citation broken by someone who
+    bypassed them.
+    """
+    assert cc.main() == 0, capsys.readouterr().out

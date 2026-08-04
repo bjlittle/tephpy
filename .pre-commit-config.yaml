@@ -100,3 +100,16 @@ repos:
     rev: v1.28.0
     hooks:
       - id: zizmor
+
+  - repo: local
+    hooks:
+      # Citations name a section by number, so renumbering strands them silently
+      # (docs spec §3.6). Editing a spec heading breaks citations in files the
+      # commit never touches, so this runs over the whole tree, not the staged
+      # files.
+      - id: check-citations
+        name: design specification citations resolve
+        entry: .github/scripts/check_citations.py
+        language: python
+        always_run: true
+        pass_filenames: false
