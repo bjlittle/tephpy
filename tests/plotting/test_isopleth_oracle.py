@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Informational cross-validation of the curved families against tephi (§7).
+"""Informational cross-validation of the curved families against tephi (spec §7).
 
 tephi is a corroborating oracle, not the definition of truth. Known,
 accepted formulation differences (documented per spec §7 — investigate,

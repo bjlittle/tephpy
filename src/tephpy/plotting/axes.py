@@ -157,7 +157,7 @@ def _cursor_theta(_pressure: float, _temperature: float, theta: float) -> str:
 
 
 def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> str:
-    """Format the saturation mixing ratio through the cursor point (§3.2).
+    """Format the saturation mixing ratio through the cursor point (spec §3.2).
 
     Parameters
     ----------
@@ -195,11 +195,11 @@ def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> 
 
 
 def _cursor_theta_w(pressure: float, temperature: float, _theta: float) -> str:
-    """Format the moist adiabat (θw) through the cursor point (§3.2).
+    """Format the moist adiabat (θw) through the cursor point (spec §3.2).
 
     The point is treated as saturated (``dewpoint=temperature``), giving
     the wet-bulb potential temperature of the pseudoadiabat through it —
-    the moist-adiabat family's member value (the §3.2/§3.3
+    the moist-adiabat family's member value (the spec §3.2/§3.3
     one-source-of-truth idiom).
 
     Parameters

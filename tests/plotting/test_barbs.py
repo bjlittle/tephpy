@@ -277,7 +277,7 @@ def test_side_panels_land_inside_out_barbs_first(tephigram_axes):
 
 
 def test_side_panels_land_inside_out_indices_first(tephigram_axes):
-    """Call order is irrelevant: the layout is rebuilt inside-out (§3.2)."""
+    """Call order is irrelevant: the layout is rebuilt inside-out (spec §3.2)."""
     snd = _sounding()
     panel = tephigram_axes.annotate_indices(_indices())
     tephigram_axes.plot_barbs(snd)

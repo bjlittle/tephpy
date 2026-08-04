@@ -36,9 +36,10 @@ before implementation, not updated afterwards. Everything below follows from tha
 
 1. **Specifications are published; plans are not.** The reader-facing consequence of #73.
 2. **Both live under the developer section, not a Diátaxis quadrant.** The quadrants are
-   for users. Specification content — §7 testing, §8 engineering standards, §10 roadmap —
-   is contributor material, and the developer guide is its dedicated home, following the
-   [`bjlittle/geovista`](https://github.com/bjlittle/geovista) structure.
+   for users. Specification content — spec §7 testing, spec §8 engineering standards,
+   spec §10 roadmap — is contributor material, and the developer guide is its dedicated
+   home, following the [`bjlittle/geovista`](https://github.com/bjlittle/geovista)
+   structure.
 3. **Specifications and plans remain siblings** so that the relative links between them
    keep working, in a checkout and in GitHub's web UI.
 4. **Sections are addressed by explicit anchors keyed to the section number,** never by
@@ -94,7 +95,7 @@ must state two things a reader cannot infer from any single document:
 
   | citation | document | count |
   |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 310 |
+  | `spec §…` | `2026-07-22-tephpy-design.md` | 312 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 23 |
   | `docs spec §…` | this document | 0 |
 
@@ -104,6 +105,23 @@ must state two things a reader cannot infer from any single document:
 
 Each specification declares its own prefix in its header banner. A new specification
 chooses a prefix that is unique across the collection and states it there.
+
+Three details of the citation form, each of which a reader — or a checker — has to get
+right. The word `spec` is matched without regard to case, so a sentence may open with
+`Spec §3.2`. Where several sections are cited together the prefix carries across the whole
+run, so `spec §3.3, §10` and `spec §3.1/§10` each name two sections of the parent; the
+separators are a comma or a solidus. And a citation with no prefix at all — a bare `§N` —
+means the *containing document's* §N:
+
+> **A bare `§N` means this document. A reference to any other document names it.**
+
+Inside a specification the bare form is the ordinary way to point at a neighbouring
+section, and the parent uses it 130 times. Outside the collection it is always an error:
+`src/` and `tests/` own no sections, so a bare `§N` in a docstring has nothing to be
+relative to and is read as the parent's only by habit. Stating the rule this way is what
+makes the unqualified form *safe* — its meaning is fixed by where it is written rather
+than by what the reader assumes, and the one case it cannot be is a silent reference to
+somewhere else.
 
 (docs-spec-3-3)=
 ### 3.3 Section anchors
@@ -117,16 +135,16 @@ section number with dots replaced by hyphens and prefixed by the document's slug
 ```
 
 The target becomes the section's HTML `id`, so `…/2026-07-22-tephpy-design.html#spec-3-2`
-addresses §3.2 directly.
+addresses spec §3.2 directly.
 
 Two reasons this is not optional. First, docutils derives its slug from the heading *text*
 and discards the number, so `### 3.2 \`plotting\`` would otherwise be addressable only as
 `#plotting` — and 149 citations point at that one section of a document that renders to
 180 KB of HTML. A citation that resolves to the top of a page that long has not really
-resolved. Second, prose-derived slugs collide silently: §7 *Testing* and §8.5 *Testing*
-produced the same slug, and docutils disambiguated the second to `id1` — an anchor that
-silently becomes `id2` the moment a heading is inserted above it. Anchors derived from
-prose are unstable under exactly the edits a living document invites.
+resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and spec §8.5
+*Testing* produced the same slug, and docutils disambiguated the second to `id1` — an
+anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
+derived from prose are unstable under exactly the edits a living document invites.
 
 The prefixes are `spec-`, `logo-spec-` and `docs-spec-`, matching the citation prefixes in
 §3.2 with spaces replaced by hyphens. Sphinx labels are global, so the prefix is what
@@ -156,9 +174,9 @@ was wrong on the facts is worth fixing before it is acted on.
 
 A living specification records not only what was decided but what remains undecided. Those
 records are useful only if a reader can tell, at a glance, which is which and where the
-trail continues. Every item in a specification's open-item sections — the parent's §10
-*Assumptions and open decisions* and §11 *Open questions* — therefore carries a leading
-status tag from a fixed vocabulary:
+trail continues. Every item in a specification's open-item sections — spec §10
+*Assumptions and open decisions* and spec §11 *Open questions* — therefore carries a
+leading status tag from a fixed vocabulary:
 
 | status | meaning | must carry |
 |---|---|---|
@@ -186,28 +204,83 @@ directions: every pointer in a specification must resolve to an issue, and every
 carrying the label must be cited by a specification. A one-directional check lets an
 issue be closed while the specification still claims the item is open.
 
-The parent specification is not the only document this governs. A specification with no §10
-or §11 — the `add_logo` specification, or this one — records its unsettled items in its
-**§Scope** section instead, and those entries carry the same tags and the same issue
-pointers. The section differs; the contract does not. Scoping it to the one document that
-happens to have the right headings would leave live work sitting unseen in exactly the
-published pages the contract exists to protect, and a reader has no way to know that the
-absence of a tag means "not covered" rather than "nothing outstanding".
+The parent specification is not the only document this governs. A specification with no
+spec §10 or spec §11 — the `add_logo` specification, or this one — records its unsettled
+items in its **§Scope** section instead, and those entries carry the same tags and the
+same issue pointers. The section differs; the contract does not. Scoping it to the one
+document that happens to have the right headings would leave live work sitting unseen in
+exactly the published pages the contract exists to protect, and a reader has no way to
+know that the absence of a tag means "not covered" rather than "nothing outstanding".
+
+(docs-spec-3-6)=
+### 3.6 Citation integrity
+
+§3.2 and §3.3 are conventions, and a convention that nothing checks decays. Renumbering a
+section, or inserting one, strands every citation that named the old number — and the
+failure is invisible, because a stale citation is still a well-formed sentence in a
+docstring that still renders. A pre-commit hook therefore asserts three properties:
+
+1. **Resolution.** Every citation names an anchor that exists.
+2. **Keying.** Every `(prefix-N)=` target sits immediately above the heading numbered N.
+3. **Coverage.** Targets and numbered headings pair up one to one: every heading carries a
+   target, and every target still has a heading beneath it.
+
+Resolution is the one that catches renumbering. Keying and coverage are what keep
+resolution meaningful: an anchor that has drifted onto the wrong heading still resolves, a
+heading with no anchor is unaddressable rather than wrongly addressed, and an anchor left
+behind by a deleted section resolves to nothing at all — none of the three shows up as a
+broken citation. Coverage is stated as a pairing rather than a one-way rule because the
+two directions catch different faults, and reading only from the headings down misses the
+orphan: there is no heading left to start from.
+
+The check derives its registry rather than declaring one. It reads the anchors out of
+`docs/src/developer/specs/*.md`, and the set of valid prefixes falls out of them; a
+citation then resolves by replacing the spaces in its prefix with hyphens and asking
+whether that anchor exists. Because Sphinx labels are global (§3.3), resolution never
+needs to know which file a citation targets, and no prefix-to-document map exists to fall
+out of date. A new specification is governed from the day its first anchor lands, with
+nothing to register — which is the whole point. A hand-maintained registry fails by
+silently not covering something, and silent non-coverage is the failure this check exists
+to remove.
+
+Fenced code blocks are skipped. That is not a refinement: §3.3 illustrates the anchor rule
+with a literal `(spec-3-2)=` and its heading *inside* a fence, so a checker that reads
+fences finds a duplicate anchor and a heading in the wrong document, and fails on the very
+passage documenting the rule it enforces. Skipping means matching the opening rail, not
+counting delimiters — a block opened with four backticks may quote a three-backtick one,
+and a reader that closes on any rail resumes inside the quotation.
+
+The corpus is derived as well: every text file the repository tracks, less the plans,
+which are point-in-time records (§3.4) whose citations are frozen with them, so a
+renumbering is not a defect in a plan. Naming the corpus by glob would fail exactly the way a declared
+prefix registry fails — by silently not covering something. It did: a corpus of
+`src/**/*.py` and `tests/**/*.py` left `tests/fixtures/io/README.md` outside the check
+while it carried two citations, along with those in `pyproject.toml` and this collection's
+own `index.rst`. A tracked file is in scope from the moment it is added, whatever its
+format.
+
+**What this cannot catch.** A citation that is well formed and resolves, but names the
+wrong section, is indistinguishable from a correct one. That is not hypothetical — it is
+how the seven `design: open` issues failed, each footed `spec §3.5` where `docs spec §3.5`
+was meant, sending readers to the parent's `_constants` section. This check is syntactic.
+What narrows that class is the §3.2 rule giving the unqualified form a local, safe
+meaning, together with review; it is not this hook, and nothing here should be read as
+claiming otherwise.
 
 (docs-spec-4)=
 ## 4. Canonical usage
 
 A reader meets `(spec §3.2)` in the rendered documentation for `plot_barbs`, follows the
-developer guide to *Design specifications*, and lands on §3.2 of the parent document by
-its anchor. Reading it, they are entitled to assume it describes tephpy as it stands.
+developer guide to *Design specifications*, and lands on spec §3.2 of the parent document
+by its anchor. Reading it, they are entitled to assume it describes tephpy as it stands.
 
 A contributor changing behaviour that a specification section describes updates that
 section in the same pull request. A contributor who finds the code and the specification
 disagreeing has found a specification defect, and reports it as one.
 
 An item that cannot be settled now is written into the specification's open-item section —
-§10 or §11 in the parent, §Scope elsewhere — with a status tag, filed as an issue labelled
-`design: open`, and cited from the item.
+spec §10 or spec §11 in the parent, §Scope elsewhere — with a status tag, filed as an
+issue labelled `design: open`, and cited from the item.
 
 (docs-spec-5)=
 ## 5. Migration
@@ -230,7 +303,7 @@ One-off work, performed once and then finished:
    deliberately unpublished: `../plans/` still resolves in a checkout and on GitHub, but
    Sphinx cannot resolve a link to a page it was told not to build. An absolute URL keeps
    the affordance for a reader of the published page, who has no checkout to fall back on.
-6. Correct the stale repository paths (§3.4): §10 of the parent specification names
+6. Correct the stale repository paths (§3.4): spec §10 of the parent specification names
    `docs/superpowers/plans/`, `README.md` links to `docs/superpowers/specs` on GitHub, and
    twelve plans name their originating specification by its old path. The README link
    becomes the *published* page rather than a second GitHub tree path: the Read the Docs
@@ -239,8 +312,9 @@ One-off work, performed once and then finished:
    should land on. What is *not* corrected: the code blocks in three plans that reproduce
    a file's contents or a PR or issue body already published. Those record what was
    written, not where a document lives, and §3.4 does not reach them.
-7. Audit §10's sixteen items and §11's four questions, establish the true status of each,
-   apply the §3.5 tags, and file `design: open` issues for whatever is genuinely open.
+7. Audit spec §10's sixteen items and spec §11's four questions, establish the true status
+   of each, apply the §3.5 tags, and file `design: open` issues for whatever is genuinely
+   open.
 
 (docs-spec-6)=
 ## 6. Verification
@@ -253,7 +327,8 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 - Both existing specification pages render, and this one alongside them.
 - Every anchor named in §3.3 appears as a section `id` in the built HTML.
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds
-  to an anchor that exists — a one-off check at implementation time.
+  to an anchor that exists. This began as a one-off check at implementation time; §3.6
+  makes it continuous.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
@@ -267,14 +342,17 @@ Not in this change:
   into Sphinx cross-references.** 101 rendered citations across 60 public objects would
   become `:ref:` targets. The anchors in §3.3 are its prerequisite, which is why it becomes
   cheap afterwards rather than never.
-- **Deferred** ([#86](https://github.com/bjlittle/tephpy/issues/86)) — **a citation-integrity
-  pre-commit hook.** Nothing verifies that `spec §3.2` still names the right heading;
-  renumbering would strand 149 citations silently. Every citation resolves correctly today,
-  so the anchors make now the cheap moment to adopt one — as a follow-up, once the anchors
-  are stable.
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
+
+Settled since:
+
+- **Resolved** (2026-08-04, PR #89) — **the citation-integrity hook of §3.6 is in place.**
+  The 36 citations that did not meet the §3.2 rule were corrected with it: eleven in `src/`
+  and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
+  child specifications where a bare `§N` meant the *parent's* section and resolved
+  silently to the child's own.
 
 (docs-spec-8)=
 ## 8. References

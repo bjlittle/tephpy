@@ -1,0 +1,7 @@
+Added a ``pre-commit`` hook that fails the commit when a design-specification
+citation stops resolving (:issue:`86`). Citations name a section by number, so
+renumbering one stranded every reference to it silently — a stale citation is
+still a well-formed sentence. The hook also found 36 citations that did not meet
+the rule, including the :func:`~tephpy.plotting.logo.add_logo` specification's
+own banner, which cited the parent's ``plotting`` section but resolved to its
+own. (:user:`claude`)
