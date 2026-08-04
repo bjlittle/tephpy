@@ -132,6 +132,24 @@ def test_a_citation_cannot_span_a_line(source):
     assert all(slug in {None, "spec-3-2"} for _text, slug in whole)
 
 
+def test_a_compound_run_cannot_span_a_line():
+    r"""A run wrapping after its separator must not carry the prefix across.
+
+    The same divergence as above, one citation later: the separator's whitespace
+    was ``\s`` too, so the transform carried ``logo spec`` over the wrap while
+    the gate, reading the second line alone, fell back to the owning document.
+    It takes an owner to bite — inside a specification both slugs resolve, so
+    both gates pass and the reader lands in the wrong one.
+    """
+    source = "see logo spec @3.3,\n@5 for more"
+    whole = found(source, owner="docs-spec")
+    by_line = [
+        citation for line in source.split("\n") for citation in found(line, "docs-spec")
+    ]
+    assert whole == by_line
+    assert "logo-spec-5" not in [slug for _text, slug in whole]
+
+
 def test_an_empty_registry_resolves_nothing():
     """A pattern built from no anchors must not resolve every bare form.
 

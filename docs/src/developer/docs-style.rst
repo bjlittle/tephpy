@@ -114,14 +114,18 @@ separator ends it, leaving the second citation bare. A bare ``§N`` opening the
 next sentence falls back to the containing document rather than inheriting, for
 the same reason.
 
-A citation must also sit whole on one line. Only horizontal whitespace joins a
-prefix to its section number, so a prefix stranded at the end of one line with
-its number wrapped onto the next is no longer part of the citation: what remains
-is a bare ``§N``, rejected outside a specification and read as a local reference
-inside one — either way, not the citation that was written. The rule is what
-keeps the displayed text and the link target from disagreeing, because the hook
-reads one line at a time while the build reads a whole paragraph, and a citation
-able to span the wrap is one they can read differently.
+A citation must also sit whole on one line, and so must a compound run — one
+wrapping after its comma or solidus strands the continuation, which falls back
+to the containing document instead of inheriting the prefix it was written
+under. Only horizontal whitespace joins a prefix to its section number, and the
+same holds of the gap after a separator, so a prefix stranded at the end of a
+line with its number wrapped onto the next is no longer part of the citation:
+what remains is a bare ``§N``, rejected outside a specification and read as a
+local reference inside one — either way, not the citation that was written. The
+rule is what keeps the displayed text and the link target from disagreeing,
+because the hook reads one line at a time while the build reads a whole
+paragraph, and a citation able to span the wrap is one they can read
+differently.
 
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are

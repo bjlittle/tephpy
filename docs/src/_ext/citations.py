@@ -34,7 +34,11 @@ if TYPE_CHECKING:
 ANCHOR = re.compile(r"^\((?P<slug>[a-z][a-z-]*?)-(?P<num>\d+(?:-\d+)*)\)=\s*$")
 HEADING = re.compile(r"^#{2,6}\s+(?P<num>\d+(?:\.\d+)*)\.?\s+\S")
 FENCE = re.compile(r"^\s*(?P<rail>`{3,}|~{3,})(?P<info>.*)$")
-SEPARATOR = re.compile(r"\s*[,/]\s*")
+#: The gap a compound run may be written across. Horizontal whitespace only,
+#: for the reason :func:`citation_pattern` gives for the gap inside a prefix: a
+#: run that spans a line is read by the transform and not by the line-at-a-time
+#: gate, and the two then resolve the same continuation differently.
+SEPARATOR = re.compile(r"[^\S\n]*[,/][^\S\n]*")
 
 
 @dataclass(frozen=True)
@@ -344,6 +348,14 @@ def scan(
     boundary, so that a bare ``§N`` opening the next sentence inherited the
     namespace of a prefixed citation earlier on rather than falling back to the
     containing document.
+
+    A run may not span a line either, and for the same reason ``SEPARATOR`` and
+    the prefix gap of :func:`citation_pattern` are both horizontal-only: this is
+    one rule about one grammar, not two quirks. A run wrapping after its comma
+    carries the prefix across the wrap here, while the gate — reading the second
+    line alone — falls back to the owning document. In a specification, where an
+    owner exists, both of those resolve, so both gates pass and the reader is
+    sent to the wrong document.
 
     Parameters
     ----------
