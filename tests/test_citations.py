@@ -16,6 +16,15 @@ import pytest
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_citations.py"
 
+# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
+# checker they exercise, and a source archive carries no index for the corpus to
+# be enumerated from. The gate is a contract about the repository, and neither of
+# those is the repository, so skip there rather than fail collection.
+pytestmark = pytest.mark.skipif(
+    not (SCRIPT.is_file() and (REPO / ".git").exists()),
+    reason="not a git checkout of the repository",
+)
+
 # This file sits inside the corpus the checker reads (docs spec §3.6), so the
 # section sign is built rather than written in the fixtures below: a literal one
 # would be a citation of a file that owns no sections, and the checker would be
@@ -34,7 +43,7 @@ def _load():
     return module
 
 
-cc = _load()
+cc = _load() if SCRIPT.is_file() else None
 
 
 def test_fenced_blocks_are_skipped():
