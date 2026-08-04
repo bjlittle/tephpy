@@ -25,3 +25,6 @@ jobs:
           environments: docs
           frozen: true
       - run: pixi run --frozen --environment docs make -C docs html
+      - run: >
+          pixi run --frozen --environment docs
+          python .github/scripts/check_rendered_citations.py docs/_build/html
