@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import itertools
 import json
 from pathlib import Path
 import sys
@@ -148,6 +149,42 @@ def test_a_compound_run_cannot_span_a_line():
     ]
     assert whole == by_line
     assert "logo-spec-5" not in [slug for _text, slug in whole]
+
+
+#: Enough grammar to build every construction that has bitten so far — a
+#: multi-word prefix, a one-word prefix, two section numbers, both run
+#: separators, a word that is not one, and the wrap itself. Five of these
+#: compose the compound-run divergence (prefix, number, separator, wrap,
+#: number), so nothing shorter than ``repeat=5`` can express it.
+PIECES = ["logo spec", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
+
+
+@pytest.mark.parametrize("owner", [None, "docs-spec", "spec"])
+def test_a_scan_is_indifferent_to_how_its_source_is_segmented(owner):
+    r"""Scanning a source whole must equal concatenating the scans of its lines.
+
+    This is the property the two line-span rules above enforce, stated once
+    rather than per construction. It is what makes the two callers of
+    :func:`scan` safe to disagree about segmentation: the gate of docs spec §3.6
+    feeds it one line, the transform of docs spec §3.7 feeds it a whole text
+    node, and neither can observe what the other resolved. Where the two
+    readings differ, both gates pass and the citation names a document nobody
+    checked.
+
+    Two instances of that divergence were found by hand, in the prefix gap and
+    in the run separator, each a ``\s`` that spanned a newline. The property is
+    asserted over generated sources so that a third is caught here rather than
+    by a reader who followed a link into the wrong specification.
+    """
+    for combination in itertools.product(PIECES, repeat=5):
+        source = "".join(combination)
+        if "\n" not in source or "@" not in source:
+            # Without a wrap the two segmentations are the same string.
+            continue
+        by_line = [
+            citation for line in source.split("\n") for citation in found(line, owner)
+        ]
+        assert found(source, owner) == by_line, source
 
 
 def test_an_empty_registry_resolves_nothing():
