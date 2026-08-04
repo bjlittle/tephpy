@@ -331,17 +331,17 @@ Not in this change:
   into Sphinx cross-references.** 101 rendered citations across 60 public objects would
   become `:ref:` targets. The anchors in §3.3 are its prerequisite, which is why it becomes
   cheap afterwards rather than never.
-- **Deferred** ([#86](https://github.com/bjlittle/tephpy/issues/86)) — **implementing the
-  citation-integrity hook.** §3.6 settles what it asserts and why; the script, its hook
-  registration, and the corpus corrections adopting it requires land separately. Those
-  corrections are the reason it is not free: 36 citations do not yet meet the §3.2 rule.
-  Eleven are in `src/` and `tests/`, across ten sites, carrying a bare `§N` in a file that
-  owns no sections. The other 25 are in the two child specifications, where a bare `§N`
-  means the *parent's* section — the `add_logo` banner's "extends §3.2 `plotting`" among
-  them — and resolves silently to the child's own section of that number instead.
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
+
+Settled since:
+
+- **Resolved** (2026-08-04, PR #89) — **the citation-integrity hook of §3.6 is in place.**
+  The 36 citations that did not meet the §3.2 rule were corrected with it: eleven in `src/`
+  and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
+  child specifications where a bare `§N` meant the *parent's* section and resolved
+  silently to the child's own.
 
 (docs-spec-8)=
 ## 8. References
