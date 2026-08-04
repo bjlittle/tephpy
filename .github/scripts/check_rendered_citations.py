@@ -16,6 +16,15 @@ The pattern below is deliberately looser than the shared grammar, and shares no
 code with it. A check that asked the grammar what to look for would go blind in
 the same instant the grammar did, and pass by finding nothing.
 
+One limitation follows from that independence and is accepted rather than fixed:
+a citation sitting inside an *unrelated* hyperlink counts as linked, because this
+gate counts ``<a>`` ancestors and cannot tell a citation cross-reference from any
+other anchor. The transform leaves such a citation plain on purpose —
+``nodes.reference`` is in its skip set, so that one anchor is never nested inside
+another — so the case reads here as a pass. Distinguishing it would mean matching
+the transform's output classes, which is exactly the coupling this gate exists to
+avoid.
+
 Notes
 -----
 .. versionadded:: 0.1.0

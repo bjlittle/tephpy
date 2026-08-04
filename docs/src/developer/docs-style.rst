@@ -108,9 +108,20 @@ The prefix names the document and is load-bearing. A bare ``§N`` means *this*
 document's §N, which makes it safe inside a specification and an error anywhere
 else — a docstring owns no sections. Where several sections are cited together,
 the prefix carries across the run, so ``spec §3.3, §10`` and ``spec §3.1/§10``
-each name two sections of the parent specification; the run ends at any other
-punctuation, so a bare ``§N`` opening the next sentence falls back to the
-containing document rather than inheriting.
+each name two sections of the parent specification. The run continues across a
+comma or a solidus, and across nothing else: writing ``and`` in place of either
+separator ends it, leaving the second citation bare. A bare ``§N`` opening the
+next sentence falls back to the containing document rather than inheriting, for
+the same reason.
+
+A citation must also sit whole on one line. Only horizontal whitespace joins a
+prefix to its section number, so a prefix stranded at the end of one line with
+its number wrapped onto the next is no longer part of the citation: what remains
+is a bare ``§N``, rejected outside a specification and read as a local reference
+inside one — either way, not the citation that was written. The rule is what
+keeps the displayed text and the link target from disagreeing, because the hook
+reads one line at a time while the build reads a whole paragraph, and a citation
+able to span the wrap is one they can read differently.
 
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are

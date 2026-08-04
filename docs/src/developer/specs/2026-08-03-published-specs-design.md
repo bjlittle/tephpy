@@ -416,7 +416,7 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   to an anchor that exists. This began as a one-off check at implementation time; §3.6
   makes it continuous.
 - No citation-shaped text survives outside a link in the built HTML (§3.7). At the time
-  §3.7 landed that was 310 links, 26 citations left as literals by design, and none
+  §3.7 landed that was 312 links, 35 citations left as literals by design, and none
   unlinked.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
@@ -443,7 +443,7 @@ Settled since:
   rendered citations across 60 public objects"; both figures were wrong, and the measured
   count is 95 across 54. Neither turned out to be the number that mattered, because the
   conversion happens in the doctree rather than in the sources: it reaches every citation
-  the site renders, 310 of them, and edits none.
+  the site renders, 312 of them, and edits none.
 
 (docs-spec-8)=
 ## 8. References
