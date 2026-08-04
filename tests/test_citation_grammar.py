@@ -32,9 +32,11 @@ def cite(text):
 
 def _load():
     """Import the grammar by path; ``docs/src/_ext`` is not an importable package."""
+    # The file is asserted on rather than the ``ModuleSpec``: a spec comes back
+    # populated even for a path that does not exist, so the checks it invites are
+    # dead, and a missing module surfaces as a ``FileNotFoundError`` instead.
+    assert MODULE.is_file(), f"the citation grammar is missing from {MODULE}"
     spec = importlib.util.spec_from_file_location("citations", MODULE)
-    assert spec is not None
-    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -102,6 +104,67 @@ def test_a_block_of_prose_converts_end_to_end():
 def test_each_citation_form_resolves(source, owner, expected):
     """One form per case, including the two that docs spec §3.2 makes errors."""
     assert found(source, owner) == [(cite(text), slug) for text, slug in expected]
+
+
+WRAPPED = [
+    "the tephpy logo\nspec @3.2 explains it",  # a whole prefix carried onto a wrap
+    "read the docs\nspec @3.2 for the rule",  # a prefix split between its words
+    "read the spec\n@3.2 for the rule",  # a prefix parted from its sign
+]
+
+
+@pytest.mark.parametrize("source", WRAPPED)
+def test_a_citation_cannot_span_a_line(source):
+    """A wrapped prefix must not name a document the gate never saw.
+
+    The two callers of :func:`scan` segment their input differently: the gate of
+    docs spec §3.6 reads one line at a time, and the transform of docs spec §3.7
+    reads a whole text node. Whitespace inside a citation is therefore horizontal
+    only, so that the two readings cannot disagree — and this disagreement was
+    the silent kind, with the gate validating the parent's section while the link
+    went to the ``add_logo`` specification, both anchors existing and both gates
+    passing.
+    """
+    whole = found(source)
+    by_line = [citation for line in source.split("\n") for citation in found(line)]
+    assert whole == by_line
+    assert all("\n" not in text for text, _slug in whole)
+    assert all(slug in {None, "spec-3-2"} for _text, slug in whole)
+
+
+def test_an_empty_registry_resolves_nothing():
+    """A pattern built from no anchors must not resolve every bare form.
+
+    ``"|".join([])`` is the empty string, which as an alternation matches the
+    empty string, so the prefix group matches everywhere and a bare section
+    number resolves to a prefix that is not there. The transform (docs spec §3.7)
+    guards its caller as well; without both, a build whose specifications had
+    been moved would emit a page of unresolvable references.
+    """
+    empty = citations.citation_pattern([])
+    resolved = [
+        (c.text, c.slug) for c in citations.scan(cite("spec @3.2"), empty, None)
+    ]
+    assert resolved == [(cite("@3.2"), None)]
+
+
+def test_a_duplicate_anchor_raises_for_its_caller_to_render(tmp_path):
+    """The grammar is shared, so it reports through the caller (docs spec §3.7).
+
+    Printing and exiting here would give the gate absolute paths where it renders
+    repository-relative ones, and would end ``sphinx-build`` from inside an event
+    handler rather than as a build error.
+    """
+    a, b = tmp_path / "a.md", tmp_path / "b.md"
+    a.write_text("(spec-1)=\n## 1. A\n")
+    b.write_text("(spec-1)=\n## 1. B\n")
+    with pytest.raises(citations.DuplicateAnchorError) as caught:
+        citations.collect_anchors([a, b])
+    duplicate = caught.value
+    assert isinstance(duplicate, ValueError)
+    assert duplicate.slug == "spec-1"
+    assert (duplicate.first.path, duplicate.first.line) == (a, 1)
+    assert (duplicate.second.path, duplicate.second.line) == (b, 1)
 
 
 def test_the_span_indexes_the_source():
@@ -185,6 +248,40 @@ def test_a_notebook_citation_reports_its_own_file_line(tmp_path):
     ]
     assert len(located) == 1
     assert cite("@3.2") in raw[located[0] - 1]
+
+
+def test_a_source_entry_may_carry_embedded_newlines(tmp_path):
+    """``nbformat`` promises a multiline string, not one line per list entry.
+
+    A markdown cell whose ``source`` list holds an entry with a newline in it is
+    schema-valid, and hand-edited and tool-generated notebooks write them. Read
+    one entry to a line, the list comes out shorter than the text it stands for,
+    and the markdown branch — which indexes the one by the other — walks off the
+    end (docs spec §3.6).
+    """
+    nb = {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": ["alpha\nbeta\n", "gamma\n"],
+            }
+        ],
+        "metadata": {},
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    text = json.dumps(nb, indent=1)
+    path = tmp_path / "embedded.ipynb"
+    path.write_text(text, encoding="utf-8")
+    located = list(citations.source_lines(path, text))
+    assert [line for _number, line in located] == ["alpha", "beta", "gamma"]
+    numbers = [number for number, _line in located]
+    raw = text.splitlines()
+    assert numbers == sorted(numbers)  # the cursor only ever moves forward
+    assert all(1 <= number <= len(raw) for number in numbers)
+    assert "alpha" in raw[numbers[0] - 1]  # the entry is found where it is written
+    assert "gamma" in raw[numbers[2] - 1]
 
 
 def test_markdown_and_plain_files_are_unaffected(tmp_path):

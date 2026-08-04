@@ -45,6 +45,33 @@ class Anchor:
     line: int
 
 
+class DuplicateAnchorError(ValueError):
+    """Two specifications declare the same anchor slug (docs spec §3.3).
+
+    Raised rather than reported, because this module is shared and has no
+    interface of its own. The gate of docs spec §3.6 renders it as a violation
+    on the terminal with repository-relative paths, which are what a reader can
+    act on; the transform of docs spec §3.7 renders it as a Sphinx diagnostic.
+    Printing and exiting here would give neither: a ``SystemExit`` raised from a
+    ``builder-inited`` handler ends ``sphinx-build`` through an event callback
+    rather than through the build's own error reporting.
+
+    Attributes
+    ----------
+    slug : str
+        The anchor declared twice, e.g. ``spec-3-2``.
+    first, second : Anchor
+        Where it was declared, in the order the specifications were read.
+
+    """
+
+    def __init__(self, slug: str, first: Anchor, second: Anchor) -> None:
+        super().__init__(slug, first, second)
+        self.slug = slug
+        self.first = first
+        self.second = second
+
+
 @dataclass(frozen=True)
 class Citation:
     """One citation, located in the string it was found in.
@@ -131,6 +158,13 @@ def collect_anchors(
     tuple of (dict, dict)
         The anchors keyed by slug, and the owning prefix keyed by path.
 
+    Raises
+    ------
+    DuplicateAnchorError
+        When two specifications declare the same slug. Sphinx labels are global
+        (docs spec §3.3), so the second declaration would shadow the first and
+        citations of it would resolve, silently, to the wrong document.
+
     """
     anchors: dict[str, Anchor] = {}
     owners: dict[Path, str] = {}
@@ -141,20 +175,14 @@ def collect_anchors(
                 continue
             slug = f"{match['slug']}-{match['num']}"
             if slug in anchors:
-                first = anchors[slug]
-                print(  # noqa: T201
-                    f"duplicate anchor '{slug}': "
-                    f"{first.path}:{first.line} and "
-                    f"{spec}:{number}"
-                )
-                raise SystemExit(1)
+                raise DuplicateAnchorError(slug, anchors[slug], Anchor(spec, number))
             anchors[slug] = Anchor(spec, number)
             owners.setdefault(spec, match["slug"])
     return anchors, owners
 
 
 def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
-    """Build the citation regular expression from the discovered prefixes.
+    r"""Build the citation regular expression from the discovered prefixes.
 
     The registry is derived, not declared (docs spec §3.6): the citation forms are
     the anchor prefixes with hyphens read back as whitespace. Longest first, so
@@ -162,6 +190,19 @@ def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
 
     A prefix must start a word. Without that, the ``spec`` alternative matches
     inside ``nonspec``, and a typo validates as the citation it was trying to be.
+
+    A citation may not span a line. The whitespace inside a prefix, and between
+    the prefix and the sign, is horizontal only — ``[^\S\n]`` rather than
+    ``\s`` — because the two callers segment their input differently: the gate
+    of docs spec §3.6 scans one line at a time, the transform of docs spec §3.7
+    scans a whole text node. A prefix able to span a wrap is therefore read by
+    the transform and not by the gate, and the two disagree in the one direction
+    neither can detect. A line ending in the word ``logo``, followed by a line
+    opening ``spec §3.2``, reads to the transform as a citation of the
+    ``add_logo`` specification and to the gate as a citation of the parent's;
+    both anchors exist, so both gates pass and the reader is sent to the wrong
+    document. Confining a citation to one line makes the two segmentations agree
+    by construction.
 
     Parameters
     ----------
@@ -180,9 +221,15 @@ def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
         digits = next(i for i, part in enumerate(parts) if part.isdigit())
         prefixes.add("-".join(parts[:digits]))
     forms = sorted(prefixes, key=len, reverse=True)
-    alternation = "|".join(form.replace("-", r"\s+") for form in forms)
+    # With no anchors there is no prefix to match, and an empty alternation
+    # matches the empty string — which would make every bare section number
+    # resolve to a prefix that is not there. ``(?!)`` never matches, so the
+    # bare alternative carries the whole grammar and nothing resolves.
+    alternation = (
+        "|".join(form.replace("-", r"[^\S\n]+") for form in forms) if forms else "(?!)"
+    )
     return re.compile(
-        rf"(?<![\w-])(?P<prefix>{alternation})\s*§(?P<num>\d+(?:\.\d+)*)"
+        rf"(?<![\w-])(?P<prefix>{alternation})[^\S\n]*§(?P<num>\d+(?:\.\d+)*)"
         rf"|§(?P<bare>\d+(?:\.\d+)*)",
         flags=re.IGNORECASE,
     )
@@ -197,6 +244,13 @@ def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
     citation in a comment is still checked; and outputs not at all, being
     generated rather than authored. A raw cell renders as nothing and is read as
     nothing.
+
+    A cell's ``source`` is a string or a list of strings, and the schema does not
+    promise one authored line per list entry: an entry may carry embedded
+    newlines, and hand-edited and tool-generated notebooks do write them. Each
+    entry is therefore split before it is read, rather than merely stripped of
+    its terminator — a list read one entry to a line ends up shorter than the
+    text it stands for, and the markdown branch below indexes one by the other.
 
     Line numbers are numbers in the ``.ipynb`` file itself, so a violation points
     where an editor will open. Each source line is located by searching forward
@@ -233,7 +287,7 @@ def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
         lines = (
             source.splitlines()
             if isinstance(source, str)
-            else [line.rstrip("\n") for line in source]
+            else [part for entry in source for part in entry.splitlines()]
         )
         located: list[tuple[int, str]] = []
         for line in lines:

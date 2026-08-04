@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 import citations
 from docutils import nodes
 from sphinx import addnodes
+from sphinx.errors import ExtensionError
 from sphinx.ext.autosummary import autosummary_table
 from sphinx.transforms import SphinxTransform
 
@@ -175,16 +176,38 @@ def _build_registry(app: Sphinx) -> None:
     The prefixes are nowhere declared (docs spec §3.6): adding a specification
     adds its prefix, and no list needs updating to match.
 
+    Finding no anchors leaves ``PATTERN`` as ``None``, which makes the transform
+    a no-op. Building a pattern from an empty registry would be worse than doing
+    nothing: there are no prefixes to alternate, so nothing a citation could name
+    exists, and every cross-reference emitted would be one the standard domain
+    cannot resolve.
+
     Parameters
     ----------
     app : Sphinx
         The application, read for its source directory.
 
+    Raises
+    ------
+    sphinx.errors.ExtensionError
+        When two specifications declare the same anchor. Reported as a build
+        error rather than escaping this event handler as a ``SystemExit``.
+
     """
     global PATTERN  # noqa: PLW0603
     root = Path(app.srcdir)
     specs = sorted((root / "developer" / "specs").glob("*.md"))
-    anchors, owners = citations.collect_anchors(specs)
+    try:
+        anchors, owners = citations.collect_anchors(specs)
+    except citations.DuplicateAnchorError as duplicate:
+        first, second = duplicate.first, duplicate.second
+        message = (
+            f"duplicate citation anchor '{duplicate.slug}': "
+            f"{first.path}:{first.line} and {second.path}:{second.line}"
+        )
+        raise ExtensionError(message) from duplicate
+    if not anchors:
+        return
     PATTERN = citations.citation_pattern(anchors)
     OWNERS.clear()
     OWNERS.update(

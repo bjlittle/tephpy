@@ -67,10 +67,14 @@ def _grammar() -> types.ModuleType:
         The loaded ``citations`` module.
 
     """
-    spec = importlib.util.spec_from_file_location("citations", GRAMMAR)
-    if spec is None or spec.loader is None:
+    # The file is checked for rather than the ``ModuleSpec``: a spec is returned
+    # populated even for a path that does not exist, and the absence surfaces as
+    # a ``FileNotFoundError`` out of ``exec_module`` instead — which is the one
+    # realistic failure here, and the message below is what it deserves.
+    if not GRAMMAR.is_file():
         print(f"cannot load the citation grammar from {display(GRAMMAR)}")
         raise SystemExit(1)
+    spec = importlib.util.spec_from_file_location("citations", GRAMMAR)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -83,8 +87,44 @@ ANCHOR = citations.ANCHOR
 HEADING = citations.HEADING
 Anchor = citations.Anchor
 read_lines = citations.read_lines
-collect_anchors = citations.collect_anchors
 citation_pattern = citations.citation_pattern
+
+
+def collect_anchors(
+    specs: Iterable[Path],
+) -> tuple[dict[str, Anchor], dict[Path, str]]:
+    """Read the anchor registry, rendering a duplicate the way this gate does.
+
+    The grammar raises rather than reporting, because it is shared with the docs
+    build (docs spec §3.7) and has no terminal of its own. The repository root a
+    path is rendered against is known here, and not there.
+
+    Parameters
+    ----------
+    specs : iterable of Path
+        The specification documents to read.
+
+    Returns
+    -------
+    tuple of (dict, dict)
+        The anchors keyed by slug, and the owning prefix keyed by path.
+
+    Raises
+    ------
+    SystemExit
+        When two specifications declare the same slug.
+
+    """
+    try:
+        return citations.collect_anchors(specs)
+    except citations.DuplicateAnchorError as duplicate:
+        first, second = duplicate.first, duplicate.second
+        print(
+            f"duplicate anchor '{duplicate.slug}': "
+            f"{display(first.path)}:{first.line} and "
+            f"{display(second.path)}:{second.line}"
+        )
+        raise SystemExit(1) from None
 
 
 @dataclass(frozen=True)
