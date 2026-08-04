@@ -203,7 +203,8 @@ def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
     for its JSON-encoded form, which ``nbformat`` writes one to a physical line.
     The cursor only ever moves forward, so a line repeated across cells resolves
     to its own occurrence; a line that cannot be located at all is reported
-    against the last one that could, rather than silently ending the scan.
+    against the last located line, or line 1 if none has been located yet,
+    rather than silently ending the scan.
 
     Parameters
     ----------

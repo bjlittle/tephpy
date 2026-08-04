@@ -204,3 +204,24 @@ def test_a_malformed_notebook_is_read_as_nothing(tmp_path):
     path = tmp_path / "broken.ipynb"
     path.write_text("{not json", encoding="utf-8")
     assert read(path) == ""
+
+
+def test_scan_continues_past_an_unlocatable_source_line(tmp_path):
+    """An unlocatable source line is yielded and later lines are still scanned.
+
+    The fixture encodes one source line using a JSON Unicode escape that
+    normalises away on parsing, so the decoded form cannot be found in the
+    raw file text.  The fallback path fires for that line; the assertion on
+    ``"second line"`` pins that the scan continues past it.
+    """
+    raw = (
+        '{"cells": [{"cell_type": "code", "metadata": {}, "outputs": [],'
+        ' "source": ["\\u0041 first\\n", "second line"]}],'
+        ' "metadata": {}, "nbformat": 4, "nbformat_minor": 5}'
+    )
+    assert "A first" not in raw  # decoded form is absent; fallback fires
+    path = tmp_path / "esc.ipynb"
+    path.write_text(raw, encoding="utf-8")
+    lines = [line for _n, line in citations.source_lines(path, raw)]
+    assert "A first" in lines  # (a) unlocatable line is still yielded
+    assert "second line" in lines  # (b) scan continues past the unlocatable line
