@@ -33,17 +33,11 @@ repos:
         additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.0
+    rev: v0.16.1
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
-
-  - repo: https://github.com/adamchainz/blacken-docs
-    rev: 1.20.0
-    hooks:
-      - id: blacken-docs
-        additional_dependencies: ["black==24.*"]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.3
@@ -103,6 +97,19 @@ repos:
       - id: sphinx-lint
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.28.0
+    rev: v1.29.0
     hooks:
       - id: zizmor
+
+  - repo: local
+    hooks:
+      # Citations name a section by number, so renumbering strands them silently
+      # (docs spec §3.6). Editing a spec heading breaks citations in files the
+      # commit never touches, so this runs over the whole tree, not the staged
+      # files.
+      - id: check-citations
+        name: design specification citations resolve
+        entry: .github/scripts/check_citations.py
+        language: python
+        always_run: true
+        pass_filenames: false

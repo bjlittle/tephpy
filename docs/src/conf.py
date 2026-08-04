@@ -109,12 +109,26 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
-html_favicon = "_static/brand/favicon.png"
+# The brand asset bundle and its README are repository files, not site content.
+# Sphinx already keeps ``html_static_path`` out of *document* discovery, so this
+# is purely to stop ``copy_html_static_files`` publishing a 270 KiB zip nothing
+# links to.  The pattern is deliberately not prefixed ``_static/``: static
+# copying matches each entry relative to the ``html_static_path`` root, so an
+# ``_static/``-prefixed pattern silently matches nothing and the zip ships.
+# ``developer/plans/**`` is the second entry for a different reason: the plans are
+# tracked in the repository but deliberately unpublished (docs spec §3.1) — a plan
+# is a point-in-time record, not a living document.  It is ``**`` rather than ``*``
+# because Sphinx compiles ``*`` to ``[^/]*``, which does not cross a ``/``, while
+# ``MANIFEST.in``'s ``prune docs/src/developer/plans`` is recursive: under ``*`` a
+# plan filed in a subdirectory would be pruned from the sdist yet published on the
+# site — the asymmetry, in the direction that leaks.
+exclude_patterns = ["brand/assets/*", "developer/plans/**"]
+html_favicon = "_static/brand/favicon-48x48.png"
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",
     "logo": {
-        "image_light": "_static/brand/logo-flat-light.svg",
-        "image_dark": "_static/brand/logo-flat-dark.svg",
+        "image_light": "_static/brand/svg/lockup-tiera-light.svg",
+        "image_dark": "_static/brand/svg/lockup-tiera-dark.svg",
     },
     "navbar_align": "left",
 }

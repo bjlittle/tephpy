@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Image-baseline and vector-output tests for the tephigram diagram (§8.5).
+"""Image-baseline and vector-output tests for the tephigram diagram (spec §8.5).
 
 Baselines live in ``tests/baseline`` (pyproject ``mpl-baseline-path``),
 generated with ``pixi run baselines`` on the committed lockfile. The
@@ -20,6 +20,7 @@ import pytest
 
 # Importing tephpy (via any of its names) registers the "tephigram" projection.
 from tephpy import Sounding, calc
+from tephpy.plotting import add_logo
 
 FAMILIES = ("isotherms", "isobars", "dry_adiabats", "moist_adiabats", "mixing_ratios")
 
@@ -217,4 +218,34 @@ def test_barbs_with_indices_panel():
     ax.plot_sounding(snd)
     ax.plot_barbs(snd)
     ax.annotate_indices(calc.indices(snd))
+    return fig
+
+
+@pytest.mark.mpl_image_compare(savefig_kwargs={"bbox_inches": "tight"})
+def test_printed_chart_edges():
+    """The printed-chart edge-labelling configuration (spec §3.2/§7)."""
+    fig, ax = _tephigram_figure()
+    ax.isobars(labels=("bottom", "left"), interval=150)
+    ax.mixing_ratios(labels="top")
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_member_emphasis():
+    """Isotherm member emphasis: 0 °C bold-grey, -20 °C dashed-cyan."""
+    fig, ax = _tephigram_figure()
+    _solo(ax, "isotherms")
+    ax.isotherms(
+        emphasis={
+            0.0: {},
+            -20.0: {"color": "tab:cyan", "linestyle": "--"},
+        }
+    )
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_logo_on_a_tephigram():
+    fig, ax = _tephigram_figure()
+    add_logo(ax, loc="lower right")
     return fig

@@ -42,6 +42,9 @@ devs = { file = ["requirements/pypi-optional-devs.txt"] }
 docs = { file = ["requirements/pypi-optional-docs.txt"] }
 test = { file = ["requirements/pypi-optional-test.txt"] }
 
+[tool.setuptools.package-data]
+tephpy = ["py.typed", "plotting/_static/*.png"]
+
 [tool.setuptools.packages.find]
 include = ["tephpy*"]
 where = ["src"]
@@ -165,6 +168,7 @@ module = ["metpy.*", "pandas.*", "pint.*"]
 
 [tool.repo-review]
 ignore = [
+  "PC111", # use blacken-docs (flaky)
   "PC180", # prettier (not used)
   "PP006", # dev dependency group
 ]

@@ -50,7 +50,7 @@ def test_integer_input_coerced_to_float64():
 
 
 def test_non_numeric_bare_input_raises():
-    """Values that cannot coerce to float64 fail inside the §6 taxonomy."""
+    """Values that cannot coerce to float64 fail inside the spec §6 taxonomy."""
     with pytest.raises(TephpyValidationError, match="'pressure'"):
         as_quantity(
             ["1000.0", "-----"], name="pressure", units="hPa", dimension="[pressure]"

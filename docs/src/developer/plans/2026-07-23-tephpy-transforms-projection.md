@@ -2,13 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Point-in-time record.** This plan states what was intended *before* implementation and is not updated afterwards. The review loop routinely revised what it records, so its code blocks drift from what shipped. The code is authoritative, and the design specification in [`../specs/`](../specs/) is the living statement of intent — read this for how the work was approached, not for how tephpy behaves today.
+
 **Goal:** Deliver the T–ln θ coordinate mathematics and a minimal, registered `"tephigram"` matplotlib projection, verified per case against first principles with tephi as a recorded oracle.
 
 **Architecture:** `transforms.py` holds pure numpy functions for (p, T) ↔ (T, θ) ↔ (x, y) in diagram-native units (hPa, °C); `plotting/axes.py` wraps them in an invertible matplotlib `Transform` inside a minimal `TephigramAxes` registered as `"tephigram"` (native x–y data space, equal aspect, hidden ticks); `_constants.py` is seeded with the conventions both need. Correctness rests on the §7 four-layer battery: hypothesis round-trips, independently recomputed fixed points, the isotherm ⊥ dry-adiabat invariant, and cross-checks against recorded tephi outputs.
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), hypothesis, pytest, pixi tasks, tephi 0.4.0.post0 (oracle only — a throwaway venv, never a runtime dependency).
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.1 (authority for this plan), §5 (units exemption), §7 (transforms test battery), §10 (Plan 2 row; resolved items 3–5).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.1 (authority for this plan), §5 (units exemption), §7 (transforms test battery), §10 (Plan 2 row; resolved items 3–5).
 
 This is **Plan 2 of 7** (spec §10). It produces working software: after `import tephpy`, `plt.subplots(subplot_kw={"projection": "tephigram"})` yields working rotated axes, and the full test battery passes on all three Pythons.
 

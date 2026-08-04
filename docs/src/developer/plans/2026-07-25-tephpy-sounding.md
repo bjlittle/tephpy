@@ -2,13 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Point-in-time record.** This plan states what was intended *before* implementation and is not updated afterwards. The review loop routinely revised what it records, so its code blocks drift from what shipped. The code is authoritative, and the design specification in [`../specs/`](../specs/) is the living statement of intent — read this for how the work was approached, not for how tephpy behaves today.
+
 **Goal:** Deliver the `Sounding` data model with ingest-time validation and pandas/xarray constructors, the §5 units machinery (`_units.as_quantity` over MetPy's pint registry) with the public `tephpy.exceptions` hierarchy, and `TephigramAxes.plot_profile`/`plot_sounding` with multi-sounding overlays, legends, and profile image baselines — so the §4 canonical usage works up to `ax.plot_sounding(snd)`.
 
 **Architecture:** Three new top-level modules along the §3 layering: public `exceptions.py` (no tephpy imports), private `_units.py` (imports only `exceptions`; MetPy behind function-local imports), and public `sounding.py` (imports `_units`/`_constants`/`exceptions`; the pandas/xarray constructors consume the objects handed to them, with `TYPE_CHECKING`-only imports — neither library is imported at runtime). `plotting/axes.py` gains two methods that convert quantities to diagram-native hPa/°C and plot through the existing `tephigram_transform + transData` machinery — `plotting` never imports `sounding` at runtime (duck-typed; a `TYPE_CHECKING` import only). `_constants.py` accretes the profile conventions; `Sounding` re-exports eagerly at the top level.
 
 **Tech Stack:** Python 3.12/3.13/3.14, numpy, matplotlib (Agg in tests), pint (MetPy's registry), metpy (runtime dep, function-local imports), pandas/xarray (runtime deps, never imported by tephpy at runtime), hypothesis, pytest, pytest-mpl, pixi tasks.
 
-**Spec:** `docs/superpowers/specs/2026-07-22-tephpy-design.md` — §3.4 (authority for `Sounding`), §5 (units policy — authority for `_units`), §6 (error handling — authority for `exceptions`), §3.2 (`plot_profile`/`plot_sounding`), §1 item 4 + §4 (overlays, legends, canonical usage), §7/§8.5 (profile image baselines), §10 (Plan 4 row; resolved items 2, 8, 9, 10).
+**Spec:** `docs/src/developer/specs/2026-07-22-tephpy-design.md` — §3.4 (authority for `Sounding`), §5 (units policy — authority for `_units`), §6 (error handling — authority for `exceptions`), §3.2 (`plot_profile`/`plot_sounding`), §1 item 4 + §4 (overlays, legends, canonical usage), §7/§8.5 (profile image baselines), §10 (Plan 4 row; resolved items 2, 8, 9, 10).
 
 This is **Plan 4 of 7** (spec §10). It produces working software: after it merges, `Sounding` ingests quantified/bare/DataFrame/Dataset profiles with validation at construction, and `ax.plot_sounding(snd)` draws red/green temperature/dewpoint profiles with derived legends over the Plan 3 diagram. Plans 5 and 6 are unblocked and may proceed in parallel.
 

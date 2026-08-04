@@ -141,6 +141,12 @@ ISOPLETH_LINEWIDTH: Final[float] = 0.5
 #: Isopleth line and label alpha.
 ISOPLETH_ALPHA: Final[float] = 1.0
 
+#: Line width in points for an emphasised isopleth member (spec §3.2). Emphasis
+#: follows the monochrome printed-chart idiom -- same ink, heavier line -- so a
+#: distinguished member needs no colour convention; a call supplies ``color`` to
+#: override that.
+EMPHASIS_LINEWIDTH: Final[float] = 1.5
+
 #: Isotherm draw order.
 ISOTHERM_ZORDER: Final[float] = 1.1
 
@@ -279,3 +285,57 @@ LABEL_BOX_COLOR: Final[str] = "white"
 
 #: Isopleth label box alpha.
 LABEL_BOX_ALPHA: Final[float] = 0.6
+
+#: Axis titles for edge-labelled isopleth families, keyed by accessor name.
+#: A claimed edge takes its family's title only when the axis has none, so a
+#: user's ``set_xlabel`` wins whichever side of the accessor call it lands on,
+#: and releasing the edge clears the title again (spec §3.2).
+EDGE_AXIS_TITLES: Final[dict[str, str]] = {
+    "isotherms": "Temperature (°C)",
+    "isobars": "Pressure (hPa)",
+    "dry_adiabats": "Potential temperature (°C)",
+    "moist_adiabats": "Wet-bulb potential temperature (°C)",
+    "mixing_ratios": "Mixing ratio (g kg⁻¹)",
+}
+
+#: Edge tick mark length in points.
+EDGE_TICK_LENGTH: Final[float] = 3.0
+
+#: Edge tick label padding from the tick mark, in points.
+EDGE_TICK_PAD: Final[float] = 2.0
+
+#: Side-panel padding substituted for the pad of the panel nearest the
+#: diagram when its right edge carries isopleth ticks, in inches. Both panel
+#: pads (0.1 in) are narrower than an 8 pt tick label, so right-edge labels
+#: would land on whichever panel abuts the diagram. Measured 2026-07-29: a
+#: right axis needs 0.479 in for its ticks, labels and title, so this leaves
+#: 0.07 in of clearance (spec §3.2).
+EDGE_LABEL_GUTTER_PAD: Final[float] = 0.55
+
+#: Points per inch, the typographic unit matplotlib sizes text and offsets in.
+POINTS_PER_INCH: Final[float] = 72.0
+
+#: Logo height in inches for each ``(form, size)`` preset of ``add_logo``.
+#: The presets are per-form because the forms give the wordmark different
+#: shares of their height — 44.1% for the lockup, 17.8% for the stacked
+#: form — so a shared pair would leave one of them illegible (logo spec §3.3).
+LOGO_SIZES: Final[dict[str, dict[str, float]]] = {
+    "icon": {"small": 0.40, "large": 0.70},
+    "lockup": {"small": 0.30, "large": 0.55},
+    "stacked": {"small": 0.70, "large": 1.15},
+}
+
+#: Default gap in points between the logo and its target's edge: a comfortable
+#: inset a shade wider than the legend's ``borderaxespad`` of 5.0 pt (0.5
+#: font-size units at the 10 pt default font).
+LOGO_PAD: Final[float] = 6.0
+
+#: Default logo draw order: above lines (2), text (3) and legends (5).
+LOGO_ZORDER: Final[float] = 100.0
+
+#: sRGB luma (Rec. 709 weights over gamma-encoded channels) below which
+#: ``theme="auto"`` calls a background dark.
+LOGO_LUMINANCE_THRESHOLD: Final[float] = 0.5
+
+#: Rec. 709 luma weights for the red, green and blue channels.
+LOGO_LUMINANCE_WEIGHTS: Final[tuple[float, float, float]] = (0.2126, 0.7152, 0.0722)

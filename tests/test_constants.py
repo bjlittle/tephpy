@@ -10,6 +10,7 @@ import dataclasses
 from datetime import UTC, datetime
 
 import numpy as np
+import pytest
 
 from tephpy import _constants as constants
 from tephpy.calc import SoundingIndices
@@ -147,3 +148,38 @@ def test_io_conventions():
     assert "TEXT:CSV" in constants.WYOMING_URL
     assert constants.WYOMING_TIMEOUT > 0.0
     assert constants.IGRA_MISSING == (-9999, -8888)
+
+
+def test_edge_axis_titles_cover_every_family():
+    """One axis title per family accessor, in the accessor's own units."""
+    assert set(constants.EDGE_AXIS_TITLES) == {
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    }
+    assert constants.EDGE_AXIS_TITLES["isobars"] == "Pressure (hPa)"
+    assert all(title.strip() for title in constants.EDGE_AXIS_TITLES.values())
+
+
+def test_edge_label_gutter_pad_clears_a_tick_label():
+    """The substituted pad is wider than the panel pads it replaces."""
+    assert constants.EDGE_LABEL_GUTTER_PAD > constants.BARB_GUTTER_PAD
+    assert constants.EDGE_LABEL_GUTTER_PAD > constants.INDICES_PANEL_PAD
+    assert constants.EDGE_TICK_LENGTH > 0.0
+    assert constants.EDGE_TICK_PAD >= 0.0
+
+
+def test_logo_conventions():
+    """Every form has both presets, ordered, and the luminance weights are Rec. 709."""
+    assert constants.POINTS_PER_INCH == 72.0
+    assert set(constants.LOGO_SIZES) == {"icon", "lockup", "stacked"}
+    for presets in constants.LOGO_SIZES.values():
+        assert set(presets) == {"small", "large"}
+        assert 0.0 < presets["small"] < presets["large"]
+    assert constants.LOGO_PAD > 0.0
+    assert constants.LOGO_ZORDER > 5.0
+    assert 0.0 < constants.LOGO_LUMINANCE_THRESHOLD < 1.0
+    assert constants.LOGO_LUMINANCE_WEIGHTS == (0.2126, 0.7152, 0.0722)
+    assert sum(constants.LOGO_LUMINANCE_WEIGHTS) == pytest.approx(1.0)

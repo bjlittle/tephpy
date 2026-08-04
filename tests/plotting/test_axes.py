@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoLocator
 from metpy.units import units
 import numpy as np
 import pytest
@@ -17,10 +18,15 @@ import pytest
 from tephpy import Sounding, calc, transforms
 from tephpy._config import config
 from tephpy._constants import (
+    BARB_GUTTER_PAD,
     CAPE_COLOR,
     CIN_COLOR,
     DEFAULT_EXTENT,
+    EDGE_AXIS_TITLES,
+    EDGE_LABEL_GUTTER_PAD,
     INDICES_PANEL_ROWS,
+    ISOBAR_COLOR,
+    LABEL_FONTSIZE,
     PROFILE_DEWPOINT_COLOR,
     PROFILE_LINEWIDTH,
     PROFILE_TEMPERATURE_COLOR,
@@ -30,7 +36,7 @@ from tephpy._constants import (
 )
 from tephpy.exceptions import TephpyUnitsError
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
-from tephpy.plotting.isopleths import IsoplethFamily
+from tephpy.plotting.isopleths import EDGES, IsoplethFamily
 
 
 def test_transform_matches_functions():
@@ -259,7 +265,7 @@ def test_format_coord_default_trio(tephigram_axes):
 
 
 def test_format_coord_config_fields_read_live(tephigram_axes):
-    """config.cursor.fields reorders/selects, live on an existing axes (§3.5)."""
+    """config.cursor.fields reorders/selects, live on an existing axes (spec §3.5)."""
     x, y = _cursor_xy(850.0, -4.2)
     with config.context(cursor={"fields": ("theta", "pressure")}):
         assert tephigram_axes.format_coord(x, y) == "θ 8.6 °C, 850 hPa"
@@ -272,7 +278,7 @@ def test_format_coord_out_of_domain_blank(tephigram_axes):
 
 
 def test_format_coord_instance_assignment_wins(tephigram_axes):
-    """Stock matplotlib full-custom path: assignment shadows the method (§3.2)."""
+    """Stock matplotlib full-custom path: assignment shadows the method (spec §3.2)."""
 
     def custom(_x, _y):
         return "custom"
@@ -707,3 +713,925 @@ def test_canonical_usage_composes(tephigram_axes):
     assert tephigram_axes.shade_cin(snd, parcel) is not None
     panel = tephigram_axes.annotate_indices(calc.indices(snd))
     assert panel in tephigram_axes.figure.axes
+
+
+# --- Edge ownership (spec §3.2) -------------------------------------------
+
+
+def _ticks(axis):
+    """Return the rendered tick label strings of an axis."""
+    return [text.get_text() for text in axis.get_ticklabels()]
+
+
+def test_no_edge_is_claimed_by_default():
+    """Today's default stands: hidden native axes, no secondary axes."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert ax.child_axes == []
+        assert not ax.xaxis.get_visible()
+        assert not ax.yaxis.get_visible()
+    finally:
+        plt.close(fig)
+
+
+def test_isobars_claim_bottom_and_left():
+    """The printed chart's pressure scale, from one call (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        fig.canvas.draw()
+        assert ax._edge_owners == {"bottom": "isobars", "left": "isobars"}
+        assert ax.xaxis.get_visible()
+        assert _ticks(ax.xaxis) == ["1050"]
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert len(_ticks(ax.yaxis)) == 18
+        assert ax.get_xlabel() == EDGE_AXIS_TITLES["isobars"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_user_axis_title_wins_either_way():
+    """The convention title only fills an empty axis label (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.set_xlabel("Mine")
+        ax.isobars(labels="bottom")
+        assert ax.get_xlabel() == "Mine"
+        ax.set_xlabel("Still mine")
+        ax.isobars(labels=True)
+        assert ax.get_xlabel() == "Still mine"
+        # Third leg: auto title applied → user replaces it → release must not
+        # clear the user's replacement.  A weakened guard (`if title is not
+        # None:` without `== title`) would clear the user's text here.
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.set_ylabel("User's ylabel")
+        ax.isobars(labels=True)
+        assert ax.get_ylabel() == "User's ylabel"
+    finally:
+        plt.close(fig)
+
+
+def test_top_and_right_use_lazily_created_secondary_axes():
+    """Claiming creates one child axes; releasing hides it; clear reaps (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert len(ax.child_axes) == 1
+        assert _ticks(ax._secondary_axes["top"].xaxis) == [
+            "0.05",
+            "0.2",
+            "1",
+            "2",
+            "4",
+            "7",
+            "14",
+            "28",
+        ]
+        ax.mixing_ratios(labels=True)
+        fig.canvas.draw()
+        assert len(ax.child_axes) == 1
+        assert not ax.child_axes[0].get_visible()
+        assert set(ax._secondary_axes) == {"top"}
+        # `clear` is the reset: it drops the cache, and matplotlib reaps the
+        # child axes with it, so a hidden secondary cannot outlive a clear.
+        ax.clear()
+        assert ax.child_axes == []
+        assert ax._secondary_axes == {}
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_can_move_its_own_edge():
+    """Top to right in one resolve: a release and a claim in the same sync.
+
+    One of the two transitions that release one secondary axes and build
+    another inside a single ``_sync_edge_labels``; the ``right`` to ``top``
+    mirror is ``test_a_family_can_move_its_own_edge_the_other_way``, which
+    claims before it releases because ``EDGES`` visits ``top`` first.
+    The released edge must come away fully unclaimed — hidden, untitled and
+    back on matplotlib's linear-axis defaults — while the claimed edge comes
+    up ticked and titled (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="top")
+        fig.canvas.draw()
+        top = ax.edge_axis("top")
+        assert _ticks(top) == ["150", "200", "200"]
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        assert ax._edge_owners == {"right": "isobars"}
+        # The top secondary hides rather than being destroyed, so the handle
+        # taken before the move is still the live axis afterwards.
+        assert ax._secondary_axes["top"].xaxis is top
+        assert not ax._secondary_axes["top"].get_visible()
+        assert top.get_label_text() == ""
+        # Not just hidden: the locator goes back to matplotlib's default, so
+        # the released edge no longer holds the family through an
+        # ``_EdgeLocator``.
+        assert isinstance(top.get_major_locator(), AutoLocator)
+        right = ax.edge_axis("right")
+        assert ax._secondary_axes["right"].get_visible()
+        assert right.get_label_text() == EDGE_AXIS_TITLES["isobars"]
+        assert _ticks(right) == ["200", "250", "300"]
+        assert ax._edge_titles == {"right": EDGE_AXIS_TITLES["isobars"]}
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_can_move_its_own_edge_the_other_way():
+    """The mirror of ``test_a_family_can_move_its_own_edge``: right to top.
+
+    The harder ordering of the two. ``_sync_edge_labels`` releases per edge
+    from inside its ``EDGES`` loop, which visits ``top`` before ``right``, so
+    this direction *claims* the new edge and only then releases the old one —
+    and for the rest of that loop ``_edge_owners`` transiently holds both
+    edges for the same family, which the forward direction never does. The
+    outcome must be the same either way: one edge fully unclaimed, the other
+    ticked and titled (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        right = ax.edge_axis("right")
+        assert _ticks(right) == ["200", "250", "300"]
+        ax.isobars(labels="top")
+        fig.canvas.draw()
+        # The transient is gone by the time the sync returns: one owner, on
+        # the edge just claimed.
+        assert ax._edge_owners == {"top": "isobars"}
+        # The right secondary hides rather than being destroyed, so the handle
+        # taken before the move is still the live axis afterwards.
+        assert ax._secondary_axes["right"].yaxis is right
+        assert not ax._secondary_axes["right"].get_visible()
+        assert right.get_label_text() == ""
+        # Not just hidden: the locator goes back to matplotlib's default, so
+        # the released edge no longer holds the family through an
+        # ``_EdgeLocator``.
+        assert isinstance(right.get_major_locator(), AutoLocator)
+        top = ax.edge_axis("top")
+        assert ax._secondary_axes["top"].get_visible()
+        assert top.get_label_text() == EDGE_AXIS_TITLES["isobars"]
+        assert _ticks(top) == ["150", "200", "200"]
+        assert ax._edge_titles == {"top": EDGE_AXIS_TITLES["isobars"]}
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
+def test_one_family_per_edge():
+    """Two claimants raise, naming both and the edge (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        with pytest.raises(TypeError, match=r"'left'.*'isobars'.*'isotherms'"):
+            ax.isotherms(labels=("bottom", "left"))
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.isotherms().options.label_edges == ()
+    finally:
+        plt.close(fig)
+
+
+def test_a_config_conflict_surfaces_at_axes_creation():
+    """Not at first draw: the axes funnels the creation path too."""
+    fig = plt.figure()
+    try:
+        with (
+            config.context(
+                isotherms={"labels": "bottom"}, isobars={"labels": "bottom"}
+            ),
+            pytest.raises(TypeError, match="'bottom'"),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
+
+
+def test_unknown_placement_is_rejected():
+    """Fail loud, naming the placement and the valid set (spec §6)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        with pytest.raises(TypeError, match=r"label placement 'middle'"):
+            ax.isobars(labels="middle")
+        assert ax._edge_owners == {}
+    finally:
+        plt.close(fig)
+
+
+def test_family_alpha_reaches_both_label_routes():
+    """``alpha`` is documented for lines *and* labels, inline or on an edge.
+
+    ``set_tick_params`` takes no alpha, so the edge ticks carry it in their
+    RGBA; the two routes must still agree.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left", alpha=0.4)
+        ax.isotherms(alpha=0.4)
+        fig.canvas.draw()
+        # A member with fewer than two in-view vertices is skipped before its
+        # pooled Text is placed, so only the rendered labels carry the style.
+        placed = [text for text in ax._families["isotherms"]._texts if text.get_text()]
+        assert len(placed) > 1
+        assert all(text.get_alpha() == pytest.approx(0.4) for text in placed)
+        expected = mcolors.to_rgba(ISOBAR_COLOR, 0.4)
+        assert mcolors.to_rgba(ax.yaxis.get_ticklabels()[0].get_color()) == (
+            pytest.approx(expected)
+        )
+        assert mcolors.to_rgba(ax.yaxis.get_ticklines()[0].get_color()) == (
+            pytest.approx(expected)
+        )
+    finally:
+        plt.close(fig)
+
+
+def test_an_invisible_family_releases_its_edge():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.isobars(visible=False)
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        # Release clears the auto-title it set (spec §3.2).  That it clears
+        # *only* its own title and never a user's is a separate clause, and
+        # is pinned by the third leg of
+        # ``test_a_user_axis_title_wins_either_way`` — not by this assertion,
+        # which passes either way.
+        assert ax.get_ylabel() == ""
+        ax.isotherms(labels="left")
+        assert ax._edge_owners == {"left": "isotherms"}
+    finally:
+        plt.close(fig)
+
+
+def test_clear_drops_every_edge_claim():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        ax.clear()
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert ax._secondary_axes == {}
+        assert ax.child_axes == []
+        assert not ax.xaxis.get_visible()
+        assert ax.get_xlabel() == ""
+    finally:
+        plt.close(fig)
+
+
+def _barb_sounding():
+    """Return a minimal sounding carrying wind, for a barb gutter."""
+    return Sounding(
+        pressure=np.array([1000.0, 900.0, 800.0]) * units.hPa,
+        temperature=np.array([20.0, 14.0, 8.0]) * units.degC,
+        wind_speed=np.array([10.0, 20.0, 30.0]) * units.knots,
+        wind_direction=np.array([180.0, 200.0, 220.0]) * units.deg,
+    )
+
+
+def _gutter_pad(ax):
+    """Return the gap in pixels between the diagram and the barb gutter."""
+    return ax._barb_gutter.get_window_extent().x0 - ax.get_window_extent().x1
+
+
+def test_right_edge_labels_widen_the_gutter_pad():
+    """The relayout helper substitutes the wider pad (spec §3.2)."""
+    snd = _barb_sounding()
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        fig.canvas.draw()
+        narrow = _gutter_pad(ax)
+        # Pinned, not merely ordered.  The load-bearing half of this test is
+        # that an unclaimed right edge leaves the layout exactly as it was
+        # before edges could be labelled at all; an inequality against
+        # ``wide`` would still pass if the unlabelled pad drifted.
+        assert narrow == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        wide = _gutter_pad(ax)
+        assert wide == pytest.approx(EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0)
+        assert wide > narrow
+    finally:
+        plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected_owners"),
+    [("top", {"top": "isobars"}), (False, {})],
+    ids=["moved-to-top", "dropped"],
+)
+def test_releasing_the_right_edge_narrows_the_gutter_pad_back(labels, expected_owners):
+    """``_relayout_side_panels`` runs on the release flip too (spec §3.2).
+
+    ``_sync_edge_labels`` relayouts whenever ``had_right`` changes in
+    *either* direction, and the widening half is pinned by
+    ``test_right_edge_labels_widen_the_gutter_pad``. Both routes here give
+    the right edge up, but reach the relayout by different paths through the
+    ``EDGES`` loop: moving the claim to ``top`` claims before it releases,
+    while dropping labels altogether claims nothing at all. Either way the
+    pad must come back to ``BARB_GUTTER_PAD`` exactly, not merely narrow.
+
+    ``labels=False`` is the drop, not ``labels=None``: an accessor reads
+    ``None`` as "not passed" and never reconfigures the family at all.
+    """
+    snd = _barb_sounding()
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        assert _gutter_pad(ax) == pytest.approx(
+            EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0
+        )
+        ax.isobars(labels=labels)
+        fig.canvas.draw()
+        assert ax._edge_owners == expected_owners
+        assert _gutter_pad(ax) == pytest.approx(BARB_GUTTER_PAD * fig.dpi, abs=1.0)
+    finally:
+        plt.close(fig)
+
+
+def test_a_no_op_labels_argument_leaves_the_gutter_pad_alone():
+    """``labels=None`` means "not passed" on an accessor, so nothing moves.
+
+    The accessors drop ``None`` kwargs before reaching
+    ``IsoplethFamily.configure`` (spec §3.5), so this cannot be the route
+    that gives an edge up — a claimed right edge, and the widened pad that
+    goes with it, both survive the call untouched. Passing ``None`` straight
+    to ``configure`` *does* release, by removing the override so ``labels``
+    falls back through the tiers; that tier behaviour belongs to
+    ``test_configure_none_resets_override`` in
+    ``tests/plotting/test_isopleths.py``, not to this module.
+    """
+    snd = _barb_sounding()
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.plot_barbs(snd)
+        ax.isobars(labels="right")
+        fig.canvas.draw()
+        ax.isobars(labels=None)
+        fig.canvas.draw()
+        assert ax._edge_owners == {"right": "isobars"}
+        assert _gutter_pad(ax) == pytest.approx(
+            EDGE_LABEL_GUTTER_PAD * fig.dpi, abs=1.0
+        )
+    finally:
+        plt.close(fig)
+
+
+def test_edge_ticks_follow_set_extent():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        wide = _ticks(ax.yaxis)
+        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        fig.canvas.draw()
+        zoomed = _ticks(ax.yaxis)
+        assert zoomed != wide
+        # The left edge is a vertical line in (x, y) tephigram data space, not
+        # a constant-pressure line.  At the top-left corner (P=500, T=-10) the
+        # left edge sweeps down to ~457 hPa, so isobars in the 460-480 hPa band
+        # genuinely cross it; a naive 500-900 hPa guard would be wrong.
+        assert zoomed == [str(v) for v in range(460, 900, 20)]
+    finally:
+        plt.close(fig)
+
+
+def test_every_edge_can_be_claimed_at_once():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        ax.isotherms(labels="right")
+        fig.canvas.draw()
+        assert set(ax._edge_owners) == set(EDGES)
+        assert len(ax.child_axes) == 2
+    finally:
+        plt.close(fig)
+
+
+def test_family_configure_claims_and_releases_an_edge():
+    """The family's own ``configure`` reaches the ownership layer too.
+
+    ``IsoplethFamily.configure`` is public and is what every accessor
+    returns, so a claim made through it must light up the edge exactly as
+    ``ax.isobars(labels=...)`` does — and dropping the claim must put the
+    inline labels back without leaving the edge ticked (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        fig.canvas.draw()
+        family = ax.isobars()
+        family.configure(labels="left")
+        fig.canvas.draw()
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.yaxis.get_visible()
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        selected = family._selected_members()
+        assert len(family._inline_members(ax.viewLim, selected)) == 1
+        family.configure(labels=True)
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        assert ax.get_ylabel() == ""
+        assert family._inline_members(ax.viewLim, selected) == selected
+    finally:
+        plt.close(fig)
+
+
+def test_claiming_an_edge_gives_up_the_inline_label_artists():
+    """A claim shrinks the pool, it does not just stop drawing from it.
+
+    The edge takes over the members that reach it, so the inline remainder
+    collapses (spec §3.2) — and the ``Text`` artists for the members the
+    edge now labels are the family's to release. They are never drawn
+    again, but they still carry a figure reference, so a pool that only
+    ever grows pins them for the life of the axes.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        family = ax.isobars()
+        fig.canvas.draw()
+        inline = len(family._inline_members(ax.viewLim, family._selected_members()))
+        assert len(family._texts) == inline
+        family.configure(labels="left")
+        fig.canvas.draw()
+        claimed = len(family._inline_members(ax.viewLim, family._selected_members()))
+        assert claimed < inline
+        assert len(family._texts) == claimed
+    finally:
+        plt.close(fig)
+
+
+def test_set_visible_releases_and_reclaims_an_edge():
+    """``Artist.set_visible`` is a resolve too: hiding drops the edge.
+
+    An invisible family draws nothing, so it holds no edge (spec §3.2) —
+    unconditionally, not only for the ``visible`` accessor option.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        family = ax.isobars(labels="left")
+        fig.canvas.draw()
+        family.set_visible(False)
+        fig.canvas.draw()
+        assert ax._edge_owners == {}
+        assert not ax.yaxis.get_visible()
+        assert ax.get_ylabel() == ""
+        assert _ticks(ax.yaxis)[:2] != ["150", "200"]
+        family.set_visible(True)
+        fig.canvas.draw()
+        assert ax._edge_owners == {"left": "isobars"}
+        assert ax.yaxis.get_visible()
+        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_claimed_edge_draws_no_gridlines():
+    """Constant-x gridlines mean nothing on a tephigram (spec §3.2).
+
+    ``rcParams["axes.grid"]`` is set by several common styles, and the
+    native axes are hidden precisely because their scale is meaningless;
+    claiming an edge must not smuggle that scale back in as gridlines.
+    Suppression happens once, when the edge axis is created, which is after
+    ``Axes.clear`` reads the rcParam — so a style still cannot smuggle them
+    in, and an explicit ``ax.grid(True)`` is honoured (spec §3.2).
+    """
+    with plt.rc_context({"axes.grid": True}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+        try:
+            ax.isobars(labels="bottom")
+            fig.canvas.draw()
+            assert ax.xaxis.get_visible()
+            assert ax.xaxis.get_gridlines()
+            assert not any(line.get_visible() for line in ax.xaxis.get_gridlines())
+            # Presentation is the user's after the claim: an explicit
+            # ``ax.grid(True)`` is honoured, and an unrelated family's
+            # resolve no longer wipes it (spec §3.2).
+            ax.grid(visible=True)
+            ax.isotherms(color="grey")
+            fig.canvas.draw()
+            gridlines = ax.xaxis.get_gridlines()
+            assert gridlines
+            assert all(line.get_visible() for line in gridlines)
+        finally:
+            plt.close(fig)
+
+
+def test_user_tick_styling_survives_an_unrelated_family_resolve():
+    """Presentation is the user's once the edge is claimed (spec §3.2).
+
+    The first implementation re-asserted ``LABEL_FONTSIZE`` and the tick
+    length and pad on every sync, so an *unrelated* family's resolve
+    silently reverted a user's ``tick_params``.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        ax.isotherms(color="grey")
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        # Nor may the owning family's own restyle revert it.
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+    finally:
+        plt.close(fig)
+
+
+def test_clear_restores_the_edge_tick_conventions():
+    """``ax.clear()`` is the reset for edge tick presentation (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14)
+        fig.canvas.draw()
+        ax.clear()
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        sizes = {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()}
+        assert sizes == {LABEL_FONTSIZE}
+    finally:
+        plt.close(fig)
+
+
+def test_config_top_claim_takes_effect_at_axes_creation():
+    """A config-driven edge claim via the top secondary axis works end-to-end.
+
+    This is the only path that builds a secondary axes from inside
+    ``Axes.__init__`` → ``clear``; it verifies the claim is live
+    immediately without a separate configure call.
+    """
+    with config.context(mixing_ratios={"labels": "top"}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        assert ax._edge_owners["top"] == "mixing_ratios"
+        assert "top" in ax._secondary_axes
+        assert len(ax.child_axes) == 1
+        fig.canvas.draw()
+    finally:
+        plt.close(fig)
+
+
+def test_only_a_new_owner_re_points_an_edge():
+    """A sync that changes nothing touches nothing (spec §3.2).
+
+    ``_EdgeLocator`` holds a live family reference and recomputes on every
+    draw, so re-installing it on each sync is not only wasted work — it is
+    the pattern that made unrelated resolves reach into a claimed edge.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        locator = ax.yaxis.get_major_locator()
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        assert ax.yaxis.get_major_locator() is locator
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.yaxis.get_major_locator() is not locator
+    finally:
+        plt.close(fig)
+
+
+def test_tick_colour_tracks_its_own_family_only():
+    """Restyling the owning family restyles its ticks; nothing else does."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelcolor="black")
+        fig.canvas.draw()
+        black = mcolors.to_rgba("black")
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # An unrelated family, and a non-colour restyle of the owner, leave it.
+        ax.isotherms(color="grey")
+        ax.isobars(linewidth=2.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(black)
+        # The owner's own colour still reaches its ticks.
+        ax.isobars(color="blue")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_new_owner_restamps_the_edge_tick_colour():
+    """A new owner's colour lands even when it matches the last one's.
+
+    The RGBA memory survives release, so keying it by colour alone would
+    suppress this claim and strand the ticks in the user's colour — tied to
+    a family that no longer owns the edge (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        ax.edge_axis("left").set_tick_params(color="red", labelcolor="red")
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("red"))
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left", color="blue", alpha=1.0)
+        fig.canvas.draw()
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("blue"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_claim_restores_an_edge_axis_the_user_hid():
+    """Visibility is identity, so a claim restores it on all four edges.
+
+    Hiding the ``Axis`` alone leaves a top or right secondary axes visible,
+    so restoring only the container would give the reclaimed edge no ticks
+    while bottom and left came back (spec §3.2).
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_visible(False)
+        ax.edge_axis("left").set_visible(False)
+        ax.mixing_ratios(labels=False)
+        ax.isobars(labels=False)
+        ax.mixing_ratios(labels="top")
+        ax.isobars(labels="left")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_visible()
+        assert ax._secondary_axes["top"].get_visible()
+        assert ax.edge_axis("left").get_visible()
+        assert _ticks(ax.edge_axis("top"))
+        assert _ticks(ax.yaxis)
+    finally:
+        plt.close(fig)
+
+
+def test_a_cleared_axis_title_stays_cleared():
+    """``set_ylabel("")`` durably means "ticks, no title" (spec §3.2).
+
+    The fill-when-empty guard runs only on a first claim, so no later sync
+    looks at the label again; a genuine release forgets tephpy's own title,
+    so a reclaim stamps afresh.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.set_ylabel("")
+        ax.isotherms(color="grey")
+        ax.isobars(color="blue")
+        ax.set_extent(DEFAULT_EXTENT)
+        fig.canvas.draw()
+        assert ax.get_ylabel() == ""
+        # Dropping the labels and re-adding them is a fresh claim.
+        ax.isobars(labels=False)
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_new_owner_restamps_the_axis_title():
+    """Handing an edge to another family retitles it (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
+        ax.isobars(labels=False)
+        ax.isotherms(labels="left")
+        assert ax.get_ylabel() == EDGE_AXIS_TITLES["isotherms"]
+    finally:
+        plt.close(fig)
+
+
+def test_a_family_visibility_round_trip_preserves_edge_styling():
+    """Toggling a family must not discard styling the user did not drop."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels="left")
+        ax.tick_params(axis="y", labelsize=14, labelcolor="black")
+        fig.canvas.draw()
+        ax.isobars(visible=False)
+        ax.isobars(visible=True)
+        fig.canvas.draw()
+        assert {t.label1.get_fontsize() for t in ax.yaxis.get_major_ticks()} == {14.0}
+        assert mcolors.to_rgba(
+            ax.yaxis.get_ticklabels()[0].get_color()
+        ) == pytest.approx(mcolors.to_rgba("black"))
+    finally:
+        plt.close(fig)
+
+
+def test_a_released_secondary_axes_is_hidden_not_destroyed():
+    """A held handle must stay live across a release and reclaim (spec §3.2).
+
+    Destroying the secondary axes took its ticks and title with it, so top
+    and right could not behave like bottom and left, which are merely
+    hidden. An invisible secondary returns ``None`` from ``get_tightbbox``,
+    so the persistence costs nothing in layout.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        secondary = ax._secondary_axes["top"]
+        axis = secondary.xaxis
+        assert len(ax.child_axes) == 1
+        ax.mixing_ratios(labels=True)
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert not secondary.get_visible()
+        assert secondary.get_tightbbox() is None
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax._secondary_axes["top"] is secondary
+        assert secondary.xaxis is axis
+        assert secondary.get_visible()
+        assert _ticks(axis)
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_returns_each_edge_s_axis():
+    """The uniform public handle on all four edges (spec §3.2)."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.isobars(labels=("bottom", "left"))
+        ax.mixing_ratios(labels="top")
+        ax.dry_adiabats(labels="right")
+        fig.canvas.draw()
+        assert ax.edge_axis("bottom") is ax.xaxis
+        assert ax.edge_axis("left") is ax.yaxis
+        assert ax.edge_axis("top") is ax._secondary_axes["top"].xaxis
+        assert ax.edge_axis("right") is ax._secondary_axes["right"].yaxis
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_rejects_an_unknown_or_unclaimed_edge():
+    """An unknown name is a TypeError; an unlabelled edge a ValueError."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        with pytest.raises(TypeError, match="unknown edge 'middle'"):
+            ax.edge_axis("middle")
+        with pytest.raises(ValueError, match="'top' edge carries no isopleth"):
+            ax.edge_axis("top")
+        # Probing must not have built a secondary axes nothing is using.
+        assert ax._secondary_axes == {}
+        assert ax.child_axes == []
+    finally:
+        plt.close(fig)
+
+
+def test_edge_axis_styling_reaches_top_and_survives_a_reclaim():
+    """Stock matplotlib styling now reaches top and right, and sticks."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        ax.edge_axis("top").set_tick_params(labelsize=12)
+        ax.edge_axis("top").set_label_text("W")
+        fig.canvas.draw()
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
+        ax.mixing_ratios(labels=False)
+        ax.mixing_ratios(labels="top")
+        fig.canvas.draw()
+        assert ax.edge_axis("top").get_label_text() == "W"
+        assert {
+            t.label2.get_fontsize() for t in ax.edge_axis("top").get_major_ticks()
+        } == {12.0}
+    finally:
+        plt.close(fig)
+
+
+def test_accessor_emphasis_reaches_the_family(tephigram_axes):
+    family = tephigram_axes.isotherms(emphasis={0.0: {"color": "tab:cyan"}})
+    assert family.options.emphasis == {0.0: {"color": "tab:cyan"}}
+
+
+def test_accessor_emphasis_available_on_every_family(tephigram_axes):
+    """Every accessor takes ``emphasis``, and every documented example draws.
+
+    Each family is emphasised at the value its own accessor docstring uses as
+    the example, then the figure is drawn and the member is looked for in what
+    was drawn. Configuring alone proves nothing: an example whose value warns
+    (``filterwarnings = ["error"]``) or falls outside the family's domain, so
+    it is built but never shown, is a failure here (spec §3.2).
+    """
+    examples = {
+        "isotherms": 0.0,
+        "isobars": 500.0,
+        "dry_adiabats": 0.0,
+        "moist_adiabats": 0.0,
+        "mixing_ratios": 5.0,
+    }
+    families = {}
+    for name, value in examples.items():
+        family = getattr(tephigram_axes, name)(emphasis={value: {}})
+        assert family.options.emphasis == {value: {}}
+        families[name] = family
+    tephigram_axes.figure.canvas.draw()
+    for name, value in examples.items():
+        drawn = [member.value for member in families[name]._selected_members()]
+        assert any(np.isclose(drawn, value)), (
+            f"{name} emphasis example {value} is documented but never drawn"
+        )
+
+
+def test_accessor_emphasis_error_propagates(tephigram_axes):
+    with pytest.raises(TypeError, match="emphasis style key"):
+        tephigram_axes.isotherms(emphasis={0.0: {"colour": "red"}})
+
+
+def test_accessor_emphasis_empty_mapping_clears_config():
+    """``ax.isotherms(emphasis={})`` opts one diagram out of a configured emphasis.
+
+    Goes through the accessor rather than ``family.configure``: the accessor
+    drops kwargs that are ``None``, not kwargs that are falsey, and an empty
+    mapping has to survive that filter for the documented opt-out to work
+    (spec §3.2).
+    """
+    with config.context(isotherms={"emphasis": {0.0: {}}}):
+        fig = plt.figure()
+        try:
+            ax = fig.add_subplot(projection="tephigram")
+            assert ax.isotherms().options.emphasis == {0.0: {}}
+            assert ax.isotherms(emphasis={}).options.emphasis == {}
+        finally:
+            plt.close(fig)
+
+
+def test_config_emphasis_type_error_surfaces_at_axes_creation():
+    """A malformed config-tier emphasis fails loud when the axes is built."""
+    fig = plt.figure()
+    try:
+        with (
+            config.context(isotherms={"emphasis": {0.0: {"colour": "red"}}}),
+            pytest.raises(TypeError, match=r"unknown 'isotherms' emphasis style key"),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    ("style", "match"),
+    [
+        ({"linewidth": -1.0}, r"'linewidth' for member 500 must be a positive"),
+        ({"alpha": 1.5}, r"'alpha' for member 500 must be between 0 and 1"),
+    ],
+)
+def test_config_emphasis_value_error_surfaces_at_axes_creation(style, match):
+    """An out-of-range config-tier emphasis raises ``ValueError`` at creation.
+
+    ``ValueError`` reaches the caller from ``TephigramAxes.clear``, which is
+    both the ``Axes.__init__`` path and ``ax.clear()`` (spec §3.2).
+    """
+    fig = plt.figure()
+    try:
+        with (
+            config.context(isobars={"emphasis": {500.0: style}}),
+            pytest.raises(ValueError, match=match),
+        ):
+            fig.add_subplot(projection="tephigram")
+    finally:
+        plt.close(fig)
+
+
+def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):
+    """A forced member is ticked like any other (spec §3.2)."""
+    tephigram_axes.isotherms(labels="bottom", emphasis={-12.0: {}})
+    tephigram_axes.figure.canvas.draw()
+    labels = [text.get_text() for text in tephigram_axes.xaxis.get_ticklabels()]
+    assert "-12" in labels
