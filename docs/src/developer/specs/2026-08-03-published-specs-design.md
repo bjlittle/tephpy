@@ -13,7 +13,7 @@
 (docs-spec-1)=
 ## 1. Purpose
 
-`src/` and `tests/` carry 333 `spec §…` citations. Until now the documents they cite never
+`src/` and `tests/` carry 364 `spec §…` citations. Until now the documents they cite never
 entered the docs build, so a reader on Read the Docs met a reference to something that,
 from where they were standing, did not exist — on twelve published API reference pages.
 
@@ -44,8 +44,10 @@ before implementation, not updated afterwards. Everything below follows from tha
    keep working, in a checkout and in GitHub's web UI.
 4. **Sections are addressed by explicit anchors keyed to the section number,** never by
    the slug docutils derives from the heading text.
-5. **Citations stay plain text for now.** Converting them into Sphinx cross-references is
-   a separate change (§7).
+5. **Citations stay plain text in the source; the build makes them links.** The written
+   form never changes — `spec §3.2` in a docstring is the characters it has always been —
+   and a Sphinx transform resolves it against the §3.3 anchors while building the doctree
+   (§3.7).
 6. **An unresolved item in a specification must cite a tracked issue** (§3.5).
 
 (docs-spec-3)=
@@ -93,11 +95,17 @@ must state two things a reader cannot infer from any single document:
   current, and to report a divergence from the code as a specification defect.
 - **The citation namespace has more than one member.** The prefix identifies the document:
 
-  | citation | document | count |
+  | citation | document | in `src/` and `tests/` |
   |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 312 |
-  | `logo spec §…` | `2026-08-01-add-logo-design.md` | 23 |
-  | `docs spec §…` | this document | 0 |
+  | `spec §…` | `2026-07-22-tephpy-design.md` | 327 |
+  | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
+  | `docs spec §…` | this document | 13 |
+
+  The column is named rather than left as a bare "count" so the figures can be reproduced
+  and seen to have drifted: they are occurrences of the literal prefixed form under
+  `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
+  document — 531, 39 and 46 across the whole corpus, once the bare and compound forms
+  below are counted too.
 
   The prefix is load-bearing, not decorative: `logo spec §3.6` names a section that has no
   counterpart in the parent specification, so a reader who ignores the prefix lands in the
@@ -139,7 +147,7 @@ addresses spec §3.2 directly.
 
 Two reasons this is not optional. First, docutils derives its slug from the heading *text*
 and discards the number, so `### 3.2 \`plotting\`` would otherwise be addressable only as
-`#plotting` — and 149 citations point at that one section of a document that renders to
+`#plotting` — and 160 citations point at that one section of a document that renders to
 180 KB of HTML. A citation that resolves to the top of a page that long has not really
 resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and spec §8.5
 *Testing* produced the same slug, and docutils disambiguated the second to `id1` — an
@@ -267,6 +275,65 @@ What narrows that class is the §3.2 rule giving the unqualified form a local, s
 meaning, together with review; it is not this hook, and nothing here should be read as
 claiming otherwise.
 
+(docs-spec-3-7)=
+### 3.7 Rendering citations as cross-references
+
+A citation that a reader cannot follow is a footnote to a document they must go and find.
+The anchors of §3.3 make every section addressable, so the remaining work is to turn each
+`spec §3.2` in the rendered documentation into a link to it.
+
+**The conversion happens at build time, and no source file is edited.** A Sphinx transform
+walks the doctree and replaces each citation in ordinary prose with a `std:ref`
+cross-reference resolved against the §3.3 anchors. The written form is untouched: the
+docstring on disk still reads `(spec §3.2)`, which is decision 5 of §2 — plain in the
+source, linked in the output.
+
+The alternative was to write the role by hand, once per citation. It is rejected for a
+reason that follows directly from §3.6's closing paragraph. A hand-written
+`` :ref:`spec §3.2 <logo-spec-3-2>` `` has the right display text and the wrong target,
+and *both* halves are invisible: the citation checker reads the text and sees a
+well-formed `spec §3.2`, and Sphinx resolves the target and finds an anchor that exists,
+so the build stays clean. Hand-authoring 95 targets would therefore manufacture 95 fresh
+opportunities for exactly the wrong-but-resolving failure that §3.6 says it cannot catch
+and that the `design: open` issues already demonstrated. Deriving the target from the text
+removes the class outright: there is only one string, so the text and the target cannot
+disagree. The mechanical cost pointed the same way — a role adds eighteen characters, which
+pushes 30 of the 96 affected lines past the 88-column limit, and 13 of those are docstring
+summary lines where wrapping trips numpydoc's one-line-summary rule.
+
+**One definition of what a citation is.** The transform and the §3.6 hook share a single
+grammar module, rather than each carrying its own regular expression. Two definitions
+would fail the way a declared registry fails: they would agree until one was amended, and
+the disagreement would be silent in both directions — a form the hook accepts but the
+transform does not recognise renders as dead text, and a form the transform links but the
+hook does not check is unpoliced.
+
+That module lives under `docs/src/_ext/`, not beside the hook in `.github/scripts/`.
+`MANIFEST.in` prunes `.github` while the rest of `docs/` ships (§5 item 2), so an extension
+importing from `.github` would build here and fail from an sdist. The dependency runs the
+other way: the hook, which only ever runs in a checkout, reads the module out of `docs/`.
+
+**What stays plain text.** Literals, code blocks, comments, raw blocks and API signatures
+are left alone, so the `` `spec §3.2` `` that the style guide quotes as an example stays an
+example, and viewcode's verbatim source listings — 203 section signs of Python — are not
+rewritten. One exception is stated because it is not deducible: `autosummary_table` is a
+rendered table that subclasses docutils' `comment` node, and the autoapi module summary
+sits inside one, so a transform that skips comments silently skips 17 citations that a
+reader does see.
+
+**The output is checked, not assumed.** §3.6 asserts that every citation in the *source*
+resolves to an anchor. Its converse is asserted after `make html`: no citation-shaped text
+survives outside a link, excluding only the two structural cases above. The two gates fail
+in different ways, which is why both exist — the input gate cannot tell whether the
+extension was loaded at all, and the output gate cannot tell a right target from a wrong
+one. Together they pair the way §3.6's coverage property pairs anchors with headings.
+
+The output gate is the one place that deliberately does *not* use the shared grammar. It
+looks for a section sign followed by a number, which is looser than a citation, and that
+is the point: a check that asked the grammar what to look for would go blind in the same
+instant the grammar did, and pass by finding nothing. It has to be able to see a citation
+the transform failed to recognise.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -329,6 +396,9 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds
   to an anchor that exists. This began as a one-off check at implementation time; §3.6
   makes it continuous.
+- No citation-shaped text survives outside a link in the built HTML (§3.7). At the time
+  §3.7 landed that was 297 links, 19 citations left as literals by design, and none
+  unlinked.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
@@ -338,10 +408,6 @@ through myst produced exactly one warning, the `../plans/` link of item 4 above.
 
 Not in this change:
 
-- **Deferred** ([#85](https://github.com/bjlittle/tephpy/issues/85)) — **converting citations
-  into Sphinx cross-references.** 101 rendered citations across 60 public objects would
-  become `:ref:` targets. The anchors in §3.3 are its prerequisite, which is why it becomes
-  cheap afterwards rather than never.
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
@@ -353,11 +419,19 @@ Settled since:
   and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
   child specifications where a bare `§N` meant the *parent's* section and resolved
   silently to the child's own.
+- **Resolved** (2026-08-04, [#85](https://github.com/bjlittle/tephpy/issues/85)) —
+  **citations render as cross-references** (§3.7). The item was deferred here as "101
+  rendered citations across 60 public objects"; both figures were wrong, and the measured
+  count is 95 across 54. Neither turned out to be the number that mattered, because the
+  conversion happens in the doctree rather than in the sources: it reaches every citation
+  the site renders, 297 of them, and edits none.
 
 (docs-spec-8)=
 ## 8. References
 
 - [#65](https://github.com/bjlittle/tephpy/issues/65) — publish the design specifications
 - [#73](https://github.com/bjlittle/tephpy/pull/73) — the living/point-in-time contract
+- [#85](https://github.com/bjlittle/tephpy/issues/85) — render citations as cross-references
+- [#86](https://github.com/bjlittle/tephpy/issues/86) — the citation-integrity gate
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent
 - [MyST targets and cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html)
