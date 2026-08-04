@@ -258,6 +258,13 @@ passage documenting the rule it enforces. Skipping means matching the opening ra
 counting delimiters — a block opened with four backticks may quote a three-backtick one,
 and a reader that closes on any rail resumes inside the quotation.
 
+A fence is a property of markdown rather than of a file extension, so the rule follows the
+markdown wherever it is written. A notebook's markdown cells are read the same way, with
+fences skipped; its code cells are read as Python is read, without; and its outputs are not
+read at all, being generated rather than authored — and left plain by §3.7 for the same
+reason. Keying the rule to the `.md` suffix instead would reintroduce, for the first
+notebook that documents this convention, exactly the failure the paragraph above describes.
+
 The corpus is derived as well: every text file the repository tracks, less the plans,
 which are point-in-time records (§3.4) whose citations are frozen with them, so a
 renumbering is not a defect in a plan. Naming the corpus by glob would fail exactly the way a declared
@@ -316,10 +323,22 @@ other way: the hook, which only ever runs in a checkout, reads the module out of
 **What stays plain text.** Literals, code blocks, comments, raw blocks and API signatures
 are left alone, so the `` `spec §3.2` `` that the style guide quotes as an example stays an
 example, and viewcode's verbatim source listings — 203 section signs of Python — are not
-rewritten. One exception is stated because it is not deducible: `autosummary_table` is a
-rendered table that subclasses docutils' `comment` node, and the autoapi module summary
-sits inside one, so a transform that skips comments silently skips 17 citations that a
-reader does see.
+rewritten. Existing references are skipped too: a citation inside link text would otherwise
+nest one anchor inside another, which is invalid HTML that browsers silently restructure.
+No page does that today, but `[see spec §3.2](…)` is ordinary markdown and costs one entry
+in the skip set to rule out.
+
+One exception is stated because it is not deducible: `autosummary_table` is a rendered
+table that subclasses docutils' `comment` node, and the autoapi module summary sits inside
+one, so a transform that skips comments silently skips 17 citations that a reader does see.
+
+**The source format does not matter.** The transform runs on the doctree, after parsing, so
+it never sees markdown, reStructuredText or a notebook — only nodes. Citations therefore
+link identically from every format the build accepts, including the `.md` and `.ipynb`
+that myst-nb parses: in prose, tables, blockquotes, list items and emphasis, but not in a
+notebook's code cells or their outputs, which are literal blocks like any other. This is
+the reason to prefer a transform over a parser-level rule; a rule written against one
+syntax would have to be rewritten for the next.
 
 **The output is checked, not assumed.** §3.6 asserts that every citation in the *source*
 resolves to an anchor. Its converse is asserted after `make html`: no citation-shaped text
