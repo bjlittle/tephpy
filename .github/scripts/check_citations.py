@@ -140,12 +140,7 @@ def check_citations(
     for path in paths:
         own = owners.get(path)
         text = path.read_text(encoding="utf-8")
-        lines = (
-            read_lines(text)
-            if path.suffix == ".md"
-            else enumerate(text.splitlines(), start=1)
-        )
-        for number, line in lines:
+        for number, line in citations.source_lines(path, text):
             for citation in citations.scan(line, pattern, own):
                 if citation.slug is None:
                     violations.append(

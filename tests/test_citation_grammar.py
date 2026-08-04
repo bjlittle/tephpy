@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -109,3 +110,97 @@ def test_the_span_indexes_the_source():
     (citation,) = citations.scan(source, PATTERN, None)
     assert source[citation.start : citation.end] == citation.text
     assert citation.number == "3.2"
+
+
+NOTEBOOK = {
+    "cells": [
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "Prose citing spec @3.2.\n",
+                "\n",
+                "```python\n",
+                "# spec @9999 inside a fence\n",
+                "```\n",
+            ],
+        },
+        {
+            "cell_type": "code",
+            "metadata": {},
+            "execution_count": None,
+            "outputs": [
+                {
+                    "name": "stdout",
+                    "output_type": "stream",
+                    "text": ["generated output naming spec @8888\n"],
+                }
+            ],
+            "source": ["# code comment citing spec @3.1\n", "print('hi')"],
+        },
+        {"cell_type": "raw", "metadata": {}, "source": ["raw cell spec @7777\n"]},
+    ],
+    "metadata": {},
+    "nbformat": 4,
+    "nbformat_minor": 5,
+}
+
+
+def notebook(tmp_path):
+    """Write the fixture notebook the way ``nbformat`` would, and return its path."""
+    path = tmp_path / "probe.ipynb"
+    path.write_text(cite(json.dumps(NOTEBOOK, indent=1)), encoding="utf-8")
+    return path
+
+
+def read(path):
+    """Return the lines the citation rule governs, joined."""
+    text = path.read_text(encoding="utf-8")
+    return "\n".join(line for _number, line in citations.source_lines(path, text))
+
+
+def test_a_notebook_is_read_as_markdown_and_as_code(tmp_path):
+    """A notebook is read the way each of its cells is written (docs spec §3.6)."""
+    body = read(notebook(tmp_path))
+    assert cite("spec @3.2") in body  # markdown prose is read
+    assert cite("spec @3.1") in body  # a code cell is read as a .py is
+
+
+def test_a_notebook_hides_fences_output_and_raw_cells(tmp_path):
+    """A fence is markdown; output and raw cells are not authored prose."""
+    body = read(notebook(tmp_path))
+    assert cite("@9999") not in body  # a fence inside a markdown cell
+    assert cite("@8888") not in body  # generated output
+    assert cite("@7777") not in body  # a raw cell renders as nothing
+
+
+def test_a_notebook_citation_reports_its_own_file_line(tmp_path):
+    """A violation must point where an editor will open the file."""
+    path = notebook(tmp_path)
+    raw = path.read_text(encoding="utf-8").splitlines()
+    located = [
+        number
+        for number, line in citations.source_lines(path, "\n".join(raw))
+        if cite("@3.2") in line
+    ]
+    assert len(located) == 1
+    assert cite("@3.2") in raw[located[0] - 1]
+
+
+def test_markdown_and_plain_files_are_unaffected(tmp_path):
+    """The suffix branch is new; the two behaviours it subsumes are not."""
+    md = tmp_path / "probe.md"
+    md.write_text(cite("prose spec @3.2\n\n```\nspec @9999\n```\n"), encoding="utf-8")
+    assert cite("@3.2") in read(md)
+    assert cite("@9999") not in read(md)
+
+    py = tmp_path / "probe.py"
+    py.write_text(cite('"""spec @3.2."""\n'), encoding="utf-8")
+    assert cite("@3.2") in read(py)
+
+
+def test_a_malformed_notebook_is_read_as_nothing(tmp_path):
+    """An unparsable notebook is a problem for the build, not for this gate."""
+    path = tmp_path / "broken.ipynb"
+    path.write_text("{not json", encoding="utf-8")
+    assert read(path) == ""

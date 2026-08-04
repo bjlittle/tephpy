@@ -23,6 +23,7 @@ Notes
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import re
 from typing import TYPE_CHECKING
 
@@ -185,6 +186,95 @@ def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
         rf"|§(?P<bare>\d+(?:\.\d+)*)",
         flags=re.IGNORECASE,
     )
+
+
+def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
+    """Yield the authored lines of a notebook, with markdown fences skipped.
+
+    A notebook is read the way its cells are written (docs spec §3.6): markdown
+    cells as markdown, so a fenced illustration of the anchor rule is skipped
+    exactly as it is in a ``.md`` file; code cells as Python is read, so a
+    citation in a comment is still checked; and outputs not at all, being
+    generated rather than authored. A raw cell renders as nothing and is read as
+    nothing.
+
+    Line numbers are numbers in the ``.ipynb`` file itself, so a violation points
+    where an editor will open. Each source line is located by searching forward
+    for its JSON-encoded form, which ``nbformat`` writes one to a physical line.
+    The cursor only ever moves forward, so a line repeated across cells resolves
+    to its own occurrence; a line that cannot be located at all is reported
+    against the last one that could, rather than silently ending the scan.
+
+    Parameters
+    ----------
+    text : str
+        The notebook file contents.
+
+    Yields
+    ------
+    tuple of (int, str)
+        The 1-indexed line number within the file, and the authored line.
+
+    """
+    try:
+        nb = json.loads(text)
+    except json.JSONDecodeError:
+        return
+    if not isinstance(nb, dict):
+        return
+    raw = text.splitlines()
+    cursor = 0
+    for cell in nb.get("cells", []):
+        kind = cell.get("cell_type")
+        if kind not in {"markdown", "code"}:
+            continue
+        source = cell.get("source", "")
+        lines = (
+            source.splitlines()
+            if isinstance(source, str)
+            else [line.rstrip("\n") for line in source]
+        )
+        located: list[tuple[int, str]] = []
+        for line in lines:
+            encoded = json.dumps(line, ensure_ascii=False)[1:-1]
+            at = cursor
+            while at < len(raw) and encoded not in raw[at]:
+                at += 1
+            if at < len(raw):
+                cursor = at + 1
+                located.append((at + 1, line))
+            else:
+                located.append((max(cursor, 1), line))
+        if kind == "markdown":
+            body = "\n".join(line for _number, line in located)
+            for number, line in read_lines(body):
+                yield located[number - 1][0], line
+        else:
+            yield from located
+
+
+def source_lines(path: Path, text: str) -> Iterator[tuple[int, str]]:
+    """Yield the lines of ``text`` that the citation rule governs.
+
+    Parameters
+    ----------
+    path : Path
+        The file the text came from; only its suffix is read.
+    text : str
+        The file contents.
+
+    Yields
+    ------
+    tuple of (int, str)
+        The 1-indexed line number, and the line.
+
+    """
+    if path.suffix == ".md":
+        yield from read_lines(text)
+    elif path.suffix == ".ipynb":
+        yield from notebook_lines(text)
+    else:
+        yield from enumerate(text.splitlines(), start=1)
 
 
 def scan(
