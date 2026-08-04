@@ -265,7 +265,7 @@ def test_format_coord_default_trio(tephigram_axes):
 
 
 def test_format_coord_config_fields_read_live(tephigram_axes):
-    """config.cursor.fields reorders/selects, live on an existing axes (§3.5)."""
+    """config.cursor.fields reorders/selects, live on an existing axes (spec §3.5)."""
     x, y = _cursor_xy(850.0, -4.2)
     with config.context(cursor={"fields": ("theta", "pressure")}):
         assert tephigram_axes.format_coord(x, y) == "θ 8.6 °C, 850 hPa"
@@ -278,7 +278,7 @@ def test_format_coord_out_of_domain_blank(tephigram_axes):
 
 
 def test_format_coord_instance_assignment_wins(tephigram_axes):
-    """Stock matplotlib full-custom path: assignment shadows the method (§3.2)."""
+    """Stock matplotlib full-custom path: assignment shadows the method (spec §3.2)."""
 
     def custom(_x, _y):
         return "custom"

@@ -9,8 +9,8 @@
 - **Status:** living design specification, implemented in #71
 - **Scope:** one new public function, `tephpy.plotting.add_logo`, plus six bundled PNG masters
 - **Parent spec:** [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md) — this extends
-  §3.2 `plotting` with a branding artist and inherits its error-handling (§6), testing (§7)
-  and engineering-standards (§8) rules unchanged
+  spec §3.2 `plotting` with a branding artist and inherits its error-handling (spec §6),
+  testing (spec §7) and engineering-standards (spec §8) rules unchanged
 - **Prior art:** MetPy's
   [`add_metpy_logo`](https://github.com/Unidata/MetPy/blob/v1.7.1/src/metpy/plots/_util.py#L106-L131)
 - **Brand assets:** `docs/src/_static/brand/assets/logo-bundle.zip`, catalogued by
@@ -91,7 +91,7 @@ def add_logo(
 ```
 
 `pad` and `zorder` take `None` sentinels rather than literals because their values
-are numeric conventions, and the parent spec's §3.5 rule is that nothing numeric is
+are numeric conventions, and the rule in spec §3.5 is that nothing numeric is
 hard-coded at point of use — a signature default is a point of use. They resolve to
 `LOGO_PAD` (6.0) and `LOGO_ZORDER` (100.0) from `_constants`. The string defaults stay
 literal: they are API vocabulary, not conventions, and reading them off the signature
@@ -369,8 +369,9 @@ intention, so none carries an issue (docs spec §3.5).
 (logo-spec-9)=
 ## 9. References
 
-- Parent spec: [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md), §3.2
-  (`plotting`), §6 (error handling), §7 (testing), §8 (engineering standards)
+- Parent spec: [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md), spec §3.2
+  (`plotting`), spec §6 (error handling), spec §7 (testing), spec §8
+  (engineering standards)
 - MetPy `add_metpy_logo`:
   <https://github.com/Unidata/MetPy/blob/v1.7.1/src/metpy/plots/_util.py#L106-L131>
 - matplotlib `AnnotationBbox`:

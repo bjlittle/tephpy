@@ -511,7 +511,7 @@ def _parcel_start(
 
         # `mixed_parcel` integrates over the bottom `_MIXED_LAYER_DEPTH_HPA`;
         # a shallower sounding otherwise raises a bare out-of-range
-        # ValueError from MetPy instead of the §6 hierarchy.
+        # ValueError from MetPy instead of the spec §6 hierarchy.
         span = float(snd.pressure[0].m_as("hPa")) - float(snd.pressure[-1].m_as("hPa"))
         if span < _MIXED_LAYER_DEPTH_HPA:
             msg = (
