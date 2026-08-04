@@ -15,23 +15,21 @@ Notes
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib.util
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable
+    import types
 
 REPO = Path(__file__).resolve().parents[2]
 SPECS = REPO / "docs" / "src" / "developer" / "specs"
+GRAMMAR = REPO / "docs" / "src" / "_ext" / "citations.py"
 EXCLUDED = ("docs/src/developer/plans/",)
-ANCHOR = re.compile(r"^\((?P<slug>[a-z][a-z-]*?)-(?P<num>\d+(?:-\d+)*)\)=\s*$")
-HEADING = re.compile(r"^#{2,6}\s+(?P<num>\d+(?:\.\d+)*)\.?\s+\S")
-FENCE = re.compile(r"^\s*(?P<rail>`{3,}|~{3,})(?P<info>.*)$")
-SEPARATOR = re.compile(r"\s*[,/]\s*")
 
 
 def display(path: Path) -> str:
@@ -55,12 +53,38 @@ def display(path: Path) -> str:
         return str(path)
 
 
-@dataclass(frozen=True)
-class Anchor:
-    """Where a MyST target was declared."""
+def _grammar() -> types.ModuleType:
+    """Load the citation grammar shared with the docs build (docs spec §3.7).
 
-    path: Path
-    line: int
+    It lives under ``docs/`` rather than beside this script because ``MANIFEST.in``
+    prunes ``.github`` while the rest of ``docs/`` ships, and the Sphinx extension
+    that shares it must import from a path an sdist carries. This script only ever
+    runs in a checkout, so it is the one that reaches across.
+
+    Returns
+    -------
+    module
+        The loaded ``citations`` module.
+
+    """
+    spec = importlib.util.spec_from_file_location("citations", GRAMMAR)
+    if spec is None or spec.loader is None:
+        print(f"cannot load the citation grammar from {display(GRAMMAR)}")
+        raise SystemExit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+citations = _grammar()
+
+ANCHOR = citations.ANCHOR
+HEADING = citations.HEADING
+Anchor = citations.Anchor
+read_lines = citations.read_lines
+collect_anchors = citations.collect_anchors
+citation_pattern = citations.citation_pattern
 
 
 @dataclass(frozen=True)
@@ -81,121 +105,6 @@ class Violation:
 
         """
         return f"  {display(self.path)}:{self.line}: {self.message}"
-
-
-def read_lines(text: str) -> Iterator[tuple[int, str]]:
-    """Yield the 1-indexed lines of ``text`` that sit outside a fenced code block.
-
-    docs spec §3.3 illustrates the anchor rule with a literal target and heading
-    inside a fence, so a reader that does not skip fences finds a duplicate anchor
-    and a heading in the wrong document (docs spec §3.6).
-
-    The opening rail is remembered rather than counted. A block opened with four
-    backticks may quote a three-backtick block, and a reader that toggles on any
-    rail treats that inner delimiter as the close and reads the quoted anchors as
-    its own — so a fence closes only on a rail of the same character, at least as
-    long, and carrying no info string.
-
-    Parameters
-    ----------
-    text : str
-        The file contents.
-
-    Yields
-    ------
-    tuple of (int, str)
-        The line number and the line, without its terminator.
-
-    """
-    rail: str | None = None
-    for number, line in enumerate(text.splitlines(), start=1):
-        fence = FENCE.match(line)
-        if fence is not None:
-            found = fence["rail"]
-            if rail is None:
-                rail = found
-                continue
-            if (
-                found[0] == rail[0]
-                and len(found) >= len(rail)
-                and not fence["info"].strip()
-            ):
-                rail = None
-                continue
-        if rail is None:
-            yield number, line
-
-
-def collect_anchors(
-    specs: Iterable[Path],
-) -> tuple[dict[str, Anchor], dict[Path, str]]:
-    """Read the anchor registry and each specification's owning prefix.
-
-    Parameters
-    ----------
-    specs : iterable of Path
-        The specification documents to read.
-
-    Returns
-    -------
-    tuple of (dict, dict)
-        The anchors keyed by slug, and the owning prefix keyed by path.
-
-    """
-    anchors: dict[str, Anchor] = {}
-    owners: dict[Path, str] = {}
-    for spec in specs:
-        for number, line in read_lines(spec.read_text(encoding="utf-8")):
-            match = ANCHOR.match(line)
-            if match is None:
-                continue
-            slug = f"{match['slug']}-{match['num']}"
-            if slug in anchors:
-                first = anchors[slug]
-                print(
-                    f"duplicate anchor '{slug}': "
-                    f"{display(first.path)}:{first.line} and "
-                    f"{display(spec)}:{number}"
-                )
-                raise SystemExit(1)
-            anchors[slug] = Anchor(spec, number)
-            owners.setdefault(spec, match["slug"])
-    return anchors, owners
-
-
-def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
-    """Build the citation regular expression from the discovered prefixes.
-
-    The registry is derived, not declared (docs spec §3.6): the citation forms are
-    the anchor prefixes with hyphens read back as whitespace. Longest first, so
-    ``logo spec`` matches before ``spec``.
-
-    A prefix must start a word. Without that, the ``spec`` alternative matches
-    inside ``nonspec``, and a typo validates as the citation it was trying to be.
-
-    Parameters
-    ----------
-    anchors : iterable of str
-        The anchor slugs, e.g. ``logo-spec-3-5``.
-
-    Returns
-    -------
-    re.Pattern
-        A pattern with ``prefix``, ``num`` and ``bare`` groups.
-
-    """
-    prefixes = set()
-    for slug in anchors:
-        parts = slug.split("-")
-        digits = next(i for i, part in enumerate(parts) if part.isdigit())
-        prefixes.add("-".join(parts[:digits]))
-    forms = sorted(prefixes, key=len, reverse=True)
-    alternation = "|".join(form.replace("-", r"\s+") for form in forms)
-    return re.compile(
-        rf"(?<![\w-])(?P<prefix>{alternation})\s*§(?P<num>\d+(?:\.\d+)*)"
-        rf"|§(?P<bare>\d+(?:\.\d+)*)",
-        flags=re.IGNORECASE,
-    )
 
 
 def check_citations(
@@ -237,38 +146,22 @@ def check_citations(
             else enumerate(text.splitlines(), start=1)
         )
         for number, line in lines:
-            carried: str | None = None
-            end = 0
-            for match in pattern.finditer(line):
-                joined = carried is not None and SEPARATOR.fullmatch(
-                    line[end : match.start()]
-                )
-                end = match.end()
-                if match["prefix"] is not None:
-                    carried = re.sub(r"\s+", "-", match["prefix"].lower())
-                    number_text = match["num"]
-                elif joined:
-                    number_text = match["bare"]
-                elif own is not None:
-                    carried, number_text = own, match["bare"]
-                else:
-                    carried = None
+            for citation in citations.scan(line, pattern, own):
+                if citation.slug is None:
                     violations.append(
                         Violation(
                             path,
                             number,
-                            f"'§{match['bare']}' has no prefix; "
-                            f"write 'spec §{match['bare']}'",
+                            f"'§{citation.number}' has no prefix; "
+                            f"write 'spec §{citation.number}'",
                         )
                     )
-                    continue
-                slug = f"{carried}-{number_text.replace('.', '-')}"
-                if slug not in anchors:
+                elif citation.slug not in anchors:
                     violations.append(
                         Violation(
                             path,
                             number,
-                            f"'§{number_text}' → no anchor '#{slug}'",
+                            f"'§{citation.number}' → no anchor '#{citation.slug}'",
                         )
                     )
     return violations
