@@ -85,6 +85,38 @@ tuples, and parameter defaults from the private ``_constants`` module. Do not
 extend that list to silence a reference you can instead make resolve — add a
 ``numpydoc_xref_aliases`` entry or write the full dotted name.
 
+.. _specification-citations:
+
+Specification Citations
+-----------------------
+
+Cite a design specification as plain text — ``spec §3.2``, ``logo spec §1``,
+``docs spec §3.6`` — and never as a hand-written role. The build turns each one
+into a link to the section it names, so writing the role yourself is not an
+improvement but a hazard: a role carries a second string that can disagree with
+its display text, and
+
+.. code-block:: rst
+
+   :ref:`spec §3.2 <logo-spec-3-2>`
+
+has the right text against the wrong document while resolving perfectly cleanly,
+so neither the citation checker nor a nitpicky build has anything to object to.
+Writing the citation once means the text and the target cannot disagree.
+
+The prefix names the document and is load-bearing. A bare ``§N`` means *this*
+document's §N, which makes it safe inside a specification and an error anywhere
+else — a docstring owns no sections. Where several sections are cited together,
+the prefix carries across the run, so ``spec §3.3, §10`` and ``spec §3.1/§10``
+each name two sections of the parent specification; the run ends at any other
+punctuation, so a bare ``§N`` opening the next sentence falls back to the
+containing document rather than inheriting.
+
+A pre-commit hook checks that every citation names an anchor that exists, and the
+documentation build checks that every rendered citation became a link. Both are
+specified in the published specifications design: docs spec §3.6 covers the hook,
+and docs spec §3.7 covers the build.
+
 Attribute Documentation
 -----------------------
 

@@ -1,0 +1,7 @@
+Design specification citations such as ``spec §3.2`` now render as links to the
+section they name, throughout the documentation and the API reference. The
+citations themselves are unchanged: a Sphinx transform resolves them while the
+doctree is built, so nothing under ``src/`` was edited and the written form is
+still the plain text it always was. A companion check asserts that every rendered
+citation became a link — the converse of the existing citation-integrity hook.
+(:issue:`85`, :user:`bjlittle`)
