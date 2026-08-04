@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Image-baseline and vector-output tests for the tephigram diagram (§8.5).
+"""Image-baseline and vector-output tests for the tephigram diagram (spec §8.5).
 
 Baselines live in ``tests/baseline`` (pyproject ``mpl-baseline-path``),
 generated with ``pixi run baselines`` on the committed lockfile. The
