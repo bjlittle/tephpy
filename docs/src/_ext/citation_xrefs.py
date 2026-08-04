@@ -207,6 +207,8 @@ def _build_registry(app: Sphinx) -> None:
         )
         raise ExtensionError(message) from duplicate
     if not anchors:
+        PATTERN = None
+        OWNERS.clear()
         return
     PATTERN = citations.citation_pattern(anchors)
     OWNERS.clear()
