@@ -222,12 +222,16 @@ docstring that still renders. A pre-commit hook therefore asserts three properti
 
 1. **Resolution.** Every citation names an anchor that exists.
 2. **Keying.** Every `(prefix-N)=` target sits immediately above the heading numbered N.
-3. **Coverage.** Every numbered heading carries a target.
+3. **Coverage.** Targets and numbered headings pair up one to one: every heading carries a
+   target, and every target still has a heading beneath it.
 
 Resolution is the one that catches renumbering. Keying and coverage are what keep
-resolution meaningful: an anchor that has drifted onto the wrong heading still resolves,
-and a heading with no anchor is unaddressable rather than wrongly addressed, so neither
-shows up as a broken citation.
+resolution meaningful: an anchor that has drifted onto the wrong heading still resolves, a
+heading with no anchor is unaddressable rather than wrongly addressed, and an anchor left
+behind by a deleted section resolves to nothing at all — none of the three shows up as a
+broken citation. Coverage is stated as a pairing rather than a one-way rule because the
+two directions catch different faults, and reading only from the headings down misses the
+orphan: there is no heading left to start from.
 
 The check derives its registry rather than declaring one. It reads the anchors out of
 `docs/src/developer/specs/*.md`, and the set of valid prefixes falls out of them; a
@@ -242,11 +246,18 @@ to remove.
 Fenced code blocks are skipped. That is not a refinement: §3.3 illustrates the anchor rule
 with a literal `(spec-3-2)=` and its heading *inside* a fence, so a checker that reads
 fences finds a duplicate anchor and a heading in the wrong document, and fails on the very
-passage documenting the rule it enforces.
+passage documenting the rule it enforces. Skipping means matching the opening rail, not
+counting delimiters — a block opened with four backticks may quote a three-backtick one,
+and a reader that closes on any rail resumes inside the quotation.
 
-The corpus is `src/`, `tests/`, the specifications themselves, `docs/src/conf.py` and
-`AGENTS.md`. The plans are excluded: they are point-in-time records (§3.4), so their
-citations are frozen with them and a renumbering is not a defect in a plan.
+The corpus is derived as well: every text file the repository tracks, less the plans,
+which are point-in-time records (§3.4) whose citations are frozen with them, so a
+renumbering is not a defect in a plan. Naming the corpus by glob would fail exactly the way a declared
+prefix registry fails — by silently not covering something. It did: a corpus of
+`src/**/*.py` and `tests/**/*.py` left `tests/fixtures/io/README.md` outside the check
+while it carried two citations, along with those in `pyproject.toml` and this collection's
+own `index.rst`. A tracked file is in scope from the moment it is added, whatever its
+format.
 
 **What this cannot catch.** A citation that is well formed and resolves, but names the
 wrong section, is indistinguishable from a correct one. That is not hypothetical — it is

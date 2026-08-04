@@ -149,6 +149,71 @@ def test_a_duplicate_anchor_is_reported(tmp_path):
         cc.collect_anchors([a, b])
 
 
+def test_an_inner_fence_does_not_close_an_outer_one():
+    """A quad-backtick block may quote a triple-backtick one (docs spec §3.6)."""
+    outer, inner = "`" * 4, "`" * 3
+    text = (
+        f"{outer}markdown\n{inner}\n(spec-999)=\n"
+        f"## 999. Leaked\n{inner}\n{outer}\nkept\n"
+    )
+    assert [line for _, line in cc.read_lines(text)] == ["kept"]
+
+
+def test_a_prefix_must_start_a_word(tmp_path):
+    """``nonspec §N`` is a typo, not a citation of the parent's ``§N``."""
+    spec = tmp_path / "parent.md"
+    spec.write_text("(spec-3)=\n## 3. A\n")
+    anchors, owners = cc.collect_anchors([spec])
+    src = tmp_path / "mod.py"
+    src.write_text(f'"""A typo: nonspec {SECTION}3."""\n')
+    violations = cc.check_citations([src], anchors, owners)
+    assert len(violations) == 1
+    assert "no prefix" in violations[0].message
+
+
+def test_a_prefix_does_not_carry_past_its_run(tmp_path):
+    """The run is comma- or solidus-separated, and ends at the sentence.
+
+    The separators are fixed by docs spec §3.2; a full stop is not one of them.
+    """
+    spec = tmp_path / "docs.md"
+    spec.write_text("(docs-spec-3-2)=\n### 3.2 A\n\n(docs-spec-4)=\n## 4. B\n")
+    anchors, owners = cc.collect_anchors([spec])
+    src = tmp_path / "mod.py"
+    src.write_text(f'"""See docs spec {SECTION}3.2, {SECTION}4."""\n')
+    assert cc.check_citations([src], anchors, owners) == []
+    src.write_text(f'"""See docs spec {SECTION}3.2. Also {SECTION}4."""\n')
+    violations = cc.check_citations([src], anchors, owners)
+    assert len(violations) == 1
+    assert "no prefix" in violations[0].message
+
+
+def test_an_anchor_whose_heading_is_gone_is_reported(tmp_path):
+    """Deleting a section leaves its target resolving to nothing (docs spec §3.6).
+
+    The heading pass cannot see this one — there is no heading left to start
+    from — yet the anchor stays in the registry and citations keep resolving.
+    """
+    spec = tmp_path / "parent.md"
+    spec.write_text("(spec-1)=\n## 1. A\n\n(spec-2)=\n\nProse where the heading was.\n")
+    _, owners = cc.collect_anchors([spec])
+    violations = cc.check_anchors([spec], owners)
+    assert len(violations) == 1
+    assert violations[0].line == 4
+    assert "names no heading" in violations[0].message
+
+
+def test_the_corpus_covers_every_tracked_text_file():
+    """A glob by extension silently omits citation-bearing files (docs spec §3.6)."""
+    paths = set(cc.corpus())
+    assert cc.REPO / "tests" / "fixtures" / "io" / "README.md" in paths
+    assert cc.REPO / "pyproject.toml" in paths
+    assert cc.REPO / "docs" / "src" / "developer" / "specs" / "index.rst" in paths
+    frozen = "the plans are point-in-time records (docs spec §3.4)"
+    assert not any("plans" in path.parts for path in paths), frozen
+    assert not any(path.suffix == ".png" for path in paths), "images are not text"
+
+
 def test_the_repository_satisfies_the_citation_contract(capsys):
     """The live tree passes all three assertions (docs spec §3.6).
 

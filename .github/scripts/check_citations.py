@@ -17,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 from typing import TYPE_CHECKING
 
@@ -25,16 +27,11 @@ if TYPE_CHECKING:
 
 REPO = Path(__file__).resolve().parents[2]
 SPECS = REPO / "docs" / "src" / "developer" / "specs"
-CORPUS = (
-    "src/**/*.py",
-    "tests/**/*.py",
-    "docs/src/developer/specs/*.md",
-    "docs/src/conf.py",
-    "AGENTS.md",
-)
+EXCLUDED = ("docs/src/developer/plans/",)
 ANCHOR = re.compile(r"^\((?P<slug>[a-z][a-z-]*?)-(?P<num>\d+(?:-\d+)*)\)=\s*$")
 HEADING = re.compile(r"^#{2,6}\s+(?P<num>\d+(?:\.\d+)*)\.?\s+\S")
-FENCE = re.compile(r"^\s*(?:`{3}|~{3})")
+FENCE = re.compile(r"^\s*(?P<rail>`{3,}|~{3,})(?P<info>.*)$")
+SEPARATOR = re.compile(r"\s*[,/]\s*")
 
 
 def display(path: Path) -> str:
@@ -93,6 +90,12 @@ def read_lines(text: str) -> Iterator[tuple[int, str]]:
     inside a fence, so a reader that does not skip fences finds a duplicate anchor
     and a heading in the wrong document (docs spec §3.6).
 
+    The opening rail is remembered rather than counted. A block opened with four
+    backticks may quote a three-backtick block, and a reader that toggles on any
+    rail treats that inner delimiter as the close and reads the quoted anchors as
+    its own — so a fence closes only on a rail of the same character, at least as
+    long, and carrying no info string.
+
     Parameters
     ----------
     text : str
@@ -104,12 +107,22 @@ def read_lines(text: str) -> Iterator[tuple[int, str]]:
         The line number and the line, without its terminator.
 
     """
-    fenced = False
+    rail: str | None = None
     for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line):
-            fenced = not fenced
-            continue
-        if not fenced:
+        fence = FENCE.match(line)
+        if fence is not None:
+            found = fence["rail"]
+            if rail is None:
+                rail = found
+                continue
+            if (
+                found[0] == rail[0]
+                and len(found) >= len(rail)
+                and not fence["info"].strip()
+            ):
+                rail = None
+                continue
+        if rail is None:
             yield number, line
 
 
@@ -157,6 +170,9 @@ def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
     the anchor prefixes with hyphens read back as whitespace. Longest first, so
     ``logo spec`` matches before ``spec``.
 
+    A prefix must start a word. Without that, the ``spec`` alternative matches
+    inside ``nonspec``, and a typo validates as the citation it was trying to be.
+
     Parameters
     ----------
     anchors : iterable of str
@@ -176,7 +192,7 @@ def citation_pattern(anchors: Iterable[str]) -> re.Pattern[str]:
     forms = sorted(prefixes, key=len, reverse=True)
     alternation = "|".join(form.replace("-", r"\s+") for form in forms)
     return re.compile(
-        rf"(?P<prefix>{alternation})\s*§(?P<num>\d+(?:\.\d+)*)"
+        rf"(?<![\w-])(?P<prefix>{alternation})\s*§(?P<num>\d+(?:\.\d+)*)"
         rf"|§(?P<bare>\d+(?:\.\d+)*)",
         flags=re.IGNORECASE,
     )
@@ -188,6 +204,12 @@ def check_citations(
     owners: dict[Path, str],
 ) -> list[Violation]:
     """Assert that every citation names an anchor that exists.
+
+    A prefix carries only to the end of its run — the comma- or solidus-separated
+    compound of docs spec §3.2. Carrying it to the end of the physical line instead
+    lets it cross a sentence boundary: a bare ``§N`` opening the next sentence would
+    inherit the namespace of a prefixed citation earlier in the line, rather than
+    falling back to the containing document as docs spec §3.2 requires.
 
     Parameters
     ----------
@@ -216,15 +238,21 @@ def check_citations(
         )
         for number, line in lines:
             carried: str | None = None
+            end = 0
             for match in pattern.finditer(line):
+                joined = carried is not None and SEPARATOR.fullmatch(
+                    line[end : match.start()]
+                )
+                end = match.end()
                 if match["prefix"] is not None:
                     carried = re.sub(r"\s+", "-", match["prefix"].lower())
                     number_text = match["num"]
-                elif carried is not None:
+                elif joined:
                     number_text = match["bare"]
                 elif own is not None:
                     carried, number_text = own, match["bare"]
                 else:
+                    carried = None
                     violations.append(
                         Violation(
                             path,
@@ -254,6 +282,13 @@ def check_anchors(
 
     Keying: every anchor sits immediately above the heading it is numbered for.
     Coverage: every numbered heading carries an anchor.
+
+    Both directions of the adjacency are walked, because neither alone is enough.
+    Reading down from each heading catches one with no anchor, or with the wrong
+    one; reading down from each anchor catches one whose heading has been deleted
+    from under it. An orphan of that kind is invisible to the heading pass — there
+    is no heading left to start from — yet :func:`collect_anchors` still registers
+    it, so citations go on resolving to a target that names no section.
 
     The anchor registry is not consulted. Both properties are local to one
     document — the heading's number and the line above it — and reading them
@@ -305,7 +340,64 @@ def check_anchors(
                         f"anchor '{above}' should be '({expected})='",
                     )
                 )
+        for number, line in read_lines(text):
+            anchor = ANCHOR.match(line)
+            if anchor is None:
+                continue
+            below = lines[number].strip() if number < len(lines) else ""
+            if HEADING.match(below) is None:
+                slug = f"{anchor['slug']}-{anchor['num']}"
+                violations.append(
+                    Violation(
+                        spec,
+                        number,
+                        f"anchor '{slug}' names no heading; citations to it "
+                        f"resolve to nothing",
+                    )
+                )
     return violations
+
+
+def corpus() -> list[Path]:
+    """Enumerate the files the citation rule governs.
+
+    The corpus is derived, not declared (docs spec §3.6): every text file the
+    repository tracks, less the plans, whose citations are frozen with them
+    (docs spec §3.4). Naming the corpus by glob fails the way a hand-maintained
+    registry fails — by silently not covering something. It did: a glob of
+    ``tests/**/*.py`` left ``tests/fixtures/io/README.md`` and its two citations
+    outside the check, along with those in ``pyproject.toml`` and the
+    specifications' own ``index.rst``.
+
+    Returns
+    -------
+    list of Path
+        The tracked text files, sorted. A file that is not UTF-8 is not text, and
+        is dropped — the baseline images and the fixture archives.
+
+    """
+    git = shutil.which("git")
+    if git is None:
+        print("git is not on PATH, so the corpus cannot be enumerated")
+        raise SystemExit(1)
+    listing = subprocess.run(  # noqa: S603 -- fixed argv, git resolved off PATH
+        [git, "ls-files", "-z"],
+        cwd=REPO,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout
+    paths = []
+    for name in listing.split("\0"):
+        if not name or name.startswith(EXCLUDED):
+            continue
+        path = REPO / name
+        try:
+            path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        paths.append(path)
+    return sorted(paths)
 
 
 def main() -> int:
@@ -322,7 +414,7 @@ def main() -> int:
         print(f"no specifications found under {SPECS.relative_to(REPO)}")
         return 1
     anchors, owners = collect_anchors(specs)
-    paths = sorted({path for pattern in CORPUS for path in REPO.glob(pattern)})
+    paths = corpus()
     groups = {
         "Unresolved citations": check_citations(paths, anchors, owners),
         "Anchor problems": check_anchors(specs, owners),
