@@ -36,9 +36,10 @@ before implementation, not updated afterwards. Everything below follows from tha
 
 1. **Specifications are published; plans are not.** The reader-facing consequence of #73.
 2. **Both live under the developer section, not a Diátaxis quadrant.** The quadrants are
-   for users. Specification content — §7 testing, §8 engineering standards, §10 roadmap —
-   is contributor material, and the developer guide is its dedicated home, following the
-   [`bjlittle/geovista`](https://github.com/bjlittle/geovista) structure.
+   for users. Specification content — spec §7 testing, spec §8 engineering standards,
+   spec §10 roadmap — is contributor material, and the developer guide is its dedicated
+   home, following the [`bjlittle/geovista`](https://github.com/bjlittle/geovista)
+   structure.
 3. **Specifications and plans remain siblings** so that the relative links between them
    keep working, in a checkout and in GitHub's web UI.
 4. **Sections are addressed by explicit anchors keyed to the section number,** never by
@@ -134,16 +135,16 @@ section number with dots replaced by hyphens and prefixed by the document's slug
 ```
 
 The target becomes the section's HTML `id`, so `…/2026-07-22-tephpy-design.html#spec-3-2`
-addresses §3.2 directly.
+addresses spec §3.2 directly.
 
 Two reasons this is not optional. First, docutils derives its slug from the heading *text*
 and discards the number, so `### 3.2 \`plotting\`` would otherwise be addressable only as
 `#plotting` — and 149 citations point at that one section of a document that renders to
 180 KB of HTML. A citation that resolves to the top of a page that long has not really
-resolved. Second, prose-derived slugs collide silently: §7 *Testing* and §8.5 *Testing*
-produced the same slug, and docutils disambiguated the second to `id1` — an anchor that
-silently becomes `id2` the moment a heading is inserted above it. Anchors derived from
-prose are unstable under exactly the edits a living document invites.
+resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and spec §8.5
+*Testing* produced the same slug, and docutils disambiguated the second to `id1` — an
+anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
+derived from prose are unstable under exactly the edits a living document invites.
 
 The prefixes are `spec-`, `logo-spec-` and `docs-spec-`, matching the citation prefixes in
 §3.2 with spaces replaced by hyphens. Sphinx labels are global, so the prefix is what
@@ -173,9 +174,9 @@ was wrong on the facts is worth fixing before it is acted on.
 
 A living specification records not only what was decided but what remains undecided. Those
 records are useful only if a reader can tell, at a glance, which is which and where the
-trail continues. Every item in a specification's open-item sections — the parent's §10
-*Assumptions and open decisions* and §11 *Open questions* — therefore carries a leading
-status tag from a fixed vocabulary:
+trail continues. Every item in a specification's open-item sections — spec §10
+*Assumptions and open decisions* and spec §11 *Open questions* — therefore carries a
+leading status tag from a fixed vocabulary:
 
 | status | meaning | must carry |
 |---|---|---|
@@ -203,13 +204,13 @@ directions: every pointer in a specification must resolve to an issue, and every
 carrying the label must be cited by a specification. A one-directional check lets an
 issue be closed while the specification still claims the item is open.
 
-The parent specification is not the only document this governs. A specification with no §10
-or §11 — the `add_logo` specification, or this one — records its unsettled items in its
-**§Scope** section instead, and those entries carry the same tags and the same issue
-pointers. The section differs; the contract does not. Scoping it to the one document that
-happens to have the right headings would leave live work sitting unseen in exactly the
-published pages the contract exists to protect, and a reader has no way to know that the
-absence of a tag means "not covered" rather than "nothing outstanding".
+The parent specification is not the only document this governs. A specification with no
+spec §10 or spec §11 — the `add_logo` specification, or this one — records its unsettled
+items in its **§Scope** section instead, and those entries carry the same tags and the
+same issue pointers. The section differs; the contract does not. Scoping it to the one
+document that happens to have the right headings would leave live work sitting unseen in
+exactly the published pages the contract exists to protect, and a reader has no way to
+know that the absence of a tag means "not covered" rather than "nothing outstanding".
 
 (docs-spec-3-6)=
 ### 3.6 Citation integrity
@@ -259,16 +260,16 @@ claiming otherwise.
 ## 4. Canonical usage
 
 A reader meets `(spec §3.2)` in the rendered documentation for `plot_barbs`, follows the
-developer guide to *Design specifications*, and lands on §3.2 of the parent document by
-its anchor. Reading it, they are entitled to assume it describes tephpy as it stands.
+developer guide to *Design specifications*, and lands on spec §3.2 of the parent document
+by its anchor. Reading it, they are entitled to assume it describes tephpy as it stands.
 
 A contributor changing behaviour that a specification section describes updates that
 section in the same pull request. A contributor who finds the code and the specification
 disagreeing has found a specification defect, and reports it as one.
 
 An item that cannot be settled now is written into the specification's open-item section —
-§10 or §11 in the parent, §Scope elsewhere — with a status tag, filed as an issue labelled
-`design: open`, and cited from the item.
+spec §10 or spec §11 in the parent, §Scope elsewhere — with a status tag, filed as an
+issue labelled `design: open`, and cited from the item.
 
 (docs-spec-5)=
 ## 5. Migration
@@ -291,7 +292,7 @@ One-off work, performed once and then finished:
    deliberately unpublished: `../plans/` still resolves in a checkout and on GitHub, but
    Sphinx cannot resolve a link to a page it was told not to build. An absolute URL keeps
    the affordance for a reader of the published page, who has no checkout to fall back on.
-6. Correct the stale repository paths (§3.4): §10 of the parent specification names
+6. Correct the stale repository paths (§3.4): spec §10 of the parent specification names
    `docs/superpowers/plans/`, `README.md` links to `docs/superpowers/specs` on GitHub, and
    twelve plans name their originating specification by its old path. The README link
    becomes the *published* page rather than a second GitHub tree path: the Read the Docs
@@ -300,8 +301,9 @@ One-off work, performed once and then finished:
    should land on. What is *not* corrected: the code blocks in three plans that reproduce
    a file's contents or a PR or issue body already published. Those record what was
    written, not where a document lives, and §3.4 does not reach them.
-7. Audit §10's sixteen items and §11's four questions, establish the true status of each,
-   apply the §3.5 tags, and file `design: open` issues for whatever is genuinely open.
+7. Audit spec §10's sixteen items and spec §11's four questions, establish the true status
+   of each, apply the §3.5 tags, and file `design: open` issues for whatever is genuinely
+   open.
 
 (docs-spec-6)=
 ## 6. Verification
