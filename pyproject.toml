@@ -144,6 +144,10 @@ max-statements = 53
   "T201", # flake8-print: print found.
 ]
 "docs/src/conf.py" = ["INP001", "A001"]
+# The Sphinx extension directory is a ``sys.path`` entry at build time, not a
+# package: an ``__init__.py`` would stop Sphinx resolving ``citation_xrefs`` by
+# top-level module name (docs spec §3.7).
+"docs/src/_ext/*.py" = ["INP001"]
 # DTZ001: naive datetimes are deliberate fixtures — the boundary under
 # test reads them as UTC (spec §3.4).
 "tests/*" = ["ANN001", "ANN003", "ANN201", "ANN202", "DTZ001", "SLF001", "D103"]

@@ -7,6 +7,14 @@
 from __future__ import annotations
 
 from importlib.metadata import version as _dist_version
+from pathlib import Path
+import sys
+
+# ``docs/src/_ext`` holds the citation cross-reference extension (docs spec §3.7)
+# and the grammar it shares with the pre-commit gate of docs spec §3.6. It is a
+# ``sys.path`` entry rather than a package: Sphinx resolves an extension by
+# top-level module name.
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 project = "tephpy"
 author = "tephpy Contributors"
@@ -15,6 +23,7 @@ release = _dist_version("tephpy")
 version = ".".join(release.split(".")[:2])
 
 extensions = [
+    "citation_xrefs",
     "autoapi.extension",
     "myst_nb",
     "numpydoc",

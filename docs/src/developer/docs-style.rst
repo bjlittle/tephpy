@@ -85,6 +85,62 @@ tuples, and parameter defaults from the private ``_constants`` module. Do not
 extend that list to silence a reference you can instead make resolve — add a
 ``numpydoc_xref_aliases`` entry or write the full dotted name.
 
+.. _specification-citations:
+
+Specification Citations
+-----------------------
+
+Cite a design specification as plain text — ``spec §3.2``, ``logo spec §1``,
+``docs spec §3.6`` — and never as a hand-written role. The build turns each one
+into a link to the section it names, so writing the role yourself is not an
+improvement but a hazard: a role carries a second string that can disagree with
+its display text, and
+
+.. code-block:: rst
+
+   :ref:`spec §3.2 <logo-spec-3-2>`
+
+has the right text against the wrong document while resolving perfectly cleanly,
+so neither the citation checker nor a nitpicky build has anything to object to.
+Writing the citation once means the text and the target cannot disagree.
+
+The prefix names the document and is load-bearing. A bare ``§N`` means *this*
+document's §N, which makes it safe inside a specification and an error anywhere
+else — a docstring owns no sections. Where several sections are cited together,
+the prefix carries across the run, so ``spec §3.3, §10`` and ``spec §3.1/§10``
+each name two sections of the parent specification. The run continues across a
+comma or a solidus, and across nothing else: writing ``and`` in place of either
+separator ends it, leaving the second citation bare. A bare ``§N`` opening the
+next sentence falls back to the containing document rather than inheriting, for
+the same reason.
+
+A citation must also sit whole on one line, and so must a compound run — one
+wrapping after its comma or solidus strands the continuation, which falls back
+to the containing document instead of inheriting the prefix it was written
+under. Only horizontal whitespace joins a prefix to its section number, and the
+same holds of the gap after a separator, so a prefix stranded at the end of a
+line with its number wrapped onto the next is no longer part of the citation:
+what remains is a bare ``§N``, rejected outside a specification and read as a
+local reference inside one — either way, not the citation that was written. The
+rule is what keeps the displayed text and the link target from disagreeing,
+because the hook reads one line at a time while the build reads a whole
+paragraph, and a citation able to span the wrap is one they can read
+differently.
+
+Cite a section in body prose. Three other places will not carry a citation, and
+each fails the documentation build rather than rendering wrongly. A heading is
+linked like any other text, but Sphinx copies a page title into ``<title>`` with
+the markup stripped and the theme repeats it in the breadcrumb without the
+anchor, so the citation reaches the reader twice as plain text. A ``.. raw::
+html`` block and an API signature — a parameter's default value included — are
+left alone deliberately, because the build rewrites neither raw output nor code.
+Name the section in the surrounding prose instead.
+
+A pre-commit hook checks that every citation names an anchor that exists, and the
+documentation build checks that every rendered citation became a link. Both are
+specified in the published specifications design: docs spec §3.6 covers the hook,
+and docs spec §3.7 covers the build.
+
 Attribute Documentation
 -----------------------
 
