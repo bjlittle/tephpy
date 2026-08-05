@@ -1,0 +1,6 @@
+The check that every rendered specification citation became a link now names
+where each unlinked one sat — a page title, navigation chrome, an API signature
+or body text — and gives the advice that follows from it, rather than one message
+written for all of them. Citations nested inside a link are explained too, having
+previously been counted and left unexplained. A toctree ``:caption:`` is recorded
+as a fourth placement that cannot carry a citation. (:user:`claude`)
