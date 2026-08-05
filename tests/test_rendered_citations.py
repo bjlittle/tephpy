@@ -71,6 +71,16 @@ def run(monkeypatch, root):
     return crc.main()
 
 
+def flat(out):
+    """Undo the wrapping, so an assertion can name a phrase and not a line.
+
+    The report wraps its advice to a terminal width. Asserting on a substring of
+    the wrapped text would pin where the line breaks fall, and break on a wording
+    change that moved nothing but a word onto the next line.
+    """
+    return " ".join(out.split())
+
+
 def test_a_citation_inside_a_link_is_linked():
     """The property the gate exists to assert (docs spec §3.7)."""
     found = scan('<p>Drawn as described in <a href="#spec-3-2">spec @3.2</a>.</p>')
@@ -99,7 +109,7 @@ def test_an_exempt_ancestor_counts_at_any_depth():
 def test_a_citation_in_ordinary_prose_is_unlinked():
     """The failure the gate reports: rendered, and not a link."""
     found = scan("<p>Drawn as described in spec @3.2.</p>")
-    assert found.bare == [cite("@3.2")]
+    assert found.bare == [(cite("@3.2"), "")]
     assert (found.linked, found.exempt) == (0, 0)
 
 
@@ -112,10 +122,10 @@ def test_a_citation_in_a_page_title_is_unlinked():
     docs spec §3.7 asks for, and this pins that against a later exemption.
     """
     assert scan("<head><title>3. Rendering, per spec @3.2</title></head>").bare == [
-        cite("@3.2")
+        (cite("@3.2"), "title")
     ]
     breadcrumb = scan('<nav><li><span class="std std-ref">spec @3.2</span></li></nav>')
-    assert breadcrumb.bare == [cite("@3.2")]
+    assert breadcrumb.bare == [(cite("@3.2"), "nav")]
 
 
 def test_a_citation_in_a_raw_block_or_a_signature_is_unlinked():
@@ -132,8 +142,37 @@ def test_a_citation_in_a_raw_block_or_a_signature_is_unlinked():
         '<span class="default_value"><span class="pre">\'spec</span> '
         '<span class="pre">@3.2\'</span></span></em></dt>'
     )
-    assert raw.bare == [cite("@3.2")]
-    assert signature.bare == [cite("@3.2")]
+    assert raw.bare == [(cite("@3.2"), "")]
+    assert signature.bare == [(cite("@3.2"), "dt")]
+
+
+def test_a_citation_in_a_toctree_caption_is_unlinked():
+    """The fourth placement, and the one an author is least likely to expect.
+
+    A ``:caption:`` is a directive option rather than a node the transform can
+    reach, so it is never rewritten. It renders twice: once where the toctree
+    sits, as an ordinary paragraph indistinguishable from prose, and once in the
+    theme's sidebar, which is navigation. Both are reported.
+    """
+    body = scan('<p class="caption" role="heading"><span>Reading spec @3.2</span></p>')
+    sidebar = scan(
+        '<nav class="bd-docs-nav"><p class="caption"><span class="caption-text">'
+        "Reading spec @3.2</span></p></nav>"
+    )
+    assert body.bare == [(cite("@3.2"), "")]
+    assert sidebar.bare == [(cite("@3.2"), "nav")]
+
+
+def test_the_outermost_placement_wins():
+    """Two candidates on the stack at once, where the outer one is the answer.
+
+    A definition list inside a sidebar is navigation, not an API signature. What
+    an author is told to do about a citation follows from how the text reached the
+    page, and here navigation put it there — the inner element only says what it
+    was dressed as on arrival. The nesting cannot run the other way.
+    """
+    found = scan("<nav><dl><dt>spec @3.2</dt></dl></nav>")
+    assert found.bare == [(cite("@3.2"), "nav")]
 
 
 def test_a_citation_nested_in_two_links_is_reported():
@@ -152,7 +191,7 @@ def test_an_unclosed_element_does_not_corrupt_the_stack():
     citation as exempt and the gate prints "ok" with a quietly smaller count.
     """
     found = scan('<div><p>spec @3.1</div><a href="#x">spec @3.2</a>')
-    assert found.bare == [cite("@3.1")]
+    assert found.bare == [(cite("@3.1"), "")]
     assert found.linked == 1
     assert found.stack == []
 
@@ -167,7 +206,7 @@ def test_a_stray_end_tag_is_ignored():
 def test_a_void_element_is_never_pushed():
     """``<br>`` never closes, so pushing it would leave the stack growing."""
     found = scan("<p>a line<br>then spec @3.1</p>")
-    assert found.bare == [cite("@3.1")]
+    assert found.bare == [(cite("@3.1"), "")]
     assert found.stack == []
     assert scan("<br><p>spec @3.2</p>").stack == []
 
@@ -175,7 +214,7 @@ def test_a_void_element_is_never_pushed():
 def test_a_self_closing_tag_encloses_nothing():
     """``<a … />`` opens no link, so what follows it is not inside one."""
     found = scan('<p><a href="#x"/>spec @3.2</p>')
-    assert found.bare == [cite("@3.2")]
+    assert found.bare == [(cite("@3.2"), "")]
     assert found.linked == 0
 
 
@@ -208,12 +247,70 @@ def test_the_gate_fails_a_page_whose_citation_is_not_a_link(
         },
     )
     assert run(monkeypatch, root) == 1
-    out = capsys.readouterr().out
+    out = flat(capsys.readouterr().out)
     assert "Unlinked (1)" in out
     assert "guide/style.html" in out
-    # Naming the page is not enough on its own: the three placements that cannot
-    # carry a citation are where an author who did nothing obviously wrong lands.
-    assert "cite the section in body prose" in out
+    # The advice has to fit the failure in hand. This one is the ordinary miss --
+    # prose that should have linked and did not -- so it is told where to look,
+    # and not told about placements it was nowhere near.
+    assert "body text" in out
+    assert "still first in conf.py's extensions" in out
+    assert "browser tab" not in out
+    assert "API signature" not in out
+
+
+def test_the_failure_says_where_each_unlinked_citation_sat(
+    monkeypatch, capsys, tmp_path
+):
+    """Which is the whole of the difference between a report and a puzzle.
+
+    Every one of these fails; naming the placement decides only what the author
+    is told to do about it. A page title and a breadcrumb are one mistake with two
+    symptoms, so a build showing both is not told twice.
+    """
+    root = build(
+        tmp_path,
+        {
+            "index.html": '<p><a href="#spec-3-2">spec @3.2</a></p>',
+            "title.html": (
+                "<head><title>Rendering, per spec @3.1</title></head>"
+                "<nav><li><span>Rendering, per spec @3.1</span></li></nav>"
+            ),
+            "api.html": '<dt class="sig"><span>@3.3</span></dt>',
+        },
+    )
+    assert run(monkeypatch, root) == 1
+    out = flat(capsys.readouterr().out)
+    assert cite("title.html: @3.1 in the page title") in out
+    assert cite("title.html: @3.1 in navigation chrome") in out
+    assert cite("api.html: @3.3 in an API signature") in out
+    assert out.count("browser tab") == 1
+    assert "docstring's prose" in out
+
+
+def test_a_nested_citation_is_explained_and_not_merely_counted(
+    monkeypatch, capsys, tmp_path
+):
+    """The bucket had no guidance of its own, and is the harder one to diagnose.
+
+    Nothing in the source looks wrong: the citation is written as every other one
+    is, and the link around it was put there by a ``.. contents::`` directive or
+    by an author linking a whole sentence. Reporting the count alone leaves that
+    to be rediscovered.
+    """
+    root = build(
+        tmp_path,
+        {
+            "index.html": '<p><a href="#spec-3-2">spec @3.2</a></p>',
+            "guide/style.html": '<a href="#x"><a href="#y">spec @3.1</a></a>',
+        },
+    )
+    assert run(monkeypatch, root) == 1
+    out = flat(capsys.readouterr().out)
+    assert "Nested in a link (1)" in out
+    assert "contents::" in out
+    # The other bucket is empty, so none of its advice belongs here.
+    assert "Unlinked" not in out
 
 
 def test_the_gate_fails_when_no_citation_became_a_link(monkeypatch, capsys, tmp_path):

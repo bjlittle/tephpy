@@ -26,13 +26,21 @@ the transform's output classes, which is exactly the coupling this gate exists t
 avoid.
 
 The exemptions below are narrower than that skip set, which is why a citation in
-a raw block, in an API signature, or in a page title -- stripped of its anchor
-both by Sphinx copying the title into ``<title>`` and by the theme repeating it
-in the breadcrumb -- is reported here. Those are failures, not false positives:
-the citation reaches the reader as plain text in every one of them. Exempting
-them would mean recognising the transform's node classes in the rendered HTML,
-so the rule is stated for authors in the documentation style guide instead, and
-the failure below names it.
+a raw block, in an API signature, in a toctree caption, or in a page title --
+stripped of its anchor by Sphinx copying the title into ``<title>``, and again by
+the theme repeating it in the breadcrumb -- is reported here. Those are failures,
+not false positives: the citation reaches the reader as plain text in every one
+of them. Exempting them would mean recognising the transform's node classes in
+the rendered HTML, so the rule is stated for authors in the documentation style
+guide instead, and the failure below names it.
+
+What a failure *says* is a different matter from whether it fails, and the
+placements are told apart for the report alone. That distinction is what makes
+it safe: a wrong label costs a confusing message, where a wrong exemption would
+cost this gate its sight. The labels are read off element names for the same
+reason -- ``<title>``, ``<nav>`` and ``<dt>`` are HTML, whereas the classes that
+would separate a breadcrumb from any other navigation are one theme's private
+presentation contract.
 
 Notes
 -----
@@ -46,6 +54,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 import sys
+import textwrap
 
 CITATION = re.compile(r"§\s*\d+(?:\.\d+)*")
 #: Text inside these is never linked, by design (docs spec §3.7).
@@ -54,6 +63,48 @@ EXEMPT = {"code", "pre", "script", "style"}
 SKIP_PAGES = ("_modules/",)
 #: Elements that never close, so must never be pushed onto the stack.
 VOID = {"br", "col", "hr", "img", "input", "link", "meta", "source", "wbr"}
+#: Ancestors that say where an unlinked citation sat, tried in this order so the
+#: outermost distinction wins. Diagnostic only: this decides what the failure
+#: says, never whether it fails.
+PLACEMENT = ("title", "nav", "dt")
+#: How each of those is named in the report, with ``""`` for everything else.
+WHERE = {
+    "title": "the page title",
+    "nav": "navigation chrome",
+    "dt": "an API signature",
+    "": "body text",
+}
+#: What to do about each, keyed the same way.
+TITLE = (
+    "A citation in a page title is a link in the heading itself, but not in the "
+    "copy Sphinx makes of it for the browser tab, which is the title stripped of "
+    "its markup. Name the section in the prose under the heading instead."
+)
+NAVIGATION = (
+    "Navigation repeats text written elsewhere and drops the markup with it: the "
+    "breadcrumb repeats the page title, and the sidebar repeats a toctree "
+    "':caption:'. Neither copy can carry a link of its own, so the citation "
+    "belongs in the prose of the page that owns it."
+)
+SIGNATURE = (
+    "An API signature is on the transform's skip set, so a citation in one -- in "
+    "a parameter's default value, say -- is never rewritten into a link. Cite the "
+    "section in the docstring's prose instead."
+)
+BODY = (
+    "Body text is where a citation that simply failed to link comes out. Check "
+    "that 'citation_xrefs' is still first in conf.py's extensions and that the "
+    "section named exists; failing that, the citation is in a '.. raw:: html' "
+    "block or a toctree ':caption:', neither of which the transform rewrites."
+)
+ADVICE = {"title": TITLE, "nav": NAVIGATION, "dt": SIGNATURE, "": BODY}
+#: The other bucket, which is nobody's authoring mistake and everybody's puzzle.
+NESTED = (
+    "A citation inside link text is left plain so that one anchor is never nested "
+    "inside another, and is reported because a reader cannot follow it. A '.. "
+    "contents::' directive links every heading it lists, so a citation in a "
+    "heading lands here; name the section in the prose below it instead."
+)
 
 
 class Scan(HTMLParser):
@@ -64,8 +115,12 @@ class Scan(HTMLParser):
         self.stack: list[str] = []
         self.linked = 0
         self.exempt = 0
-        self.bare: list[str] = []
+        self.bare: list[tuple[str, str]] = []
         self.nested: list[str] = []
+
+    def placement(self) -> str:
+        """Name the ancestor that explains where the current text sits."""
+        return next((tag for tag in PLACEMENT if tag in self.stack), "")
 
     # The unused overrides take underscored names so ruff reads them as
     # deliberate: ``HTMLParser`` calls these positionally, so the names are ours.
@@ -98,7 +153,8 @@ class Scan(HTMLParser):
         elif anchors == 1:
             self.linked += len(hits)
         else:
-            self.bare.extend(hits)
+            where = self.placement()
+            self.bare.extend((hit, where) for hit in hits)
 
 
 def main() -> int:
@@ -119,7 +175,7 @@ def main() -> int:
         return 1
 
     linked = exempt = pages = 0
-    unlinked: dict[str, list[str]] = {}
+    unlinked: dict[str, list[tuple[str, str]]] = {}
     nested: dict[str, list[str]] = {}
     for page in sorted(root.rglob("*.html")):
         relative = page.relative_to(root).as_posix()
@@ -150,19 +206,23 @@ def main() -> int:
             f"{pages} pages (docs spec §3.7)"
         )
         return 0
-    for heading, offenders in (("Unlinked", unlinked), ("Nested in a link", nested)):
-        if offenders:
-            total = sum(len(hits) for hits in offenders.values())
-            print(f"{heading} ({total}):")
-            for relative, hits in sorted(offenders.items()):
-                print(f"  {relative}: {', '.join(hits[:8])}")
     if unlinked:
-        print(
-            "\nA citation is left plain in a page title, a raw HTML block and an "
-            "API signature,\nand reaches the reader as text in each -- cite the "
-            "section in body prose instead.\nSee 'Specification Citations' in "
-            "docs/src/developer/docs-style.rst."
-        )
+        print(f"Unlinked ({sum(len(hits) for hits in unlinked.values())}):")
+        for relative, hits in sorted(unlinked.items()):
+            for hit, where in hits[:8]:
+                print(f"  {relative}: {hit} in {WHERE[where]}")
+        # Deduplicated by advice and not by placement, so a page title reported
+        # from both `<title>` and the breadcrumb is explained once.
+        for advice in dict.fromkeys(
+            ADVICE[where] for _, hits in sorted(unlinked.items()) for _, where in hits
+        ):
+            print(f"\n{textwrap.fill(advice)}")
+    if nested:
+        print(f"\nNested in a link ({sum(len(hits) for hits in nested.values())}):")
+        for relative, hits in sorted(nested.items()):
+            print(f"  {relative}: {', '.join(hits[:8])}")
+        print(f"\n{textwrap.fill(NESTED)}")
+    print("\nSee 'Specification Citations' in docs/src/developer/docs-style.rst.")
     return 1
 
 
