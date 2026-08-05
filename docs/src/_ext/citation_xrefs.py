@@ -22,6 +22,7 @@ Notes
 
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     import re
 
     from sphinx.application import Sphinx
+    from sphinx.environment import BuildEnvironment
 
 #: Text inside any of these stays plain (docs spec §3.7). ``reference`` and
 #: ``pending_xref`` are on the list because a citation appearing in link text
@@ -55,6 +57,14 @@ SKIP = (
 #: Sphinx forks its parallel readers, so each child inherits the pair.
 PATTERN: re.Pattern[str] | None = None
 OWNERS: dict[str, str] = {}
+
+#: Digest of the registry above, set alongside it and compared in :func:`_outdated`
+#: against the one the environment carries from the previous build.
+FINGERPRINT = ""
+
+#: Where that digest is kept between builds. The environment is pickled, so the
+#: attribute survives to the next build in the same source tree.
+ENV_FINGERPRINT = "tephpy_citation_registry"
 
 
 class CitationTransform(SphinxTransform):
@@ -182,6 +192,10 @@ def _build_registry(app: Sphinx) -> None:
     exists, and every cross-reference emitted would be one the standard domain
     cannot resolve.
 
+    The fingerprint is set here too, from the same read, so that :func:`_outdated`
+    can compare this build's registry with the one the cached doctrees were built
+    against.
+
     Parameters
     ----------
     app : Sphinx
@@ -194,7 +208,7 @@ def _build_registry(app: Sphinx) -> None:
         error rather than escaping this event handler as a ``SystemExit``.
 
     """
-    global PATTERN  # noqa: PLW0603
+    global FINGERPRINT, PATTERN  # noqa: PLW0603
     root = Path(app.srcdir)
     specs = sorted((root / "developer" / "specs").glob("*.md"))
     try:
@@ -206,11 +220,7 @@ def _build_registry(app: Sphinx) -> None:
             f"{first.path}:{first.line} and {second.path}:{second.line}"
         )
         raise ExtensionError(message) from duplicate
-    if not anchors:
-        PATTERN = None
-        OWNERS.clear()
-        return
-    PATTERN = citations.citation_pattern(anchors)
+    PATTERN = citations.citation_pattern(anchors) if anchors else None
     OWNERS.clear()
     OWNERS.update(
         {
@@ -218,10 +228,95 @@ def _build_registry(app: Sphinx) -> None:
             for path, prefix in owners.items()
         }
     )
+    FINGERPRINT = _fingerprint(anchors, OWNERS)
+
+
+def _fingerprint(anchors: dict[str, citations.Anchor], owners: dict[str, str]) -> str:
+    """Digest the registry, so that a build can tell it has changed since the last.
+
+    Only what the transform reads is digested. Where an anchor sits is not part of
+    it: moving a section within a specification changes no link, and a digest that
+    said otherwise would re-read every document for an edit that cannot matter.
+
+    Parameters
+    ----------
+    anchors : dict
+        The anchors keyed by slug, from which the pattern is built.
+    owners : dict
+        The owning prefix keyed by docname, which is what a section number written
+        without one resolves against.
+
+    Returns
+    -------
+    str
+        A digest that changes when, and only when, one of those two does.
+
+    """
+    material = "\n".join(
+        (
+            *sorted(anchors),
+            "--",
+            *(f"{docname} {prefix}" for docname, prefix in sorted(owners.items())),
+        )
+    )
+    return sha256(material.encode("utf-8")).hexdigest()
+
+
+def _outdated(
+    _app: Sphinx,
+    env: BuildEnvironment,
+    added: set[str],
+    changed: set[str],
+    _removed: set[str],
+) -> set[str]:
+    """Re-read every document when the registry differs from the last build's.
+
+    The transform runs while a document is read, so its decisions are baked into
+    the pickled doctree: which characters are a citation, and which anchor each
+    one names. Both are read from the registry, which is not a dependency of any
+    document -- so adding a specification, renumbering a section or deleting one
+    leaves every unedited page cached with the answers the *previous* registry
+    gave. Sphinx re-reads nothing, does not rewrite the page, and therefore never
+    resolves the reference again: ``refwarn`` cannot fire, and a citation left
+    pointing at a section that no longer exists fails no build. A clean build of
+    the same tree reports it.
+
+    Nothing else notices either. Such a citation is still a link, so the output
+    gate of docs spec §3.7 passes it -- by its own account it cannot tell a right
+    target from a wrong one -- and the pre-commit gate of docs spec §3.6 reads
+    the source, where nothing is wrong. It is the wrong-but-resolving failure
+    that docs spec §3.6 describes, arrived at from the build and not the prose.
+
+    Parameters
+    ----------
+    _app : Sphinx
+        The application. Unread; Sphinx calls this positionally, so the name is
+        ours to choose.
+    env : sphinx.environment.BuildEnvironment
+        The environment, which carries the previous build's digest.
+    added : set of str
+        Documents new since the last build.
+    changed : set of str
+        Documents Sphinx has already found to be out of date.
+    _removed : set of str
+        Documents gone since the last build. Unread.
+
+    Returns
+    -------
+    set of str
+        The documents to re-read on top of those Sphinx found itself.
+
+    """
+    if getattr(env, ENV_FINGERPRINT, None) == FINGERPRINT:
+        return set()
+    setattr(env, ENV_FINGERPRINT, FINGERPRINT)
+    # On a first build every document is already in ``added``, so this is empty
+    # and the cost is only paid when a registry actually changed under a cache.
+    return set(env.found_docs) - added - changed
 
 
 def setup(app: Sphinx) -> dict[str, object]:
-    """Register the transform.
+    """Register the transform and the two handlers that keep its registry honest.
 
     Parameters
     ----------
@@ -231,13 +326,18 @@ def setup(app: Sphinx) -> dict[str, object]:
     Returns
     -------
     dict
-        The extension metadata.
+        The extension metadata. ``env_version`` is part of it because this
+        extension now stores something in the environment: raising it discards
+        every cached doctree, which is what a change to the shape of what is
+        stored requires.
 
     """
     app.connect("builder-inited", _build_registry)
+    app.connect("env-get-outdated", _outdated)
     app.add_transform(CitationTransform)
     return {
         "version": "0.1.0",
+        "env_version": 1,
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

@@ -127,6 +127,15 @@ because the hook reads one line at a time while the build reads a whole
 paragraph, and a citation able to span the wrap is one they can read
 differently.
 
+Cite a section in body prose. Three other places will not carry a citation, and
+each fails the documentation build rather than rendering wrongly. A heading is
+linked like any other text, but Sphinx copies a page title into ``<title>`` with
+the markup stripped and the theme repeats it in the breadcrumb without the
+anchor, so the citation reaches the reader twice as plain text. A ``.. raw::
+html`` block and an API signature — a parameter's default value included — are
+left alone deliberately, because the build rewrites neither raw output nor code.
+Name the section in the surrounding prose instead.
+
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are
 specified in the published specifications design: docs spec §3.6 covers the hook,

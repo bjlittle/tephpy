@@ -50,12 +50,42 @@ def app(srcdir):
     return types.SimpleNamespace(srcdir=srcdir)
 
 
+def env(*docnames: str, fingerprint=None):
+    """Return as much of a build environment as the outdated handler reads."""
+    stub = types.SimpleNamespace(found_docs=set(docnames))
+    if fingerprint is not None:
+        setattr(stub, cx.ENV_FINGERPRINT, fingerprint)
+    return stub
+
+
+def outdated(environment, added=frozenset(), changed=frozenset()):
+    """Call the handler the way Sphinx does, which is positionally."""
+    return cx._outdated(None, environment, added, changed, frozenset())
+
+
+class Registrar:
+    """Record what ``setup`` asks of the application, which is all it does."""
+
+    def __init__(self) -> None:
+        self.connected = {}
+        self.transforms = []
+
+    def connect(self, event, handler):
+        """Record an event handler."""
+        self.connected[event] = handler
+
+    def add_transform(self, transform):
+        """Record a transform."""
+        self.transforms.append(transform)
+
+
 @pytest.fixture
 def registry():
     """Restore the module globals, which building the registry mutates in place."""
-    pattern, owners = cx.PATTERN, dict(cx.OWNERS)
+    pattern, owners, fingerprint = cx.PATTERN, dict(cx.OWNERS), cx.FINGERPRINT
     yield
     cx.PATTERN = pattern
+    cx.FINGERPRINT = fingerprint
     cx.OWNERS.clear()
     cx.OWNERS.update(owners)
 
@@ -87,3 +117,88 @@ def test_a_build_finding_no_anchors_clears_the_previous_registry(tmp_path):
 
     assert cx.PATTERN is None
     assert cx.OWNERS == {}
+
+
+@pytest.mark.usefixtures("registry")
+def test_the_fingerprint_follows_the_specifications_on_disk(tmp_path):
+    """A registry the transform would read differently must digest differently."""
+    specs = tmp_path / "developer" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "parent.md").write_text("(spec-1)=\n\n## 1. Parent\n", encoding="utf-8")
+    cx._build_registry(app(tmp_path))
+    before = cx.FINGERPRINT
+
+    (specs / "logo.md").write_text("(logo-spec-1)=\n\n## 1. Logo\n", encoding="utf-8")
+    cx._build_registry(app(tmp_path))
+
+    assert before != cx.FINGERPRINT, "adding a prefix left the registry looking equal"
+
+    cx._build_registry(app(tmp_path))
+
+    assert before != cx.FINGERPRINT, "the digest must depend on the tree, not the call"
+
+
+@pytest.mark.usefixtures("registry")
+def test_an_unchanged_registry_re_reads_nothing(tmp_path):
+    """The digest is compared so that the ordinary edit stays incremental.
+
+    A handler that invalidated unconditionally would be correct and useless: every
+    build would re-read every document, which is the cost the cache exists to
+    avoid.
+    """
+    cx._build_registry(app(tmp_path))
+
+    unchanged = env("index", "guide", fingerprint=cx.FINGERPRINT)
+
+    assert outdated(unchanged) == set()
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_changed_registry_re_reads_the_documents_sphinx_would_not(tmp_path):
+    """Which is the defect: the registry is a hidden input to every doctree.
+
+    The transform bakes its answers into the pickled doctree, so a page nobody
+    edited keeps the anchor the *previous* registry named. Sphinx re-reads it only
+    if told to, and nothing else notices -- the page is not rewritten, so the
+    reference is never resolved again and ``refwarn`` cannot fire.
+    """
+    cx._build_registry(app(tmp_path))
+    stale = env("index", "guide", "prose", fingerprint="the previous build's digest")
+
+    assert outdated(stale) == {"index", "guide", "prose"}
+    assert getattr(stale, cx.ENV_FINGERPRINT) == cx.FINGERPRINT
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_first_build_re_reads_nothing_extra(tmp_path):
+    """An environment with no digest is a cold cache, where every document is new.
+
+    Sphinx has already listed them as added, so naming them again would be noise;
+    the handler still records the digest, which is what makes the *next* build able
+    to tell that this one happened.
+    """
+    cx._build_registry(app(tmp_path))
+    cold = env("index", "guide")
+
+    assert outdated(cold, added={"index", "guide"}) == set()
+    assert getattr(cold, cx.ENV_FINGERPRINT) == cx.FINGERPRINT
+
+
+def test_setup_registers_every_handler_the_transform_relies_on():
+    """Which nothing else here covers: the rest call the functions directly.
+
+    A build that stopped connecting one of them would pass every other test in
+    this module. ``env-get-outdated`` is the one worth naming: without it the
+    registry goes back to being a hidden input to every cached doctree, which is
+    the defect it was written for.
+    """
+    registrar = Registrar()
+
+    metadata = cx.setup(registrar)
+
+    assert registrar.connected["builder-inited"] is cx._build_registry
+    assert registrar.connected["env-get-outdated"] is cx._outdated
+    assert registrar.transforms == [cx.CitationTransform]
+    # Sphinx reads a pickled environment back whatever wrote it, so storing on it
+    # without declaring a version is how an older shape is read as this one's.
+    assert metadata["env_version"]

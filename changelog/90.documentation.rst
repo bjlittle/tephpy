@@ -4,4 +4,5 @@ reference. The citations themselves are unchanged: a Sphinx transform resolves
 them while the doctree is built, so nothing under ``src/`` was edited and the
 written form is still the plain text it always was. A companion check asserts
 that every rendered citation became a link — the converse of the existing
-citation-integrity hook. (:user:`claude`)
+citation-integrity hook — and the style guide records the placement rule that
+follows from it: cite a section in body prose. (:user:`claude`)

@@ -342,16 +342,27 @@ syntax would have to be rewritten for the next.
 
 **The output is checked, not assumed.** §3.6 asserts that every citation in the *source*
 resolves to an anchor. Its converse is asserted after `make html`: no citation-shaped text
-survives outside a link, excluding only the two structural cases above. The two gates fail
-in different ways, which is why both exist — the input gate cannot tell whether the
-extension was loaded at all, and the output gate cannot tell a right target from a wrong
-one. Together they pair the way §3.6's coverage property pairs anchors with headings.
+survives outside a link, excluding only literal text and text already inside one. The two
+gates fail in different ways, which is why both exist — the input gate cannot tell whether
+the extension was loaded at all, and the output gate cannot tell a right target from a
+wrong one. Together they pair the way §3.6's coverage property pairs anchors with headings.
 
 The output gate is the one place that deliberately does *not* use the shared grammar. It
 looks for a section sign followed by a number, which is looser than a citation, and that
 is the point: a check that asked the grammar what to look for would go blind in the same
 instant the grammar did, and pass by finding nothing. It has to be able to see a citation
 the transform failed to recognise.
+
+Its exemptions are therefore narrower than the transform's skip set, and deliberately so.
+`<code>` and `<pre>` cover literals, code blocks and viewcode, but nothing in the output
+marks a raw block or an API signature, and a citation in a page title loses its anchor
+twice over — Sphinx strips the markup copying the title into `<title>`, and the theme
+repeats it in the breadcrumb without the link. Each of those is reported as unlinked, which
+is the answer a reader would give: in all four places the citation does reach the page as
+plain text. Recognising them would mean matching the transform's node classes in the
+rendered HTML, which is the coupling the paragraph above rejects, so the residue is stated
+as an authoring rule instead — cite a section in body prose — and the style guide carries
+it.
 
 (docs-spec-4)=
 ## 4. Canonical usage

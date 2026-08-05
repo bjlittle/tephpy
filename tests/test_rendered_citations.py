@@ -103,6 +103,39 @@ def test_a_citation_in_ordinary_prose_is_unlinked():
     assert (found.linked, found.exempt) == (0, 0)
 
 
+def test_a_citation_in_a_page_title_is_unlinked():
+    """The heading links; the copies Sphinx makes of it do not.
+
+    A title is emitted again in ``<title>`` with its markup stripped, and again by
+    the theme's breadcrumb without the anchor, so the citation reaches the reader
+    as plain text in the browser tab and above the page. Reporting it is what
+    docs spec §3.7 asks for, and this pins that against a later exemption.
+    """
+    assert scan("<head><title>3. Rendering, per spec @3.2</title></head>").bare == [
+        cite("@3.2")
+    ]
+    breadcrumb = scan('<nav><li><span class="std std-ref">spec @3.2</span></li></nav>')
+    assert breadcrumb.bare == [cite("@3.2")]
+
+
+def test_a_citation_in_a_raw_block_or_a_signature_is_unlinked():
+    """Both are on the transform's skip set, and neither is marked in the output.
+
+    A raw block is indistinguishable from prose once rendered, and a signature's
+    default value is spans rather than a literal, so the gate reads plain text in
+    each -- which is what the page shows. The exemptions are narrower than the
+    skip set on purpose (docs spec §3.7).
+    """
+    raw = scan("<div><p>spec @3.2, written as raw HTML</p></div>")
+    signature = scan(
+        '<dt class="sig sig-object py"><em class="sig-param">'
+        '<span class="default_value"><span class="pre">\'spec</span> '
+        '<span class="pre">@3.2\'</span></span></em></dt>'
+    )
+    assert raw.bare == [cite("@3.2")]
+    assert signature.bare == [cite("@3.2")]
+
+
 def test_a_citation_nested_in_two_links_is_reported():
     """One anchor inside another is invalid HTML, so it is called out separately."""
     found = scan('<a href="#a"><a href="#b">spec @3.2</a></a>')
@@ -178,6 +211,9 @@ def test_the_gate_fails_a_page_whose_citation_is_not_a_link(
     out = capsys.readouterr().out
     assert "Unlinked (1)" in out
     assert "guide/style.html" in out
+    # Naming the page is not enough on its own: the three placements that cannot
+    # carry a citation are where an author who did nothing obviously wrong lands.
+    assert "cite the section in body prose" in out
 
 
 def test_the_gate_fails_when_no_citation_became_a_link(monkeypatch, capsys, tmp_path):

@@ -25,6 +25,15 @@ another — so the case reads here as a pass. Distinguishing it would mean match
 the transform's output classes, which is exactly the coupling this gate exists to
 avoid.
 
+The exemptions below are narrower than that skip set, which is why a citation in
+a raw block, in an API signature, or in a page title -- stripped of its anchor
+both by Sphinx copying the title into ``<title>`` and by the theme repeating it
+in the breadcrumb -- is reported here. Those are failures, not false positives:
+the citation reaches the reader as plain text in every one of them. Exempting
+them would mean recognising the transform's node classes in the rendered HTML,
+so the rule is stated for authors in the documentation style guide instead, and
+the failure below names it.
+
 Notes
 -----
 .. versionadded:: 0.1.0
@@ -147,6 +156,13 @@ def main() -> int:
             print(f"{heading} ({total}):")
             for relative, hits in sorted(offenders.items()):
                 print(f"  {relative}: {', '.join(hits[:8])}")
+    if unlinked:
+        print(
+            "\nA citation is left plain in a page title, a raw HTML block and an "
+            "API signature,\nand reaches the reader as text in each -- cite the "
+            "section in body prose instead.\nSee 'Specification Citations' in "
+            "docs/src/developer/docs-style.rst."
+        )
     return 1
 
 
