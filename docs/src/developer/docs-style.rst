@@ -165,11 +165,14 @@ explaining why it failed them. Such a link is invisible to everything that check
 the rest — ``nitpicky`` sees only the references the build resolved.
 
 Write the URL as ``https://tephpy.readthedocs.io/en/latest/<page>.html``,
-optionally with a fragment, and in no other form. A per-pull-request preview host
+optionally with a fragment. A per-pull-request preview host
 (``tephpy--<pr>.org.readthedocs.build``) is where a documentation change is
 verified rather than where a link belongs — Read the Docs deletes the preview when
 the pull request closes — and ``latest`` is the only version published, so
-``en/stable`` and a path that drops the version alike resolve nowhere.
+``en/stable`` and a path that drops the version alike resolve nowhere. A URL whose
+path never reaches ``.html`` names no page the gate can look up, so it is passed
+over rather than judged — as the Read the Docs badge at the top of the README is,
+pointing at the base with a query string and no path.
 
 In ``README.md``, write the link as a Markdown reference — ``[CAPE][cape]`` in the
 prose, with the target defined in the block at the foot of the file — so the prose
@@ -189,16 +192,18 @@ label is hard to mistake for the fragment, which is not.
 
 The documentation build checks these links. ``check_documentation_links.py`` reads
 each URL out of every file named in its ``SOURCES`` constant and looks it up in the
-HTML just built, failing when the URL is written some other way, when the page is
-absent, or when the fragment names no ``id``. Renaming a glossary term or moving a
-page therefore fails the build, rather than leaving a link pointing into a 404 that
-nobody notices.
+HTML just built, failing when a URL naming a page is written some other way, when
+the page is absent, or when the fragment names no ``id``. Renaming a glossary term
+or moving a page therefore fails the build, rather than leaving a link pointing
+into a 404 that nobody notices.
 
 A new file that writes such a URL is checked only once it is added to ``SOURCES``;
 the gate reads that list and not the repository, so that a URL quoted in a test
 fixture or frozen into an implementation plan is left alone. A file that stops
 carrying a documentation link fails the gate rather than dropping out of it in
-silence, so removing the last link means removing the entry too.
+silence, so removing the last link means removing the entry too — and emptying
+``SOURCES`` entirely fails the same way, rather than passing on a search of
+nothing.
 
 Attribute Documentation
 -----------------------

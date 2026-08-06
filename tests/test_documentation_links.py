@@ -416,3 +416,21 @@ def test_every_listed_source_exists():
     # looking for, and one that hides whatever the run was meant to catch.
     missing = [name for name in gate.SOURCES if not (REPO / name).is_file()]
     assert missing == []
+
+
+def test_sources_names_the_deliverables_of_this_gate():
+    # Membership, not equality: a later PR adding a source must not break this
+    # test, but reverting this branch -- dropping README.md back to being the
+    # only source, or losing the script it added -- must.
+    assert "README.md" in gate.SOURCES
+    assert ".github/scripts/changelog.py" in gate.SOURCES
+
+
+def test_an_empty_sources_fails(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gate, "SOURCES", ())
+    code, out = run(monkeypatch, capsys, tmp_path)
+    # With no source named on the command line and none left in SOURCES, the gate
+    # has nothing to read. A search of nothing finds nothing wrong, and the
+    # success line would print having checked nothing at all.
+    assert code == 1
+    assert "checked across" not in out

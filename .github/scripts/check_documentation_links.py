@@ -120,6 +120,13 @@ NOT_CANONICAL = (
     "keep offering, and the path stops at the page, because text after '.html' "
     "names a file the build never produced. Rewrite the URL in the canonical form."
 )
+#: What to do about SOURCES with no source left in it.
+EMPTY_SOURCES = (
+    "SOURCES is empty, so the gate has nothing to read, and a search of nothing "
+    "finds nothing wrong. The list is the statement of which links the project "
+    "means to keep working; a gate that passes on an empty one is a green tick "
+    "over nothing. Restore the entry that was removed."
+)
 #: What to do about a listed source that links into the documentation nowhere.
 BLIND = (
     "A source with no documentation link is not one this check can check, so it "
@@ -337,9 +344,11 @@ def gathered(picked: dict[str, list[str]], *, tagged: bool) -> list[str]:
     Returns
     -------
     list of str
-        The offenders, sorted, and once each: the same thing wrong twice in one
-        source is one entry, and untagged, the same thing wrong in two sources is
-        one entry too -- which is right, because untagged means one source.
+        The offenders, sorted and once each. Every list a Report carries is
+        already unique -- absent comes from dict keys, broken and stray are
+        already sets -- so nothing passed in here can repeat; the set below is
+        defence against that guarantee lapsing later, not a duplicate this
+        function has ever had to resolve.
 
     """
     return sorted(
@@ -351,8 +360,18 @@ def gathered(picked: dict[str, list[str]], *, tagged: bool) -> list[str]:
     )
 
 
-def main() -> int:
-    """Check each source's documentation links against the built HTML.
+def verdict(reports: dict[str, Report]) -> int:
+    """Print what every source's links came to, and say whether the run passed.
+
+    Split out of ``main`` so that a run reaching this point -- every source
+    read, none of them blind -- has one way out instead of adding another
+    return statement to a function that already has one for every earlier way
+    a run can fail.
+
+    Parameters
+    ----------
+    reports : dict of (str, Report)
+        Each checked source's report, keyed by the name it was given.
 
     Returns
     -------
@@ -360,39 +379,6 @@ def main() -> int:
         ``0`` when every link resolves, ``1`` otherwise.
 
     """
-    if len(sys.argv) < 2:
-        print("usage: check_documentation_links.py <html-root> [source ...]")
-        return 1
-    root = Path(sys.argv[1])
-    if not root.is_dir():
-        print(f"no such directory: {root}")
-        return 1
-    repo = Path(__file__).parents[2]
-    # Named as given, so a listed source is reported by the path that finds it in
-    # the repository rather than by a basename two sources could share.
-    named = [(name, Path(name)) for name in sys.argv[2:]]
-    sources = named or [(name, repo / name) for name in SOURCES]
-
-    reports: dict[str, Report] = {}
-    for name, source in sources:
-        if not source.is_file():
-            print(f"no such file: {source}")
-            return 1
-        reports[name] = scan(source.read_text(encoding="utf-8"), root)
-
-    # A source linking only non-canonically does link into the documentation, so
-    # it is told what is wrong with those links rather than that it has none.
-    blind = [
-        name
-        for name, report in reports.items()
-        if not report.found and not report.stray
-    ]
-    if blind:
-        for name in blind:
-            print(f"{name} links into the documentation nowhere")
-        print(f"\n{textwrap.fill(BLIND)}")
-        return 1
-
     # One source names itself in the invocation, so attributing every entry to it
     # is noise; more than one, and a bare page path does not say which file to open.
     tagged = len(reports) > 1
@@ -433,6 +419,59 @@ def main() -> int:
         print(f"\n{textwrap.fill(NOT_CANONICAL)}")
     print("\nSee 'Documentation Links' in docs/src/developer/docs-style.rst.")
     return 1
+
+
+def main() -> int:
+    """Check each source's documentation links against the built HTML.
+
+    Returns
+    -------
+    int
+        ``0`` when every link resolves, ``1`` otherwise.
+
+    """
+    if len(sys.argv) < 2:
+        print("usage: check_documentation_links.py <html-root> [source ...]")
+        return 1
+    root = Path(sys.argv[1])
+    if not root.is_dir():
+        print(f"no such directory: {root}")
+        return 1
+    repo = Path(__file__).parents[2]
+    # Named as given, so a listed source is reported by the path that finds it in
+    # the repository rather than by a basename two sources could share.
+    named = [(name, Path(name)) for name in sys.argv[2:]]
+    sources = named or [(name, repo / name) for name in SOURCES]
+    # Reachable only through SOURCES: sources named on the command line are never
+    # empty, since an empty sys.argv[2:] is exactly what falls back to SOURCES.
+    if not sources:
+        print("SOURCES lists no source to check")
+        print(f"\n{textwrap.fill(EMPTY_SOURCES)}")
+        print("\nSee 'Documentation Links' in docs/src/developer/docs-style.rst.")
+        return 1
+
+    reports: dict[str, Report] = {}
+    for name, source in sources:
+        if not source.is_file():
+            print(f"no such file: {source}")
+            return 1
+        reports[name] = scan(source.read_text(encoding="utf-8"), root)
+
+    # A source linking only non-canonically does link into the documentation, so
+    # it is told what is wrong with those links rather than that it has none.
+    blind = [
+        name
+        for name, report in reports.items()
+        if not report.found and not report.stray
+    ]
+    if blind:
+        for name in blind:
+            print(f"{name} links into the documentation nowhere")
+        print(f"\n{textwrap.fill(BLIND)}")
+        print("\nSee 'Documentation Links' in docs/src/developer/docs-style.rst.")
+        return 1
+
+    return verdict(reports)
 
 
 if __name__ == "__main__":
