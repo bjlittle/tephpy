@@ -25,6 +25,17 @@ another — so the case reads here as a pass. Distinguishing it would mean match
 the transform's output classes, which is exactly the coupling this gate exists to
 avoid.
 
+The nested bucket below is the same collision arrived at from the other side, and
+is not that limitation. A skip set can only decline to rewrite text that is
+*already* inside a link; it cannot stop a later transform from wrapping one the
+transform made. Docutils' ``contents`` transform does precisely that, at a lower
+priority than the citation transform, linking each heading it lists both in the
+list and in the heading itself — so a citation written in a heading is rewritten
+first and enclosed second, and the page really does carry one anchor inside
+another. Sphinx reports nothing, and ``--fail-on-warning`` sees a clean build.
+Reading the finished HTML is what catches it, which is the case for this gate
+that neither the transform nor the input gate can make.
+
 The exemptions below are narrower than that skip set, which is why a citation in
 a raw block, in an API signature, in a toctree caption, or in a page title --
 stripped of its anchor by Sphinx copying the title into ``<title>``, and again by
@@ -63,6 +74,8 @@ EXEMPT = {"code", "pre", "script", "style"}
 SKIP_PAGES = ("_modules/",)
 #: Elements that never close, so must never be pushed onto the stack.
 VOID = {"br", "col", "hr", "img", "input", "link", "meta", "source", "wbr"}
+#: How many citations of one placement to name on one page before counting them.
+SHOWN = 4
 #: Ancestors that say where an unlinked citation sat, tried in this order so the
 #: outermost distinction wins. Diagnostic only: this decides what the failure
 #: says, never whether it fails.
@@ -100,10 +113,14 @@ BODY = (
 ADVICE = {"title": TITLE, "nav": NAVIGATION, "dt": SIGNATURE, "": BODY}
 #: The other bucket, which is nobody's authoring mistake and everybody's puzzle.
 NESTED = (
-    "A citation inside link text is left plain so that one anchor is never nested "
-    "inside another, and is reported because a reader cannot follow it. A '.. "
-    "contents::' directive links every heading it lists, so a citation in a "
-    "heading lands here; name the section in the prose below it instead."
+    "Two anchors around one citation is invalid HTML, and a browser restructures "
+    "it silently, so neither link reliably goes where it reads as going. It "
+    "happens when something wraps a heading after the citation inside it became a "
+    "link: a '.. contents::' directive does exactly that, to the heading and to "
+    "its own list entry alike. Nothing in the source looks wrong, so name the "
+    "section in the prose under the heading instead. A citation an author wrote "
+    "inside a link runs the other way -- the transform leaves it plain, one anchor "
+    "encloses it, and it is counted as linked rather than reported here."
 )
 
 
@@ -157,6 +174,50 @@ class Scan(HTMLParser):
             self.bare.extend((hit, where) for hit in hits)
 
 
+def grouped(hits: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """Gather one page's citations by placement, in the order they were found.
+
+    One line per placement is what keeps the advice honest: every placement the
+    report advises on is a placement it has just shown an offender for, by
+    construction rather than by the listing happening to be long enough.
+
+    Parameters
+    ----------
+    hits : list of tuple of str
+        The citation and its placement, as :class:`Scan` collected them.
+
+    Returns
+    -------
+    dict
+        The citations of each placement, keyed as :data:`WHERE` is.
+
+    """
+    out: dict[str, list[str]] = {}
+    for hit, where in hits:
+        out.setdefault(where, []).append(hit)
+    return out
+
+
+def listed(hits: list[str]) -> str:
+    """Name the first few citations, and say how many are not named.
+
+    Parameters
+    ----------
+    hits : list of str
+        The citations of one placement on one page.
+
+    Returns
+    -------
+    str
+        The listing. A report that bounds what it shows says what it dropped;
+        a count quietly smaller than the total reads as a smaller problem.
+
+    """
+    rest = len(hits) - SHOWN
+    listing = ", ".join(hits[:SHOWN])
+    return f"{listing} and {rest} more" if rest > 0 else listing
+
+
 def main() -> int:
     """Scan the built HTML.
 
@@ -208,19 +269,19 @@ def main() -> int:
         return 0
     if unlinked:
         print(f"Unlinked ({sum(len(hits) for hits in unlinked.values())}):")
+        placements = []
         for relative, hits in sorted(unlinked.items()):
-            for hit, where in hits[:8]:
-                print(f"  {relative}: {hit} in {WHERE[where]}")
+            for where, found in grouped(hits).items():
+                print(f"  {relative}: {listed(found)} in {WHERE[where]}")
+                placements.append(where)
         # Deduplicated by advice and not by placement, so a page title reported
         # from both `<title>` and the breadcrumb is explained once.
-        for advice in dict.fromkeys(
-            ADVICE[where] for _, hits in sorted(unlinked.items()) for _, where in hits
-        ):
+        for advice in dict.fromkeys(ADVICE[where] for where in placements):
             print(f"\n{textwrap.fill(advice)}")
     if nested:
         print(f"\nNested in a link ({sum(len(hits) for hits in nested.values())}):")
         for relative, hits in sorted(nested.items()):
-            print(f"  {relative}: {', '.join(hits[:8])}")
+            print(f"  {relative}: {listed(hits)}")
         print(f"\n{textwrap.fill(NESTED)}")
     print("\nSee 'Specification Citations' in docs/src/developer/docs-style.rst.")
     return 1

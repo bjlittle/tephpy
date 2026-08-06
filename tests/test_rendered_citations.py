@@ -176,10 +176,35 @@ def test_the_outermost_placement_wins():
 
 
 def test_a_citation_nested_in_two_links_is_reported():
-    """One anchor inside another is invalid HTML, so it is called out separately."""
-    found = scan('<a href="#a"><a href="#b">spec @3.2</a></a>')
+    """One anchor inside another is invalid HTML, so it is called out separately.
+
+    The markup is a build's, not an invention: a ``.. contents::`` directive runs
+    at a lower priority than the citation transform, so it wraps a heading whose
+    citation has already become a link. Neither the transform's skip set nor
+    ``--fail-on-warning`` can see it, which is why this bucket exists.
+    """
+    found = scan(
+        '<h2><a class="toc-backref" href="#id1" role="doc-backlink">Heading, per '
+        '<a class="reference internal" href="design.html#spec-3-2">'
+        '<span class="std std-ref">spec @3.2</span></a></a></h2>'
+    )
     assert found.nested == [cite("@3.2")]
     assert (found.linked, found.bare) == (0, [])
+
+
+def test_a_citation_an_author_linked_is_counted_as_linked():
+    """The same collision from the other side, which is not an error.
+
+    ``nodes.reference`` is on the transform's skip set, so a citation written
+    inside a link stays plain text and the author's anchor is the only one. The
+    gate counts one and passes it. Pinning the direction matters because the two
+    read alike in prose and oppositely to the scanner (docs spec §3.7).
+    """
+    found = scan(
+        '<p>An author link: <a class="reference external" '
+        'href="https://example.com/">see spec @3.2</a> in prose.</p>'
+    )
+    assert (found.linked, found.nested, found.bare) == (1, [], [])
 
 
 def test_an_unclosed_element_does_not_corrupt_the_stack():
@@ -288,6 +313,65 @@ def test_the_failure_says_where_each_unlinked_citation_sat(
     assert "docstring's prose" in out
 
 
+def test_every_advised_placement_has_a_visible_offender(monkeypatch, capsys, tmp_path):
+    """Advice without an example is a report about a page the author cannot find.
+
+    The listing is grouped by placement rather than truncated at a flat count, so
+    the two cannot come apart: a placement is advised on because a line naming it
+    was just printed. A page long enough to push a rare placement past a flat cut
+    is what makes the difference visible, so that is what this builds.
+    """
+    prose = "".join(f"<p>spec @3.{n} in prose</p>" for n in range(1, 10))
+    root = build(
+        tmp_path,
+        {
+            "index.html": '<p><a href="#spec-3-2">spec @3.2</a></p>',
+            "big.html": prose + '<dt class="sig"><span>@9.9</span></dt>',
+        },
+    )
+    assert run(monkeypatch, root) == 1
+    out = flat(capsys.readouterr().out)
+    assert "docstring's prose" in out, "the signature placement was advised on"
+    assert cite("@9.9") in out, "and must therefore have been shown"
+
+
+def test_the_report_says_what_it_did_not_list(monkeypatch, capsys, tmp_path):
+    """A listing that quietly stops reads as a smaller problem than it is.
+
+    The header counts every citation, so a listing shorter than the header without
+    saying so invites the reader to conclude the rest were fine.
+    """
+    prose = "".join(f"<p>spec @3.{n} in prose</p>" for n in range(1, 10))
+    root = build(
+        tmp_path,
+        {
+            "index.html": '<p><a href="#spec-3-2">spec @3.2</a></p>',
+            "big.html": prose,
+        },
+    )
+    assert run(monkeypatch, root) == 1
+    out = flat(capsys.readouterr().out)
+    assert "Unlinked (9)" in out
+    assert "and 5 more" in out
+
+
+def test_a_long_run_of_nested_citations_is_summarised_too(
+    monkeypatch, capsys, tmp_path
+):
+    """The other bucket truncates on the same rule, and says so on the same terms."""
+    nest = "".join(
+        f'<a href="#a"><a href="#b">spec @4.{n}</a></a>' for n in range(1, 8)
+    )
+    root = build(
+        tmp_path,
+        {"index.html": '<p><a href="#spec-3-2">spec @3.2</a></p>', "toc.html": nest},
+    )
+    assert run(monkeypatch, root) == 1
+    out = flat(capsys.readouterr().out)
+    assert "Nested in a link (7)" in out
+    assert "and 3 more" in out
+
+
 def test_a_nested_citation_is_explained_and_not_merely_counted(
     monkeypatch, capsys, tmp_path
 ):
@@ -309,6 +393,10 @@ def test_a_nested_citation_is_explained_and_not_merely_counted(
     out = flat(capsys.readouterr().out)
     assert "Nested in a link (1)" in out
     assert "contents::" in out
+    # Two anchors is what lands here and one is what passes, so advice written the
+    # other way round sends an author after the case that never reaches it.
+    assert "Two anchors" in out
+    assert "counted as linked" in out
     # The other bucket is empty, so none of its advice belongs here.
     assert "Unlinked" not in out
 

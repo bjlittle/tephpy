@@ -375,10 +375,26 @@ makes the looser evidence admissible. A label decides only what the report says,
 it returns, so a placement read wrongly costs a confusing message; the same class of guess
 used to *exempt* would cost the gate its sight, which is why the exemptions stay narrow.
 
-The nested-in-a-link case of the paragraph above is reported the same way and for the same
-reason. It is the one an author is least equipped to diagnose, because nothing in the source
-is wrong: a `.. contents::` directive links every heading it lists, so a citation written in
-a heading arrives inside a link that nobody wrote.
+The listing is grouped by placement for the same reason, and not merely tidiness: advice is
+given for a placement because a line naming that placement was just printed, so the two
+cannot come apart on a page long enough for a rare placement to fall past a flat cut. Where
+the listing does stop, it says how many it did not name. A report that bounds what it shows
+without saying so reads as a smaller problem than it is, which is the failure mode of a
+gate that is trying to be readable.
+
+**Nesting is the one thing the transform's own precaution cannot prevent.** Skipping
+`nodes.reference` declines to rewrite a citation that is *already* inside a link, which
+rules out the case an author writes; it can do nothing about a link put around a citation
+the transform has by then made. Docutils' `contents` transform is that case — it runs at
+priority 720 against the citation transform's 400, and links every heading it lists both in
+the list and in the heading itself — so a citation written in a heading is rewritten first
+and enclosed second, and the page carries one anchor inside another. It is the failure an
+author is least equipped to diagnose, because nothing in the source is wrong and nothing
+else objects: the build succeeds under `--fail-on-warning`. Only reading the finished HTML
+finds it, which is the case for the output gate that neither the transform nor §3.6 can
+make. So it is reported as its own bucket, with its own advice, and the two directions are
+described the way the scanner sees them: two anchors is the failure, one anchor is the
+skipped case of the paragraph above, and that one passes.
 
 (docs-spec-4)=
 ## 4. Canonical usage

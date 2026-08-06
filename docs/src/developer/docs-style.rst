@@ -138,11 +138,15 @@ in the sidebar. A ``.. raw:: html`` block and an API signature — a parameter's
 default value included — are left alone deliberately, because the build rewrites
 neither raw output nor code. Name the section in the surrounding prose instead.
 
-A citation inside link text is the fifth, and fails differently. It is left plain
-so that its own anchor is never nested inside the enclosing one, which a reader
-cannot follow either way. Writing one is unusual; inheriting one is not, because
-a ``.. contents::`` directive links every heading it lists, so a citation in a
-heading arrives there without anyone having written a link at all.
+A heading is worth avoiding for a second reason, which fails differently again. A
+``.. contents::`` directive links every heading it lists — in its own list and in
+the heading itself — and it does so after the citation has already become a link,
+so the page ends up with one anchor inside another. That is invalid HTML, which a
+browser restructures silently, and Sphinx reports nothing: only the check on the
+built HTML notices. Writing a citation inside a link yourself is the same
+collision from the other side and is *not* an error — the build leaves such a
+citation as plain text rather than nesting a link in a link, which is why it is
+reported as neither.
 
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are
