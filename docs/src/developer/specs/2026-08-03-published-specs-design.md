@@ -466,6 +466,15 @@ that guard the `user` role's `https://github.com/%s` matches every link to anoth
 repository, and the build, running under `--fail-on-warning`, would fail on
 `https://github.com/SciTools/tephi`.
 
+One reference on a published page is written by neither of these, and so is caught by
+neither: the number towncrier appends to every changelog entry, taken from the fragment's
+filename. Its default renders that as plain text, which is this section's first failure one
+level up — the reader of a released changelog saw `#40` and could not follow it, exactly as
+the reader of a specification did. `issue_format` in `[tool.towncrier]` is set to the same
+role a fragment writes by hand, so the generated reference and the hand-written one are the
+same form. A generator's output is not in the corpus, which is the general point: the gate
+holds for what the repository says, and each generator has to be told separately.
+
 **What this cannot catch**, in a shape §3.6 will recognise. A reference written with the
 wrong role of the two — `` {issue}`73` `` where 73 is a pull request — is well formed,
 renders identically, and resolves: GitHub redirects between the two paths, so the reader

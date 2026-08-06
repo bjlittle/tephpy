@@ -183,6 +183,11 @@ checks = ["all", "GL01", "GL02", "GL03", "SA01", "ES01", "EX01", "YD01"]
 [tool.towncrier]
 directory = "changelog"
 filename = "CHANGELOG.rst"
+# The fragment is named for its pull request, and towncrier appends that number to
+# every entry. Its default renders it as plain text, which is the docs spec §3.8
+# defect one level up: a reader of the published changelog sees "#103" and cannot
+# follow it. The role is the same one a fragment writes by hand.
+issue_format = ":pull:`{issue}`"
 package = "tephpy"
 package_dir = "src"
 template = "changelog/template.rst"
