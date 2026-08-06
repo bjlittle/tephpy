@@ -72,11 +72,18 @@ def readme(tmp_path, text):
     return path
 
 
-def run(monkeypatch, capsys, root, path):
-    """Run the gate over ``root`` and ``path``; return its code and output."""
-    monkeypatch.setattr(
-        gate.sys, "argv", ["check_documentation_links.py", str(root), str(path)]
-    )
+def script(tmp_path, *targets: str):
+    """Write a Python source naming each target the way a script does."""
+    path = tmp_path / "changelog.py"
+    body = "".join(f'URL = "{gate.BASE}{target}"\n' for target in targets)
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def run(monkeypatch, capsys, root, *paths: Path):
+    """Run the gate over ``root`` and ``paths``; return its code and output."""
+    argv = ["check_documentation_links.py", str(root), *(str(path) for path in paths)]
+    monkeypatch.setattr(gate.sys, "argv", argv)
     code = gate.main()
     return code, capsys.readouterr().out
 
@@ -100,7 +107,7 @@ def test_resolving_links_pass(tmp_path, monkeypatch, capsys):
     )
     code, out = run(monkeypatch, capsys, root, path)
     assert code == 0
-    assert "2 checked, 2 naming an anchor" in out
+    assert "2 checked across 1 source, 2 naming an anchor" in out
 
 
 def test_the_success_line_counts_anchors_and_pages(tmp_path, monkeypatch, capsys):
@@ -116,7 +123,7 @@ def test_the_success_line_counts_anchors_and_pages(tmp_path, monkeypatch, capsys
     # distinguishing an anchored link from a bare page link, or that names the
     # wrong number of pages, describes a check other than the one that ran.
     assert code == 0
-    assert "2 checked, 1 naming an anchor, across 2 pages" in out
+    assert "2 checked across 1 source, 1 naming an anchor, across 2 pages" in out
 
 
 def test_one_anchor_broken_twice_is_reported_once(tmp_path, monkeypatch, capsys):
@@ -285,15 +292,16 @@ def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
     assert "1 checked" in out
 
 
-def test_readme_with_no_links_fails(tmp_path, monkeypatch, capsys):
+def test_a_source_with_no_links_fails(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    path = readme(tmp_path, "Plot and analyse tephigrams.")
+    path = readme(tmp_path, "# tephpy\n\nNo links here.\n")
     code, out = run(monkeypatch, capsys, root, path)
-    # A gate is worth what it covers. A rewrite that dropped every link would
-    # otherwise turn this into a green tick over an empty search.
+    # A source that has lost its links is a search this gate no longer makes, and
+    # a check that passes on an empty search is a green tick over nothing. It is
+    # named, because with several sources "nowhere" does not say which one.
     assert code == 1
-    assert "links into the documentation nowhere" in out
-    assert "green tick standing for nothing" in flat(out)
+    assert "README.md links into the documentation nowhere" in out
+    assert "Remove it from SOURCES, or restore the link" in flat(out)
 
 
 def test_badge_url_is_not_a_page(tmp_path, monkeypatch, capsys):
@@ -315,3 +323,71 @@ def test_usage_is_reported(monkeypatch, capsys):
     monkeypatch.setattr(gate.sys, "argv", ["check_documentation_links.py"])
     assert gate.main() == 1
     assert "usage: check_documentation_links.py" in capsys.readouterr().out
+
+
+def test_two_sources_are_both_checked(tmp_path, monkeypatch, capsys):
+    root = build(
+        tmp_path,
+        {GLOSSARY: terms("term-CAPE"), STYLE: "<html><body></body></html>"},
+    )
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, STYLE)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # The counts are of the whole check, not of whichever source came last.
+    assert code == 0
+    assert "2 checked across 2 sources, 1 naming an anchor, across 2 pages" in out
+
+
+def test_a_failure_names_its_source(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, SPECS)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # With more than one source checked, a bare page path does not say which file
+    # to open, and the reader is sent hunting through every source for the URL.
+    assert code == 1
+    assert "Missing pages (1)" in out
+    assert f"{SPECS} (" in out
+    assert "changelog.py)" in out
+
+
+def test_one_source_is_not_attributed(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[specs]({url(SPECS)})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # One source names itself in the invocation, so attributing its entries to it
+    # is noise on every line of the report.
+    assert code == 1
+    assert f"{SPECS}\n" in out
+    assert f"{SPECS} (" not in out
+
+
+def test_a_single_page_is_singular(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # "across 1 pages" reads as a line nobody has looked at, which is an odd thing
+    # for a report whose whole job is to be believed.
+    assert code == 0
+    assert "1 checked across 1 source, 1 naming an anchor, across 1 page" in out
+    assert "1 pages" not in out
+
+
+def test_the_defaults_come_from_sources(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    monkeypatch.setattr(gate, "SOURCES", ("nowhere/missing.md",))
+    code, out = run(monkeypatch, capsys, root)
+    # With no source named on the command line the gate checks SOURCES. Were it to
+    # fall back to the README instead, adding a file to that list would change
+    # nothing and no run would say so.
+    assert code == 1
+    assert "no such file" in out
+    assert "nowhere/missing.md" in out
+
+
+def test_every_listed_source_exists():
+    # SOURCES names files by path. A rename that misses this list turns the check
+    # into "no such file" on the next run -- a failure, but not the one anyone is
+    # looking for, and one that hides whatever the run was meant to catch.
+    missing = [name for name in gate.SOURCES if not (REPO / name).is_file()]
+    assert missing == []

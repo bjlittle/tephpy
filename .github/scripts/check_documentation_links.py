@@ -4,44 +4,49 @@
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
 
-"""Check that every documentation link in ``README.md`` resolves in the build.
+"""Check that every documentation link in tracked source resolves in the build.
 
-The README is the repository's landing page and is not a source of the Sphinx
-project, so it reaches the documentation by absolute URL. Nothing in the build
-sees those links: ``nitpicky`` checks the references Sphinx itself resolved, and
-the rendered-citation gate reads only pages the build produced. Meanwhile a
-glossary anchor is derived from the term -- Sphinx keeps the case and collapses
-each run of non-alphanumeric characters to a single hyphen, so ``Normand's
-point`` becomes ``term-Normand-s-point`` -- which makes renaming a term a silent
-way to break the landing page, and moving a page another.
+A few tracked files reach the documentation by absolute URL, because they are not
+sources of the Sphinx project and have no role to write instead: ``README.md`` is
+the repository's landing page, and a script that fails a contributor sends them to
+the page that explains why. Nothing in the build sees those links -- ``nitpicky``
+checks the references Sphinx itself resolved, and the rendered-citation gate reads
+only pages the build produced. Meanwhile a glossary anchor is derived from the term
+-- Sphinx keeps the case and collapses each run of non-alphanumeric characters to a
+single hyphen, so ``Normand's point`` becomes ``term-Normand-s-point`` -- which
+makes renaming a term a silent way to break the landing page, and moving a page
+another.
 
-This gate closes that gap from the outside. It reads the URLs out of the README
-and looks each one up in the HTML the build has just produced: the page must
-exist, and a fragment must name an ``id`` on it. Nothing here reproduces the slug
-rule, because the ids are read off the built page rather than derived. A
-normalisation of our own would be one more thing able to drift from Sphinx, which
-is the drift this gate exists to catch.
+This gate closes that gap from the outside. ``SOURCES`` names the files it reads:
+an explicit list rather than a sweep of the repository, because a sweep would judge
+whatever happened to be quoted in a test fixture or a frozen implementation plan,
+and a plan is meant to go on naming the URL it named. Each URL is looked up in the
+HTML the build has just produced: the page must exist, and a fragment must name an
+``id`` on it. Nothing here reproduces the slug rule, because the ids are read off
+the built page rather than derived. A normalisation of our own would be one more
+thing able to drift from Sphinx, which is the drift this gate exists to catch.
 
 Only the canonical ``en/latest`` URL can be looked up that way, so a link onto a
 documentation host of this project written any other way is reported rather than
 skipped in silence. A per-pull-request preview is where a documentation change is
-verified and the wrong place to link from the landing page, because Read the Docs
+verified and the wrong place to link from tracked source, because Read the Docs
 deletes it when the pull request closes; and ``latest`` is the only version this
 project publishes.
 
-A README carrying no documentation link at all fails too. A check is worth what it
-covers, and a rewrite that dropped every link would otherwise pass in silence.
+A listed source carrying no documentation link at all fails too. A check is worth
+what it covers, and a rewrite that dropped every link from one source would
+otherwise pass in silence while that source quietly left the check behind.
 
 Three things are deliberately not checked. That a link points at the *right* page
 is a question about meaning, not resolution, and no gate can answer it. An
 ``en/latest`` URL is checked against the working tree's own build, which is the
 only build available -- a link correct here is wrong on the published site until
-this branch merges, and that is the ordinary lag of a landing page that names a
-moving target. And a URL on a documentation host of this project whose path never
-says ``.html`` is passed over rather than judged: it is how the Read the Docs
-badge, which points at the base with a query string, stays out of the report, and
-it lets through a directory-style URL, which Read the Docs does resolve and which
-carries no page or anchor to look up.
+this branch merges, and that is the ordinary lag of source that names a moving
+target. And a URL on a documentation host of this project whose path never says
+``.html`` is passed over rather than judged: it is how the Read the Docs badge,
+which points at the base with a query string, stays out of the report, and it lets
+through a directory-style URL, which Read the Docs does resolve and which carries
+no page or anchor to look up.
 
 Notes
 -----
@@ -55,9 +60,15 @@ from pathlib import Path
 import re
 import sys
 import textwrap
+from typing import NamedTuple
 
 #: The published documentation, which is what the README links into.
 BASE = "https://tephpy.readthedocs.io/en/latest/"
+#: The tracked files this gate reads, relative to the repository root. A file earns
+#: a place here by writing an absolute documentation URL somewhere no Sphinx build
+#: can see it. Keep the list short and deliberate: it is the statement of which
+#: links the project means to keep working, and everything not on it is unchecked.
+SOURCES = ("README.md",)
 #: A link into a documentation page, with the fragment it names, if any. Only a
 #: path ending in ``.html`` is a page: the Read the Docs badge points at the base
 #: with a query string and no path, and names nothing this gate can look up.
@@ -82,9 +93,9 @@ SHOWN = 6
 #: What to do about a link naming a page the build did not produce.
 MISSING_PAGE = (
     "The build produced no such page. A page that is renamed or moved leaves the "
-    "README pointing at a URL Read the Docs answers with a 404, and the build "
-    "cannot notice, because the README is not one of its sources. Update the link "
-    "to the path the page now has, or restore the page under the path the README "
+    "source pointing at a URL Read the Docs answers with a 404, and the build "
+    "cannot notice, because the source is not one of its inputs. Update the link "
+    "to the path the page now has, or restore the page under the path the source "
     "names."
 )
 #: What to do about a link naming a fragment its page does not carry.
@@ -92,7 +103,7 @@ MISSING_ANCHOR = (
     "The page renders, but nothing on it carries that id. A glossary anchor is "
     "derived from the term: Sphinx keeps the case and collapses each run of "
     "non-alphanumeric characters to a single hyphen, so renaming a term moves its "
-    "anchor and the README goes on naming where it used to be. Copy the id out of "
+    "anchor and the source goes on naming where it used to be. Copy the id out of "
     "the built page rather than deriving it by hand."
 )
 #: What to do about a link into the documentation written some other way.
@@ -109,22 +120,33 @@ NOT_CANONICAL = (
     "keep offering, and the path stops at the page, because text after '.html' "
     "names a file the build never produced. Rewrite the URL in the canonical form."
 )
-#: What to do about a README that links into the documentation nowhere.
+#: What to do about a listed source that links into the documentation nowhere.
 BLIND = (
-    "A README with no documentation link is not one this check can check, so it "
-    "fails rather than passing on an empty search. If the landing page really "
-    "should carry none, retire this check along with them: leaving it is a green "
-    "tick standing for nothing."
+    "A source with no documentation link is not one this check can check, so it "
+    "fails rather than passing on an empty search. Each source is listed because "
+    "it writes a documentation URL where no Sphinx build can see it; one that no "
+    "longer does has nothing left to go wrong and no reason to stay listed. "
+    "Remove it from SOURCES, or restore the link."
 )
 
 
+class Report(NamedTuple):
+    """What one checked source's documentation links came to."""
+
+    found: list[tuple[str, str]]
+    absent: list[str]
+    broken: list[str]
+    stray: list[str]
+    pages: set[str]
+
+
 def links(text: str) -> list[tuple[str, str]]:
-    """Find every canonically written documentation link in the README.
+    """Find every canonically written documentation link in one source.
 
     Parameters
     ----------
     text : str
-        The README, as Markdown.
+        The source file's text.
 
     Returns
     -------
@@ -156,7 +178,7 @@ def path(url: str) -> str:
     Parameters
     ----------
     url : str
-        A documentation URL, as the README writes it.
+        A documentation URL, as a source writes it.
 
     Returns
     -------
@@ -168,12 +190,12 @@ def path(url: str) -> str:
 
 
 def strays(text: str) -> list[str]:
-    """Find every documentation link the README writes non-canonically.
+    """Find every documentation link one source writes non-canonically.
 
     Parameters
     ----------
     text : str
-        The README, as Markdown.
+        The source file's text.
 
     Returns
     -------
@@ -239,8 +261,98 @@ def listed(found: list[str]) -> str:
     return f"{listing} and {rest} more" if rest > 0 else listing
 
 
+def scan(text: str, root: Path) -> Report:
+    """Look every documentation link in one source up in the built HTML.
+
+    Parameters
+    ----------
+    text : str
+        The source file's text.
+    root : pathlib.Path
+        The root of the HTML the build produced.
+
+    Returns
+    -------
+    Report
+        What that source's links came to, with the pages named rather than
+        counted, so several sources naming one page count it once.
+
+    """
+    found = links(text)
+    ids: dict[str, set[str] | None] = {}
+    for page, _ in found:
+        if page not in ids:
+            built = root / page
+            ids[page] = anchors(built) if built.is_file() else None
+    return Report(
+        found=found,
+        absent=sorted(page for page, carried in ids.items() if carried is None),
+        # Keyed by page and fragment together, so one broken anchor named twice in
+        # one source is one thing to fix and is reported as one.
+        broken=sorted(
+            {
+                f"{page}#{anchor}"
+                for page, anchor in found
+                # An absent page carries no ids to miss; it is reported as absent.
+                if anchor and ids[page] is not None and anchor not in ids[page]
+            }
+        ),
+        stray=strays(text),
+        pages=set(ids),
+    )
+
+
+def plural(count: int, noun: str) -> str:
+    """Give ``noun`` the ending ``count`` calls for.
+
+    Parameters
+    ----------
+    count : int
+        How many of the thing there are.
+    noun : str
+        Its singular form.
+
+    Returns
+    -------
+    str
+        ``noun`` written for that count. A report that says "1 pages" reads as one
+        nobody has looked at, which invites the reader to distrust the number
+        beside it.
+
+    """
+    return noun if count == 1 else f"{noun}s"
+
+
+def gathered(picked: dict[str, list[str]], *, tagged: bool) -> list[str]:
+    """Collect one kind of offender from every source, once each.
+
+    Parameters
+    ----------
+    picked : dict of (str, list of str)
+        The offenders of one kind, keyed by the source they were found in, named
+        as it was given.
+    tagged : bool
+        Whether to name the source each offender came from.
+
+    Returns
+    -------
+    list of str
+        The offenders, sorted, and once each: the same thing wrong twice in one
+        source is one entry, and untagged, the same thing wrong in two sources is
+        one entry too -- which is right, because untagged means one source.
+
+    """
+    return sorted(
+        {
+            f"{entry} ({name})" if tagged else entry
+            for name, entries in picked.items()
+            for entry in entries
+        }
+    )
+
+
 def main() -> int:
-    """Check the README's documentation links against the built HTML.
+    """Check each source's documentation links against the built HTML.
 
     Returns
     -------
@@ -248,51 +360,63 @@ def main() -> int:
         ``0`` when every link resolves, ``1`` otherwise.
 
     """
-    if not 2 <= len(sys.argv) <= 3:
-        print("usage: check_documentation_links.py <html-root> [readme]")
+    if len(sys.argv) < 2:
+        print("usage: check_documentation_links.py <html-root> [source ...]")
         return 1
     root = Path(sys.argv[1])
     if not root.is_dir():
         print(f"no such directory: {root}")
         return 1
-    default = Path(__file__).parents[2] / "README.md"
-    readme = Path(sys.argv[2]) if len(sys.argv) == 3 else default
-    if not readme.is_file():
-        print(f"no such file: {readme}")
-        return 1
+    repo = Path(__file__).parents[2]
+    # Named as given, so a listed source is reported by the path that finds it in
+    # the repository rather than by a basename two sources could share.
+    named = [(name, Path(name)) for name in sys.argv[2:]]
+    sources = named or [(name, repo / name) for name in SOURCES]
 
-    text = readme.read_text(encoding="utf-8")
-    found = links(text)
-    # A README linking only non-canonically does link into the documentation, so
+    reports: dict[str, Report] = {}
+    for name, source in sources:
+        if not source.is_file():
+            print(f"no such file: {source}")
+            return 1
+        reports[name] = scan(source.read_text(encoding="utf-8"), root)
+
+    # A source linking only non-canonically does link into the documentation, so
     # it is told what is wrong with those links rather than that it has none.
-    stray = strays(text)
-    if not found and not stray:
-        print(f"{readme.name} links into the documentation nowhere")
+    blind = [
+        name
+        for name, report in reports.items()
+        if not report.found and not report.stray
+    ]
+    if blind:
+        for name in blind:
+            print(f"{name} links into the documentation nowhere")
         print(f"\n{textwrap.fill(BLIND)}")
         return 1
 
-    pages: dict[str, set[str] | None] = {}
-    for page, _ in found:
-        if page not in pages:
-            built = root / page
-            pages[page] = anchors(built) if built.is_file() else None
-
-    absent = sorted(page for page, ids in pages.items() if ids is None)
-    # Keyed by page and fragment together, so one broken anchor named twice in
-    # the README is one thing to fix and is reported as one.
-    broken = sorted(
-        {
-            f"{page}#{anchor}"
-            for page, anchor in found
-            # An absent page carries no ids to miss; it is already reported above.
-            if anchor and pages[page] is not None and anchor not in pages[page]
-        }
+    # One source names itself in the invocation, so attributing every entry to it
+    # is noise; more than one, and a bare page path does not say which file to open.
+    tagged = len(reports) > 1
+    absent = gathered(
+        {name: report.absent for name, report in reports.items()}, tagged=tagged
     )
+    broken = gathered(
+        {name: report.broken for name, report in reports.items()}, tagged=tagged
+    )
+    stray = gathered(
+        {name: report.stray for name, report in reports.items()}, tagged=tagged
+    )
+
     if not absent and not broken and not stray:
-        named = sum(1 for _, anchor in found if anchor)
+        checked = sum(len(report.found) for report in reports.values())
+        anchored = sum(
+            1 for report in reports.values() for _, anchor in report.found if anchor
+        )
+        pages = {page for report in reports.values() for page in report.pages}
         print(
-            f"README links ok: {len(found)} checked, {named} naming an anchor, "
-            f"across {len(pages)} pages"
+            f"Documentation links ok: {checked} checked across "
+            f"{len(reports)} {plural(len(reports), 'source')}, "
+            f"{anchored} naming an anchor, across "
+            f"{len(pages)} {plural(len(pages), 'page')}"
         )
         return 0
     if absent:
@@ -307,7 +431,7 @@ def main() -> int:
         print(f"\nNon-canonical URLs ({len(stray)}):")
         print(f"  {listed(stray)}")
         print(f"\n{textwrap.fill(NOT_CANONICAL)}")
-    print("\nSee 'Landing Page Links' in docs/src/developer/docs-style.rst.")
+    print("\nSee 'Documentation Links' in docs/src/developer/docs-style.rst.")
     return 1
 
 
