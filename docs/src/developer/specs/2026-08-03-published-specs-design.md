@@ -7,7 +7,7 @@
 
 - **Date:** 2026-08-03 (originated; maintained since)
 - **Status:** living design specification
-- **Issue:** [#65](https://github.com/bjlittle/tephpy/issues/65)
+- **Issue:** {issue}`65`
 - **Applies to:** every document under `docs/src/developer/specs/`
 
 (docs-spec-1)=
@@ -27,14 +27,14 @@ two halves, and only the first is a migration:
   which is why this document is itself a living specification rather than a plan.
 
 The distinction between the two document classes is settled in
-[#73](https://github.com/bjlittle/tephpy/pull/73): specifications are living documents
+{pull}`73`: specifications are living documents
 maintained alongside the code; plans are a point-in-time record of what was intended
 before implementation, not updated afterwards. Everything below follows from that.
 
 (docs-spec-2)=
 ## 2. Decisions
 
-1. **Specifications are published; plans are not.** The reader-facing consequence of #73.
+1. **Specifications are published; plans are not.** The reader-facing consequence of {pull}`73`.
 2. **Both live under the developer section, not a Diátaxis quadrant.** The quadrants are
    for users. Specification content — spec §7 testing, spec §8 engineering standards,
    spec §10 roadmap — is contributor material, and the developer guide is its dedicated
@@ -81,7 +81,7 @@ exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
 The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-#73 link to `../specs/`, and the parent specification refers to the plans in the other
+{pull}`73` link to `../specs/`, and the parent specification refers to the plans in the other
 direction. Any layout that published the specifications while leaving the plans
 elsewhere would break one direction and not the other, which is the confusing failure.
 
@@ -165,7 +165,7 @@ keeps `spec-3-2` and `logo-spec-3-2` distinct.
 (docs-spec-3-4)=
 ### 3.4 Pointer maintenance across the two document classes
 
-#73 established that a plan is not updated after implementation. That contract governs
+{pull}`73` established that a plan is not updated after implementation. That contract governs
 what a plan *says* — the intent it recorded, including where implementation later departed
 from it. It does not govern the pointers a plan uses to name other documents.
 
@@ -560,12 +560,12 @@ Not in this change:
 
 Settled since:
 
-- **Resolved** (2026-08-04, PR #89) — **the citation-integrity hook of §3.6 is in place.**
+- **Resolved** (2026-08-04, PR {pull}`89`) — **the citation-integrity hook of §3.6 is in place.**
   The 36 citations that did not meet the §3.2 rule were corrected with it: eleven in `src/`
   and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
   child specifications where a bare `§N` meant the *parent's* section and resolved
   silently to the child's own.
-- **Resolved** (2026-08-04, PR #90) — **citations render as cross-references** (§3.7).
+- **Resolved** (2026-08-04, PR {pull}`90`) — **citations render as cross-references** (§3.7).
   The item was deferred here as "101 rendered citations across 60 public objects"; both
   figures were wrong, and the measured count is 95 across 54. Neither turned out to be
   the number that mattered, because the conversion happens in the doctree rather than in
@@ -574,9 +574,9 @@ Settled since:
 (docs-spec-8)=
 ## 8. References
 
-- [#65](https://github.com/bjlittle/tephpy/issues/65) — publish the design specifications
-- [#73](https://github.com/bjlittle/tephpy/pull/73) — the living/point-in-time contract
-- [#85](https://github.com/bjlittle/tephpy/issues/85) — render citations as cross-references
-- [#86](https://github.com/bjlittle/tephpy/issues/86) — the citation-integrity gate
+- {issue}`65` — publish the design specifications
+- {pull}`73` — the living/point-in-time contract
+- {issue}`85` — render citations as cross-references
+- {issue}`86` — the citation-integrity gate
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent
 - [MyST targets and cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html)

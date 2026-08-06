@@ -372,7 +372,7 @@ Differences from tephi:
   polylines — the straight segments in tephigram (x, y) space that
   matplotlib draws between profile levels, so the fill closes on the
   plotted lines at every figure scale (a pressure-space interpolation bows
-  away from the drawn chords between levels; issue #42) — locate the
+  away from the drawn chords between levels; issue {issue}`42`) — locate the
   crossings where the drawn segments intersect, and return the region's closed
   polygons in (T, θ) space — plural when the region is interrupted — the
   `isopleths.py` free-builder pattern, headlessly testable. The axes methods
@@ -983,12 +983,12 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 
 | # | Plan | Scope (spec §) | Depends on | Status |
 |---|------|----------------|------------|--------|
-| 1 | Foundation & scaffolding | §8 end to end: packaging, pixi, lint/type/test tooling, docs skeleton, CI core gates (residual deferrals: item 15 below) | — | ✅ complete (PR #1; SPEC 0 / platform updates PR #4, #5) |
-| 2 | Transforms & the tephigram projection | §3.1: T–ln θ math derived from published sources with tephi as oracle; minimal `TephigramAxes` + `"tephigram"` registration in `plotting/axes.py`; seeds `_constants` (MA, θ reference pressure, default extents); transform tests per §7; wheel-install smoke test in `ci-wheels` (item 15) | 1 | ✅ complete (PR #9) |
-| 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_extent`; §3.5 `_constants` + `tephpy.config`; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | ✅ complete (PR #15) |
-| 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR #19) |
-| 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR #26) |
-| 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR #40; ingest and layout hardening PR #41) |
+| 1 | Foundation & scaffolding | §8 end to end: packaging, pixi, lint/type/test tooling, docs skeleton, CI core gates (residual deferrals: item 15 below) | — | ✅ complete (PR {pull}`1`; SPEC 0 / platform updates PR {pull}`4`, {pull}`5`) |
+| 2 | Transforms & the tephigram projection | §3.1: T–ln θ math derived from published sources with tephi as oracle; minimal `TephigramAxes` + `"tephigram"` registration in `plotting/axes.py`; seeds `_constants` (MA, θ reference pressure, default extents); transform tests per §7; wheel-install smoke test in `ci-wheels` (item 15) | 1 | ✅ complete (PR {pull}`9`) |
+| 3 | Isopleth plotting | §3.2 grid + five isopleth families as zoom-aware artists, accessor methods, `set_extent`; §3.5 `_constants` + `tephpy.config`; pytest-mpl infrastructure + isopleth baselines (§8.5); vector-output smoke test (§9 "vector output" — PDF/SVG `savefig` of the first real diagram) | 2 | ✅ complete (PR {pull}`15`) |
+| 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR {pull}`19`) |
+| 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR {pull}`26`) |
+| 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR {pull}`40`; ingest and layout hardening PR {pull}`41`) |
 | 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | **next** |
 
 Cross-cutting rules (apply to every plan rather than one row):
@@ -1028,30 +1028,30 @@ Enumerated so they are visible decisions, not silent drift. Items 1–2 are deci
 roadmap makes; the remainder are open questions assigned to the plan that must answer
 them, ordered by owning plan.
 
-1. **Resolved** (2026-07-28, PR #19, #26, #40) — **The Plan 4–6 slicing is inferred, not inherited.** Only Plans 1–3 and 7 were anchored
+1. **Resolved** (2026-07-28, PR {pull}`19`, {pull}`26`, {pull}`40`) — **The Plan 4–6 slicing is inferred, not inherited.** Only Plans 1–3 and 7 were anchored
    in writing when Plan 1 shipped ("Plan 3" for image tests, "Plan 7" for the gallery).
    The split above keeps one subsystem per plan along the §3 layering; viable alternatives
    (barbs inside Plan 4; `io` as its own plan; examples accreting per-plan instead of
    batching in Plan 7) were consciously not taken.
-2. **Resolved** (2026-07-26, PR #26) — **`Profile` is defined in Plan 5 but referenced by Plan 4.** §3.2 says `plot_profile`
+2. **Resolved** (2026-07-26, PR {pull}`26`) — **`Profile` is defined in Plan 5 but referenced by Plan 4.** §3.2 says `plot_profile`
    accepts pint quantities *or* a `Profile`; Plan 4 ships the quantities signature, and
    Plan 5 adds the `Profile` overload together with `calc.parcel_path`. *Resolved
    2026-07-26:* `Profile` is a frozen dataclass in `calc` (§3.3); the overload
    dispatches by duck-typing so `plotting` never imports `calc` (§3.2).
-3. **Resolved** (2026-07-23, PR #9) — **Plan 2 — the TephigramAxes seam.** *Resolved 2026-07-23:* the `"tephigram"`
+3. **Resolved** (2026-07-23, PR {pull}`9`) — **Plan 2 — the TephigramAxes seam.** *Resolved 2026-07-23:* the `"tephigram"`
    projection and a minimal `TephigramAxes` live in `plotting/axes.py` from Plan 2
    (Plan 3 extends the same class in place); `transforms.py` stays pure numpy math.
    §3.1 updated accordingly.
-4. **Resolved** (2026-07-23, PR #9) — **Plan 2 — units at the transforms boundary.** *Resolved 2026-07-23:* `transforms` is
+4. **Resolved** (2026-07-23, PR {pull}`9`) — **Plan 2 — units at the transforms boundary.** *Resolved 2026-07-23:* `transforms` is
    the documented exemption to §5 — bare numpy arrays in diagram-native units (hPa/°C),
    because matplotlib's per-draw pipeline consumes bare arrays; every layer above
    converts before calling down. §5 updated accordingly.
-5. **Resolved** (2026-07-23, PR #9) — **Plan 2 — tephi provenance and attribution.** *Resolved 2026-07-23:* verify-first
+5. **Resolved** (2026-07-23, PR {pull}`9`) — **Plan 2 — tephi provenance and attribution.** *Resolved 2026-07-23:* verify-first
    stance — derive each function from the published sources and challenge it per case
    (§7's four-layer battery), with tephi as a recorded oracle rather than a source to
    copy. Attribution attaches only to artifacts actually copied, per case, via a NOTICE
    file if needed. The same stance applies to Plan 3's locator/refresh reimplementation.
-6. **Resolved** (2026-07-24, PR #15) — **Plan 3 — config object and accessor naming.** The §3.5 `tephpy.rcparams`-style object
+6. **Resolved** (2026-07-24, PR {pull}`15`) — **Plan 3 — config object and accessor naming.** The §3.5 `tephpy.rcparams`-style object
    is named but not designed. §3.2 names accessors for only three of the five isopleth
    families, and the spec alternates between "saturated" and "wet" adiabats — pick
    canonical names (the glossary rule: one spelling per concept). *Resolved
@@ -1062,13 +1062,13 @@ them, ordered by owning plan.
    singleton (§3.5). The fixed-extents API is `set_extent` — the earlier `set_anchor`
    collided with matplotlib's own `Axes.set_anchor` (`DEFAULT_ANCHOR` renames to
    `DEFAULT_EXTENT`). §1/§3.2/§3.5/§4 updated accordingly.
-7. **Resolved** (2026-07-24, PR #15) — **Plan 3 — side-of-axes layout seam.** The barb gutter (Plan 6) and the indices panel
+7. **Resolved** (2026-07-24, PR {pull}`15`) — **Plan 3 — side-of-axes layout seam.** The barb gutter (Plan 6) and the indices panel
    (Plan 5) both need space beside the diagram; Plan 3 decides whether the axes pre-builds
    that layout or each consumer manages its own. *Resolved 2026-07-24:* decide the
    contract, build later — §3.2 fixes the mechanism (`axes_grid1` divider) and the
    right-side inside-out ordering (barb gutter, then indices panel); no layout code
    ships until Plans 5/6 consume it.
-8. **Resolved** (2026-07-25, PR #19) — **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
+8. **Resolved** (2026-07-25, PR {pull}`19`) — **Plan 4 — Sounding contract details.** Label/legend format (§4 hints
    `"72357 2013-05-20 12Z"`), station/time optionality (§3.4 states requiredness only for
    the data arrays), and how forecast-vs-observed overlays of the same station/time stay
    distinguishable in a legend. *Resolved 2026-07-25:* station and time are optional
@@ -1077,18 +1077,18 @@ them, ordered by owning plan.
    an explicit `label=` always wins, and with neither there is no legend entry.
    Forecast-vs-observed distinguishability is the label override's job — no dedicated
    field. §3.2/§3.4 updated accordingly.
-9. **Refined** (2026-07-26, PR #19) — **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
+9. **Refined** (2026-07-26, PR {pull}`19`) — **Plan 4 — pandas/xarray dependency status.** `from_dataframe`/`from_dataset` (§3.4)
    and the §2 ingest decision need pandas/xarray, but §8.1's runtime list omits them
    (today they arrive transitively via MetPy). Decide: direct declaration, optional
    extra, or typing-only treatment. *Resolved 2026-07-25:* declared directly — the
    constructors' public API consumes pandas/xarray types, so leaning on MetPy's
    transitive guarantee would be a silent contract, and the declaration adds no install
    weight. Imported function-locally inside the constructors to keep `import tephpy`
-   light. §8.1 updated accordingly. *Refined by Plan 4 (PR #19):* the shipped
+   light. §8.1 updated accordingly. *Refined by Plan 4 (PR {pull}`19`):* the shipped
    constructors are duck-typed over the objects handed to them, so no runtime
    pandas/xarray import exists at all — annotations are `TYPE_CHECKING`-only, and
    the Plan 4 subprocess test enforces it.
-10. **Resolved** (2026-07-26, PR #26) — **Plan 4/5 — top-level namespace policy.** §4 requires `tephpy.calc.parcel_path` to
+10. **Resolved** (2026-07-26, PR {pull}`26`) — **Plan 4/5 — top-level namespace policy.** §4 requires `tephpy.calc.parcel_path` to
     work after `import tephpy`, implying eager subpackage import (and MetPy's import cost)
     or lazy loading; also which names (e.g. `Sounding`) re-export at top level. Plan 3
     keeps MetPy behind function-local imports in the isopleth builders, leaving this
@@ -1104,7 +1104,7 @@ them, ordered by owning plan.
     import-cost guard test polices) — so `calc` re-exports eagerly alongside
     `Sounding` and `tephpy.calc.parcel_path` works per §4 at no import cost.
     `lazy-loader`/PEP 810 are not adopted; Plan 6 applies the same pattern to `io`.
-11. **Resolved** (2026-07-26, PR #26) — **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
+11. **Resolved** (2026-07-26, PR {pull}`26`) — **Plan 5 — MetPy behaviour verification.** §6 asserts NaN pass-through, but MetPy
     returns 0 (not NaN) for zero CAPE and warns on some degenerate profiles — and pytest's
     `filterwarnings = ["error"]` turns those warnings into failures. Verify the §6
     contract and the availability of `wet_bulb_potential_temperature`/`lifted_index`/
@@ -1120,13 +1120,13 @@ them, ordered by owning plan.
     Plan 5 implementation plan verifies the §6 semantics (not just name
     availability) against a `metpy==1.6.*` resolve and raises the floor if
     they diverge.
-12. **Resolved** (2026-07-26, PR #26) — **Plan 5 — "layer highlights".** The §3 tree comment on `shading.py` names layer
+12. **Resolved** (2026-07-26, PR {pull}`26`) — **Plan 5 — "layer highlights".** The §3 tree comment on `shading.py` names layer
     highlights, but no API, §9 scope item, or plan covers them; treated as not-in-v1
     unless Plan 5's design deliberately includes them. *Resolved 2026-07-26:* not in
     v1 — Plan 5 ships `shade_cape`/`shade_cin` only and the §3 tree comment is
     corrected; layer highlights remain a v1.x candidate.
-    The v1.x candidacy is tracked in [#79](https://github.com/bjlittle/tephpy/issues/79).
-13. **Resolved** (2026-07-27, PR #26, #40) — **Plans 2/5/6 — third-party data provenance.** Any tephi artifacts actually copied
+    The v1.x candidacy is tracked in {issue}`79`.
+13. **Resolved** (2026-07-27, PR {pull}`26`, {pull}`40`) — **Plans 2/5/6 — third-party data provenance.** Any tephi artifacts actually copied
     (item 5), the §7
     published worked example (which publication, and is its data redistributable?), and
     recorded Wyoming/IGRA fixtures all embed external data; each owning plan records
@@ -1143,7 +1143,7 @@ them, ordered by owning plan.
     URL, capture date and method, and attribution. IGRA is NOAA/NCEI public
     domain; the Wyoming ascent is a single recorded sounding used as test
     facts, with the archive credited in the provenance note.
-14. **Resolved** (2026-07-26, PR #26) — **scipy is declared but unowned.** §8.1 lists scipy as a runtime dependency, yet no §3
+14. **Resolved** (2026-07-26, PR {pull}`26`) — **scipy is declared but unowned.** §8.1 lists scipy as a runtime dependency, yet no §3
     module names it (plausible first consumers: interpolation in Plan 2 or Plan 5). If
     Plan 5 completes without it, drop the dependency. *Resolved 2026-07-26:* Plan 5's
     design needs no direct scipy (the shading interpolation is plain numpy; MetPy
@@ -1151,7 +1151,7 @@ them, ordered by owning plan.
     direct declaration is dropped in Plan 5 (§8.1 updated; the implementation plan
     also removes scipy from the declared-dependencies tuple in
     `tests/test_import.py`).
-15. **Deferred** (Plan 7 — [#76](https://github.com/bjlittle/tephpy/issues/76)) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
+15. **Deferred** (Plan 7 — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
     `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2) → reconciled
     in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
     task regenerates the pytest-mpl baselines);
@@ -1161,13 +1161,13 @@ them, ordered by owning plan.
 
     Per-deferral status:
 
-    - **Deferred** (Plan 7 — [#76](https://github.com/bjlittle/tephpy/issues/76)): sphinx-tags (§8.6).
-    - **Deferred** (Plan 7 — [#76](https://github.com/bjlittle/tephpy/issues/76)): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
-    - **Deferred** (Plan 7 — [#76](https://github.com/bjlittle/tephpy/issues/76)): the §8.3 packaging-guide SPEC 0 statement.
-    - **Resolved** (2026-07-24, PR #15): the `tests-clean` task, with `baselines` alongside it.
-    - **Resolved** (2026-07-23, PR #9): the wheel-install smoke test.
-    - **Open** ([#77](https://github.com/bjlittle/tephpy/issues/77)): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
-16. **Resolved** (2026-07-29, PR #41) — **matplotlib floor vs. `Artist.get_figure(root=...)`.** §8.1 names matplotlib without
+    - **Deferred** (Plan 7 — {issue}`76`): sphinx-tags (§8.6).
+    - **Deferred** (Plan 7 — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
+    - **Deferred** (Plan 7 — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
+    - **Resolved** (2026-07-24, PR {pull}`15`): the `tests-clean` task, with `baselines` alongside it.
+    - **Resolved** (2026-07-23, PR {pull}`9`): the wheel-install smoke test.
+    - **Open** ({issue}`77`): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
+16. **Resolved** (2026-07-29, PR {pull}`41`) — **matplotlib floor vs. `Artist.get_figure(root=...)`.** §8.1 names matplotlib without
     a version and the pins carried `>=3.9`, but the `root` keyword arrived only in
     matplotlib 3.10, and three zoom-aware artists pass it: `isopleths.py` (Plan 3),
     `barbs.py` (Plan 6), and `axes.py` (Plan 6 hardening). *Resolved 2026-07-29:* floor
@@ -1183,23 +1183,23 @@ them, ordered by owning plan.
     the newest satisfying release — which is how the wrong floor survived three plans; a
     lowest-direct-resolution gate is re-homed to Plan 7.
 
-    *Residual:* **Deferred** (Plan 7 — [#78](https://github.com/bjlittle/tephpy/issues/78)) — the lowest-direct-resolution gate.
+    *Residual:* **Deferred** (Plan 7 — {issue}`78`) — the lowest-direct-resolution gate.
 
 (spec-11)=
 ## 11. Open questions (carried from research)
 
-- **Deferred** (v1.x — [#79](https://github.com/bjlittle/tephpy/issues/79)) — Which aviation-specific overlays (icing layers, MINTRA) do operational users
+- **Deferred** (v1.x — {issue}`79`) — Which aviation-specific overlays (icing layers, MINTRA) do operational users
   actually need built in, versus composing themselves? Partly answered: member
   emphasis (§3.2) gives the icing band's 0 °C and −20 °C bounds as isotherms, so
   what remains open is whether the *shaded layer* between them is wanted, which
   belongs with the layer highlights already deferred to v1.x (§10 item 12).
-- **Blocked** (on a citable published chart — [#80](https://github.com/bjlittle/tephpy/issues/80)) — Whether a current Met Office Factsheet 13 — or a University of Reading blank
+- **Blocked** (on a citable published chart — {issue}`80`) — Whether a current Met Office Factsheet 13 — or a University of Reading blank
   tephigram — shows the 0 °C isotherm drawn distinctively on the printed chart.
   Its published URL 404s (2026-07-30), so member emphasis ships off by default;
   a citation would justify revisiting that.
-- **Open** ([#81](https://github.com/bjlittle/tephpy/issues/81)) — Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
+- **Open** ({issue}`81`) — Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
-- **Deferred** (post-v1, demand-driven — [#82](https://github.com/bjlittle/tephpy/issues/82)) — Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
+- **Deferred** (post-v1, demand-driven — {issue}`82`) — Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
 
 (spec-12)=
 ## 12. References

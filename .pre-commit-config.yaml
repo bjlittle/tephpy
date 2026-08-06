@@ -113,3 +113,14 @@ repos:
         language: python
         always_run: true
         pass_filenames: false
+
+      # A reference written as plain text or as a URL is a link the reader cannot
+      # follow, or a URL that has left the configuration behind (docs spec §3.8).
+      # Editing conf.py's extlinks changes what every file should say, so this runs
+      # over the whole tree, not the staged files.
+      - id: check-github-references
+        name: GitHub references are links
+        entry: .github/scripts/check_github_references.py
+        language: python
+        always_run: true
+        pass_filenames: false

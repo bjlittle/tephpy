@@ -174,3 +174,12 @@ def test_the_corpus_excludes_the_plans_and_covers_the_specifications():
     assert REPO / "tests" / "plotting" / "test_shading.py" in paths
     frozen = "the plans are point-in-time records (docs spec §3.4)"
     assert not any("plans" in path.parts for path in paths), frozen
+
+
+def test_the_repository_satisfies_the_reference_contract(capsys):
+    """The live tree passes both assertions (docs spec §3.8).
+
+    The pre-commit hook is the primary gate, but hooks are not installed in a fresh
+    clone, so this is what catches a reference broken by someone who bypassed them.
+    """
+    assert gr.main() == 0, capsys.readouterr().out

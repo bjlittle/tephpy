@@ -756,7 +756,12 @@ Line 577 is the first entry of §8 References, and step 3 left it reading
 ``- {issue}`65` — publish the design specifications``. Substitutions do not change the line
 count, so the address still holds.
 
+**Stage the conversions before mutating.** `git checkout <path>` restores from the index,
+not from the last commit, and steps 1–4 are still unstaged at this point — so reverting
+without staging first discards all 11 conversions in that file along with the mutation.
+
 ```bash
+git add -A
 sed -i '577s/{issue}`65`/#65/' \
   docs/src/developer/specs/2026-08-03-published-specs-design.md
 pixi run --frozen pre-commit run check-github-references --all-files
