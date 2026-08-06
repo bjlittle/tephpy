@@ -3,7 +3,7 @@
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
 
-"""Tests for the README documentation-link gate."""
+"""Tests for the documentation-link gate."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import sys
 import pytest
 
 REPO = Path(__file__).parents[1]
-SCRIPT = REPO / ".github" / "scripts" / "check_readme_links.py"
+SCRIPT = REPO / ".github" / "scripts" / "check_documentation_links.py"
 
 # As in `test_rendered_citations.py`: `MANIFEST.in` prunes `.github`, so an sdist
 # ships these tests without the gate they exercise. The guard sits on the module
@@ -31,20 +31,20 @@ PREVIEW = "https://tephpy--99.org.readthedocs.build/en/99/reference/glossary.htm
 
 def _load():
     """Import the gate by path; ``.github`` is not an importable package."""
-    assert SCRIPT.is_file(), f"the README link gate is missing from {SCRIPT}"
-    spec = importlib.util.spec_from_file_location("check_readme_links", SCRIPT)
+    assert SCRIPT.is_file(), f"the documentation link gate is missing from {SCRIPT}"
+    spec = importlib.util.spec_from_file_location("check_documentation_links", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
-crl = _load() if SCRIPT.is_file() else None
+gate = _load() if SCRIPT.is_file() else None
 
 
 def url(page, anchor=""):
     """Build the published URL of ``page``, naming ``anchor`` when given."""
-    return crl.BASE + page + (f"#{anchor}" if anchor else "")
+    return gate.BASE + page + (f"#{anchor}" if anchor else "")
 
 
 def terms(*names: str):
@@ -74,9 +74,9 @@ def readme(tmp_path, text):
 def run(monkeypatch, capsys, root, path):
     """Run the gate over ``root`` and ``path``; return its code and output."""
     monkeypatch.setattr(
-        crl.sys, "argv", ["check_readme_links.py", str(root), str(path)]
+        gate.sys, "argv", ["check_documentation_links.py", str(root), str(path)]
     )
-    code = crl.main()
+    code = gate.main()
     return code, capsys.readouterr().out
 
 
@@ -206,8 +206,8 @@ def test_a_preview_host_url_is_not_canonical(tmp_path, monkeypatch, capsys):
 
 def test_an_unpublished_version_is_not_canonical(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    stable = crl.BASE.replace("latest", "stable") + f"{GLOSSARY}#term-CAPE"
-    bare = crl.BASE.replace("en/latest/", "") + f"{GLOSSARY}#term-CAPE"
+    stable = gate.BASE.replace("latest", "stable") + f"{GLOSSARY}#term-CAPE"
+    bare = gate.BASE.replace("en/latest/", "") + f"{GLOSSARY}#term-CAPE"
     path = readme(
         tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [s]({stable}) [b]({bare})"
     )
@@ -225,7 +225,7 @@ def test_text_after_the_page_is_not_canonical(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     good = url(GLOSSARY, "term-CAPE")
     stale = f"{url(GLOSSARY)}.bak"
-    typo = f"{crl.BASE}reference/glossary.htmlx"
+    typo = f"{gate.BASE}reference/glossary.htmlx"
     deeper = f"{url(GLOSSARY)}/extra"
     text = f"[CAPE]({good}) [s]({stale}) [t]({typo}) [d]({deeper})"
     path = readme(tmp_path, text)
@@ -233,7 +233,7 @@ def test_text_after_the_page_is_not_canonical(tmp_path, monkeypatch, capsys):
     # Every one of these begins with a page the build did produce, so a matcher
     # allowed to settle for a prefix reads them as `reference/glossary.html` and
     # discards the trailing text -- which is the whole of what makes them 404.
-    assert crl.links(text) == [(GLOSSARY, "term-CAPE")]
+    assert gate.links(text) == [(GLOSSARY, "term-CAPE")]
     assert code == 1
     assert "Non-canonical URLs (3)" in out
     assert stale in out
@@ -259,7 +259,7 @@ def test_an_http_url_is_not_canonical(tmp_path, monkeypatch, capsys):
 def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     path = readme(
-        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [ref]({crl.BASE}reference/)"
+        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [ref]({gate.BASE}reference/)"
     )
     code, out = run(monkeypatch, capsys, root, path)
     # A directory URL resolves on Read the Docs and names no page and no anchor,
@@ -295,6 +295,6 @@ def test_badge_url_is_not_a_page(tmp_path, monkeypatch, capsys):
 
 
 def test_usage_is_reported(monkeypatch, capsys):
-    monkeypatch.setattr(crl.sys, "argv", ["check_readme_links.py"])
-    assert crl.main() == 1
-    assert "usage: check_readme_links.py" in capsys.readouterr().out
+    monkeypatch.setattr(gate.sys, "argv", ["check_documentation_links.py"])
+    assert gate.main() == 1
+    assert "usage: check_documentation_links.py" in capsys.readouterr().out

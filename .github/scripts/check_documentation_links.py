@@ -246,7 +246,7 @@ def main() -> int:
 
     """
     if not 2 <= len(sys.argv) <= 3:
-        print("usage: check_readme_links.py <html-root> [readme]")
+        print("usage: check_documentation_links.py <html-root> [readme]")
         return 1
     root = Path(sys.argv[1])
     if not root.is_dir():

@@ -185,12 +185,12 @@ and each run of non-alphanumeric characters collapsed to a single hyphen, so
 case-insensitive, and a lowercase label is hard to mistake for the fragment,
 which is not.
 
-The documentation build checks these links. ``check_readme_links.py`` reads each
-URL out of the README and looks it up in the HTML just built, failing when the
-URL is written some other way, when the page is absent, or when the fragment
-names no ``id``. Renaming a glossary term or moving a page therefore fails the
-build, rather than leaving the landing page pointing into a 404 that nobody
-notices.
+The documentation build checks these links. ``check_documentation_links.py``
+reads each URL out of the README and looks it up in the HTML just built,
+failing when the URL is written some other way, when the page is absent, or
+when the fragment names no ``id``. Renaming a glossary term or moving a page
+therefore fails the build, rather than leaving the landing page pointing into a
+404 that nobody notices.
 
 Attribute Documentation
 -----------------------
