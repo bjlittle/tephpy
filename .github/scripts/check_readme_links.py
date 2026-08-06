@@ -22,15 +22,26 @@ rule, because the ids are read off the built page rather than derived. A
 normalisation of our own would be one more thing able to drift from Sphinx, which
 is the drift this gate exists to catch.
 
+Only the canonical ``en/latest`` URL can be looked up that way, so a link onto a
+documentation host of this project written any other way is reported rather than
+skipped in silence. A per-pull-request preview is where a documentation change is
+verified and the wrong place to link from the landing page, because Read the Docs
+deletes it when the pull request closes; and ``latest`` is the only version this
+project publishes.
+
 A README carrying no documentation link at all fails too. A check is worth what it
 covers, and a rewrite that dropped every link would otherwise pass in silence.
 
-Two things are deliberately not checked. That a link points at the *right* page is
-a question about meaning, not resolution, and no gate can answer it. And an
+Three things are deliberately not checked. That a link points at the *right* page
+is a question about meaning, not resolution, and no gate can answer it. An
 ``en/latest`` URL is checked against the working tree's own build, which is the
 only build available -- a link correct here is wrong on the published site until
 this branch merges, and that is the ordinary lag of a landing page that names a
-moving target.
+moving target. And a URL on a documentation host of this project that names no
+``.html`` page is passed over rather than judged: it is how the Read the Docs
+badge, which points at the base with a query string, stays out of the report, and
+it lets through a directory-style URL, which Read the Docs does resolve and which
+carries no page or anchor to look up.
 
 Notes
 -----
@@ -51,6 +62,14 @@ BASE = "https://tephpy.readthedocs.io/en/latest/"
 #: path ending in ``.html`` is a page: the Read the Docs badge points at the base
 #: with a query string and no path, and names nothing this gate can look up.
 LINK = re.compile(re.escape(BASE) + r"([\w./-]+\.html)(?:#([\w.:-]+))?")
+#: Any URL onto a documentation host of this project -- the published site, or a
+#: per-pull-request Read the Docs preview. The match stops before whitespace,
+#: ``)`` and ``]``, so a Markdown inline link and a reference definition both
+#: terminate cleanly.
+DOCS = re.compile(
+    r"https://(?:tephpy\.readthedocs\.io"
+    r"|tephpy--[\w.-]+?\.org\.readthedocs\.build)[^\s)\]]*"
+)
 #: An ``id`` attribute in the built HTML, which is what a fragment must name.
 ID = re.compile(r'\bid="([^"]+)"')
 #: How many offenders of one kind to name before counting the rest.
@@ -70,6 +89,17 @@ MISSING_ANCHOR = (
     "non-alphanumeric characters to a single hyphen, so renaming a term moves its "
     "anchor and the README goes on naming where it used to be. Copy the id out of "
     "the built page rather than deriving it by hand."
+)
+#: What to do about a link into the documentation written some other way.
+NOT_CANONICAL = (
+    "Only 'https://tephpy.readthedocs.io/en/latest/<page>.html' is checked here, "
+    "and it is the only form that goes on working. A per-pull-request preview "
+    "host ('tephpy--<pr>.org.readthedocs.build') is where a documentation change "
+    "is verified, not where a link belongs: Read the Docs deletes the preview "
+    "when the pull request closes. And 'latest' is the only version published -- "
+    "there is no 'stable' until the project releases -- so a URL naming another "
+    "version, or naming none at all, is a 404 waiting to be clicked. Rewrite the "
+    "URL in the canonical form."
 )
 #: What to do about a README that links into the documentation nowhere.
 BLIND = (
@@ -96,6 +126,50 @@ def links(text: str) -> list[tuple[str, str]]:
 
     """
     return [(page, anchor or "") for page, anchor in LINK.findall(text)]
+
+
+def path(url: str) -> str:
+    """Take the path out of a URL, dropping any fragment and query string.
+
+    Parameters
+    ----------
+    url : str
+        A documentation URL, as the README writes it.
+
+    Returns
+    -------
+    str
+        Everything the URL says before the first ``#`` or ``?``.
+
+    """
+    return url.split("#", 1)[0].split("?", 1)[0]
+
+
+def strays(text: str) -> list[str]:
+    """Find every documentation link the README writes non-canonically.
+
+    Parameters
+    ----------
+    text : str
+        The README, as Markdown.
+
+    Returns
+    -------
+    list of str
+        Each URL onto a documentation host of this project that names an
+        ``.html`` page and is not the canonical form, sorted, and once each: the
+        same wrong URL written twice is one thing to fix. A URL naming no page is
+        passed over -- it is how the Read the Docs badge stays out of the report,
+        and a directory-style URL resolves while carrying nothing to look up.
+
+    """
+    return sorted(
+        {
+            url
+            for url in DOCS.findall(text)
+            if not LINK.fullmatch(url) and path(url).endswith(".html")
+        }
+    )
 
 
 def anchors(page: Path) -> set[str]:
@@ -157,8 +231,12 @@ def main() -> int:
         print(f"no such file: {readme}")
         return 1
 
-    found = links(readme.read_text(encoding="utf-8"))
-    if not found:
+    text = readme.read_text(encoding="utf-8")
+    found = links(text)
+    # A README linking only non-canonically does link into the documentation, so
+    # it is told what is wrong with those links rather than that it has none.
+    stray = strays(text)
+    if not found and not stray:
         print(f"{readme.name} links into the documentation nowhere")
         print(f"\n{textwrap.fill(BLIND)}")
         return 1
@@ -180,7 +258,7 @@ def main() -> int:
             if anchor and pages[page] is not None and anchor not in pages[page]
         }
     )
-    if not absent and not broken:
+    if not absent and not broken and not stray:
         named = sum(1 for _, anchor in found if anchor)
         print(
             f"README links ok: {len(found)} checked, {named} naming an anchor, "
@@ -195,6 +273,10 @@ def main() -> int:
         print(f"\nMissing anchors ({len(broken)}):")
         print(f"  {listed(broken)}")
         print(f"\n{textwrap.fill(MISSING_ANCHOR)}")
+    if stray:
+        print(f"\nNon-canonical URLs ({len(stray)}):")
+        print(f"  {listed(stray)}")
+        print(f"\n{textwrap.fill(NOT_CANONICAL)}")
     print("\nSee 'Landing Page Links' in docs/src/developer/docs-style.rst.")
     return 1
 

@@ -169,6 +169,13 @@ prose stays readable and each URL is stated once:
 
     [cape]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CAPE
 
+Write the target as ``https://tephpy.readthedocs.io/en/latest/<page>.html``,
+optionally with a fragment, and in no other form. A per-pull-request preview
+host (``tephpy--<pr>.org.readthedocs.build``) is where a documentation change is
+verified rather than where a link belongs — Read the Docs deletes the preview
+when the pull request closes — and ``latest`` is the only version published, so
+``en/stable`` and a path that drops the version alike resolve nowhere.
+
 Link the *first* mention of a glossary term in the README and no more, as on a
 documentation page. Take the fragment from the built page rather than deriving
 it: a glossary anchor is ``term-`` followed by the term with its case preserved
@@ -180,9 +187,10 @@ which is not.
 
 The documentation build checks these links. ``check_readme_links.py`` reads each
 URL out of the README and looks it up in the HTML just built, failing when the
-page is absent or the fragment names no ``id``. Renaming a glossary term or
-moving a page therefore fails the build, rather than leaving the landing page
-pointing into a 404 that nobody notices.
+URL is written some other way, when the page is absent, or when the fragment
+names no ``id``. Renaming a glossary term or moving a page therefore fails the
+build, rather than leaving the landing page pointing into a 404 that nobody
+notices.
 
 Attribute Documentation
 -----------------------

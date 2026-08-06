@@ -34,7 +34,7 @@ cross-reference rules.
     profile
         One curve of a temperature-like quantity against pressure — a
         :term:`sounding`'s temperature or dewpoint trace, or a computed
-        :term:`parcel` path (the :class:`calc.Profile <tephpy.calc.Profile>`
+        :term:`parcel path` (the :class:`calc.Profile <tephpy.calc.Profile>`
         dataclass).
         :meth:`ax.plot_profile(...) <tephpy.plotting.axes.TephigramAxes.plot_profile>`
         draws it through the tephigram transform machinery.
@@ -111,8 +111,9 @@ cross-reference rules.
         An imagined small mass of air lifted through the surrounding
         environment without mixing with it — the tephigram's basic tool
         for reasoning about stability. Its :term:`parcel ascent` is what
-        the diagram plots; in ``tephpy`` the ``parcel=`` option selects
-        which parcel starts one: ``"surface"`` or ``"mixed-layer"`` (the
+        the diagram plots; in ``tephpy`` the ``parcel=`` option of
+        :func:`calc.parcel_path <tephpy.calc.parcel_path>` chooses where
+        that ascent begins: ``"surface"`` or ``"mixed-layer"`` (the
         lowest 100 hPa averaged).
 
     parcel ascent

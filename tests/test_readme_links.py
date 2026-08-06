@@ -25,6 +25,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 GLOSSARY = "reference/glossary.html"
+SPECS = "developer/specs/index.html"
+PREVIEW = "https://tephpy--99.org.readthedocs.build/en/99/reference/glossary.html"
 
 
 def _load():
@@ -100,6 +102,35 @@ def test_resolving_links_pass(tmp_path, monkeypatch, capsys):
     assert "2 checked, 2 naming an anchor" in out
 
 
+def test_the_success_line_counts_anchors_and_pages(tmp_path, monkeypatch, capsys):
+    root = build(
+        tmp_path,
+        {GLOSSARY: terms("term-CAPE"), SPECS: "<html><body><p>specs</p></body></html>"},
+    )
+    path = readme(
+        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) and [design]({url(SPECS)})"
+    )
+    code, out = run(monkeypatch, capsys, root, path)
+    # On the success path that line is the whole report. A count that stops
+    # distinguishing an anchored link from a bare page link, or that names the
+    # wrong number of pages, describes a check other than the one that ran.
+    assert code == 0
+    assert "2 checked, 1 naming an anchor, across 2 pages" in out
+
+
+def test_one_anchor_broken_twice_is_reported_once(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    link = url(GLOSSARY, "term-parcel-ascent")
+    path = readme(tmp_path, f"[ascent]({link}) and again [ascent]({link})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # One anchor named twice is one thing to fix. Counting the mentions instead
+    # would inflate the report and send an author looking for a second break that
+    # the README does not have.
+    assert code == 1
+    assert "Missing anchors (1)" in out
+    assert flat(out).count("term-parcel-ascent") == 1
+
+
 def test_missing_anchor_is_reported(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     path = readme(tmp_path, f"[ascent]({url(GLOSSARY, 'term-parcel-ascent')})")
@@ -140,6 +171,66 @@ def test_every_missing_anchor_is_listed(tmp_path, monkeypatch, capsys):
     assert "Missing anchors (2)" in out
     assert "term-CIN" in out
     assert "term-LCL" in out
+
+
+def test_the_report_says_what_it_did_not_list(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(
+        tmp_path,
+        " ".join(f"[{n}]({url(GLOSSARY, f'term-{n}')})" for n in range(10)),
+    )
+    code, out = run(monkeypatch, capsys, root, path)
+    # The header counts every offender, so a listing that quietly stops short
+    # invites the reader to conclude the rest were fine.
+    assert code == 1
+    assert "Missing anchors (10)" in out
+    assert "and 4 more" in out
+
+
+def test_a_preview_host_url_is_not_canonical(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(
+        tmp_path,
+        f"[CAPE]({url(GLOSSARY, 'term-CAPE')})\n\n[preview]: {PREVIEW}#term-CAPE\n",
+    )
+    code, out = run(monkeypatch, capsys, root, path)
+    # A preview URL resolves for as long as its pull request is open, which is
+    # exactly why one gets pasted: the rot arrives later, when nobody is looking.
+    assert code == 1
+    assert "Non-canonical URLs (1)" in out
+    assert f"{PREVIEW}#term-CAPE" in out
+    assert "deletes the preview when the pull request closes" in flat(out)
+    # The canonical link beside it resolved, and must not be swept in.
+    assert "Missing anchors" not in out
+
+
+def test_an_unpublished_version_is_not_canonical(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    stable = crl.BASE.replace("latest", "stable") + f"{GLOSSARY}#term-CAPE"
+    bare = crl.BASE.replace("en/latest/", "") + f"{GLOSSARY}#term-CAPE"
+    path = readme(
+        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [s]({stable}) [b]({bare})"
+    )
+    code, out = run(monkeypatch, capsys, root, path)
+    # Both resolve only in an author's head: there is no 'stable' until the
+    # project releases, and a path that drops the version names no version.
+    assert code == 1
+    assert "Non-canonical URLs (2)" in out
+    assert stable in out
+    assert bare in out
+    assert "there is no 'stable' until the project releases" in flat(out)
+
+
+def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(
+        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [ref]({crl.BASE}reference/)"
+    )
+    code, out = run(monkeypatch, capsys, root, path)
+    # A directory URL resolves on Read the Docs and names no page and no anchor,
+    # so there is nothing to look up and nothing to be wrong about.
+    assert code == 0
+    assert "1 checked" in out
 
 
 def test_readme_with_no_links_fails(tmp_path, monkeypatch, capsys):

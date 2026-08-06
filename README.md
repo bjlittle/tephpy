@@ -27,7 +27,7 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 > [!NOTE]
 > **Status:** early development — the plotting and analysis API is being built
-> out plan by plan for the [design](https://tephpy.readthedocs.io/en/latest/developer/specs/index.html).
+> out plan by plan for the [design][specs].
 
 [tephigram]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-tephigram
 [parcel-ascent]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-parcel-ascent
@@ -36,3 +36,4 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 [lcl]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LCL
 [lfc]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LFC
 [el]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-EL
+[specs]: https://tephpy.readthedocs.io/en/latest/developer/specs/index.html
