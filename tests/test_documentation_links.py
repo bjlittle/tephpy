@@ -26,6 +26,7 @@ pytestmark = pytest.mark.skipif(
 
 GLOSSARY = "reference/glossary.html"
 SPECS = "developer/specs/index.html"
+STYLE = "developer/docs-style.html"
 PREVIEW = "https://tephpy--99.org.readthedocs.build/en/99/reference/glossary.html"
 
 
@@ -254,6 +255,22 @@ def test_an_http_url_is_not_canonical(tmp_path, monkeypatch, capsys):
     assert "Non-canonical URLs (1)" in out
     assert plain in out
     assert "the scheme is 'https'" in flat(out)
+
+
+def test_a_quoted_url_is_a_link(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {STYLE: "<html><body></body></html>"})
+    text = f'URL = "{gate.BASE}{STYLE}"\n'
+    source = tmp_path / "changelog.py"
+    source.write_text(text, encoding="utf-8")
+    code, out = run(monkeypatch, capsys, root, source)
+    # A URL in a script ends at the closing quote, not at a Markdown ")" or "]".
+    # Leave the quote out of the terminator set and it is swallowed into the URL,
+    # so the page path stops matching and a good link is reported non-canonical --
+    # the gate crying wolf at the one kind of source it is being extended to cover.
+    assert gate.links(text) == [(STYLE, "")]
+    assert gate.strays(text) == []
+    assert code == 0
+    assert "1 checked" in out
 
 
 def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):

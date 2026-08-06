@@ -63,14 +63,17 @@ BASE = "https://tephpy.readthedocs.io/en/latest/"
 #: with a query string and no path, and names nothing this gate can look up.
 LINK = re.compile(re.escape(BASE) + r"([\w./-]+\.html)(?:#([\w.:-]+))?")
 #: Any URL onto a documentation host of this project -- the published site, or a
-#: per-pull-request Read the Docs preview. The match stops before whitespace,
-#: ``)`` and ``]``, so a Markdown inline link and a reference definition both
-#: terminate cleanly. Either scheme matches, deliberately: this pattern decides
-#: what gets *judged*, so narrowing it to ``https`` would make a plaintext link
-#: invisible to the gate instead of non-canonical.
+#: per-pull-request Read the Docs preview. The match stops before whitespace, ``)``,
+#: ``]`` and either quote, which is where a URL ends in the two kinds of source
+#: checked here: a Markdown inline link or reference definition, and a string
+#: literal in a script. A character missing from this set is swallowed into the
+#: URL, which turns a good link into a reported one. Either scheme matches,
+#: deliberately: this pattern decides what gets *judged*, so narrowing it to
+#: ``https`` would make a plaintext link invisible to the gate instead of
+#: non-canonical.
 DOCS = re.compile(
     r"https?://(?:tephpy\.readthedocs\.io"
-    r"|tephpy--[\w.-]+?\.org\.readthedocs\.build)[^\s)\]]*"
+    r"|tephpy--[\w.-]+?\.org\.readthedocs\.build)[^\s)\]'\"]*"
 )
 #: An ``id`` attribute in the built HTML, which is what a fragment must name.
 ID = re.compile(r'\bid="([^"]+)"')
