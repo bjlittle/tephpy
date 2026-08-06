@@ -37,8 +37,8 @@ is a question about meaning, not resolution, and no gate can answer it. An
 ``en/latest`` URL is checked against the working tree's own build, which is the
 only build available -- a link correct here is wrong on the published site until
 this branch merges, and that is the ordinary lag of a landing page that names a
-moving target. And a URL on a documentation host of this project that names no
-``.html`` page is passed over rather than judged: it is how the Read the Docs
+moving target. And a URL on a documentation host of this project whose path never
+says ``.html`` is passed over rather than judged: it is how the Read the Docs
 badge, which points at the base with a query string, stays out of the report, and
 it lets through a directory-style URL, which Read the Docs does resolve and which
 carries no page or anchor to look up.
@@ -65,9 +65,11 @@ LINK = re.compile(re.escape(BASE) + r"([\w./-]+\.html)(?:#([\w.:-]+))?")
 #: Any URL onto a documentation host of this project -- the published site, or a
 #: per-pull-request Read the Docs preview. The match stops before whitespace,
 #: ``)`` and ``]``, so a Markdown inline link and a reference definition both
-#: terminate cleanly.
+#: terminate cleanly. Either scheme matches, deliberately: this pattern decides
+#: what gets *judged*, so narrowing it to ``https`` would make a plaintext link
+#: invisible to the gate instead of non-canonical.
 DOCS = re.compile(
-    r"https://(?:tephpy\.readthedocs\.io"
+    r"https?://(?:tephpy\.readthedocs\.io"
     r"|tephpy--[\w.-]+?\.org\.readthedocs\.build)[^\s)\]]*"
 )
 #: An ``id`` attribute in the built HTML, which is what a fragment must name.
@@ -98,8 +100,11 @@ NOT_CANONICAL = (
     "is verified, not where a link belongs: Read the Docs deletes the preview "
     "when the pull request closes. And 'latest' is the only version published -- "
     "there is no 'stable' until the project releases -- so a URL naming another "
-    "version, or naming none at all, is a 404 waiting to be clicked. Rewrite the "
-    "URL in the canonical form."
+    "version, or naming none at all, is a 404 waiting to be clicked. The form is "
+    "exact in its two quieter parts as well: the scheme is 'https', because "
+    "'http' arrives only by a redirect Read the Docs is under no obligation to "
+    "keep offering, and the path stops at the page, because text after '.html' "
+    "names a file the build never produced. Rewrite the URL in the canonical form."
 )
 #: What to do about a README that links into the documentation nowhere.
 BLIND = (
@@ -111,7 +116,7 @@ BLIND = (
 
 
 def links(text: str) -> list[tuple[str, str]]:
-    """Find every documentation link in the README.
+    """Find every canonically written documentation link in the README.
 
     Parameters
     ----------
@@ -121,11 +126,25 @@ def links(text: str) -> list[tuple[str, str]]:
     Returns
     -------
     list of tuple of str
-        The page path and fragment of each link, in the order they were written,
-        with ``""`` for a link naming no fragment.
+        The page path and fragment of each canonical link, in the order they
+        were written, with ``""`` for a link naming no fragment.
+
+    Notes
+    -----
+    Each URL is taken whole and then matched, rather than searched for a
+    canonical form somewhere inside it. Searching would settle for a prefix:
+    the page pattern is greedy but backtracks to the last ``.html`` it can end
+    on, so ``glossary.html.bak`` would read as the page ``glossary.html`` --
+    which the build does produce. That records a resolving link and throws away
+    the very text that makes the URL a 404.
 
     """
-    return [(page, anchor or "") for page, anchor in LINK.findall(text)]
+    canonical = (LINK.fullmatch(url) for url in DOCS.findall(text))
+    return [
+        (match.group(1), match.group(2) or "")
+        for match in canonical
+        if match is not None
+    ]
 
 
 def path(url: str) -> str:
@@ -156,18 +175,26 @@ def strays(text: str) -> list[str]:
     Returns
     -------
     list of str
-        Each URL onto a documentation host of this project that names an
-        ``.html`` page and is not the canonical form, sorted, and once each: the
-        same wrong URL written twice is one thing to fix. A URL naming no page is
-        passed over -- it is how the Read the Docs badge stays out of the report,
-        and a directory-style URL resolves while carrying nothing to look up.
+        Each URL onto a documentation host of this project whose path says
+        ``.html`` and which is not the canonical form, sorted, and once each:
+        the same wrong URL written twice is one thing to fix. A URL whose path
+        never says ``.html`` is passed over -- it is how the Read the Docs
+        badge stays out of the report, and a directory-style URL resolves while
+        carrying nothing to look up.
+
+    Notes
+    -----
+    The path has to *say* ``.html`` rather than end in it, so that a URL going
+    on past the page -- ``glossary.html.bak``, ``glossary.html/extra`` -- is
+    judged here instead of being waved through as a directory. Nothing follows
+    a page on this site, so text after ``.html`` is a 404, not a folder.
 
     """
     return sorted(
         {
             url
             for url in DOCS.findall(text)
-            if not LINK.fullmatch(url) and path(url).endswith(".html")
+            if not LINK.fullmatch(url) and ".html" in path(url)
         }
     )
 

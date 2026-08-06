@@ -221,6 +221,41 @@ def test_an_unpublished_version_is_not_canonical(tmp_path, monkeypatch, capsys):
     assert "there is no 'stable' until the project releases" in flat(out)
 
 
+def test_text_after_the_page_is_not_canonical(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    good = url(GLOSSARY, "term-CAPE")
+    stale = f"{url(GLOSSARY)}.bak"
+    typo = f"{crl.BASE}reference/glossary.htmlx"
+    deeper = f"{url(GLOSSARY)}/extra"
+    text = f"[CAPE]({good}) [s]({stale}) [t]({typo}) [d]({deeper})"
+    path = readme(tmp_path, text)
+    code, out = run(monkeypatch, capsys, root, path)
+    # Every one of these begins with a page the build did produce, so a matcher
+    # allowed to settle for a prefix reads them as `reference/glossary.html` and
+    # discards the trailing text -- which is the whole of what makes them 404.
+    assert crl.links(text) == [(GLOSSARY, "term-CAPE")]
+    assert code == 1
+    assert "Non-canonical URLs (3)" in out
+    assert stale in out
+    assert typo in out
+    assert deeper in out
+    assert "text after '.html' names a file the build never produced" in flat(out)
+
+
+def test_an_http_url_is_not_canonical(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    plain = url(GLOSSARY, "term-CAPE").replace("https://", "http://")
+    path = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [p]({plain})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # Read the Docs redirects this one to https, so it works today and rots only
+    # if that courtesy ends. Matching the host on https alone would hide it from
+    # both halves of the check at once: not canonical, and not reported either.
+    assert code == 1
+    assert "Non-canonical URLs (1)" in out
+    assert plain in out
+    assert "the scheme is 'https'" in flat(out)
+
+
 def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     path = readme(
