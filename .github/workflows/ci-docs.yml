@@ -28,3 +28,6 @@ jobs:
       - run: >
           pixi run --frozen --environment docs
           python .github/scripts/check_rendered_citations.py docs/_build/html
+      - run: >
+          pixi run --frozen --environment docs
+          python .github/scripts/check_readme_links.py docs/_build/html

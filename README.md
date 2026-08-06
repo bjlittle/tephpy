@@ -18,12 +18,22 @@
 [![codecov](https://codecov.io/gh/bjlittle/tephpy/graph/badge.svg?token=SEEKTK92JU)](https://codecov.io/gh/bjlittle/tephpy)
 [![RTD](https://app.readthedocs.org/projects/tephpy/badge/?version=latest)](https://tephpy.readthedocs.io/en/latest/?badge=latest)
 
-Plot and analyse tephigrams. `tephpy` renders tephigrams on a rotated
+Plot and analyse [tephigrams][tephigram]. `tephpy` renders tephigrams on a rotated
 temperature-entropy coordinate system and delegates thermodynamic analysis
-(parcel ascent, CAPE, CIN, LCL/LFC/EL) to [MetPy](https://github.com/Unidata/MetPy).
+([parcel ascent][parcel-ascent], [CAPE][cape], [CIN][cin],
+[LCL][lcl]/[LFC][lfc]/[EL][el]) to [MetPy](https://github.com/Unidata/MetPy).
 
 Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 > [!NOTE]
 > **Status:** early development — the plotting and analysis API is being built
-> out plan by plan for the [design](https://tephpy.readthedocs.io/en/latest/developer/specs/index.html).
+> out plan by plan for the [design][specs].
+
+[tephigram]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-tephigram
+[parcel-ascent]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-parcel-ascent
+[cape]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CAPE
+[cin]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CIN
+[lcl]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LCL
+[lfc]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LFC
+[el]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-EL
+[specs]: https://tephpy.readthedocs.io/en/latest/developer/specs/index.html

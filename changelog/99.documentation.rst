@@ -1,0 +1,6 @@
+The glossary now defines :term:`parcel ascent`, the process the landing page has
+always named, and the README links its thermodynamic terms — tephigram, parcel
+ascent, CAPE, CIN, LCL, LFC and EL — to those definitions, so the repository
+front page is a second way into the documentation. The documentation build checks
+those links resolve, which nothing else could: the README is not one of its
+sources. (:user:`claude`)
