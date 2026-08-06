@@ -573,12 +573,11 @@ helper is annotated where the plain test functions are not.
 - [ ] **Step 7: Commit**
 
 ```bash
-git commit -m "Add a gate for the README documentation links"
+pixi run --frozen bash -c 'git commit -m "Add a gate for the README documentation links"'
 ```
 
-Run it as `pixi run --frozen bash -c 'git commit -m "..."'` if `pre-commit` is not on the
-bare `PATH`. Confirm the mode landed: `git show --stat HEAD` should list the script as a
-new file with mode `100755`.
+Confirm the mode landed: `git show --stat HEAD` should list the script as a new file with
+mode `100755`.
 
 ---
 
