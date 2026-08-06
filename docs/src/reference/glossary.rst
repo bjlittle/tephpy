@@ -110,12 +110,21 @@ cross-reference rules.
     air parcel
         An imagined small mass of air lifted through the surrounding
         environment without mixing with it — the tephigram's basic tool
-        for reasoning about stability. In ``tephpy``,
-        :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` computes a
-        parcel's ascent as a :class:`calc.Profile <tephpy.calc.Profile>`,
-        and the ``parcel=`` option selects the starting
-        parcel: ``"surface"`` or ``"mixed-layer"`` (the lowest 100 hPa
-        averaged).
+        for reasoning about stability. Its :term:`parcel ascent` is what
+        the diagram plots; in ``tephpy`` the ``parcel=`` option selects
+        which parcel starts one: ``"surface"`` or ``"mixed-layer"`` (the
+        lowest 100 hPa averaged).
+
+    parcel ascent
+    parcel path
+        The path a lifted :term:`parcel` traces on the diagram:
+        dry-adiabatically from its start level to the :term:`LCL`, then
+        along a :term:`moist adiabat` above it. Comparing that path
+        against the environment :term:`sounding` is what yields
+        :term:`CAPE`, :term:`CIN`, and the :term:`LFC` and :term:`EL`
+        levels — the ascent is the construction, they are its readings.
+        :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` computes
+        it as a :class:`calc.Profile <tephpy.calc.Profile>`.
 
     lifting condensation level
     LCL
