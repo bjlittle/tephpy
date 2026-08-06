@@ -355,14 +355,46 @@ the transform failed to recognise.
 
 Its exemptions are therefore narrower than the transform's skip set, and deliberately so.
 `<code>` and `<pre>` cover literals, code blocks and viewcode, but nothing in the output
-marks a raw block or an API signature, and a citation in a page title loses its anchor
-twice over — Sphinx strips the markup copying the title into `<title>`, and the theme
-repeats it in the breadcrumb without the link. Each of those is reported as unlinked, which
-is the answer a reader would give: in all four places the citation does reach the page as
-plain text. Recognising them would mean matching the transform's node classes in the
-rendered HTML, which is the coupling the paragraph above rejects, so the residue is stated
-as an authoring rule instead — cite a section in body prose — and the style guide carries
-it.
+marks a raw block or an API signature; a toctree `:caption:` is a directive option the
+transform never sees as a node, and renders both where the toctree sits and in the sidebar;
+and a citation in a page title loses its anchor twice over — Sphinx strips the markup
+copying the title into `<title>`, and the theme repeats it in the breadcrumb without the
+link. Each of those is reported as unlinked, which is the answer a reader would give: in
+every one of them the citation does reach the page as plain text. Recognising them would
+mean matching the transform's node classes in the rendered HTML, which is the coupling the
+paragraph above rejects, so the residue is stated as an authoring rule instead — cite a
+section in body prose — and the style guide carries it.
+
+**What the failure says is separable from whether it fails.** The gate names the placement
+of each unlinked citation, because the four have nothing in common but the symptom and an
+author told only that a citation is unlinked has to rediscover which one they are in. It
+reads the placement off element names — `<title>`, `<nav>`, `<dt>` — and off nothing else:
+the classes that would tell a breadcrumb from any other navigation are one theme's private
+presentation contract, where those three are HTML. That the labelling is advisory is what
+makes the looser evidence admissible. A label decides only what the report says, never what
+it returns, so a placement read wrongly costs a confusing message; the same class of guess
+used to *exempt* would cost the gate its sight, which is why the exemptions stay narrow.
+
+The listing is grouped by placement for the same reason, and not merely tidiness: advice is
+given for a placement because a line naming that placement was just printed, so the two
+cannot come apart on a page long enough for a rare placement to fall past a flat cut. Where
+the listing does stop, it says how many it did not name. A report that bounds what it shows
+without saying so reads as a smaller problem than it is, which is the failure mode of a
+gate that is trying to be readable.
+
+**Nesting is the one thing the transform's own precaution cannot prevent.** Skipping
+`nodes.reference` declines to rewrite a citation that is *already* inside a link, which
+rules out the case an author writes; it can do nothing about a link put around a citation
+the transform has by then made. Docutils' `contents` transform is that case — it runs at
+priority 720 against the citation transform's 400, and links every heading it lists both in
+the list and in the heading itself — so a citation written in a heading is rewritten first
+and enclosed second, and the page carries one anchor inside another. It is the failure an
+author is least equipped to diagnose, because nothing in the source is wrong and nothing
+else objects: the build succeeds under `--fail-on-warning`. Only reading the finished HTML
+finds it, which is the case for the output gate that neither the transform nor §3.6 can
+make. So it is reported as its own bucket, with its own advice, and the two directions are
+described the way the scanner sees them: two anchors is the failure, one anchor is the
+skipped case of the paragraph above, and that one passes.
 
 (docs-spec-4)=
 ## 4. Canonical usage
@@ -428,7 +460,10 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   makes it continuous.
 - No citation-shaped text survives outside a link in the built HTML (§3.7). At the time
   §3.7 landed that was 312 links, 35 citations left as literals by design, and none
-  unlinked.
+  unlinked. The literals are fewer than a reader would count from §3.7 above, because the
+  gate does not read `_modules/`: viewcode renders the 203 section signs of Python source
+  verbatim, and they are code rather than prose. Reading those pages too gives 238 literals
+  and the same verdict, every one of them already covered by `<pre>`.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.

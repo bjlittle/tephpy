@@ -127,14 +127,26 @@ because the hook reads one line at a time while the build reads a whole
 paragraph, and a citation able to span the wrap is one they can read
 differently.
 
-Cite a section in body prose. Three other places will not carry a citation, and
-each fails the documentation build rather than rendering wrongly. A heading is
-linked like any other text, but Sphinx copies a page title into ``<title>`` with
-the markup stripped and the theme repeats it in the breadcrumb without the
-anchor, so the citation reaches the reader twice as plain text. A ``.. raw::
-html`` block and an API signature — a parameter's default value included — are
-left alone deliberately, because the build rewrites neither raw output nor code.
-Name the section in the surrounding prose instead.
+Cite a section in body prose. Four other places will not carry a citation, and
+each fails the documentation build rather than rendering wrongly. A page title is
+linked like any other heading, but Sphinx copies the title into ``<title>`` with
+the markup stripped, and the theme repeats it in the breadcrumb without the
+anchor, so the citation reaches the reader as plain text in the browser tab and
+above the page. A toctree ``:caption:`` is a directive option rather than text
+the build can rewrite, and renders twice — once where the toctree sits and once
+in the sidebar. A ``.. raw:: html`` block and an API signature — a parameter's
+default value included — are left alone deliberately, because the build rewrites
+neither raw output nor code. Name the section in the surrounding prose instead.
+
+A heading is worth avoiding for a second reason, which fails differently again. A
+``.. contents::`` directive links every heading it lists — in its own list and in
+the heading itself — and it does so after the citation has already become a link,
+so the page ends up with one anchor inside another. That is invalid HTML, which a
+browser restructures silently, and Sphinx reports nothing: only the check on the
+built HTML notices. Writing a citation inside a link yourself is the same
+collision from the other side and is *not* an error — the build leaves such a
+citation as plain text rather than nesting a link in a link, which is why it is
+reported as neither.
 
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are
