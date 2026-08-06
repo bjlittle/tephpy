@@ -3,7 +3,7 @@
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
 
-"""Tests for the README documentation-link gate."""
+"""Tests for the documentation-link gate."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import sys
 import pytest
 
 REPO = Path(__file__).parents[1]
-SCRIPT = REPO / ".github" / "scripts" / "check_readme_links.py"
+SCRIPT = REPO / ".github" / "scripts" / "check_documentation_links.py"
 
 # As in `test_rendered_citations.py`: `MANIFEST.in` prunes `.github`, so an sdist
 # ships these tests without the gate they exercise. The guard sits on the module
@@ -26,25 +26,26 @@ pytestmark = pytest.mark.skipif(
 
 GLOSSARY = "reference/glossary.html"
 SPECS = "developer/specs/index.html"
+STYLE = "developer/docs-style.html"
 PREVIEW = "https://tephpy--99.org.readthedocs.build/en/99/reference/glossary.html"
 
 
 def _load():
     """Import the gate by path; ``.github`` is not an importable package."""
-    assert SCRIPT.is_file(), f"the README link gate is missing from {SCRIPT}"
-    spec = importlib.util.spec_from_file_location("check_readme_links", SCRIPT)
+    assert SCRIPT.is_file(), f"the documentation link gate is missing from {SCRIPT}"
+    spec = importlib.util.spec_from_file_location("check_documentation_links", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
-crl = _load() if SCRIPT.is_file() else None
+gate = _load() if SCRIPT.is_file() else None
 
 
 def url(page, anchor=""):
     """Build the published URL of ``page``, naming ``anchor`` when given."""
-    return crl.BASE + page + (f"#{anchor}" if anchor else "")
+    return gate.BASE + page + (f"#{anchor}" if anchor else "")
 
 
 def terms(*names: str):
@@ -71,12 +72,19 @@ def readme(tmp_path, text):
     return path
 
 
-def run(monkeypatch, capsys, root, path):
-    """Run the gate over ``root`` and ``path``; return its code and output."""
-    monkeypatch.setattr(
-        crl.sys, "argv", ["check_readme_links.py", str(root), str(path)]
-    )
-    code = crl.main()
+def script(tmp_path, *targets: str):
+    """Write a Python source naming each target the way a script does."""
+    path = tmp_path / "changelog.py"
+    body = "".join(f'URL = "{gate.BASE}{target}"\n' for target in targets)
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def run(monkeypatch, capsys, root, *paths: Path):
+    """Run the gate over ``root`` and ``paths``; return its code and output."""
+    argv = ["check_documentation_links.py", str(root), *(str(path) for path in paths)]
+    monkeypatch.setattr(gate.sys, "argv", argv)
+    code = gate.main()
     return code, capsys.readouterr().out
 
 
@@ -99,7 +107,7 @@ def test_resolving_links_pass(tmp_path, monkeypatch, capsys):
     )
     code, out = run(monkeypatch, capsys, root, path)
     assert code == 0
-    assert "2 checked, 2 naming an anchor" in out
+    assert "2 checked across 1 source, 2 naming an anchor" in out
 
 
 def test_the_success_line_counts_anchors_and_pages(tmp_path, monkeypatch, capsys):
@@ -115,7 +123,7 @@ def test_the_success_line_counts_anchors_and_pages(tmp_path, monkeypatch, capsys
     # distinguishing an anchored link from a bare page link, or that names the
     # wrong number of pages, describes a check other than the one that ran.
     assert code == 0
-    assert "2 checked, 1 naming an anchor, across 2 pages" in out
+    assert "2 checked across 1 source, 1 naming an anchor, across 2 pages" in out
 
 
 def test_one_anchor_broken_twice_is_reported_once(tmp_path, monkeypatch, capsys):
@@ -146,7 +154,7 @@ def test_missing_anchor_is_reported(tmp_path, monkeypatch, capsys):
 
 def test_missing_page_is_reported(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    path = readme(tmp_path, f"[specs]({url('developer/specs/index.html')})")
+    path = readme(tmp_path, f"[specs]({url(SPECS, 'term-CAPE')})")
     code, out = run(monkeypatch, capsys, root, path)
     assert code == 1
     assert "Missing pages (1)" in out
@@ -206,8 +214,8 @@ def test_a_preview_host_url_is_not_canonical(tmp_path, monkeypatch, capsys):
 
 def test_an_unpublished_version_is_not_canonical(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    stable = crl.BASE.replace("latest", "stable") + f"{GLOSSARY}#term-CAPE"
-    bare = crl.BASE.replace("en/latest/", "") + f"{GLOSSARY}#term-CAPE"
+    stable = gate.BASE.replace("latest", "stable") + f"{GLOSSARY}#term-CAPE"
+    bare = gate.BASE.replace("en/latest/", "") + f"{GLOSSARY}#term-CAPE"
     path = readme(
         tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [s]({stable}) [b]({bare})"
     )
@@ -225,7 +233,7 @@ def test_text_after_the_page_is_not_canonical(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     good = url(GLOSSARY, "term-CAPE")
     stale = f"{url(GLOSSARY)}.bak"
-    typo = f"{crl.BASE}reference/glossary.htmlx"
+    typo = f"{gate.BASE}reference/glossary.htmlx"
     deeper = f"{url(GLOSSARY)}/extra"
     text = f"[CAPE]({good}) [s]({stale}) [t]({typo}) [d]({deeper})"
     path = readme(tmp_path, text)
@@ -233,7 +241,7 @@ def test_text_after_the_page_is_not_canonical(tmp_path, monkeypatch, capsys):
     # Every one of these begins with a page the build did produce, so a matcher
     # allowed to settle for a prefix reads them as `reference/glossary.html` and
     # discards the trailing text -- which is the whole of what makes them 404.
-    assert crl.links(text) == [(GLOSSARY, "term-CAPE")]
+    assert gate.links(text) == [(GLOSSARY, "term-CAPE")]
     assert code == 1
     assert "Non-canonical URLs (3)" in out
     assert stale in out
@@ -256,10 +264,26 @@ def test_an_http_url_is_not_canonical(tmp_path, monkeypatch, capsys):
     assert "the scheme is 'https'" in flat(out)
 
 
+def test_a_quoted_url_is_a_link(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {STYLE: "<html><body></body></html>"})
+    text = f'URL = "{gate.BASE}{STYLE}"\n'
+    source = tmp_path / "changelog.py"
+    source.write_text(text, encoding="utf-8")
+    code, out = run(monkeypatch, capsys, root, source)
+    # A URL in a script ends at the closing quote, not at a Markdown ")" or "]".
+    # Leave the quote out of the terminator set and it is swallowed into the URL,
+    # so the page path stops matching and a good link is reported non-canonical --
+    # the gate crying wolf at the one kind of source it is being extended to cover.
+    assert gate.links(text) == [(STYLE, "")]
+    assert gate.strays(text) == []
+    assert code == 0
+    assert "1 checked" in out
+
+
 def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     path = readme(
-        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [ref]({crl.BASE}reference/)"
+        tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')}) [ref]({gate.BASE}reference/)"
     )
     code, out = run(monkeypatch, capsys, root, path)
     # A directory URL resolves on Read the Docs and names no page and no anchor,
@@ -268,15 +292,32 @@ def test_a_directory_url_is_passed_over(tmp_path, monkeypatch, capsys):
     assert "1 checked" in out
 
 
-def test_readme_with_no_links_fails(tmp_path, monkeypatch, capsys):
+def test_a_source_with_no_links_fails(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    path = readme(tmp_path, "Plot and analyse tephigrams.")
+    path = readme(tmp_path, "# tephpy\n\nNo links here.\n")
     code, out = run(monkeypatch, capsys, root, path)
-    # A gate is worth what it covers. A rewrite that dropped every link would
-    # otherwise turn this into a green tick over an empty search.
+    # A source that has lost its links is a search this gate no longer makes, and
+    # a check that passes on an empty search is a green tick over nothing. It is
+    # named, because with several sources "nowhere" does not say which one.
     assert code == 1
-    assert "links into the documentation nowhere" in out
-    assert "green tick standing for nothing" in flat(out)
+    assert "README.md links into the documentation nowhere" in out
+    assert "Remove it from SOURCES, or restore the link" in flat(out)
+    # Every other way of failing says where the rule is written down; this one is
+    # about SOURCES, which is the part of the rule that section documents.
+    assert "docs-style.rst" in out
+
+
+def test_a_stray_only_source_is_not_blind(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[preview]({PREVIEW}#term-CAPE)")
+    code, out = run(monkeypatch, capsys, root, path)
+    # A source linking only non-canonically does link into the documentation, so
+    # it is told what is wrong with those links rather than that it has none:
+    # calling it blind sends the reader looking for a link that is right there.
+    assert code == 1
+    assert "Non-canonical URLs (1)" in out
+    assert f"{PREVIEW}#term-CAPE" in out
+    assert "links into the documentation nowhere" not in out
 
 
 def test_badge_url_is_not_a_page(tmp_path, monkeypatch, capsys):
@@ -295,6 +336,107 @@ def test_badge_url_is_not_a_page(tmp_path, monkeypatch, capsys):
 
 
 def test_usage_is_reported(monkeypatch, capsys):
-    monkeypatch.setattr(crl.sys, "argv", ["check_readme_links.py"])
-    assert crl.main() == 1
-    assert "usage: check_readme_links.py" in capsys.readouterr().out
+    monkeypatch.setattr(gate.sys, "argv", ["check_documentation_links.py"])
+    assert gate.main() == 1
+    assert "usage: check_documentation_links.py" in capsys.readouterr().out
+
+
+def test_two_sources_are_both_checked(tmp_path, monkeypatch, capsys):
+    root = build(
+        tmp_path,
+        {GLOSSARY: terms("term-CAPE"), STYLE: "<html><body></body></html>"},
+    )
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, STYLE)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # The counts are of the whole check, not of whichever source came last.
+    assert code == 0
+    assert "2 checked across 2 sources, 1 naming an anchor, across 2 pages" in out
+
+
+def test_two_sources_naming_one_page_count_it_once(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, GLOSSARY)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # The page count is a union across sources, not a sum: two sources naming one
+    # page have one page between them, and a report that says two is counting
+    # links while calling them pages.
+    assert code == 0
+    assert "2 checked across 2 sources, 1 naming an anchor, across 1 page" in out
+
+
+def test_a_failure_names_its_source(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, SPECS)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # With more than one source checked, a bare page path does not say which file
+    # to open, and the reader is sent hunting through every source for the URL.
+    assert code == 1
+    assert "Missing pages (1)" in out
+    assert f"{SPECS} (" in out
+    assert "changelog.py)" in out
+
+
+def test_one_source_is_not_attributed(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[specs]({url(SPECS)})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # One source names itself in the invocation, so attributing its entries to it
+    # is noise on every line of the report.
+    assert code == 1
+    assert f"{SPECS}\n" in out
+    assert f"{SPECS} (" not in out
+
+
+def test_a_single_page_is_singular(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    code, out = run(monkeypatch, capsys, root, path)
+    # "across 1 pages" reads as a line nobody has looked at, which is an odd thing
+    # for a report whose whole job is to be believed.
+    assert code == 0
+    assert "1 checked across 1 source, 1 naming an anchor, across 1 page" in out
+    assert "1 pages" not in out
+
+
+def test_the_defaults_come_from_sources(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    monkeypatch.setattr(gate, "SOURCES", ("nowhere/missing.md",))
+    code, out = run(monkeypatch, capsys, root)
+    # With no source named on the command line the gate checks SOURCES. Were it to
+    # fall back to the README instead, adding a file to that list would change
+    # nothing and no run would say so.
+    assert code == 1
+    assert "no such file" in out
+    assert "nowhere/missing.md" in out
+
+
+def test_every_listed_source_exists():
+    # SOURCES names files by path. A rename that misses this list turns the check
+    # into "no such file" on the next run -- a failure, but not the one anyone is
+    # looking for, and one that hides whatever the run was meant to catch.
+    missing = [name for name in gate.SOURCES if not (REPO / name).is_file()]
+    assert missing == []
+
+
+def test_sources_names_the_deliverables_of_this_gate():
+    # Membership, not equality: a later PR adding a source must not break this
+    # test, but reverting this branch -- dropping README.md back to being the
+    # only source, or losing the script it added -- must.
+    assert "README.md" in gate.SOURCES
+    assert ".github/scripts/changelog.py" in gate.SOURCES
+
+
+def test_an_empty_sources_fails(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gate, "SOURCES", ())
+    code, out = run(monkeypatch, capsys, tmp_path)
+    # With no source named on the command line and none left in SOURCES, the gate
+    # has nothing to read. A search of nothing finds nothing wrong, and the
+    # success line would print having checked nothing at all.
+    assert code == 1
+    assert "checked across" not in out
+    assert "SOURCES lists no source to check" in out
+    assert "a green tick over nothing" in flat(out)
+    assert "docs-style.rst" in out

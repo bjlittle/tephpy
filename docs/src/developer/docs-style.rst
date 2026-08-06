@@ -153,44 +153,57 @@ documentation build checks that every rendered citation became a link. Both are
 specified in the published specifications design: docs spec §3.6 covers the hook,
 and docs spec §3.7 covers the build.
 
-.. _landing-page-links:
+.. _documentation-links:
 
-Landing Page Links
-------------------
+Documentation Links
+-------------------
 
-``README.md`` is outside the Sphinx project, so a link from it into the
-documentation is an absolute URL to the published site, and is invisible to
-everything that checks the rest: ``nitpicky`` sees only the references the build
-resolved. Write such a link as a Markdown reference — ``[CAPE][cape]`` in the
-prose, with the target defined in the block at the foot of the file — so the
-prose stays readable and each URL is stated once:
+A few tracked files link into the documentation by absolute URL, because they are
+outside the Sphinx project and have no role to write instead: ``README.md``, the
+repository's landing page, and a script that sends a contributor to the page
+explaining why it failed them. Such a link is invisible to everything that checks
+the rest — ``nitpicky`` sees only the references the build resolved.
+
+Write the URL as ``https://tephpy.readthedocs.io/en/latest/<page>.html``,
+optionally with a fragment. A per-pull-request preview host
+(``tephpy--<pr>.org.readthedocs.build``) is where a documentation change is
+verified rather than where a link belongs — Read the Docs deletes the preview when
+the pull request closes — and ``latest`` is the only version published, so
+``en/stable`` and a path that drops the version alike resolve nowhere. A URL whose
+path never reaches ``.html`` names no page the gate can look up, so it is passed
+over rather than judged — as the Read the Docs badge at the top of the README is,
+pointing at the base with a query string and no path.
+
+In ``README.md``, write the link as a Markdown reference — ``[CAPE][cape]`` in the
+prose, with the target defined in the block at the foot of the file — so the prose
+stays readable and each URL is stated once:
 
 .. code-block:: markdown
 
     [cape]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CAPE
 
-Write the target as ``https://tephpy.readthedocs.io/en/latest/<page>.html``,
-optionally with a fragment, and in no other form. A per-pull-request preview
-host (``tephpy--<pr>.org.readthedocs.build``) is where a documentation change is
-verified rather than where a link belongs — Read the Docs deletes the preview
-when the pull request closes — and ``latest`` is the only version published, so
-``en/stable`` and a path that drops the version alike resolve nowhere.
-
 Link the *first* mention of a glossary term in the README and no more, as on a
-documentation page. Take the fragment from the built page rather than deriving
-it: a glossary anchor is ``term-`` followed by the term with its case preserved
-and each run of non-alphanumeric characters collapsed to a single hyphen, so
-``CAPE`` gives ``term-CAPE`` and ``Normand's point`` gives
-``term-Normand-s-point``. Label the reference in lower case — Markdown labels are
-case-insensitive, and a lowercase label is hard to mistake for the fragment,
-which is not.
+documentation page. Take the fragment from the built page rather than deriving it:
+a glossary anchor is ``term-`` followed by the term with its case preserved and
+each run of non-alphanumeric characters collapsed to a single hyphen, so ``CAPE``
+gives ``term-CAPE`` and ``Normand's point`` gives ``term-Normand-s-point``. Label
+the reference in lower case — Markdown labels are case-insensitive, and a lowercase
+label is hard to mistake for the fragment, which is not.
 
-The documentation build checks these links. ``check_readme_links.py`` reads each
-URL out of the README and looks it up in the HTML just built, failing when the
-URL is written some other way, when the page is absent, or when the fragment
-names no ``id``. Renaming a glossary term or moving a page therefore fails the
-build, rather than leaving the landing page pointing into a 404 that nobody
-notices.
+The documentation build checks these links. ``check_documentation_links.py`` reads
+each URL out of every file named in its ``SOURCES`` constant and looks it up in the
+HTML just built, failing when a URL naming a page is written some other way, when
+the page is absent, or when the fragment names no ``id``. Renaming a glossary term
+or moving a page therefore fails the build, rather than leaving a link pointing
+into a 404 that nobody notices.
+
+A new file that writes such a URL is checked only once it is added to ``SOURCES``;
+the gate reads that list and not the repository, so that a URL quoted in a test
+fixture or frozen into an implementation plan is left alone. A file that stops
+carrying a documentation link fails the gate rather than dropping out of it in
+silence, so removing the last link means removing the entry too — and emptying
+``SOURCES`` entirely fails the same way, rather than passing on a search of
+nothing.
 
 Attribute Documentation
 -----------------------

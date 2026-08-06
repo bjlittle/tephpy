@@ -1,0 +1,6 @@
+The documentation-link gate now checks every file named in its ``SOURCES`` list
+rather than ``README.md`` alone, and reads a URL written inside a quoted string
+(:issue:`100`) — so ``.github/scripts/changelog.py``, which sends a contributor to
+the documentation style guide by absolute URL, fails the build when that page moves
+rather than pointing at a 404 nobody notices. The gate is renamed
+``check_documentation_links.py`` to match what it now checks. (:user:`claude`)
