@@ -153,6 +153,37 @@ documentation build checks that every rendered citation became a link. Both are
 specified in the published specifications design: docs spec §3.6 covers the hook,
 and docs spec §3.7 covers the build.
 
+.. _landing-page-links:
+
+Landing Page Links
+------------------
+
+``README.md`` is outside the Sphinx project, so a link from it into the
+documentation is an absolute URL to the published site, and is invisible to
+everything that checks the rest: ``nitpicky`` sees only the references the build
+resolved. Write such a link as a Markdown reference — ``[CAPE][cape]`` in the
+prose, with the target defined in the block at the foot of the file — so the
+prose stays readable and each URL is stated once:
+
+.. code-block:: markdown
+
+    [cape]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CAPE
+
+Link the *first* mention of a glossary term in the README and no more, as on a
+documentation page. Take the fragment from the built page rather than deriving
+it: a glossary anchor is ``term-`` followed by the term with its case preserved
+and each run of non-alphanumeric characters collapsed to a single hyphen, so
+``CAPE`` gives ``term-CAPE`` and ``Normand's point`` gives
+``term-Normand-s-point``. Label the reference in lower case — Markdown labels are
+case-insensitive, and a lowercase label is hard to mistake for the fragment,
+which is not.
+
+The documentation build checks these links. ``check_readme_links.py`` reads each
+URL out of the README and looks it up in the HTML just built, failing when the
+page is absent or the fragment names no ``id``. Renaming a glossary term or
+moving a page therefore fails the build, rather than leaving the landing page
+pointing into a 404 that nobody notices.
+
 Attribute Documentation
 -----------------------
 
