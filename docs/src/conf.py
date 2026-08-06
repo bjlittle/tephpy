@@ -61,6 +61,13 @@ extlinks = {
     "pull": ("https://github.com/bjlittle/tephpy/pull/%s", "#%s"),
     "user": ("https://github.com/%s", "@%s"),
 }
+# Sphinx's own check on the docs spec §3.8 rule, and deliberately a second
+# implementation of it rather than one shared with the pre-commit gate: a bug in that
+# gate's pattern is what an independent matcher catches. It is safe to enable only
+# because Sphinx declines to suggest a replacement when the captured value carries a
+# solidus -- without that guard the `user` role's bare `%s` matches every link to
+# another project's repository, and this build fails on warnings.
+extlinks_detect_hardcoded_links = True
 
 # -- numpydoc ----------------------------------------------------------------
 numpydoc_show_class_members = False
