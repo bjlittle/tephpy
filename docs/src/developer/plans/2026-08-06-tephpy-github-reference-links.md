@@ -948,7 +948,14 @@ The whole change, end to end, before the pull request is marked ready:
 - [ ] Spot-check the built HTML: every converted reference is an `<a>` whose text is the
   number with a leading `#`, and whose `href` is the GitHub URL.
 
-  Run: `grep -c 'class="extlink-\(issue\|pull\)' docs/_build/html/developer/specs/*.html`
+  Run, once per page — `grep -c` counts matching *lines*, and a rendered paragraph puts
+  several links on one, so it undercounts:
+
+  ```bash
+  grep -o 'class="extlink-\(issue\|pull\)' \
+    docs/_build/html/developer/specs/<page>.html | wc -l
+  ```
+
   Expected: 42 for `2026-07-22-tephpy-design`, 5 for `2026-08-01-add-logo-design`, and 12
   for `2026-08-03-published-specs-design` — the per-file totals from Task 2, plus the one
   role §3.8 already contains outside a code span.
