@@ -62,7 +62,7 @@ import sys
 import textwrap
 from typing import NamedTuple
 
-#: The published documentation, which is what the README links into.
+#: The published documentation, which each listed source links into.
 BASE = "https://tephpy.readthedocs.io/en/latest/"
 #: The tracked files this gate reads, relative to the repository root. A file earns
 #: a place here by writing an absolute documentation URL somewhere no Sphinx build

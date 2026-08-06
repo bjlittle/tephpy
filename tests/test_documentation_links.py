@@ -154,7 +154,7 @@ def test_missing_anchor_is_reported(tmp_path, monkeypatch, capsys):
 
 def test_missing_page_is_reported(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
-    path = readme(tmp_path, f"[specs]({url('developer/specs/index.html')})")
+    path = readme(tmp_path, f"[specs]({url(SPECS, 'term-CAPE')})")
     code, out = run(monkeypatch, capsys, root, path)
     assert code == 1
     assert "Missing pages (1)" in out
@@ -304,6 +304,19 @@ def test_a_source_with_no_links_fails(tmp_path, monkeypatch, capsys):
     assert "Remove it from SOURCES, or restore the link" in flat(out)
 
 
+def test_a_stray_only_source_is_not_blind(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    path = readme(tmp_path, f"[preview]({PREVIEW}#term-CAPE)")
+    code, out = run(monkeypatch, capsys, root, path)
+    # A source linking only non-canonically does link into the documentation, so
+    # it is told what is wrong with those links rather than that it has none:
+    # calling it blind sends the reader looking for a link that is right there.
+    assert code == 1
+    assert "Non-canonical URLs (1)" in out
+    assert f"{PREVIEW}#term-CAPE" in out
+    assert "links into the documentation nowhere" not in out
+
+
 def test_badge_url_is_not_a_page(tmp_path, monkeypatch, capsys):
     root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
     path = readme(
@@ -336,6 +349,18 @@ def test_two_sources_are_both_checked(tmp_path, monkeypatch, capsys):
     # The counts are of the whole check, not of whichever source came last.
     assert code == 0
     assert "2 checked across 2 sources, 1 naming an anchor, across 2 pages" in out
+
+
+def test_two_sources_naming_one_page_count_it_once(tmp_path, monkeypatch, capsys):
+    root = build(tmp_path, {GLOSSARY: terms("term-CAPE")})
+    first = readme(tmp_path, f"[CAPE]({url(GLOSSARY, 'term-CAPE')})")
+    second = script(tmp_path, GLOSSARY)
+    code, out = run(monkeypatch, capsys, root, first, second)
+    # The page count is a union across sources, not a sum: two sources naming one
+    # page have one page between them, and a report that says two is counting
+    # links while calling them pages.
+    assert code == 0
+    assert "2 checked across 2 sources, 1 naming an anchor, across 1 page" in out
 
 
 def test_a_failure_names_its_source(tmp_path, monkeypatch, capsys):
