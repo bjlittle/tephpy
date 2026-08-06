@@ -49,6 +49,10 @@ before implementation, not updated afterwards. Everything below follows from tha
    and a Sphinx transform resolves it against the §3.3 anchors while building the doctree
    (§3.7).
 6. **An unresolved item in a specification must cite a tracked issue** (§3.5).
+7. **A reference to an issue or pull request is written as a role, not as text or a URL.**
+   The opposite of decision 5, and for the reason that decides both: an extlink's caption
+   is generated from its value, so writing the role is what makes the text and the target
+   inseparable, where writing a citation's role would let them come apart (§3.8).
 
 (docs-spec-3)=
 ## 3. Architecture
@@ -396,6 +400,79 @@ make. So it is reported as its own bucket, with its own advice, and the two dire
 described the way the scanner sees them: two anchors is the failure, one anchor is the
 skipped case of the paragraph above, and that one passes.
 
+(docs-spec-3-8)=
+### 3.8 GitHub references
+
+A specification cites the issues and pull requests that shaped it, and did so in two ways:
+19 hand-written links, and 40 bare `#N` tokens linking to nothing. The bare form is a link
+in an issue comment and plain text in a repository file, which is where these are written,
+so it was never a link on Read the Docs either. A published page told a reader the barb
+gutter was settled in PR {pull}`40` and left them to find it.
+
+**Every reference to a tephpy issue or pull request is written as an extlink role.**
+
+| context | form |
+|---|---|
+| MyST | `` {issue}`65` ``, `` {pull}`73` `` |
+| reStructuredText, docstrings | `` :issue:`65` ``, `` :pull:`73` `` |
+
+Both render as a linked `#65` and `#73`. The roles are configured once, in
+`docs/src/conf.py`, so the URL is stated in one place and a reference costs an author the
+number and nothing else. Two forms are therefore errors: a bare `#65`, and a hand-written
+`https://github.com/bjlittle/tephpy/issues/65`.
+
+The surrounding prose keeps its own label. ``PR {pull}`19` `` renders "PR #19", and the
+word earns its place: the caption is `#N` whichever role produced it, so without it a
+reader cannot tell what they are about to open.
+
+**Why the role is hand-written here, when §3.7 refuses to hand-write a citation role.** The
+objection there was that `` :ref:`spec §3.2 <logo-spec-3-2>` `` carries two independent
+strings — display text and target — so an author can get the second wrong while the first
+still reads correctly, invisibly to both the checker and the build. An extlink carries one:
+the caption is `#%s`, generated from the same value that builds the URL. Text and target
+cannot disagree, which is §3.7's criterion met rather than waived.
+
+What would remove the authoring step altogether is a build-time transform of the §3.7 kind,
+and the token is too weak to carry one. `spec §3.2` is unmistakable in running prose; `#65`
+is also a hex colour, a URL fragment, and a comment character followed by a number. §3.7
+could derive its target from the text because the text named the document and the section.
+`#65` names neither issue nor pull request, and those are different URLs.
+
+**Three exemptions**, none of them a reference. Fenced blocks, for the reason §3.6 gives:
+a passage documenting this rule quotes the bare form it forbids. Inline code spans and
+string literals, which is where a hex colour is written — `` `#808080` `` in the `add_logo`
+specification and `"#101820"` in the logo tests are colours whose six digits would
+otherwise read as an issue number. And the plans, frozen with their references by §3.4.
+
+**The gate.** A pre-commit hook asserts both halves of the rule over the §3.6 corpus,
+detecting wider than it validates: it looks for any `#` followed by digits and any URL
+under this repository's `issues/` or `pull/` path, then passes only what a role produced.
+One pattern doing both jobs could not report a near-miss — a form the detector failed to
+match would be neither judged nor mentioned, so a `# 65` with a space, or a `pulls/65`
+typo, would read as compliance rather than as something to look at.
+
+The two assertions partition the failures rather than overlapping. A `#N` already inside
+link text is exempt from the first and caught by the second when the link is ours, which
+is what lets an issue in *another* project stay an ordinary link: the roles are scoped to
+this repository, so `Unidata/MetPy#1234` is written with its URL, and neither assertion
+matches it.
+
+`extlinks_detect_hardcoded_links` is set alongside the hook. It is Sphinx's own matcher for
+the second failure, reporting at build time with the exact role to write instead, and it is
+deliberately a second implementation rather than a shared one — a bug in the hook's regular
+expression is precisely what an independent check catches. Enabling it is safe only because
+Sphinx declines to suggest a replacement when the captured value contains a solidus; without
+that guard the `user` role's `https://github.com/%s` matches every link to another project's
+repository, and the build, running under `--fail-on-warning`, would fail on
+`https://github.com/SciTools/tephi`.
+
+**What this cannot catch**, in a shape §3.6 will recognise. A reference written with the
+wrong role of the two — `` {issue}`73` `` where 73 is a pull request — is well formed,
+renders identically, and resolves: GitHub redirects between the two paths, so the reader
+still arrives where they should, and only the source misnames the kind. Settling it would
+mean asking GitHub which each number is, and a hook that needs the network fails offline
+and is rate-limited in CI. Review is what narrows this one.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -464,6 +541,10 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   gate does not read `_modules/`: viewcode renders the 203 section signs of Python source
   verbatim, and they are code rather than prose. Reading those pages too gives 238 literals
   and the same verdict, every one of them already covered by `<pre>`.
+- No bare `#N` and no hand-written `bjlittle/tephpy` issue or pull-request URL survives in
+  the corpus (§3.8), and every reference renders as a link on the built specification
+  pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
+  nothing and 19 written as URLs.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
