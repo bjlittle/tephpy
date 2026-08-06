@@ -68,7 +68,7 @@ BASE = "https://tephpy.readthedocs.io/en/latest/"
 #: a place here by writing an absolute documentation URL somewhere no Sphinx build
 #: can see it. Keep the list short and deliberate: it is the statement of which
 #: links the project means to keep working, and everything not on it is unchecked.
-SOURCES = ("README.md",)
+SOURCES = ("README.md", ".github/scripts/changelog.py")
 #: A link into a documentation page, with the fragment it names, if any. Only a
 #: path ending in ``.html`` is a page: the Read the Docs badge points at the base
 #: with a query string and no path, and names nothing this gate can look up.
