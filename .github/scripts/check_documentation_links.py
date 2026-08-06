@@ -363,10 +363,9 @@ def gathered(picked: dict[str, list[str]], *, tagged: bool) -> list[str]:
 def verdict(reports: dict[str, Report]) -> int:
     """Print what every source's links came to, and say whether the run passed.
 
-    Split out of ``main`` so that a run reaching this point -- every source
-    read, none of them blind -- has one way out instead of adding another
-    return statement to a function that already has one for every earlier way
-    a run can fail.
+    Split out of ``main``, which settles whether a run can be judged at all --
+    the arguments usable, every source read, none of them blind -- and leaves
+    what the links themselves came to for here.
 
     Parameters
     ----------

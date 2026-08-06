@@ -302,6 +302,9 @@ def test_a_source_with_no_links_fails(tmp_path, monkeypatch, capsys):
     assert code == 1
     assert "README.md links into the documentation nowhere" in out
     assert "Remove it from SOURCES, or restore the link" in flat(out)
+    # Every other way of failing says where the rule is written down; this one is
+    # about SOURCES, which is the part of the rule that section documents.
+    assert "docs-style.rst" in out
 
 
 def test_a_stray_only_source_is_not_blind(tmp_path, monkeypatch, capsys):
@@ -434,3 +437,6 @@ def test_an_empty_sources_fails(tmp_path, monkeypatch, capsys):
     # success line would print having checked nothing at all.
     assert code == 1
     assert "checked across" not in out
+    assert "SOURCES lists no source to check" in out
+    assert "a green tick over nothing" in flat(out)
+    assert "docs-style.rst" in out
