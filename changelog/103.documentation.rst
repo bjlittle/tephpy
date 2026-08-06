@@ -1,0 +1,5 @@
+Every reference to a tephpy issue or pull request in the design specifications is
+now a link the reader can follow: 59 of them were plain text or a hand-written URL,
+and each is written with the ``:issue:`` or ``:pull:`` extlink role instead, so the
+URL is stated once in the documentation configuration. A pre-commit gate and
+Sphinx's own ``extlinks_detect_hardcoded_links`` keep it that way. (:user:`claude`)
