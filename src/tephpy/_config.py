@@ -17,11 +17,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import contextmanager
 import dataclasses
+from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 __all__ = [
     "Config",
@@ -187,6 +187,34 @@ class Config:
             for option in dataclasses.fields(fresh):
                 setattr(section, option.name, getattr(fresh, option.name))
         self._source = None
+
+    def load(self, path: str | Path | None = None) -> None:
+        """Load a configuration file over this configuration.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path, optional
+            The file to read. When omitted, the discovery cascade selects
+            it, and nothing happens if the cascade finds no file.
+
+        Raises
+        ------
+        TephpyConfigError
+            If the file cannot be read, is not valid YAML, or names an
+            unknown configuration section. An unknown *option* warns and is
+            skipped instead (configfile spec §2).
+
+        Warns
+        -----
+        TephpyConfigWarning
+            If an option is unknown, or its value is an explicit null.
+        """
+        from tephpy import _configfile  # noqa: PLC0415 -- avoids a circular import
+
+        chosen = _configfile.discover() if path is None else Path(path)
+        if chosen is None:
+            return
+        _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
 
     @contextmanager
     def context(self, **overrides: Mapping[str, object]) -> Iterator[Config]:
