@@ -158,11 +158,87 @@ def test_a_hex_colour_with_a_letter_is_not_a_reference(tmp_path):
     assert gr.check_unlinked([source]) == []
 
 
-def test_a_near_miss_is_reported_rather_than_skipped(tmp_path):
-    """The detector is wider than the validator (docs spec §3.8)."""
+def test_a_spaced_near_miss_is_reported_rather_than_skipped(tmp_path):
+    """The detector is wider than the validator (docs spec §3.8).
+
+    No role produces this, and nothing renders it as a link, so a detector matching
+    only the well-formed shape would pass it in silence.
+    """
     source = tmp_path / "spec.md"
-    source.write_text(f"Landed in {HASH}101 after review.\n")
+    source.write_text(f"Closed by {HASH} 65 last week.\n")
+    violations = gr.check_unlinked([source])
+    assert len(violations) == 1
+    assert "65" in violations[0].message
+
+
+def test_a_number_sign_opening_a_line_is_not_a_reference(tmp_path):
+    """Markdown writes a heading that way, and Python a whole-line comment."""
+    source = tmp_path / "test_igra.py"
+    source.write_text(f"{HASH} 360 degrees at 4.1 m/s\n{HASH} 3. Foundation\n")
+    assert gr.check_unlinked([source]) == []
+
+
+def test_the_widened_detector_reports_a_trailing_comment_too(tmp_path):
+    """Pins the cost of the widening, which is a deliberate trade.
+
+    Nothing tells a comment whose first word is a number apart from a reference that
+    lost its adjacency: both put a space between the sign and the digits, mid-line.
+    Reporting it is chosen over missing the reference; sharpening the detector should
+    break this, so that the trade is re-decided rather than quietly reversed.
+    """
+    source = tmp_path / "mod.py"
+    source.write_text(f"x = 1  {HASH} 3 files remain\n")
     assert len(gr.check_unlinked([source])) == 1
+
+
+def test_a_misspelt_url_path_is_reported(tmp_path):
+    """GitHub lists pull requests at ``pulls`` but serves one at ``pull``.
+
+    The plural that is right for the list is wrong for the item, so this URL reaches
+    no page. Validating against the canonical paths alone would pass it unmentioned.
+    """
+    source = tmp_path / "spec.md"
+    source.write_text(f"See {BASE}/pulls/65 for the rest.\n")
+    violations = gr.check_hardcoded([source])
+    assert len(violations) == 1
+    assert "pull" in violations[0].message
+
+
+def test_a_url_naming_neither_kind_is_left_alone(tmp_path):
+    """A discussion is not an issue or a pull request, and has no role to be written.
+
+    The detector matches any path so that a misspelling reaches it; this pins that
+    the breadth does not turn into a demand for a role that does not exist.
+    """
+    source = tmp_path / "spec.md"
+    source.write_text(f"See {BASE}/discussions/12 for the rest.\n")
+    assert gr.check_hardcoded([source]) == []
+
+
+def test_a_one_line_docstring_does_not_hide_a_reference(tmp_path):
+    """Its own delimiters are quote marks, and docs spec §3.8 puts it in scope.
+
+    Exempting every quoted string blanked the shortest docstring there is, which is
+    the form most likely to carry a regression's reference.
+    """
+    source = tmp_path / "test_mod.py"
+    source.write_text(f'    """Regression for PR {HASH}104."""\n')
+    violations = gr.check_unlinked([source])
+    assert len(violations) == 1
+    assert "104" in violations[0].message
+
+
+def test_a_pair_of_apostrophes_does_not_hide_a_reference(tmp_path):
+    """A quote mark in prose is an apostrophe, and two of them span the words between.
+
+    The reference sits inside that span, so exempting quoted strings blanked a real
+    one -- and the more ordinary the sentence, the more likely it is to happen.
+    """
+    source = tmp_path / "spec.md"
+    source.write_text(f"It's fixed in {HASH}103, but don't regress it.\n")
+    violations = gr.check_unlinked([source])
+    assert len(violations) == 1
+    assert "103" in violations[0].message
 
 
 def test_the_corpus_excludes_the_plans_and_covers_the_specifications():

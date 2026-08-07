@@ -421,7 +421,7 @@ Both render as a linked `#65` and `#73`. The roles are configured once, in
 number and nothing else. Two forms are therefore errors: a bare `#65`, and a hand-written
 `https://github.com/bjlittle/tephpy/issues/65`.
 
-The surrounding prose keeps its own label. ``PR {pull}`19` `` renders "PR #19", and the
+The surrounding prose keeps its own label. ``PR {pull}`19` `` renders `PR #19`, and the
 word earns its place: the caption is `#N` whichever role produced it, so without it a
 reader cannot tell what they are about to open.
 
@@ -439,17 +439,32 @@ could derive its target from the text because the text named the document and th
 `#65` names neither issue nor pull request, and those are different URLs.
 
 **Three exemptions**, none of them a reference. Fenced blocks, for the reason §3.6 gives:
-a passage documenting this rule quotes the bare form it forbids. Inline code spans and
-string literals, which is where a hex colour is written — `` `#808080` `` in the `add_logo`
-specification and `"#101820"` in the logo tests are colours whose six digits would
-otherwise read as an issue number. And the plans, frozen with their references by §3.4.
+a passage documenting this rule quotes the bare form it forbids. Inline code spans and hex
+colours — `` `#808080` `` in the `add_logo` specification and `"#101820"` in the logo tests
+are colours whose six digits would otherwise read as an issue number. And the plans, frozen
+with their references by §3.4.
+
+The colour exemption is a colour and not, as it first was, any quoted string. A quote mark
+is also an apostrophe, so a pair of them spans the words between: an ordinary sentence
+about not regressing something would have had its reference blanked instead of judged, and
+a one-line docstring holds a pair between its own delimiters. Docstrings are in scope here,
+so the wider exemption cancelled the rule exactly where a regression cites its cause.
 
 **The gate.** A pre-commit hook asserts both halves of the rule over the §3.6 corpus,
-detecting wider than it validates: it looks for any `#` followed by digits and any URL
-under this repository's `issues/` or `pull/` path, then passes only what a role produced.
-One pattern doing both jobs could not report a near-miss — a form the detector failed to
-match would be neither judged nor mentioned, so a `# 65` with a space, or a `pulls/65`
-typo, would read as compliance rather than as something to look at.
+detecting wider than it validates: it looks for a `#` whether or not a space follows it,
+and for any URL under this repository whatever path it names, then judges what it finds
+against what a role produces. One pattern doing both jobs could not report a near-miss — a
+form the detector failed to match would be neither judged nor mentioned, so a `# 65` with a
+space, or a `pulls/65` typo, would read as compliance rather than as something to look at.
+Both are reported, each with the reason it is not the form the rule asks for; a URL naming
+neither kind, a discussion or a release, is not a reference and is left alone.
+
+The wider first pattern costs something, and the cost is paid where a `#` means no
+reference at all. One opening a line is a heading or a whole-line comment and is not
+judged; one following something on the line is, so a trailing comment whose first word is a
+number is reported as a near-miss it is not. Nothing tells them apart — `see # 65` and
+`x = 1  # 3 files` put the same characters in the same places, and only the surrounding
+sentence says which is which. A form nobody can see is worse than one somebody rewords.
 
 The two assertions partition the failures rather than overlapping. A `#N` already inside
 link text is exempt from the first and caught by the second when the link is ours, which

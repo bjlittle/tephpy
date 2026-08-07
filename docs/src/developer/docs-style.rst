@@ -169,7 +169,7 @@ the text cannot disagree with the target; a hand-written ``:ref:`` carries two.
 Writing the role is what keeps them together here, and what would pull them apart
 there.
 
-Keep the word that says which kind it is. ``PR :pull:`19``` renders "PR #19",
+Keep the word that says which kind it is. ``PR :pull:`19``` renders ``PR #19``,
 and a reader who sees only ``#19`` cannot tell what the link opens, because the
 caption is the same for both roles.
 
