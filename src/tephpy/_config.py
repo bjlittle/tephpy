@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 __all__ = [
     "Config",
@@ -143,6 +144,49 @@ class Config:
     )
     diagram: DiagramOptions = dataclasses.field(default_factory=DiagramOptions)
     cursor: CursorOptions = dataclasses.field(default_factory=CursorOptions)
+
+    def __post_init__(self) -> None:
+        """Initialise the state that is deliberately not a field.
+
+        Notes
+        -----
+        ``_source`` is set here rather than declared as a class attribute
+        because an annotated class attribute becomes a dataclass field, and
+        :meth:`context` enumerates the configuration sections with
+        ``dataclasses.fields`` — a field here would present ``source`` as an
+        eighth section (configfile spec §3.1).
+        """
+        self._source: Path | None = None
+
+    @property
+    def source(self) -> Path | None:
+        """The configuration file in force.
+
+        Returns
+        -------
+        pathlib.Path or None
+            The file this configuration was loaded from, or ``None`` when
+            no file was found, none was loaded, or the load failed.
+        """
+        return self._source
+
+    def reset(self) -> None:
+        """Restore the pristine, hardwired configuration.
+
+        Every option in every section returns to ``None`` — falling through
+        to the ``_constants`` conventions — and :attr:`source` becomes
+        ``None``. The section objects are cleared in place rather than
+        rebound, because an
+        :class:`~tephpy.plotting.isopleths.IsoplethFamily` keeps a reference
+        to the section it was created with.
+        """
+        pristine = Config()
+        for field in dataclasses.fields(self):
+            section = getattr(self, field.name)
+            fresh = getattr(pristine, field.name)
+            for option in dataclasses.fields(fresh):
+                setattr(section, option.name, getattr(fresh, option.name))
+        self._source = None
 
     @contextmanager
     def context(self, **overrides: Mapping[str, object]) -> Iterator[Config]:

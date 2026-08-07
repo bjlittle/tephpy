@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import pathlib
 
 import pytest
 
@@ -112,3 +113,58 @@ def test_labels_accepts_placements():
     with tephpy.config.context(isobars={"labels": ("bottom", "left")}):
         assert tephpy.config.isobars.labels == ("bottom", "left")
     assert tephpy.config.isobars.labels is None
+
+
+def test_source_is_not_a_config_section():
+    """``source`` must not become an eighth section.
+
+    ``Config.context`` enumerates the sections with ``dataclasses.fields``,
+    so an annotated class attribute would present ``source`` as a section
+    and make ``context(source=...)`` silently meaningful
+    (configfile spec §3.1).
+    """
+    names = {field.name for field in dataclasses.fields(tephpy.config)}
+    assert names == {
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+        "diagram",
+        "cursor",
+    }
+
+
+def test_source_is_read_only():
+    assert tephpy.config.source is None
+    with pytest.raises(AttributeError):
+        tephpy.config.source = "somewhere"
+
+
+def test_reset_restores_the_pristine_configuration():
+    tephpy.config.isotherms.color = "purple"
+    tephpy.config.diagram.extent = ((900.0, -20.0), (300.0, 30.0))
+    tephpy.config.reset()
+    assert tephpy.config.isotherms.color is None
+    assert tephpy.config.diagram.extent is None
+
+
+def test_reset_keeps_section_identity():
+    """A family holds the section object it was created with.
+
+    ``IsoplethFamily`` is handed ``getattr(config, name)`` and keeps that
+    reference, so ``reset`` must clear the sections in place. Rebinding
+    them to fresh instances would leave every existing family reading a
+    detached object.
+    """
+    section = tephpy.config.isotherms
+    tephpy.config.isotherms.color = "purple"
+    tephpy.config.reset()
+    assert tephpy.config.isotherms is section
+    assert section.color is None
+
+
+def test_reset_clears_the_source():
+    tephpy.config._source = pathlib.Path("/somewhere/tephpyrc.yaml")
+    tephpy.config.reset()
+    assert tephpy.config.source is None
