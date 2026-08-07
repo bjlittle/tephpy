@@ -6,7 +6,7 @@
 > ever diverge it is the specification that gets corrected. Read it as current.
 
 - **Date:** 2026-08-01 (originated; maintained since)
-- **Status:** living design specification, implemented in #71
+- **Status:** living design specification, implemented in {pull}`71`
 - **Scope:** one new public function, `tephpy.plotting.add_logo`, plus six bundled PNG masters
 - **Parent spec:** [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md) — this extends
   spec §3.2 `plotting` with a branding artist and inherits its error-handling (spec §6),
@@ -14,7 +14,7 @@
 - **Prior art:** MetPy's
   [`add_metpy_logo`](https://github.com/Unidata/MetPy/blob/v1.7.1/src/metpy/plots/_util.py#L106-L131)
 - **Brand assets:** `docs/src/_static/brand/assets/logo-bundle.zip`, catalogued by
-  `docs/src/_static/brand/assets/README.md` (PR #69)
+  `docs/src/_static/brand/assets/README.md` (PR {pull}`69`)
 
 (logo-spec-1)=
 ## 1. Purpose
@@ -51,7 +51,7 @@ below spends those inputs on a dpi-independent, theme-aware placement built from
 | Asset packaging | Copies under `src/tephpy/plotting/_static/`, declared in `[tool.setuptools.package-data]` and `MANIFEST.in` | The function must work from a wheel with no docs tree and no network. **Measured:** while the files are git-tracked, `include-package-data` (on by default) plus the setuptools_scm file finder already ships them — the declaration is belt-and-braces that survives losing either, not the load-bearing mechanism, and the spec does not pretend otherwise |
 | Asset drift | A test hashes the six copies against `logo-bundle.zip` | The zip is the source of truth; the copies are derived. Without the guard they diverge silently on the next rebrand |
 | Return value | The `AnnotationBbox` | The caller can restyle or `.remove()` it. Matches matplotlib's artist-returning convention |
-| Tinted mono variant (`color=`) | **Deferred** ([#72](https://github.com/bjlittle/tephpy/issues/72)) | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
+| Tinted mono variant (`color=`) | **Deferred** ({issue}`72`) | Needs the mono SVGs rasterised offline; the light masters cannot serve as an alpha mask because they are three-tone with substantial white knockout (§8) |
 
 (logo-spec-3)=
 ## 3. Architecture
@@ -350,7 +350,7 @@ Tests live in `tests/plotting/test_logo.py`, mirroring the source layout.
 
 **In scope:** everything in §3.
 
-**Deferred** ([#72](https://github.com/bjlittle/tephpy/issues/72)) — a `color=` kwarg tinting
+**Deferred** ({issue}`72`) — a `color=` kwarg tinting
 a monochrome mark to an arbitrary colour. This is the honest fix for the
 transparent-background case in §3.5 and for figures whose background is neither light nor
 dark. It is deferred because it needs `lockup-tiera-mono.svg` and its siblings rasterised
@@ -380,4 +380,4 @@ intention, so none carries an issue (docs spec §3.5).
   <https://matplotlib.org/stable/api/_as_gen/matplotlib.offsetbox.OffsetImage.html>
 - matplotlib `legend` `loc` vocabulary:
   <https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html>
-- Brand assets and their provenance: `docs/src/_static/brand/assets/README.md` (PR #69)
+- Brand assets and their provenance: `docs/src/_static/brand/assets/README.md` (PR {pull}`69`)

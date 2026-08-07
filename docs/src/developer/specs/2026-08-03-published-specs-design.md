@@ -7,7 +7,7 @@
 
 - **Date:** 2026-08-03 (originated; maintained since)
 - **Status:** living design specification
-- **Issue:** [#65](https://github.com/bjlittle/tephpy/issues/65)
+- **Issue:** {issue}`65`
 - **Applies to:** every document under `docs/src/developer/specs/`
 
 (docs-spec-1)=
@@ -27,14 +27,14 @@ two halves, and only the first is a migration:
   which is why this document is itself a living specification rather than a plan.
 
 The distinction between the two document classes is settled in
-[#73](https://github.com/bjlittle/tephpy/pull/73): specifications are living documents
+{pull}`73`: specifications are living documents
 maintained alongside the code; plans are a point-in-time record of what was intended
 before implementation, not updated afterwards. Everything below follows from that.
 
 (docs-spec-2)=
 ## 2. Decisions
 
-1. **Specifications are published; plans are not.** The reader-facing consequence of #73.
+1. **Specifications are published; plans are not.** The reader-facing consequence of {pull}`73`.
 2. **Both live under the developer section, not a Diátaxis quadrant.** The quadrants are
    for users. Specification content — spec §7 testing, spec §8 engineering standards,
    spec §10 roadmap — is contributor material, and the developer guide is its dedicated
@@ -49,6 +49,10 @@ before implementation, not updated afterwards. Everything below follows from tha
    and a Sphinx transform resolves it against the §3.3 anchors while building the doctree
    (§3.7).
 6. **An unresolved item in a specification must cite a tracked issue** (§3.5).
+7. **A reference to an issue or pull request is written as a role, not as text or a URL.**
+   The opposite of decision 5, and for the reason that decides both: an extlink's caption
+   is generated from its value, so writing the role is what makes the text and the target
+   inseparable, where writing a citation's role would let them come apart (§3.8).
 
 (docs-spec-3)=
 ## 3. Architecture
@@ -77,7 +81,7 @@ exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
 The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-#73 link to `../specs/`, and the parent specification refers to the plans in the other
+{pull}`73` link to `../specs/`, and the parent specification refers to the plans in the other
 direction. Any layout that published the specifications while leaving the plans
 elsewhere would break one direction and not the other, which is the confusing failure.
 
@@ -161,7 +165,7 @@ keeps `spec-3-2` and `logo-spec-3-2` distinct.
 (docs-spec-3-4)=
 ### 3.4 Pointer maintenance across the two document classes
 
-#73 established that a plan is not updated after implementation. That contract governs
+{pull}`73` established that a plan is not updated after implementation. That contract governs
 what a plan *says* — the intent it recorded, including where implementation later departed
 from it. It does not govern the pointers a plan uses to name other documents.
 
@@ -396,6 +400,103 @@ make. So it is reported as its own bucket, with its own advice, and the two dire
 described the way the scanner sees them: two anchors is the failure, one anchor is the
 skipped case of the paragraph above, and that one passes.
 
+(docs-spec-3-8)=
+### 3.8 GitHub references
+
+A specification cites the issues and pull requests that shaped it, and did so in two ways:
+19 hand-written links, and 40 bare `#N` tokens linking to nothing. The bare form is a link
+in an issue comment and plain text in a repository file, which is where these are written,
+so it was never a link on Read the Docs either. A published page told a reader the barb
+gutter was settled in PR {pull}`40` and left them to find it.
+
+**Every reference to a tephpy issue or pull request is written as an extlink role.**
+
+| context | form |
+|---|---|
+| MyST | `` {issue}`65` ``, `` {pull}`73` `` |
+| reStructuredText, docstrings | `` :issue:`65` ``, `` :pull:`73` `` |
+
+Both render as a linked `#65` and `#73`. The roles are configured once, in
+`docs/src/conf.py`, so the URL is stated in one place and a reference costs an author the
+number and nothing else. Two forms are therefore errors: a bare `#65`, and a hand-written
+`https://github.com/bjlittle/tephpy/issues/65`.
+
+The surrounding prose keeps its own label. ``PR {pull}`19` `` renders `PR #19`, and the
+word earns its place: the caption is `#N` whichever role produced it, so without it a
+reader cannot tell what they are about to open.
+
+**Why the role is hand-written here, when §3.7 refuses to hand-write a citation role.** The
+objection there was that `` :ref:`spec §3.2 <logo-spec-3-2>` `` carries two independent
+strings — display text and target — so an author can get the second wrong while the first
+still reads correctly, invisibly to both the checker and the build. An extlink carries one:
+the caption is `#%s`, generated from the same value that builds the URL. Text and target
+cannot disagree, which is §3.7's criterion met rather than waived.
+
+What would remove the authoring step altogether is a build-time transform of the §3.7 kind,
+and the token is too weak to carry one. `spec §3.2` is unmistakable in running prose; `#65`
+is also a hex colour, a URL fragment, and a comment character followed by a number. §3.7
+could derive its target from the text because the text named the document and the section.
+`#65` names neither issue nor pull request, and those are different URLs.
+
+**Three exemptions**, none of them a reference. Fenced blocks, for the reason §3.6 gives:
+a passage documenting this rule quotes the bare form it forbids. Inline code spans and hex
+colours — `` `#808080` `` in the `add_logo` specification and `"#101820"` in the logo tests
+are colours whose six digits would otherwise read as an issue number. And the plans, frozen
+with their references by §3.4.
+
+The colour exemption is a colour and not, as it first was, any quoted string. A quote mark
+is also an apostrophe, so a pair of them spans the words between: an ordinary sentence
+about not regressing something would have had its reference blanked instead of judged, and
+a one-line docstring holds a pair between its own delimiters. Docstrings are in scope here,
+so the wider exemption cancelled the rule exactly where a regression cites its cause.
+
+**The gate.** A pre-commit hook asserts both halves of the rule over the §3.6 corpus,
+detecting wider than it validates: it looks for a `#` whether or not a space follows it,
+and for any URL under this repository whatever path it names, then judges what it finds
+against what a role produces. One pattern doing both jobs could not report a near-miss — a
+form the detector failed to match would be neither judged nor mentioned, so a `# 65` with a
+space, or a `pulls/65` typo, would read as compliance rather than as something to look at.
+Both are reported, each with the reason it is not the form the rule asks for; a URL naming
+neither kind, a discussion or a release, is not a reference and is left alone.
+
+The wider first pattern costs something, and the cost is paid where a `#` means no
+reference at all. One opening a line is a heading or a whole-line comment and is not
+judged; one following something on the line is, so a trailing comment whose first word is a
+number is reported as a near-miss it is not. Nothing tells them apart — `see # 65` and
+`x = 1  # 3 files` put the same characters in the same places, and only the surrounding
+sentence says which is which. A form nobody can see is worse than one somebody rewords.
+
+The two assertions partition the failures rather than overlapping. A `#N` already inside
+link text is exempt from the first and caught by the second when the link is ours, which
+is what lets an issue in *another* project stay an ordinary link: the roles are scoped to
+this repository, so `Unidata/MetPy#1234` is written with its URL, and neither assertion
+matches it.
+
+`extlinks_detect_hardcoded_links` is set alongside the hook. It is Sphinx's own matcher for
+the second failure, reporting at build time with the exact role to write instead, and it is
+deliberately a second implementation rather than a shared one — a bug in the hook's regular
+expression is precisely what an independent check catches. Enabling it is safe only because
+Sphinx declines to suggest a replacement when the captured value contains a solidus; without
+that guard the `user` role's `https://github.com/%s` matches every link to another project's
+repository, and the build, running under `--fail-on-warning`, would fail on
+`https://github.com/SciTools/tephi`.
+
+One reference on a published page is written by neither of these, and so is caught by
+neither: the number towncrier appends to every changelog entry, taken from the fragment's
+filename. Its default renders that as plain text, which is this section's first failure one
+level up — the reader of a released changelog saw `#40` and could not follow it, exactly as
+the reader of a specification did. `issue_format` in `[tool.towncrier]` is set to the same
+role a fragment writes by hand, so the generated reference and the hand-written one are the
+same form. A generator's output is not in the corpus, which is the general point: the gate
+holds for what the repository says, and each generator has to be told separately.
+
+**What this cannot catch**, in a shape §3.6 will recognise. A reference written with the
+wrong role of the two — `` {issue}`73` `` where 73 is a pull request — is well formed,
+renders identically, and resolves: GitHub redirects between the two paths, so the reader
+still arrives where they should, and only the source misnames the kind. Settling it would
+mean asking GitHub which each number is, and a hook that needs the network fails offline
+and is rate-limited in CI. Review is what narrows this one.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -464,6 +565,10 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   gate does not read `_modules/`: viewcode renders the 203 section signs of Python source
   verbatim, and they are code rather than prose. Reading those pages too gives 238 literals
   and the same verdict, every one of them already covered by `<pre>`.
+- No bare `#N` and no hand-written `bjlittle/tephpy` issue or pull-request URL survives in
+  the corpus (§3.8), and every reference renders as a link on the built specification
+  pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
+  nothing and 19 written as URLs.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
@@ -479,12 +584,12 @@ Not in this change:
 
 Settled since:
 
-- **Resolved** (2026-08-04, PR #89) — **the citation-integrity hook of §3.6 is in place.**
+- **Resolved** (2026-08-04, PR {pull}`89`) — **the citation-integrity hook of §3.6 is in place.**
   The 36 citations that did not meet the §3.2 rule were corrected with it: eleven in `src/`
   and `tests/` that carried a bare `§N` in a file owning no sections, and 25 in the two
   child specifications where a bare `§N` meant the *parent's* section and resolved
   silently to the child's own.
-- **Resolved** (2026-08-04, PR #90) — **citations render as cross-references** (§3.7).
+- **Resolved** (2026-08-04, PR {pull}`90`) — **citations render as cross-references** (§3.7).
   The item was deferred here as "101 rendered citations across 60 public objects"; both
   figures were wrong, and the measured count is 95 across 54. Neither turned out to be
   the number that mattered, because the conversion happens in the doctree rather than in
@@ -493,9 +598,9 @@ Settled since:
 (docs-spec-8)=
 ## 8. References
 
-- [#65](https://github.com/bjlittle/tephpy/issues/65) — publish the design specifications
-- [#73](https://github.com/bjlittle/tephpy/pull/73) — the living/point-in-time contract
-- [#85](https://github.com/bjlittle/tephpy/issues/85) — render citations as cross-references
-- [#86](https://github.com/bjlittle/tephpy/issues/86) — the citation-integrity gate
+- {issue}`65` — publish the design specifications
+- {pull}`73` — the living/point-in-time contract
+- {issue}`85` — render citations as cross-references
+- {issue}`86` — the citation-integrity gate
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent
 - [MyST targets and cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html)

@@ -203,7 +203,7 @@ def test_sign_flip_without_segment_intersection_fabricates_nothing():
     temperature swing, so the buoyancy difference can change sign at
     equal pressures while the drawn segments stay disjoint; fabricating
     a crossing there would put a vertex on neither polyline and break
-    the strictly-decreasing grid (PR #43 review).
+    the strictly-decreasing grid (PR :pull:`43` review).
     """
     pressure = np.array([1000.0, 999.0])
     environment = np.array([0.0, -20.0])

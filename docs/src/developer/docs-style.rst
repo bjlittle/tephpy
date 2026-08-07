@@ -153,6 +153,38 @@ documentation build checks that every rendered citation became a link. Both are
 specified in the published specifications design: docs spec §3.6 covers the hook,
 and docs spec §3.7 covers the build.
 
+.. _github-references:
+
+GitHub References
+-----------------
+
+Refer to a tephpy issue or pull request with the matching extlink role, never as
+plain text and never by URL. Write ``:issue:`65``` and ``:pull:`73``` in
+reStructuredText and in docstrings; write ``{issue}`65``` and ``{pull}`73``` in
+the Markdown specifications. Each renders as a linked ``#65`` or ``#73``.
+
+This is the opposite instruction to the one above, and the same reasoning decides
+both. An extlink generates its caption from its value, so there is one string and
+the text cannot disagree with the target; a hand-written ``:ref:`` carries two.
+Writing the role is what keeps them together here, and what would pull them apart
+there.
+
+Keep the word that says which kind it is. ``PR :pull:`19``` renders ``PR #19``,
+and a reader who sees only ``#19`` cannot tell what the link opens, because the
+caption is the same for both roles.
+
+Two things follow. An issue in another project has no role — the two above are
+scoped to this repository — so write it as an ordinary link with its own URL.
+And a hexadecimal colour is not a reference: keep it in literal markup —
+``#808080`` — or inside a string, which is where a colour belongs anyway.
+
+A pre-commit hook rejects both a bare ``#65`` and a hand-written
+``https://github.com/bjlittle/tephpy/issues/65``; the documentation build rejects
+the second again through ``extlinks_detect_hardcoded_links``, naming the role to
+write instead. Neither can tell ``:issue:`` from ``:pull:`` — GitHub redirects
+between them, so the wrong one of the two still reaches the right page. The rule
+is specified in docs spec §3.8.
+
 .. _documentation-links:
 
 Documentation Links
