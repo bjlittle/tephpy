@@ -16,18 +16,21 @@ from collections.abc import Mapping
 import dataclasses
 import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 import warnings
 
 import platformdirs
 import yaml
 
+from tephpy._constants import CONFIG_DEFAULTS
 from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 if TYPE_CHECKING:
     from tephpy._config import Config
 
 __all__ = [
+    "CONFIG_DESCRIPTIONS",
     "CONFIG_ENV_VAR",
     "CONFIG_FILENAME",
     "apply",
@@ -35,7 +38,10 @@ __all__ = [
     "config_paths",
     "discover",
     "read_document",
+    "render_template",
     "user_config_path",
+    "write_config",
+    "write_template",
 ]
 
 #: The configuration file's name in the working directory and the user
@@ -273,3 +279,281 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
                 continue
             setattr(section, option, coerce(name, option, value))
     config._source = source  # noqa: SLF001 -- the property behind Config.source
+
+
+#: Prose shared by the ``color``, ``linewidth``, ``alpha``, ``labels`` and
+#: ``visible`` options, which mean the same thing for every isopleth family.
+_LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
+        ),
+        "visible": "Whether the family is drawn at all.",
+    }
+)
+
+#: One line of prose per option, rendered above it in the generated template
+#: (configfile spec §3.4). Gated for completeness against ``CONFIG_DEFAULTS``
+#: by ``tests/test_configfile_template.py``.
+#:
+#: ``color``, ``linewidth``, ``alpha``, ``labels`` and ``visible`` mean the
+#: same thing for every isopleth family, so ``_LINE_DESCRIPTIONS`` supplies
+#: each of those five strings once. ``emphasis``, ``values`` and ``interval``
+#: are not shared: the units differ per family -- hPa for isobars, degrees
+#: Celsius for the temperature families, g/kg for mixing ratios -- so each
+#: family spells its own out.
+CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
+    {
+        "isotherms": MappingProxyType(
+            {
+                **_LINE_DESCRIPTIONS,
+                "emphasis": (
+                    "Members drawn with a distinguishing style, keyed by "
+                    "temperature in degrees Celsius."
+                ),
+                "values": (
+                    "Explicit member temperatures in degrees Celsius. Unset, "
+                    "the zoom-adaptive ladder selects them."
+                ),
+                "interval": (
+                    "Member spacing in degrees Celsius. Unset, the "
+                    "zoom-adaptive ladder selects it."
+                ),
+            }
+        ),
+        "isobars": MappingProxyType(
+            {
+                **_LINE_DESCRIPTIONS,
+                "emphasis": (
+                    "Members drawn with a distinguishing style, keyed by "
+                    "pressure in hPa."
+                ),
+                "values": (
+                    "Explicit member pressures in hPa. Unset, the "
+                    "zoom-adaptive ladder selects them."
+                ),
+                "interval": (
+                    "Member spacing in hPa. Unset, the zoom-adaptive ladder selects it."
+                ),
+            }
+        ),
+        "dry_adiabats": MappingProxyType(
+            {
+                **_LINE_DESCRIPTIONS,
+                "emphasis": (
+                    "Members drawn with a distinguishing style, keyed by "
+                    "potential temperature in degrees Celsius."
+                ),
+                "values": (
+                    "Explicit member potential temperatures in degrees "
+                    "Celsius. Unset, the zoom-adaptive ladder selects them."
+                ),
+                "interval": (
+                    "Member spacing in degrees Celsius. Unset, the "
+                    "zoom-adaptive ladder selects it."
+                ),
+            }
+        ),
+        "moist_adiabats": MappingProxyType(
+            {
+                **_LINE_DESCRIPTIONS,
+                "emphasis": (
+                    "Members drawn with a distinguishing style, keyed by "
+                    "wet-bulb potential temperature in degrees Celsius."
+                ),
+                "values": (
+                    "Explicit member wet-bulb potential temperatures in "
+                    "degrees Celsius. Unset, the zoom-adaptive ladder "
+                    "selects them."
+                ),
+                "interval": (
+                    "Member spacing in degrees Celsius. Unset, the "
+                    "zoom-adaptive ladder selects it."
+                ),
+                "truncation": (
+                    "Temperature in degrees Celsius below which a moist "
+                    "adiabat stops being drawn."
+                ),
+            }
+        ),
+        "mixing_ratios": MappingProxyType(
+            {
+                **_LINE_DESCRIPTIONS,
+                "emphasis": (
+                    "Members drawn with a distinguishing style, keyed by "
+                    "mixing ratio in g/kg."
+                ),
+                "values": (
+                    "Explicit member mixing ratios in g/kg. Unset, the "
+                    "zoom-adaptive ladder selects them."
+                ),
+            }
+        ),
+        "diagram": MappingProxyType(
+            {
+                "extent": (
+                    "Default view corners as [[pressure, temperature], "
+                    "[pressure, temperature]], in hPa and degrees Celsius."
+                ),
+            }
+        ),
+        "cursor": MappingProxyType(
+            {
+                "fields": "Cursor readout fields, in display order.",
+            }
+        ),
+    }
+)
+
+
+def _as_sequences(value: object) -> object:
+    """Recursively replace tuples with lists, for ``yaml.safe_dump``.
+
+    Parameters
+    ----------
+    value : object
+        A configuration value, possibly holding nested tuples.
+
+    Returns
+    -------
+    object
+        The same value with every tuple, at every depth, replaced by a
+        list. PyYAML's safe dumper has no tuple representer, and ``extent``
+        nests them two deep.
+    """
+    if isinstance(value, tuple | list):
+        return [_as_sequences(entry) for entry in value]
+    if isinstance(value, Mapping):
+        return {key: _as_sequences(entry) for key, entry in value.items()}
+    return value
+
+
+def _format_default(value: object) -> str:
+    """Render a default as the YAML a user can uncomment.
+
+    Parameters
+    ----------
+    value : object
+        The default from ``CONFIG_DEFAULTS``.
+
+    Returns
+    -------
+    str
+        The value in YAML flow style, or the empty string for an option
+        with no default and for an empty ``emphasis`` mapping.
+    """
+    if value is None or value == {}:
+        return ""
+    rendered: str = yaml.safe_dump(
+        _as_sequences(value), default_flow_style=True
+    ).strip()
+    # A scalar document is dumped with an explicit "..." end marker.
+    if rendered.endswith("..."):
+        rendered = rendered[: -len("...")].strip()
+    return rendered
+
+
+def _write(path: Path, text: str) -> None:
+    """Write text to a file, creating its parent directory.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The file to write.
+    text : str
+        The content.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the file cannot be written.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        msg = f"{path}: cannot write the configuration file: {exc}"
+        raise TephpyConfigError(msg) from exc
+
+
+def render_template() -> str:
+    """Render the fully-commented configuration template.
+
+    Returns
+    -------
+    str
+        A YAML document whose section headers are live and whose every
+        option is commented out, so an untouched template parses to an
+        empty configuration (configfile spec §5).
+    """
+    lines = [
+        "# tephpy configuration file.",
+        "#",
+        "# Every option below is commented out and shows the default in force.",
+        "# Uncomment a line and edit it to change that option; leave the rest",
+        "# alone. Quote any colour written as a hex triplet - an unquoted",
+        "# '#b0b0b0' is read as a comment, not a colour.",
+        "#",
+        "# Discovery, first match wins: $TEPHPYRC, then ./tephpyrc.yaml, then",
+        "# this file's own directory. 'tephpy config path' reports the search.",
+    ]
+    for section, options in CONFIG_DEFAULTS.items():
+        lines.append("")
+        lines.append(f"{section}:")
+        for option, default in options.items():
+            lines.append(f"  # {CONFIG_DESCRIPTIONS[section][option]}")
+            lines.append(f"  # {option}: {_format_default(default)}".rstrip())
+    return "\n".join(lines) + "\n"
+
+
+def write_template(path: Path, *, force: bool = False) -> None:
+    """Write the configuration template.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The file to write. Its parent directory is created if absent.
+    force : bool, optional
+        Overwrite an existing file. Default is ``False``.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the file exists and `force` is false, or it cannot be written.
+    """
+    if path.exists() and not force:
+        msg = f"{path} already exists; pass --force to overwrite it"
+        raise TephpyConfigError(msg)
+    _write(path, render_template())
+
+
+def write_config(config: Config, path: Path) -> None:
+    """Write a configuration's set options to a file.
+
+    Parameters
+    ----------
+    config : Config
+        The configuration to serialise.
+    path : pathlib.Path
+        The file to write. Its parent directory is created if absent.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the file cannot be written.
+    """
+    document: dict[str, object] = {}
+    for field in dataclasses.fields(config):
+        section = getattr(config, field.name)
+        options = {
+            option.name: _as_sequences(getattr(section, option.name))
+            for option in dataclasses.fields(section)
+            if getattr(section, option.name) is not None
+        }
+        if options:
+            document[field.name] = options
+    _write(path, yaml.safe_dump(document, default_flow_style=False, sort_keys=False))

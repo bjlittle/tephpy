@@ -216,6 +216,37 @@ class Config:
             return
         _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
 
+    def save(self, path: str | Path | None = None) -> Path:
+        """Write the options set on this configuration to a file.
+
+        Only options that were actually set are written; everything still
+        falling through to the conventions is left out. Comments and key
+        order in an existing file are **not** preserved — use
+        ``tephpy config generate`` for the commented template
+        (configfile spec §3.5).
+
+        Parameters
+        ----------
+        path : str or pathlib.Path, optional
+            Where to write. Defaults to the file in the user's
+            configuration directory.
+
+        Returns
+        -------
+        pathlib.Path
+            The file written.
+
+        Raises
+        ------
+        TephpyConfigError
+            If the file cannot be written.
+        """
+        from tephpy import _configfile  # noqa: PLC0415 -- avoids a circular import
+
+        chosen = _configfile.user_config_path() if path is None else Path(path)
+        _configfile.write_config(self, chosen)
+        return chosen
+
     @contextmanager
     def context(self, **overrides: Mapping[str, object]) -> Iterator[Config]:
         """Temporarily override configuration sections.
