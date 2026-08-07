@@ -1,0 +1,4 @@
+Added ``click``, ``platformdirs`` and ``pyyaml`` to tephpy's core
+dependencies, and ``sphinx-click`` to the documentation extras. The three
+runtime additions carry the configuration file and the ``tephpy config``
+command. (:user:`claude`)
