@@ -66,12 +66,25 @@ def config_paths() -> tuple[Path, ...]:
     tuple of pathlib.Path
         ``$TEPHPYRC`` when set, then the working directory, then the user
         configuration directory. The entries need not exist.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the current working directory no longer exists, so the failure
+        surfaces the same way every other unreadable-configuration case
+        does, instead of an uncontained ``FileNotFoundError`` reaching
+        ``import tephpy`` (configfile spec §5).
     """
     paths: list[Path] = []
     named = os.environ.get(CONFIG_ENV_VAR)
     if named:
         paths.append(Path(named))
-    paths.append(Path.cwd() / CONFIG_FILENAME)
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError as exc:
+        msg = f"cannot read the working directory to look for {CONFIG_FILENAME}: {exc}"
+        raise TephpyConfigError(msg) from exc
+    paths.append(cwd / CONFIG_FILENAME)
     paths.append(user_config_path())
     return tuple(paths)
 
@@ -135,7 +148,7 @@ def read_document(path: Path) -> dict[str, object]:
     """
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         msg = f"{path}: cannot read the configuration file: {exc}"
         raise TephpyConfigError(msg) from exc
     try:

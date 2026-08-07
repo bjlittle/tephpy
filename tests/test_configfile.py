@@ -123,6 +123,26 @@ def test_malformed_yaml_raises(tmp_path):
         _configfile.read_document(path)
 
 
+def test_a_non_utf8_file_raises(tmp_path):
+    """A cp1252-saved comment must not raise an uncontained UnicodeDecodeError."""
+    path = tmp_path / "tephpyrc.yaml"
+    path.write_bytes("isotherms:\n  color: purple  # r\xe9sum\xe9\n".encode("cp1252"))
+    with pytest.raises(TephpyConfigError, match="cannot read"):
+        _configfile.read_document(path)
+
+
+def test_a_deleted_working_directory_raises(monkeypatch):
+    """``Path.cwd()`` raising must not escape as an uncontained FileNotFoundError."""
+
+    def _no_such_directory():
+        msg = "no such file or directory"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr(_configfile.Path, "cwd", _no_such_directory)
+    with pytest.raises(TephpyConfigError, match="working directory"):
+        _configfile.config_paths()
+
+
 def test_a_non_mapping_document_raises(tmp_path):
     path = _write(tmp_path, "- isotherms\n")
     with pytest.raises(TephpyConfigError, match="mapping of sections"):

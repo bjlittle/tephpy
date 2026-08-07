@@ -86,3 +86,32 @@ def test_a_broken_file_warns_and_does_not_stop_the_import(tmp_path):
     colour, source = result.stdout.split()
     assert colour == "None"
     assert source == "None"
+
+
+def test_a_non_utf8_file_warns_and_does_not_stop_the_import(tmp_path):
+    """A cp1252-saved comment must not make ``tephpy`` unimportable."""
+    broken = tmp_path / "broken.yaml"
+    broken.write_bytes("isotherms:\n  color: purple  # r\xe9sum\xe9\n".encode("cp1252"))
+    result = _run(tmp_path, TEPHPYRC=str(broken))
+    assert "TephpyConfigWarning" in result.stderr
+    colour, source = result.stdout.split()
+    assert colour == "None"
+    assert source == "None"
+
+
+def test_a_partially_applied_file_still_resets(tmp_path):
+    """``apply`` can set an earlier section before raising on a later one.
+
+    Without ``config.reset()`` on the failure path, ``isotherms.color``
+    would still read ``chartreuse`` here, even though the file as a whole
+    was rejected.
+    """
+    partial = tmp_path / "partial.yaml"
+    partial.write_text(
+        "isotherms:\n  color: chartreuse\nbogus:\n  color: red\n", encoding="utf-8"
+    )
+    result = _run(tmp_path, TEPHPYRC=str(partial))
+    assert "TephpyConfigWarning" in result.stderr
+    colour, source = result.stdout.split()
+    assert colour == "None"
+    assert source == "None"
