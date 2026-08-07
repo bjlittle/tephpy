@@ -309,7 +309,7 @@ and only that test, fails.
 
 | Package | Tier | Floor | Note |
 |---|---|---|---|
-| `pyyaml` | core | `>=6.0` | Present in the pixi environment only via pre-commit and sphinx-autoapi — **absent** from a core install today |
+| `pyyaml` | core | `>=6.0.1` | Present in the pixi environment only via pre-commit and sphinx-autoapi — **absent** from a core install today. Floored one patch above `6.0`, whose sdist has no cp312 wheel and fails to build |
 | `click` | core | `>=8.1` | Present only via towncrier and jupyter-cache — **absent** from a core install today |
 | `platformdirs` | core | `>=4.0` | Reachable today only as a transitive of pint; declared rather than inherited |
 | `sphinx-click` | docs | `>=6.0` | Documents the CLI in the reference guide |

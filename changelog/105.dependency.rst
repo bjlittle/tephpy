@@ -1,4 +1,7 @@
 Added ``click``, ``platformdirs`` and ``pyyaml`` to tephpy's core
 dependencies, and ``sphinx-click`` to the documentation extras. The three
 runtime additions carry the configuration file and the ``tephpy config``
-command. (:user:`claude`)
+command. ``pyyaml`` is floored at ``>=6.0.1`` rather than ``>=6.0``: the
+``6.0`` sdist has no cp312 wheel and fails to build under current
+setuptools/Cython, so it cannot install on tephpy's supported Python
+versions. (:user:`claude`)
