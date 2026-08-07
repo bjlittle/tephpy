@@ -12,7 +12,11 @@ it from here (spec §3.5).
 
 from __future__ import annotations
 
-from typing import Final
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 #: Offset between degrees Celsius and Kelvin.
 KELVIN_ZERO: Final[float] = 273.15
@@ -339,3 +343,83 @@ LOGO_LUMINANCE_THRESHOLD: Final[float] = 0.5
 
 #: Rec. 709 luma weights for the red, green and blue channels.
 LOGO_LUMINANCE_WEIGHTS: Final[tuple[float, float, float]] = (0.2126, 0.7152, 0.0722)
+
+#: Effective default for every ``tephpy.config`` option — what a user gets
+#: when they set nothing (configfile spec §3.4).
+#:
+#: Read only by the configuration-file template generator. The plotting path
+#: resolves its own defaults in ``IsoplethFamily._resolve``, and
+#: ``tests/test_config_defaults.py`` gates the two against each other. Entries
+#: name the conventions above rather than restating their values, so the gate
+#: guards the structure — which option exists, and which convention it draws
+#: on — rather than a second copy of every literal.
+#:
+#: A ``None`` records an option with **no** default: leaving ``interval`` and
+#: ``values`` unset is what enables the zoom-adaptive selection ladder, so the
+#: template must never print a number for them.
+CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType(
+    {
+        "isotherms": MappingProxyType(
+            {
+                "color": ISOTHERM_COLOR,
+                "linewidth": ISOPLETH_LINEWIDTH,
+                "alpha": ISOPLETH_ALPHA,
+                "labels": True,
+                "visible": True,
+                "emphasis": {},
+                "values": None,
+                "interval": None,
+            }
+        ),
+        "isobars": MappingProxyType(
+            {
+                "color": ISOBAR_COLOR,
+                "linewidth": ISOPLETH_LINEWIDTH,
+                "alpha": ISOPLETH_ALPHA,
+                "labels": True,
+                "visible": True,
+                "emphasis": {},
+                "values": None,
+                "interval": None,
+            }
+        ),
+        "dry_adiabats": MappingProxyType(
+            {
+                "color": DRY_ADIABAT_COLOR,
+                "linewidth": ISOPLETH_LINEWIDTH,
+                "alpha": ISOPLETH_ALPHA,
+                "labels": True,
+                "visible": True,
+                "emphasis": {},
+                "values": None,
+                "interval": None,
+            }
+        ),
+        "moist_adiabats": MappingProxyType(
+            {
+                "color": MOIST_ADIABAT_COLOR,
+                "linewidth": ISOPLETH_LINEWIDTH,
+                "alpha": ISOPLETH_ALPHA,
+                "labels": True,
+                "visible": True,
+                "emphasis": {},
+                "values": None,
+                "interval": None,
+                "truncation": MOIST_ADIABAT_TRUNCATION,
+            }
+        ),
+        "mixing_ratios": MappingProxyType(
+            {
+                "color": MIXING_RATIO_COLOR,
+                "linewidth": ISOPLETH_LINEWIDTH,
+                "alpha": ISOPLETH_ALPHA,
+                "labels": True,
+                "visible": True,
+                "emphasis": {},
+                "values": None,
+            }
+        ),
+        "diagram": MappingProxyType({"extent": DEFAULT_EXTENT}),
+        "cursor": MappingProxyType({"fields": CURSOR_FIELDS}),
+    }
+)
