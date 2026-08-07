@@ -29,3 +29,27 @@ __all__ = [
     "plotting",
     "transforms",
 ]
+
+
+def _autoload_config() -> None:
+    """Apply the discovered configuration file, if there is one.
+
+    A configuration file that cannot be read must not stop the import: that
+    would also take out ``tephpy config path``, which is the tool for
+    finding out which file is at fault. Any failure therefore warns and
+    leaves the configuration pristine (configfile spec §5).
+    """
+    import warnings  # noqa: PLC0415 -- avoids a public tephpy.warnings attribute
+
+    try:
+        config.load()
+    except exceptions.TephpyConfigError as exc:
+        config.reset()
+        warnings.warn(
+            f"ignoring the configuration file: {exc}",
+            exceptions.TephpyConfigWarning,
+            stacklevel=2,
+        )
+
+
+_autoload_config()
