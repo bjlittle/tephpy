@@ -1,0 +1,10 @@
+Added the design specification for tephpy configuration files, published in
+the developer guide under the ``configfile spec §…`` citation prefix. It
+specifies a YAML file discovered by a ``matplotlibrc``-style first-hit-wins
+cascade and loaded at import as a persistence tier beneath ``tephpy.config``,
+so a house style no longer has to be retyped at the top of every script; a
+``tephpy config`` console script that writes a fully-commented template of
+every option at its current default, and reports which file is in force; and
+the gates that keep the template's defaults from drifting away from the ones
+the plotting code actually applies. The specification is not yet implemented.
+(:user:`claude`)

@@ -24,6 +24,8 @@ counterpart in the parent specification.
       - :doc:`2026-08-01-add-logo-design`
     * - ``docs spec §…``
       - :doc:`2026-08-03-published-specs-design`
+    * - ``configfile spec §…``
+      - :doc:`2026-08-07-config-file-design`
 
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
@@ -40,3 +42,4 @@ before implementation and is not updated afterwards.
     2026-07-22-tephpy-design
     2026-08-01-add-logo-design
     2026-08-03-published-specs-design
+    2026-08-07-config-file-design
