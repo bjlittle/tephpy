@@ -243,6 +243,13 @@ missing quotes as the likely cause.
 A file commented out in its entirety parses to `None`, not `{}` — that is the intended way
 to start from the generated template, and it is an empty config, not an error.
 
+A *section* whose options are all commented out parses the same way, to `{"isotherms": None}`,
+and is likewise an empty section rather than an error. This is the one null that does not
+warn, and the distinction is deliberate: the generated template leaves section headers
+uncommented so that uncommenting a single option needs no second edit, which makes a null
+section the expected state of every section the user has not touched. A null *option value*
+stays a warning, because nothing in the template produces one.
+
 (configfile-spec-6)=
 ## 6. Testing
 
