@@ -6,13 +6,15 @@
 
 ``tephpy`` auto-loads a configuration file at import, so a developer with
 their own ``tephpyrc.yaml`` would otherwise feed it into every image
-comparison — and with ``filterwarnings = ["error"]`` a single unknown key in
-it would become a collection error. Two guards, one each: importing inside
-``catch_warnings`` keeps that key out of collection without depending on
-when pytest installs its own filters, and the autouse ``_pristine_config``
-fixture keeps the file itself out of every test. The module-scope
-``reset()`` covers only what runs before the first fixture — anything at
-import time (configfile spec §6).
+comparison. The autouse ``_pristine_config`` fixture is what keeps the file
+out of every test; the module-scope ``reset()`` covers only what runs
+before the first fixture — anything at import time. Importing inside
+``catch_warnings`` keeps whatever that import warns about out of
+collection, without depending on when pytest installs its own filters. An
+unknown key in the file is no longer among those warnings:
+``tephpy._autoload_config`` forces tephpy's own configuration warnings to
+"always" for the duration of the auto-load, so ``filterwarnings =
+["error"]`` can never raise one (configfile spec §6).
 """
 
 from __future__ import annotations

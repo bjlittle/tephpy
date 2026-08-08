@@ -120,6 +120,24 @@ def test_warnings_as_errors_does_not_stop_the_import(tmp_path):
     assert source == str(typo)
 
 
+def test_warnings_as_errors_survives_an_unreadable_file(tmp_path):
+    """The failure path warns from ``_autoload_config``, not from ``apply``.
+
+    A typo'd key warns from inside ``apply``, which ``config.load`` is
+    already wrapped for; a file that cannot be parsed at all warns from the
+    ``except`` clause afterwards. Only that second warning is pinned by
+    this test, so narrowing ``catch_warnings`` to ``config.load`` alone
+    would fail here and nowhere else.
+    """
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("isotherms:\n  color: [unclosed\n", encoding="utf-8")
+    result = _run(tmp_path, TEPHPYRC=str(broken), PYTHONWARNINGS="error")
+    assert "TephpyConfigWarning" in result.stderr
+    colour, source = result.stdout.splitlines()
+    assert colour == "None"
+    assert source == "None"
+
+
 def test_a_partially_applied_file_still_resets(tmp_path):
     """``apply`` can set an earlier section before raising on a later one.
 
