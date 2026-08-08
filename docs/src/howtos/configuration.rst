@@ -47,9 +47,11 @@ is what you want when a file appears to be ignored:
     /home/you/work/tephpyrc.yaml  [in force]
     /home/you/.config/tephpy/tephpyrc.yaml  [shadowed]
 
-Setting ``$TEPHPYRC`` to a file that does not exist is an error rather than a
-fallthrough — naming a file explicitly and not having it is a mistake worth
-reporting.
+Setting ``$TEPHPYRC`` to a file that does not exist is never a fallthrough
+to the next candidate — naming a file explicitly and not having it is a
+mistake worth reporting. ``tephpy config path`` fails outright; ``import
+tephpy`` warns and falls back to the defaults, so watch for that warning if
+a script's styling is not what you expect.
 
 Quote Hex Colours
 -----------------
