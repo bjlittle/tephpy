@@ -33,6 +33,9 @@ requires-python = ">=3.12"
 Issues = "https://github.com/bjlittle/tephpy/issues"
 Repository = "https://github.com/bjlittle/tephpy"
 
+[project.scripts]
+tephpy = "tephpy._cli:main"
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements/pypi-core.txt"] }
 readme = { file = "README.md", content-type = "text/markdown" }
@@ -179,6 +182,10 @@ ignore = [
 
 [tool.numpydoc_validation]
 checks = ["all", "GL01", "GL02", "GL03", "SA01", "ES01", "EX01", "YD01"]
+# `_cli.py`'s docstrings are `--help` text (configfile spec §4), not API
+# documentation: a numpydoc Parameters section would show up verbatim in
+# what a user reading `tephpy config --help` sees, so this file is exempt.
+exclude_files = ["src/tephpy/_cli\\.py"]
 
 [tool.towncrier]
 directory = "changelog"
