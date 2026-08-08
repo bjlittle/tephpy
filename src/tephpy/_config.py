@@ -17,7 +17,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import contextmanager
 import dataclasses
+from pathlib import Path
 from typing import TYPE_CHECKING, Final
+
+from tephpy import _configfile
+from tephpy.exceptions import TephpyConfigError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -143,6 +147,124 @@ class Config:
     )
     diagram: DiagramOptions = dataclasses.field(default_factory=DiagramOptions)
     cursor: CursorOptions = dataclasses.field(default_factory=CursorOptions)
+
+    def __post_init__(self) -> None:
+        """Initialise the state that is deliberately not a field.
+
+        Notes
+        -----
+        ``_source`` is set here rather than declared as a class attribute
+        because an annotated class attribute becomes a dataclass field, and
+        :meth:`context` enumerates the configuration sections with
+        ``dataclasses.fields`` — a field here would present ``source`` as an
+        eighth section (configfile spec §3.1).
+        """
+        self._source: Path | None = None
+
+    @property
+    def source(self) -> Path | None:
+        """The configuration file in force.
+
+        Returns
+        -------
+        pathlib.Path or None
+            The file this configuration was loaded from, or ``None`` when
+            no file was found, none was loaded, or the load failed.
+        """
+        return self._source
+
+    def reset(self) -> None:
+        """Restore the pristine, hardwired configuration.
+
+        Every option in every section returns to ``None`` — falling through
+        to the ``_constants`` conventions — and :attr:`source` becomes
+        ``None``. The section objects are cleared in place rather than
+        rebound, because an
+        :class:`~tephpy.plotting.isopleths.IsoplethFamily` keeps a reference
+        to the section it was created with.
+        """
+        pristine = Config()
+        for field in dataclasses.fields(self):
+            section = getattr(self, field.name)
+            fresh = getattr(pristine, field.name)
+            for option in dataclasses.fields(fresh):
+                setattr(section, option.name, getattr(fresh, option.name))
+        self._source = None
+
+    def load(self, path: str | Path | None = None) -> None:
+        """Load a configuration file over this configuration.
+
+        A file is applied all or nothing. ``_configfile.apply`` writes
+        section by section and raises on the first unknown section, so a
+        rejected file can otherwise leave options from its earlier sections
+        behind; this method snapshots every section first and puts it back
+        if the load raises. What is restored is the configuration as the
+        caller had it, not the pristine one — anything set in Python before
+        the call survives a rejected file (configfile spec §5).
+
+        Parameters
+        ----------
+        path : str or pathlib.Path, optional
+            The file to read. When omitted, the discovery cascade selects
+            it, and nothing happens if the cascade finds no file.
+
+        Raises
+        ------
+        TephpyConfigError
+            If the file cannot be read, is not valid YAML, or names an
+            unknown configuration section. An unknown *option* warns and is
+            skipped instead (configfile spec §2). :attr:`source` is left as
+            it was, along with every section.
+
+        Warns
+        -----
+        TephpyConfigWarning
+            If an option is unknown, or its value is an explicit null.
+        """
+        chosen = _configfile.discover() if path is None else Path(path)
+        if chosen is None:
+            return
+        snapshots = {
+            field.name: dataclasses.replace(getattr(self, field.name))
+            for field in dataclasses.fields(self)
+        }
+        try:
+            _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
+        except TephpyConfigError:
+            for section_name, snapshot in snapshots.items():
+                section = getattr(self, section_name)
+                for field in dataclasses.fields(snapshot):
+                    setattr(section, field.name, getattr(snapshot, field.name))
+            raise
+
+    def save(self, path: str | Path | None = None) -> Path:
+        """Write the options set on this configuration to a file.
+
+        Only options that were actually set are written; everything still
+        falling through to the conventions is left out. Comments and key
+        order in an existing file are **not** preserved — use
+        ``tephpy config generate`` for the commented template
+        (configfile spec §3.5).
+
+        Parameters
+        ----------
+        path : str or pathlib.Path, optional
+            Where to write. Defaults to the file in the user's
+            configuration directory.
+
+        Returns
+        -------
+        pathlib.Path
+            The file written.
+
+        Raises
+        ------
+        TephpyConfigError
+            If a value cannot be serialised, or the file cannot be written.
+        """
+        chosen = _configfile.user_config_path() if path is None else Path(path)
+        _configfile.write_config(self, chosen)
+        return chosen
 
     @contextmanager
     def context(self, **overrides: Mapping[str, object]) -> Iterator[Config]:

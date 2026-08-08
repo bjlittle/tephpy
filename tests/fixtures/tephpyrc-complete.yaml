@@ -1,0 +1,55 @@
+# Every option, every value deliberately non-default (configfile spec §6).
+isotherms:
+  color: purple
+  linewidth: 1.25
+  alpha: 0.75
+  labels: [bottom, right]
+  visible: false
+  emphasis:
+    0.0: {color: tab:cyan, linewidth: 2.0}
+  values: [-20.0, 0.0, 20.0]
+  interval: 5.0
+isobars:
+  color: crimson
+  linewidth: 1.5
+  alpha: 0.8
+  labels: left
+  visible: false
+  emphasis:
+    850.0: {}
+  values: [1000.0, 850.0, 500.0]
+  interval: 25.0
+dry_adiabats:
+  color: seagreen
+  linewidth: 0.75
+  alpha: 0.6
+  labels: false
+  visible: false
+  emphasis:
+    30.0: {alpha: 0.9}
+  values: [10.0, 30.0]
+  interval: 15.0
+moist_adiabats:
+  color: goldenrod
+  linewidth: 0.9
+  alpha: 0.55
+  labels: top
+  visible: false
+  emphasis:
+    20.0: {linestyle: dashed}
+  values: [0.0, 20.0]
+  interval: 8.0
+  truncation: -30.0
+mixing_ratios:
+  color: slateblue
+  linewidth: 1.1
+  alpha: 0.65
+  labels: [right]
+  visible: false
+  emphasis:
+    4.0: {color: black}
+  values: [1.0, 4.0, 16.0]
+diagram:
+  extent: [[1000.0, -30.0], [300.0, 30.0]]
+cursor:
+  fields: [pressure]

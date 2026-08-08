@@ -1,0 +1,7 @@
+Added a YAML configuration file, so a tephigram house style no longer has to
+be retyped at the top of every script. ``tephpy config generate`` writes a
+fully-commented template of every option at its current default, and
+``tephpy config path`` reports which file is in force. tephpy reads the first
+match of ``$TEPHPYRC``, ``./tephpyrc.yaml``, and the file in your user
+configuration directory. See :ref:`configure-from-a-file`.
+(:user:`claude`)

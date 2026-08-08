@@ -77,7 +77,10 @@ src/tephpy/
 ```
 
 Each module has one job, and the dependency arrows run one way:
-`_cli` → `_configfile` → (`_config`, `_constants`). Nothing in `_configfile` imports
+(`_cli`, `_config`) → `_configfile` → `_constants`. `_config` depends on `_configfile`
+inherently — `load()` and `save()` are methods on `Config` — and `_configfile` needs
+`Config` only as an annotation, imported under `TYPE_CHECKING`, so the arrow between them
+is one-way and there is no import cycle to work around. Nothing in `_configfile` imports
 `plotting`, so loading a config file cannot drag in matplotlib figure machinery, and
 `_cli` holds no logic that is unreachable from Python.
 
@@ -309,7 +312,7 @@ and only that test, fails.
 
 | Package | Tier | Floor | Note |
 |---|---|---|---|
-| `pyyaml` | core | `>=6.0` | Present in the pixi environment only via pre-commit and sphinx-autoapi — **absent** from a core install today |
+| `pyyaml` | core | `>=6.0.1` | Present in the pixi environment only via pre-commit and sphinx-autoapi — **absent** from a core install today. Floored one patch above `6.0`, whose sdist has no cp312 wheel and fails to build |
 | `click` | core | `>=8.1` | Present only via towncrier and jupyter-cache — **absent** from a core install today |
 | `platformdirs` | core | `>=4.0` | Reachable today only as a transitive of pint; declared rather than inherited |
 | `sphinx-click` | docs | `>=6.0` | Documents the CLI in the reference guide |
