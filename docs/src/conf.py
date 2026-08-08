@@ -31,6 +31,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx_changelog",
+    "sphinx_click",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_gallery.gen_gallery",
