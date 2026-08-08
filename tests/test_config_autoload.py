@@ -31,10 +31,13 @@ PROBE = textwrap.dedent(
 def _run(tmp_path, **env_extra):
     """Import tephpy in a fresh interpreter under a controlled environment.
 
-    ``HOME`` and ``XDG_CONFIG_HOME`` both move, so the user configuration
-    directory is empty on every platform, not just the linux-64 CI runs.
-    ``MPLCONFIGDIR`` keeps pointing at this process's matplotlib cache, so
-    the relocated ``HOME`` does not trigger a font-cache rebuild.
+    ``HOME`` and ``XDG_CONFIG_HOME`` both move, which empties the user
+    configuration directory on linux — where CI runs — and on macOS.
+    Windows resolves it from ``%LOCALAPPDATA%``, which neither variable
+    touches, so a developer running these there with a user configuration
+    file of their own would still see it. ``MPLCONFIGDIR`` keeps pointing
+    at this process's matplotlib cache, so the relocated ``HOME`` does not
+    trigger a font-cache rebuild.
     """
     env = dict(os.environ)
     env.pop("TEPHPYRC", None)
@@ -56,7 +59,7 @@ def test_autoload_applies_the_named_file(tmp_path):
     named = tmp_path / "named.yaml"
     named.write_text("isotherms:\n  color: purple\n", encoding="utf-8")
     result = _run(tmp_path, TEPHPYRC=str(named))
-    colour, source = result.stdout.split()
+    colour, source = result.stdout.splitlines()
     assert colour == "purple"
     assert source == str(named)
 
@@ -66,13 +69,13 @@ def test_autoload_finds_the_working_directory_file(tmp_path):
         "isotherms:\n  color: purple\n", encoding="utf-8"
     )
     result = _run(tmp_path)
-    colour, _ = result.stdout.split()
+    colour, _ = result.stdout.splitlines()
     assert colour == "purple"
 
 
 def test_autoload_finds_nothing_without_a_file(tmp_path):
     result = _run(tmp_path)
-    colour, source = result.stdout.split()
+    colour, source = result.stdout.splitlines()
     assert colour == "None"
     assert source == "None"
 
@@ -83,7 +86,7 @@ def test_a_broken_file_warns_and_does_not_stop_the_import(tmp_path):
     broken.write_text("isotherms:\n  color: [unclosed\n", encoding="utf-8")
     result = _run(tmp_path, TEPHPYRC=str(broken))
     assert "TephpyConfigWarning" in result.stderr
-    colour, source = result.stdout.split()
+    colour, source = result.stdout.splitlines()
     assert colour == "None"
     assert source == "None"
 
@@ -94,7 +97,7 @@ def test_a_non_utf8_file_warns_and_does_not_stop_the_import(tmp_path):
     broken.write_bytes("isotherms:\n  color: purple  # r\xe9sum\xe9\n".encode("cp1252"))
     result = _run(tmp_path, TEPHPYRC=str(broken))
     assert "TephpyConfigWarning" in result.stderr
-    colour, source = result.stdout.split()
+    colour, source = result.stdout.splitlines()
     assert colour == "None"
     assert source == "None"
 
@@ -130,6 +133,6 @@ def test_a_partially_applied_file_still_resets(tmp_path):
     )
     result = _run(tmp_path, TEPHPYRC=str(partial))
     assert "TephpyConfigWarning" in result.stderr
-    colour, source = result.stdout.split()
+    colour, source = result.stdout.splitlines()
     assert colour == "None"
     assert source == "None"

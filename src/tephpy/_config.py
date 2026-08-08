@@ -20,6 +20,7 @@ import dataclasses
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from tephpy import _configfile
 from tephpy.exceptions import TephpyConfigError
 
 if TYPE_CHECKING:
@@ -220,8 +221,6 @@ class Config:
         TephpyConfigWarning
             If an option is unknown, or its value is an explicit null.
         """
-        from tephpy import _configfile  # noqa: PLC0415 -- avoids a circular import
-
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:
             return
@@ -261,10 +260,8 @@ class Config:
         Raises
         ------
         TephpyConfigError
-            If the file cannot be written.
+            If a value cannot be serialised, or the file cannot be written.
         """
-        from tephpy import _configfile  # noqa: PLC0415 -- avoids a circular import
-
         chosen = _configfile.user_config_path() if path is None else Path(path)
         _configfile.write_config(self, chosen)
         return chosen

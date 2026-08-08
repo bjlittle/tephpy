@@ -77,7 +77,10 @@ src/tephpy/
 ```
 
 Each module has one job, and the dependency arrows run one way:
-`_cli` → `_configfile` → (`_config`, `_constants`). Nothing in `_configfile` imports
+(`_cli`, `_config`) → `_configfile` → `_constants`. `_config` depends on `_configfile`
+inherently — `load()` and `save()` are methods on `Config` — and `_configfile` needs
+`Config` only as an annotation, imported under `TYPE_CHECKING`, so the arrow between them
+is one-way and there is no import cycle to work around. Nothing in `_configfile` imports
 `plotting`, so loading a config file cannot drag in matplotlib figure machinery, and
 `_cli` holds no logic that is unreachable from Python.
 

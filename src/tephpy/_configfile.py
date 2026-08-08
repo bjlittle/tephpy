@@ -129,6 +129,13 @@ _STRING_TUPLES: Final[frozenset[str]] = frozenset({"labels", "fields"})
 #: Options whose YAML sequence becomes a tuple of floats.
 _FLOAT_TUPLES: Final[frozenset[str]] = frozenset({"values"})
 
+#: Options whose value is a colour, and so can be swallowed by YAML's
+#: comment syntax when written as an unquoted hex triplet (configfile
+#: spec §5). Only these earn the quoting hint on a null value: the template
+#: instructs the reader to uncomment ``# emphasis:``, ``# values:`` and
+#: ``# interval:``, and a hint about colour quoting is noise for all three.
+_COLOR_OPTIONS: Final[frozenset[str]] = frozenset({"color"})
+
 
 def read_document(path: Path) -> dict[str, object]:
     """Parse a configuration file into a mapping of sections.
@@ -269,10 +276,14 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
                 )
                 continue
             if value is None:
+                hint = (
+                    "; an unquoted '#' colour is read as a comment, so quote "
+                    "it as '#b0b0b0' if that is what happened"
+                    if option in _COLOR_OPTIONS
+                    else ""
+                )
                 warnings.warn(
-                    f"ignoring {name}.{option}, whose value is null; an "
-                    f"unquoted '#' colour is read as a comment, so quote it "
-                    f"as '#b0b0b0' if that is what happened",
+                    f"ignoring {name}.{option}, whose value is null{hint}",
                     TephpyConfigWarning,
                     stacklevel=2,
                 )
@@ -411,19 +422,21 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
 
 
 def _as_sequences(value: object) -> object:
-    """Recursively replace tuples with lists, for ``yaml.safe_dump``.
+    """Rebuild a configuration value in the types ``yaml.safe_dump`` knows.
 
     Parameters
     ----------
     value : object
-        A configuration value, possibly holding nested tuples.
+        A configuration value, possibly nesting mappings and tuples.
 
     Returns
     -------
     object
-        The same value with every tuple, at every depth, replaced by a
-        list. PyYAML's safe dumper has no tuple representer, and ``extent``
-        nests them two deep.
+        The same value as plain ``dict`` and ``list`` throughout. PyYAML's
+        safe representer covers ``dict``, ``list`` and ``tuple`` and nothing
+        else, so any other mapping — ``emphasis`` is annotated
+        ``Mapping``, and ``extent`` nests two deep — would reach
+        ``RepresenterError``.
     """
     if isinstance(value, tuple | list):
         return [_as_sequences(entry) for entry in value]
@@ -497,7 +510,8 @@ def render_template() -> str:
         "# '#b0b0b0' is read as a comment, not a colour.",
         "#",
         "# Discovery, first match wins: $TEPHPYRC, then ./tephpyrc.yaml, then",
-        "# this file's own directory. 'tephpy config path' reports the search.",
+        "# the user configuration directory. 'tephpy config path' reports the",
+        "# whole search, and which file is in force.",
     ]
     for section, options in CONFIG_DEFAULTS.items():
         lines.append("")
@@ -542,7 +556,9 @@ def write_config(config: Config, path: Path) -> None:
     Raises
     ------
     TephpyConfigError
-        If the file cannot be written.
+        If a value cannot be serialised, or the file cannot be written.
+        Nothing is written in the first case: the value has to survive
+        ``yaml.safe_dump`` before any existing file is touched.
     """
     document: dict[str, object] = {}
     for field in dataclasses.fields(config):
@@ -554,4 +570,12 @@ def write_config(config: Config, path: Path) -> None:
         }
         if options:
             document[field.name] = options
-    _write(path, yaml.safe_dump(document, default_flow_style=False, sort_keys=False))
+    try:
+        text = yaml.safe_dump(document, default_flow_style=False, sort_keys=False)
+    except yaml.YAMLError as exc:
+        # A numpy scalar is the likely arrival: config values come out of
+        # arrays as readily as out of literals, and the safe representer
+        # covers only the builtin types.
+        msg = f"{path}: cannot serialise the configuration: {exc}"
+        raise TephpyConfigError(msg) from exc
+    _write(path, text)

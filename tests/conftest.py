@@ -7,9 +7,12 @@
 ``tephpy`` auto-loads a configuration file at import, so a developer with
 their own ``tephpyrc.yaml`` would otherwise feed it into every image
 comparison — and with ``filterwarnings = ["error"]`` a single unknown key in
-it would become a collection error. Importing inside ``catch_warnings`` and
-resetting immediately removes both, without depending on when pytest
-installs its own filters (configfile spec §6).
+it would become a collection error. Two guards, one each: importing inside
+``catch_warnings`` keeps that key out of collection without depending on
+when pytest installs its own filters, and the autouse ``_pristine_config``
+fixture keeps the file itself out of every test. The module-scope
+``reset()`` covers only what runs before the first fixture — anything at
+import time (configfile spec §6).
 """
 
 from __future__ import annotations

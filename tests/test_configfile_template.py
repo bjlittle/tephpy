@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 from types import MappingProxyType
 
+import numpy as np
 import pytest
 import yaml
 
@@ -138,6 +139,20 @@ def test_save_normalises_a_non_dict_emphasis_mapping(tmp_path):
     tephpy.config.save(path)
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert document["isotherms"]["emphasis"] == {0.0: {"color": "red"}}
+
+
+def test_save_reports_a_value_it_cannot_serialise(tmp_path):
+    """A numpy scalar is an ordinary way for an interval to arrive.
+
+    ``safe_dump`` runs outside ``_write``'s guard, so its
+    ``RepresenterError`` would otherwise escape the ``TephpyConfigError``
+    the docstring promises. Nothing is written either.
+    """
+    path = tmp_path / "saved.yaml"
+    tephpy.config.isobars.interval = np.float64(25.0)
+    with pytest.raises(TephpyConfigError, match="cannot serialise"):
+        tephpy.config.save(path)
+    assert not path.exists()
 
 
 def test_save_reports_an_unwritable_path(tmp_path):

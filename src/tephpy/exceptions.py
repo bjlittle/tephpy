@@ -104,6 +104,16 @@ class TephpyIOError(TephpyError):
     """
 
 
+class ProfileTooShortError(TephpyValidationError):
+    """The profile tops out at or below the parcel's LCL (spec §6).
+
+    No moist ascent exists, so every parcel-derived quantity would be
+    meaningless; ``calc.parcel_path`` and ``calc.indices`` both raise
+    this. The LCL tested is the one the path would use — the corrected
+    one when a cloud-base correction is requested.
+    """
+
+
 class TephpyConfigError(TephpyError):
     """A configuration file could not be read or made sense of.
 
@@ -122,14 +132,4 @@ class TephpyConfigWarning(UserWarning):
     failure during the import-time auto-load warn rather than raise, so a
     typo in a configuration file cannot make ``tephpy`` unimportable
     (configfile spec §5).
-    """
-
-
-class ProfileTooShortError(TephpyValidationError):
-    """The profile tops out at or below the parcel's LCL (spec §6).
-
-    No moist ascent exists, so every parcel-derived quantity would be
-    meaningless; ``calc.parcel_path`` and ``calc.indices`` both raise
-    this. The LCL tested is the one the path would use — the corrected
-    one when a cloud-base correction is requested.
     """

@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import dataclasses
 
+import matplotlib.pyplot as plt
 import pytest
 
 import tephpy
+from tephpy import transforms
 from tephpy._config import Config
-from tephpy._constants import CONFIG_DEFAULTS, CURSOR_FIELDS, DEFAULT_EXTENT
+from tephpy._constants import CONFIG_DEFAULTS
 from tephpy.plotting import isopleths
 
 FAMILY_SECTIONS = (
@@ -74,7 +76,39 @@ def test_config_default_matches_the_resolved_default(section, option):
     assert CONFIG_DEFAULTS[section][option] == getattr(resolved, option)
 
 
-def test_diagram_and_cursor_defaults():
-    """The two non-family sections resolve outside IsoplethFamily."""
-    assert CONFIG_DEFAULTS["diagram"]["extent"] == DEFAULT_EXTENT
-    assert CONFIG_DEFAULTS["cursor"]["fields"] == CURSOR_FIELDS
+def test_diagram_default_is_the_extent_an_untouched_axes_lands_in():
+    """The two non-family sections resolve outside ``IsoplethFamily``.
+
+    ``CONFIG_DEFAULTS["diagram"]["extent"]`` is what the template shows the
+    reader; the view a new axes lands in is what the reader gets. Asserting
+    the table equals ``DEFAULT_EXTENT`` would compare the definition with
+    itself — ``CONFIG_DEFAULTS`` *is* ``{"extent": DEFAULT_EXTENT}`` — so
+    this drives the consumer, ``TephigramAxes.__init__`` falling through an
+    unset ``config.diagram.extent``, instead.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        untouched = (ax.get_xlim(), ax.get_ylim())
+        ax.set_extent(CONFIG_DEFAULTS["diagram"]["extent"])
+        assert (ax.get_xlim(), ax.get_ylim()) == untouched
+    finally:
+        plt.close(fig)
+
+
+def test_cursor_default_is_the_readout_an_untouched_axes_renders():
+    """The same, for the fields ``format_coord`` falls through to.
+
+    ``format_coord`` reads ``config.cursor.fields`` live, so the two halves
+    are one call apart.
+    """
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        x, y = transforms.xy_from_temperature_theta(0.0, 20.0)
+        untouched = ax.format_coord(x, y)
+        assert untouched
+        with tephpy.config.context(
+            cursor={"fields": CONFIG_DEFAULTS["cursor"]["fields"]}
+        ):
+            assert ax.format_coord(x, y) == untouched
+    finally:
+        plt.close(fig)

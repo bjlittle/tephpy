@@ -98,6 +98,18 @@ def test_a_null_option_value_warns_and_names_the_quoting_trap(tmp_path):
     assert tephpy.config.isotherms.color is None
 
 
+def test_a_null_non_colour_option_warns_without_the_colour_hint(tmp_path):
+    """The template tells the reader to uncomment ``# emphasis:``.
+
+    Doing exactly that leaves a null value, and a hint about quoting hex
+    colours is noise for an option that holds no colour.
+    """
+    path = _write(tmp_path, "isotherms:\n  emphasis:\n")
+    with pytest.warns(TephpyConfigWarning, match="isotherms.emphasis") as record:
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+    assert "quote" not in str(record[0].message)
+
+
 def test_an_unknown_option_warns_and_is_skipped(tmp_path):
     path = _write(tmp_path, "isotherms:\n  colour: purple\n  color: purple\n")
     with pytest.warns(TephpyConfigWarning, match="colour"):

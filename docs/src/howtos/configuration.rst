@@ -83,6 +83,22 @@ starting values for axes you create afterwards; it does not restyle axes that
 already exist. This is the ``rcParams`` behaviour matplotlib users already
 expect.
 
+After an Upgrade
+----------------
+
+A file written for one release of tephpy stays usable in the next, but the
+two halves of that promise are not the same size. An option tephpy has since
+renamed or dropped warns and is skipped — the rest of the file still applies.
+An unknown *section*, though, is rejected outright, and rejecting a section
+means rejecting the whole file: ``import tephpy`` warns and falls back to the
+defaults entirely, and ``tephpy.config.load`` raises and leaves your
+configuration as it found it. Nothing under that section is quietly lost,
+because nothing in the file is applied at all.
+
+So if a styling you have relied on for months disappears after an upgrade,
+read the warning: one obsolete section name is enough to switch off every
+other line in the file.
+
 Saving From Python
 ------------------
 
