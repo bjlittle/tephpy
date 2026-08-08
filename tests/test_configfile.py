@@ -175,6 +175,28 @@ def test_sequences_coerce_to_tuples(tmp_path, text, section, option, expected):
     assert getattr(getattr(tephpy.config, section), option) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "match"),
+    [
+        ("diagram:\n  extent: [[1000, -30], [300, warm]]\n", "diagram.extent"),
+        ("isotherms:\n  emphasis: [0]\n", "isotherms.emphasis"),
+        ("isotherms:\n  values: [0, ten]\n", "isotherms.values"),
+    ],
+    ids=["extent", "emphasis", "values"],
+)
+def test_a_malformed_value_raises(tmp_path, text, match):
+    """One malformed case apiece for the shapes ``coerce`` converts.
+
+    The three failure modes differ — a corner that will not float, a
+    sequence where a mapping was wanted, a member that will not float — and
+    all three must arrive as ``TephpyConfigError`` naming the option, not as
+    the bare ``ValueError``/``AttributeError`` from inside the conversion.
+    """
+    path = _write(tmp_path, text)
+    with pytest.raises(TephpyConfigError, match=match):
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+
+
 def test_emphasis_keys_coerce_to_float(tmp_path):
     """``850`` and ``850.0`` must not be two different members."""
     path = _write(tmp_path, "isotherms:\n  emphasis:\n    0: {color: red}\n")

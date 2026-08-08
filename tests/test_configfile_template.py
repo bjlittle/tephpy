@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+from types import MappingProxyType
 
 import pytest
 import yaml
@@ -119,6 +120,32 @@ def test_save_round_trips_the_tuple_valued_options(tmp_path):
     tephpy.config.load(path)
     assert tephpy.config.cursor.fields == ("pressure",)
     assert tephpy.config.diagram.extent == ((1000.0, -30.0), (300.0, 30.0))
+
+
+def test_save_normalises_a_non_dict_emphasis_mapping(tmp_path):
+    """``emphasis`` is annotated ``Mapping``; only ``dict`` is dumpable.
+
+    PyYAML's safe representer covers ``dict``, ``list`` and ``tuple``, and
+    nothing else. A read-only mapping — the idiom ``_constants`` itself uses
+    for shared tables, so the obvious one to reach for when sharing an
+    emphasis table between scripts — would otherwise reach
+    ``RepresenterError``, at both levels of the nesting.
+    """
+    path = tmp_path / "saved.yaml"
+    tephpy.config.isotherms.emphasis = MappingProxyType(
+        {0.0: MappingProxyType({"color": "red"})}
+    )
+    tephpy.config.save(path)
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert document["isotherms"]["emphasis"] == {0.0: {"color": "red"}}
+
+
+def test_save_reports_an_unwritable_path(tmp_path):
+    """A filesystem refusal is a configuration error, as three docstrings say."""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory\n", encoding="utf-8")
+    with pytest.raises(TephpyConfigError, match="cannot write"):
+        tephpy.config.save(blocker / _configfile.CONFIG_FILENAME)
 
 
 def test_save_returns_the_path_written(tmp_path):
