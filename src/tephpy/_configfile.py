@@ -432,11 +432,13 @@ def _as_sequences(value: object) -> object:
     Returns
     -------
     object
-        The same value as plain ``dict`` and ``list`` throughout. PyYAML's
-        safe representer covers ``dict``, ``list`` and ``tuple`` and nothing
-        else, so any other mapping — ``emphasis`` is annotated
-        ``Mapping``, and ``extent`` nests two deep — would reach
-        ``RepresenterError``.
+        The same value as plain ``dict`` and ``list`` throughout. Of the
+        containers, PyYAML's safe representer knows ``dict``, ``list`` and
+        ``tuple`` and nothing else, so any other mapping — ``emphasis`` is
+        annotated ``Mapping``, and ``extent`` nests two deep — would reach
+        ``RepresenterError``. The ``tuple`` arm is therefore not redundant:
+        it is what recurses into a tuple's entries, where such a mapping
+        could sit.
     """
     if isinstance(value, tuple | list):
         return [_as_sequences(entry) for entry in value]
