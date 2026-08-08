@@ -20,6 +20,8 @@ import dataclasses
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from tephpy.exceptions import TephpyConfigError
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -191,6 +193,14 @@ class Config:
     def load(self, path: str | Path | None = None) -> None:
         """Load a configuration file over this configuration.
 
+        A file is applied all or nothing. ``_configfile.apply`` writes
+        section by section and raises on the first unknown section, so a
+        rejected file can otherwise leave options from its earlier sections
+        behind; this method snapshots every section first and puts it back
+        if the load raises. What is restored is the configuration as the
+        caller had it, not the pristine one — anything set in Python before
+        the call survives a rejected file (configfile spec §5).
+
         Parameters
         ----------
         path : str or pathlib.Path, optional
@@ -202,7 +212,8 @@ class Config:
         TephpyConfigError
             If the file cannot be read, is not valid YAML, or names an
             unknown configuration section. An unknown *option* warns and is
-            skipped instead (configfile spec §2).
+            skipped instead (configfile spec §2). :attr:`source` is left as
+            it was, along with every section.
 
         Warns
         -----
@@ -214,7 +225,18 @@ class Config:
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:
             return
-        _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
+        snapshots = {
+            field.name: dataclasses.replace(getattr(self, field.name))
+            for field in dataclasses.fields(self)
+        }
+        try:
+            _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
+        except TephpyConfigError:
+            for section_name, snapshot in snapshots.items():
+                section = getattr(self, section_name)
+                for field in dataclasses.fields(snapshot):
+                    setattr(section, field.name, getattr(snapshot, field.name))
+            raise
 
     def save(self, path: str | Path | None = None) -> Path:
         """Write the options set on this configuration to a file.

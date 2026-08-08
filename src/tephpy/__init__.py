@@ -38,18 +38,32 @@ def _autoload_config() -> None:
     would also take out ``tephpy config path``, which is the tool for
     finding out which file is at fault. Any failure therefore warns and
     leaves the configuration pristine (configfile spec §5).
+
+    Notes
+    -----
+    Warning is only half of that guarantee. Under ``-W error`` (or
+    ``PYTHONWARNINGS=error``) a warning *is* an exception, so a typo'd
+    option key — the likeliest mistake in a configuration file — would kill
+    the import just as surely as raising. The ``catch_warnings`` block
+    forces tephpy's own configuration warnings to "always" for the duration
+    of the auto-load, which makes them shown and never raised, and leaves
+    every other warning category on the user's own setting. It has to span
+    the ``warnings.warn`` below as well as ``config.load``: that call is on
+    the very failure path this function exists to survive.
     """
     import warnings  # noqa: PLC0415 -- avoids a public tephpy.warnings attribute
 
-    try:
-        config.load()
-    except exceptions.TephpyConfigError as exc:
-        config.reset()
-        warnings.warn(
-            f"ignoring the configuration file: {exc}",
-            exceptions.TephpyConfigWarning,
-            stacklevel=2,
-        )
+    with warnings.catch_warnings():
+        warnings.filterwarnings("always", category=exceptions.TephpyConfigWarning)
+        try:
+            config.load()
+        except exceptions.TephpyConfigError as exc:
+            config.reset()
+            warnings.warn(
+                f"ignoring the configuration file: {exc}",
+                exceptions.TephpyConfigWarning,
+                stacklevel=2,
+            )
 
 
 _autoload_config()

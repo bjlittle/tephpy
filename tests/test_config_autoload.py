@@ -99,6 +99,24 @@ def test_a_non_utf8_file_warns_and_does_not_stop_the_import(tmp_path):
     assert source == "None"
 
 
+def test_warnings_as_errors_does_not_stop_the_import(tmp_path):
+    """``-W error`` turns a warning into an exception, including ours.
+
+    A typo'd option key is the likeliest configuration mistake there is,
+    and under ``PYTHONWARNINGS=error`` the warning about it would kill the
+    import — and with it ``tephpy config path``, the tool for finding out
+    which file is at fault. ``check=True`` is half the assertion.
+    """
+    typo = tmp_path / "typo.yaml"
+    typo.write_text("isotherms:\n  colour: purple\n", encoding="utf-8")
+    result = _run(tmp_path, TEPHPYRC=str(typo), PYTHONWARNINGS="error")
+    assert "TephpyConfigWarning" in result.stderr
+    assert "colour" in result.stderr
+    colour, source = result.stdout.splitlines()
+    assert colour == "None"
+    assert source == str(typo)
+
+
 def test_a_partially_applied_file_still_resets(tmp_path):
     """``apply`` can set an earlier section before raising on a later one.
 

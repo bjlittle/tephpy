@@ -448,9 +448,7 @@ def _format_default(value: object) -> str:
     """
     if value is None or value == {}:
         return ""
-    rendered: str = yaml.safe_dump(
-        _as_sequences(value), default_flow_style=True
-    ).strip()
+    rendered = yaml.safe_dump(_as_sequences(value), default_flow_style=True).strip()
     # A scalar document is dumped with an explicit "..." end marker.
     if rendered.endswith("..."):
         rendered = rendered[: -len("...")].strip()

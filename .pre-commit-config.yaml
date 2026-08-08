@@ -51,7 +51,13 @@ repos:
     hooks:
       - id: mypy
         pass_filenames: false
-        additional_dependencies: ["click", "matplotlib==3.11.*", "numpy", "types-docutils"]
+        additional_dependencies:
+          - "click"
+          - "matplotlib==3.11.*"
+          - "numpy"
+          - "platformdirs"
+          - "types-PyYAML"
+          - "types-docutils"
 
   - repo: https://github.com/numpy/numpydoc
     rev: v1.11.0rc0

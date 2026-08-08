@@ -189,3 +189,19 @@ def test_load_sets_the_source(tmp_path):
     tephpy.config.load(path)
     assert tephpy.config.source == path
     assert tephpy.config.isotherms.color == "purple"
+
+
+def test_a_rejected_file_leaves_the_configuration_as_it_was(tmp_path):
+    """``apply`` writes section by section, so a late raise can half-apply.
+
+    ``load`` has to undo whatever the rejected file managed to set, and
+    only that: a ``reset()`` here would take ``isobars.linewidth`` — set in
+    Python, never mentioned by the file — down with it.
+    """
+    tephpy.config.isobars.linewidth = 3.0
+    path = _write(tmp_path, "isotherms:\n  color: chartreuse\nbogus:\n  color: red\n")
+    with pytest.raises(TephpyConfigError, match="bogus"):
+        tephpy.config.load(path)
+    assert tephpy.config.isotherms.color is None
+    assert tephpy.config.isobars.linewidth == 3.0
+    assert tephpy.config.source is None
