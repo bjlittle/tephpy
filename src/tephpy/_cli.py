@@ -31,6 +31,8 @@ def main() -> None:
 @click.pass_context
 def config(ctx: click.Context) -> None:
     """Inspect and generate the tephpy configuration file."""
+    # ctx is Click's own plumbing (injected by @click.pass_context), not
+    # part of the command's public surface: numpydoc ignore=PR01
     if ctx.invoked_subcommand is None:
         ctx.invoke(path)
 
@@ -66,6 +68,8 @@ def path() -> None:
 @click.option("--force", is_flag=True, help="Overwrite an existing file.")
 def generate(destination: str | None, *, force: bool = False) -> None:
     """Write a fully-commented configuration template."""
+    # destination and force are already explained by each option's help=
+    # text above, which is what --help actually shows: numpydoc ignore=PR01
     if destination == "-":
         click.echo(_configfile.render_template(), nl=False)
         return
