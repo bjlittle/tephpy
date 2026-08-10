@@ -123,11 +123,11 @@ def discover() -> Path | None:
     return None
 
 
-#: Options whose value is a colour, and so can be swallowed by YAML's
-#: comment syntax when written as an unquoted hex triplet (configfile
-#: spec §5). Only these earn the quoting hint on a null value: the template
-#: instructs the reader to uncomment ``# emphasis:``, ``# values:`` and
-#: ``# interval:``, and a hint about colour quoting is noise for all three.
+#: Options whose value is a colour, and so can be swallowed by YAML's comment
+#: syntax when written as an unquoted hex triplet (configfile spec §5). Only
+#: these earn the quoting hint on a null value: the template instructs the
+#: reader to uncomment ``# emphasis:``, ``# values:`` and ``# interval:``, and
+#: a hint about colour quoting is noise for all three.
 _COLOR_OPTIONS: Final[frozenset[str]] = frozenset({"color"})
 
 

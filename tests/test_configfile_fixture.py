@@ -6,8 +6,7 @@
 
 A representative fixture would let a newly added option with a type YAML
 cannot express land unnoticed, so this one is complete: the gate below fails
-until the fixture covers every option in ``CONFIG_DEFAULTS`` (configfile
-spec §6).
+until the fixture covers every option in ``CONFIG_DEFAULTS`` (configfile spec §6).
 """
 
 from __future__ import annotations
