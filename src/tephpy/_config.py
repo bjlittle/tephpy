@@ -211,9 +211,10 @@ class Config:
         ------
         TephpyConfigError
             If the file cannot be read, is not valid YAML, or names an
-            unknown configuration section. An unknown *option* warns and is
-            skipped instead (configfile spec §2). :attr:`source` is left as
-            it was, along with every section.
+            unknown configuration section. An option-level problem — an
+            unknown option, a null value, or a value of the wrong type —
+            warns and is skipped instead (configfile spec §2, §5.2).
+            :attr:`source` is left as it was, along with every section.
 
         Warns
         -----

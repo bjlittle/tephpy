@@ -441,6 +441,21 @@ def test_every_option_level_warning_names_the_file(tmp_path):
     assert all(str(entry.message).startswith(f"{path}: ") for entry in record)
 
 
+def test_apply_with_no_source_omits_the_prefix(tmp_path):
+    """``source=None`` must not render the path prefix as the literal ``"None"``.
+
+    No production caller passes ``source=None`` — ``Config.load`` always
+    resolves a path before calling ``apply`` — so
+    ``prefix = f"{source}: " if source is not None else ""`` is otherwise
+    unguarded: an unconditional ``f"{source}: "`` would still pass the whole
+    suite while emitting ``None: ignoring ...`` (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with pytest.warns(TephpyConfigWarning) as record:
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=None)
+    assert not str(record[0].message).startswith("None")
+
+
 def test_emphasis_keys_coerce_to_float(tmp_path):
     """``850`` and ``850.0`` must not be two different members."""
     path = _write(tmp_path, "isotherms:\n  emphasis:\n    0: {color: red}\n")
