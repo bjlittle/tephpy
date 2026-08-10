@@ -106,15 +106,17 @@ must state two things a reader cannot infer from any single document:
 
   | citation | document | in `src/` and `tests/` |
   |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 327 |
+  | `spec §…` | `2026-07-22-tephpy-design.md` | 329 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
-  | `docs spec §…` | this document | 13 |
+  | `docs spec §…` | this document | 46 |
+  | `configfile spec §…` | `2026-08-07-config-file-design.md` | 66 |
 
   The column is named rather than left as a bare "count" so the figures can be reproduced
   and seen to have drifted: they are occurrences of the literal prefixed form under
   `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
-  document — 531, 39 and 46 across the whole corpus, once the bare and compound forms
-  below are counted too.
+  document — 558, 40, 151 and 105 across the whole corpus, once the bare and compound forms
+  below are counted too. Both sets have to be re-measured to stay true, which is the defect
+  {issue}`94` records against this document's other figures.
 
   The prefix is load-bearing, not decorative: `logo spec §3.6` names a section that has no
   counterpart in the parent specification, so a reader who ignores the prefix lands in the
@@ -717,6 +719,7 @@ Settled since:
 - {pull}`73` — the living/point-in-time contract
 - {issue}`85` — render citations as cross-references
 - {issue}`86` — the citation-integrity gate
+- {issue}`94` — the citation counts recorded in this document drift silently
 - {issue}`114` — nothing executes the code examples in the how-to guides
 - {issue}`116` — a configuration value of the right type is not checked for validity
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent
