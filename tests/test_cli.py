@@ -125,6 +125,26 @@ def test_path_marks_a_file_with_an_unknown_option_in_force(
     assert not user_config.exists()
 
 
+def test_path_marks_a_file_with_a_wrong_typed_value_in_force(
+    runner, monkeypatch, tmp_path, user_config
+):
+    """The user-visible end of the escalation.
+
+    ``extent: 5`` used to raise out of ``apply``, which made ``_applies``
+    return False and this command report ``[rejected]`` — an option-level
+    problem presented as a whole-file one. It is now warned about and
+    skipped, so the file is in force (configfile spec §5.2).
+    """
+    monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tephpyrc.yaml").write_text("diagram:\n  extent: 5\n", encoding="utf-8")
+    result = runner.invoke(_cli.main, ["config", "path"])
+    assert result.exit_code == 0
+    assert f"{tmp_path / 'tephpyrc.yaml'}  [in force]" in result.output
+    assert "rejected" not in result.output
+    assert not user_config.exists()
+
+
 def test_path_marks_a_directory_as_not_a_file(
     runner, monkeypatch, tmp_path, user_config
 ):

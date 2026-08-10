@@ -373,25 +373,72 @@ def test_sequences_coerce_to_tuples(tmp_path, text, section, option, expected):
 
 
 @pytest.mark.parametrize(
-    ("text", "match"),
+    ("text", "section", "option", "match"),
     [
-        ("diagram:\n  extent: [[1000, -30], [300, warm]]\n", "diagram.extent"),
-        ("isotherms:\n  emphasis: [0]\n", "isotherms.emphasis"),
-        ("isotherms:\n  values: [0, ten]\n", "isotherms.values"),
+        (
+            "diagram:\n  extent: [[1000, -30], [300, warm]]\n",
+            "diagram",
+            "extent",
+            "diagram.extent",
+        ),
+        (
+            "isotherms:\n  emphasis: [0]\n",
+            "isotherms",
+            "emphasis",
+            "isotherms.emphasis",
+        ),
+        ("isotherms:\n  values: [0, ten]\n", "isotherms", "values", "isotherms.values"),
     ],
     ids=["extent", "emphasis", "values"],
 )
-def test_a_malformed_value_raises(tmp_path, text, match):
-    """One malformed case apiece for the shapes ``coerce`` converts.
+def test_a_wrong_typed_value_warns_and_keeps_the_default(
+    tmp_path, text, section, option, match
+):
+    """The three cases that used to cost the reader the whole file.
 
-    The three failure modes differ — a corner that will not float, a
-    sequence where a mapping was wanted, a member that will not float — and
-    all three must arrive as ``TephpyConfigError`` naming the option, not as
-    the bare ``ValueError``/``AttributeError`` from inside the conversion.
+    Each is an option-level problem, so it warns and is skipped like an
+    unknown option and a null value, and the option keeps its default
+    (configfile spec §5.2). Before this change all three raised
+    ``TephpyConfigError`` out of ``apply``, which under the auto-load left
+    every other option in the file unapplied.
     """
     path = _write(tmp_path, text)
-    with pytest.raises(TephpyConfigError, match=match):
+    with pytest.warns(TephpyConfigWarning, match=match):
         _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+    assert getattr(getattr(tephpy.config, section), option) is None
+
+
+def test_a_wrong_typed_value_does_not_cost_the_rest_of_the_file(tmp_path):
+    """'The rest of the file still applies' is otherwise a claim about nothing.
+
+    One bad option beside a good one, in one file, reached through
+    ``Config.load`` so the rollback is in play: the good option must
+    survive, and ``source`` must be set — a rejected file leaves it
+    ``None`` (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  linewidth: thick\n  color: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="expects a number"):
+        tephpy.config.load(path)
+    assert tephpy.config.isotherms.linewidth is None
+    assert tephpy.config.isotherms.color == "purple"
+    assert tephpy.config.source == path
+
+
+def test_every_option_level_warning_names_the_file(tmp_path):
+    """With three cascade entries, a warning naming no file is half an answer.
+
+    All three option-level warnings — unknown option, null value,
+    wrong-typed value — lead with the path, as the file-level errors
+    already do (configfile spec §5.2).
+    """
+    path = _write(
+        tmp_path,
+        "isotherms:\n  colour: purple\n  alpha:\n  linewidth: thick\n",
+    )
+    with pytest.warns(TephpyConfigWarning) as record:
+        tephpy.config.load(path)
+    assert len(record) == 3
+    assert all(str(entry.message).startswith(f"{path}: ") for entry in record)
 
 
 def test_emphasis_keys_coerce_to_float(tmp_path):

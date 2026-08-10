@@ -595,8 +595,10 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
     Warns
     -----
     TephpyConfigWarning
-        If an option is unknown, or its value is an explicit null.
+        If an option is unknown, its value is an explicit null, or its
+        value does not match the type the option declares.
     """
+    prefix = f"{source}: " if source is not None else ""
     sections = {field.name for field in dataclasses.fields(config)}
     for name, options in document.items():
         if name not in sections:
@@ -621,8 +623,9 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
         for option, value in options.items():
             if option not in valid:
                 _warn_from_caller(
-                    f"ignoring unknown option {option!r} in configuration "
-                    f"section {name!r}; expected one of {sorted(valid)}"
+                    f"{prefix}ignoring unknown option {option!r} in "
+                    f"configuration section {name!r}; expected one of "
+                    f"{sorted(valid)}"
                 )
                 continue
             if value is None:
@@ -633,10 +636,13 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
                     else ""
                 )
                 _warn_from_caller(
-                    f"ignoring {name}.{option}, whose value is null{hint}"
+                    f"{prefix}ignoring {name}.{option}, whose value is null{hint}"
                 )
                 continue
-            setattr(section, option, coerce(name, option, value, hints[option]))
+            try:
+                setattr(section, option, coerce(name, option, value, hints[option]))
+            except TephpyConfigError as exc:
+                _warn_from_caller(f"{prefix}ignoring {exc}")
     config._source = source  # noqa: SLF001 -- the property behind Config.source
 
 

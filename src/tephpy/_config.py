@@ -218,9 +218,10 @@ class Config:
         Warns
         -----
         TephpyConfigWarning
-            If an option is unknown, or its value is an explicit null. A
-            caller who has filtered this category to an error gets that
-            exception instead, and the same all-or-nothing restore.
+            If an option is unknown, its value is an explicit null, or its
+            value does not match the type the option declares. A caller who
+            has filtered this category to an error gets that exception
+            instead, and the same all-or-nothing restore.
         """
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:

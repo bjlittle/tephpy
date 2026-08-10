@@ -171,6 +171,27 @@ def test_warnings_as_errors_does_not_stop_the_import(tmp_path):
     assert source == str(typo)
 
 
+def test_a_wrong_typed_value_does_not_stop_the_import(tmp_path):
+    """The whole rule, exercised on the path that has no user frame.
+
+    ``PYTHONWARNINGS=error`` would turn the warning into an exception, and
+    the auto-load's ``always`` filter is what stops it; ``check=True`` is
+    half the assertion. The other half is ``purple``: the option beside
+    the bad one still applies, which is what distinguishes warn-and-skip
+    from the whole-file rejection this replaces (configfile spec §5.2).
+    """
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(
+        "isotherms:\n  linewidth: thick\n  color: purple\n", encoding="utf-8"
+    )
+    result = _run(tmp_path, TEPHPYRC=str(bad), PYTHONWARNINGS="error")
+    assert "TephpyConfigWarning" in result.stderr
+    assert "expects a number" in result.stderr
+    colour, source = result.stdout.splitlines()
+    assert colour == "purple"
+    assert source == str(bad)
+
+
 def test_warnings_as_errors_survives_an_unreadable_file(tmp_path):
     """The failure path warns from ``_autoload_config``, not from ``apply``.
 
