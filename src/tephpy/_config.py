@@ -211,16 +211,18 @@ class Config:
         ------
         TephpyConfigError
             If the file cannot be read, is not valid YAML, or names an
-            unknown configuration section. An unknown *option* warns and is
-            skipped instead (configfile spec §2). :attr:`source` is left as
-            it was, along with every section.
+            unknown configuration section. An option-level problem — an
+            unknown option, a null value, or a value of the wrong type —
+            warns and is skipped instead (configfile spec §2, §5.2).
+            :attr:`source` is left as it was, along with every section.
 
         Warns
         -----
         TephpyConfigWarning
-            If an option is unknown, or its value is an explicit null. A
-            caller who has filtered this category to an error gets that
-            exception instead, and the same all-or-nothing restore.
+            If an option is unknown, its value is an explicit null, or its
+            value does not match the type the option declares. A caller who
+            has filtered this category to an error gets that exception
+            instead, and the same all-or-nothing restore.
         """
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:

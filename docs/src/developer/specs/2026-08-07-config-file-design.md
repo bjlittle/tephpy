@@ -57,6 +57,7 @@ the file is a new *bottom* tier, not a new front door.
 | Explicit load failure | **Raises** | A direct question deserves a direct answer |
 | Unknown *option* | Warn, skip, continue | Forward compatibility: a file written for a later tephpy stays usable |
 | Unknown *section* | Raise | A mistyped section silently discards every option under it — too much to lose to a warning |
+| Wrong-typed *option value* | Warn, skip, continue (§5.2) | The same reasoning as an unknown option, and the same blast radius: one bad line must not cost the user the rest of the file. `int` is accepted where `float` is declared, because `linewidth: 1` is not a mistake; `bool` is not, because `linewidth: true` is |
 | Template defaults | A declarative `CONFIG_DEFAULTS` table in `_constants.py`, gated against `_resolve()` (§3.4) | Rendering the template must not re-enter the plotting path. A second table is only safe with a gate, so the gate is part of the design, not a follow-up |
 | Option descriptions | A table in `_configfile.py`, gated for completeness (§3.4) | The `#:` comments in `_config.py` are invisible at runtime — they are not docstrings |
 | CLI framework | **click**, documented by `sphinx-click` | Zero runtime dependencies of its own. The alternative pairing (typer + sphinxcontrib-typer) adds five transitive runtime dependencies for a two-subcommand CLI |
@@ -189,7 +190,7 @@ otherwise pass by checking nothing.
 |---|---|
 | `config.source` | `Path` the active config came from, or `None`. Read-only property |
 | `config.reset()` | Restore the pristine hardwired state; `source` becomes `None` |
-| `config.load(path=None)` | Load `path`, or run discovery when omitted. **Raises** on a malformed file, an unknown section, or a missing `$TEPHPYRC`; an unknown *option* still warns and is skipped, as everywhere else (§2) |
+| `config.load(path=None)` | Load `path`, or run discovery when omitted. **Raises** on a malformed file, an unknown section, or a missing `$TEPHPYRC`; an unknown *option*, a null value and a wrong-typed value each warn and are skipped, as everywhere else (§2, §5.2) |
 | `config.save(path=None)` | Write the options the user actually set (non-`None`) to `path`, or to the user config dir |
 
 `save()` writes values only. Comments and key order in an existing file are **not**
@@ -225,7 +226,7 @@ Extends spec §6 with two names in `exceptions.py`:
 | Name | Base | Raised/warned when |
 |---|---|---|
 | `TephpyConfigError` | `TephpyError` | Explicit load of a malformed file; unknown section; `$TEPHPYRC` missing |
-| `TephpyConfigWarning` | `UserWarning` | Auto-load failure; unknown option; an explicit null value |
+| `TephpyConfigWarning` | `UserWarning` | Auto-load failure; unknown option; an explicit null value; a wrong-typed value (§5.2) |
 
 The governing rule is **auto-load warns, explicit load raises** (§2). On auto-load failure
 the config is left pristine and `source` stays `None`, so a broken file degrades to the
@@ -306,6 +307,113 @@ the same mechanism that stops `-W error` turning a typo'd option into a failed i
 code has not started running by then in any case. Only a later explicit `config.load(...)`
 is the user's to filter, so that is the call the how-to shows alongside the filter.
 
+(configfile-spec-5-2)=
+### 5.2 Wrong-typed values
+
+A configuration value must match the type its `Config` field declares. `linewidth` is
+`float | None`, so `linewidth: thick` is a mistake in the user's file, and one the loader
+is in a position to catch. It did not: `coerce` converted the four shapes YAML forces
+(§3.3) and passed everything else through untouched ({issue}`105`).
+
+**Measured** against the implementation as of {pull}`112` — one class of mistake, three
+different behaviours, none of them the one §2 asks for:
+
+| File | Outcome |
+|---|---|
+| `isotherms: {linewidth: thick}` | loads silently; `ValueError: could not convert string to float: 'thick'` at the first draw |
+| `isotherms: {color: 3}` | loads silently; matplotlib rejects the colour at the first draw |
+| `isotherms: {values: notalist}` | loads silently, then iterates the *string* — `could not convert string to float: 'n'` |
+| `isotherms: {linewidth: true}` | loads silently and **draws**: matplotlib reads `True` as `1.0` |
+| `isotherms: {visible: maybe}` | loads silently and **draws**: a non-empty string is truthy |
+| `cursor: {fields: notalist}` | loads silently and **draws**: the cursor readout is quietly wrong |
+| `diagram: {extent: 5}` | **raises**, discarding every other option in the file |
+
+The last four rows are the ones that decide the design. Three of them are silent wrongness
+— no warning, no traceback, a diagram that is simply not what the file asked for. The
+fourth is the mirror image: `coerce` raising escalates an option-level problem into a
+file-level one, which the table above never sanctioned. Under auto-load that escalation
+means a single mistyped `extent` leaves every other option in the file unapplied.
+
+**The rule.** A value whose type does not match its field is reported and skipped; the
+option keeps its default, and the rest of the file still applies. This is not a new
+principle — it is the existing one (§2: option-level problems warn and skip, section-level
+problems reject the file) applied to a case §2 did not enumerate.
+
+Two adjustments to "matches the declared type", both forced by YAML:
+
+- **`int` is accepted where `float` is declared.** `linewidth: 1` is not a mistake, and
+  nothing in the file format tells the user they were supposed to write `1.0`.
+- **`bool` is not.** `isinstance(True, int)` is `True` in Python, so a boolean reaches a
+  numeric field unless it is excluded explicitly — which is precisely how `linewidth: true`
+  came to draw a 1 pt line. YAML 1.1 widens the exposure: PyYAML reads `yes`, `no`, `on`
+  and `off` as booleans too.
+
+**Implementation.** The expected types are not written out a second time; they are read
+from the annotations that already exist:
+
+- The expected type reaches `coerce` as an argument. `apply` resolves it from the section
+  it already holds, through `_option_hints`, a thin wrapper on `typing.get_type_hints`
+  which resolves cleanly through the `from __future__ import annotations` in `_config.py`.
+  A module-level `{(section, option): annotation}` table is not available: `_configfile`
+  cannot import `_config` at runtime without reversing the §3 dependency arrow, and a
+  lazily-built one would leave a direct `coerce` caller checking against an empty table.
+  **Measured:** 42 options over 8 distinct annotation shapes.
+- `_TYPE_VALIDATORS` — one `(description, converter)` per distinct shape, so eight entries
+  cover all 42 options. Each converter both checks and converts, which makes it the natural
+  home for the §3.3 coercions rather than a second pass over the same value.
+- `coerce` consults them and raises `TephpyConfigError` on a mismatch; `apply` catches it,
+  warns through `_warn_from_caller` (§5.1), and moves to the next option. That single
+  `except` is what delivers the rule and what ends the escalation.
+- A completeness gate asserts every `(section, option)` in `Config` has a validator, and
+  asserts its own option set, built from `dataclasses.fields`, is non-empty and the same
+  size as the 42 that `CONFIG_DEFAULTS` holds — two independently written tables made to
+  agree, which is the same self-check the two gates in §3.4 carry, for the same reason.
+
+**The message** names the file, the option, what was expected and what was found, in the
+vocabulary of the file the user is editing rather than of the annotation behind it — the
+reader writes YAML and has never seen `float`:
+
+```text
+/home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the string 'thick'
+/home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the boolean true
+/home/you/work/tephpyrc.yaml: ignoring isotherms.values, which expects a list of numbers, not the string 'notalist'
+/home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects two [pressure, temperature] corners, not [1, 2]
+```
+
+**One value fails at the conversion rather than at the check.** An integer of 309 or more
+digits is a number, so it passes the check; `float()` then raises `OverflowError`, which is
+neither `_MismatchError` nor `TephpyConfigError` and so is caught by nothing between there
+and `import tephpy` (§2). `_as_number` turns it into the same warn-and-skip as any other
+mismatch. It carries the one message that describes what was found instead of naming it —
+printing 401 digits back at the reader helps nobody, and "not the number" would be a lie
+about why it was refused:
+
+```text
+/home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not a number that large; the largest tephpy can hold is about 1.8e308
+```
+
+The path prefix is new to option-level warnings, and is extended to the other two — the
+unknown option and the null value — for one reason: with three cascade entries (§3.2), a
+warning that names `isotherms.linewidth` but no file does not say which file to edit. The
+file-level errors lead with the path too — `apply`'s two section-level raises gained it
+here — so option-level and file-level messages read the same way.
+
+**A limit, stated rather than designed around.** `emphasis` is
+`Mapping[float, Mapping[str, object]]`: the member values and the style keys are typed, the
+style *values* are `object`. So `emphasis: {0.0: {linewidth: thick}}` still reaches the
+draw. Checking it needs to know which style keys exist and what each accepts, which is the
+knowledge a domain check needs — and domain validity is out of scope here. This section
+covers types only. Whether `notacolour` names a colour, or `nonsuch` a cursor field, is a
+separate question, deliberately left unanswered (§9).
+
+**Rejected: pydantic.** A `TypeAdapter` per annotation — `Strict()` on the scalar leaves,
+lax on the containers so YAML's lists still become tuples — was measured against the rule
+above and agreed with it on all 27 cases, including `linewidth: 1` accepted,
+`linewidth: true` rejected, and all four §3.3 coercions performed. It is rejected on cost
+rather than on fit: a core runtime dependency and its compiled core, to replace eight small
+functions, in a package whose dependency table (§7) is deliberately short. The measurement
+is recorded because it sets the bar the hand-written validators are held to.
+
 (configfile-spec-6)=
 ## 6. Testing
 
@@ -340,6 +448,9 @@ accordingly:
 | Inline `tmp_path` documents | Each §3.3 coercion and each §5 trap, one case apiece |
 | Subprocess import test | `$TEPHPYRC` → `import tephpy` → `config.source` and a loaded value |
 | `CliRunner` cases | `path`, `generate`, clobber refusal, `-o -` |
+| Accept/reject matrix over the eight annotation shapes | Each declared type accepts what it should and rejects what it should, `linewidth: 1` and `linewidth: true` among them (§5.2) |
+| Validator completeness gate | Every option in `Config` has a validator; the gate's own option set is non-empty and equals `dataclasses.fields` |
+| One wrong-typed option beside a good one, in one file | The warned option keeps its default **and** the good one applies — the case that makes "the rest of the file still applies" non-vacuous |
 
 Three notes on why these are shaped this way. The fixture is *complete* rather than
 representative because only completeness proves a newly added option is expressible in
@@ -383,7 +494,8 @@ implementation plan carries an explicit one-off resolve of the declared minimums
 ## 8. Documentation
 
 - A Diátaxis **how-to** for configuring tephpy from a file, covering the cascade, the
-  quoting trap (§5), and what `save()` does not preserve (§3.5).
+  quoting trap (§5), what happens to a wrong-typed value (§5.2), and what `save()` does not
+  preserve (§3.5).
 - A **reference** page generated by `sphinx-click`.
 - `TephpyConfigError` and `TephpyConfigWarning` picked up by autoapi with the rest of
   `exceptions`.
@@ -402,3 +514,8 @@ implementation plan carries an explicit one-off resolve of the declared minimums
   become a parallel `TEPHPY_ISOTHERMS_COLOR` namespace.
 - **Validating a config file without loading it.** `tephpy config path` reports discovery;
   a `--check` mode can follow if asked for.
+- **Domain validation of a value that has the right type.** §5.2 checks a value against the
+  type its field declares, and stops there: `color: notacolour` is a string, so it loads,
+  and matplotlib rejects it at the first draw. Answering it properly means a per-option
+  vocabulary — the colours, the edge names, the cursor fields, the `emphasis` style keys —
+  which is a larger piece of work than the type check it would sit behind ({issue}`116`).

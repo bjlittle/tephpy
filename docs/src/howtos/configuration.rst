@@ -113,17 +113,33 @@ So if a styling you have relied on for months disappears after an upgrade,
 read the warning: one obsolete section name is enough to switch off every
 other line in the file.
 
-That warning arrives once, as the file is read, and no filter of yours can
-turn it off: your own code has not started running yet, and the auto-load
-puts tephpy's configuration warnings in front of every filter you set, so the
-notice always reaches you. It is shown rather than raised, so a typo cannot
+A value of the wrong type is treated the same way as an option tephpy no
+longer recognises: ``linewidth: thick`` warns, that one option is skipped
+and keeps its default, and every other line in the file still applies. The
+warning names the file, the option, what was expected and what it found:
+
+.. code-block:: text
+
+    tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the string 'thick'
+
+Two details of YAML are worth knowing before you read one of these.
+``linewidth: 1`` is fine — an integer is accepted wherever a number is
+wanted. But ``linewidth: true`` is not a number at all, and neither are
+``yes``, ``no``, ``on`` and ``off``, which YAML also reads as true or
+false. Quote them if you meant the words.
+
+These warnings arrive once, as the file is read, and no filter of yours can
+turn them off: your own code has not started running yet, and the auto-load
+puts tephpy's configuration warnings in front of every filter you set, so
+they always reach you. They are shown rather than raised, so a typo cannot
 take the import down with it either.
 
-Loading the file again from Python warns again, and *that* warning is an
-ordinary one. Once you have read it and decided it is safe to live with — an
-unknown option you are not using yet, say — filter it by category rather than
-by module: the warning is attributed to your own code, not to ``tephpy``, so a
-filter keyed on the module never matches it.
+Loading the file again from Python warns again — an unknown section raises
+there instead — and *those* warnings are ordinary ones. Once you have read
+one and decided it is safe to live with — an unknown option you are not
+using yet, say — filter it by category rather than by module: the warning
+is attributed to your own code, not to ``tephpy``, so a filter keyed on the
+module never matches it.
 
 .. code-block:: python
 

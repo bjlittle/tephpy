@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
+import dataclasses
+import re
 import warnings
 
 import pytest
 
 import tephpy
 from tephpy import _configfile
+from tephpy._constants import CONFIG_DEFAULTS
 from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 
@@ -167,6 +170,25 @@ def test_a_non_mapping_section_raises(tmp_path):
         _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["isotherm:\n  color: purple\n", "isotherms:\n  - purple\n"],
+    ids=["unknown-section", "non-mapping-section"],
+)
+def test_a_section_level_error_names_the_file(tmp_path, text):
+    """The outcome that discards the whole file must say which file.
+
+    Both messages are rendered by the auto-load as ``ignoring the
+    configuration file: <message>``, and with three cascade entries that
+    names no file at all. The two tests above match on a substring and so
+    would pass with no path in the message; this one anchors on the path
+    (configfile spec §5.2).
+    """
+    path = _write(tmp_path, text)
+    with pytest.raises(TephpyConfigError, match=f"^{re.escape(str(path))}: "):
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+
+
 def test_malformed_yaml_raises(tmp_path):
     path = _write(tmp_path, "isotherms:\n  color: [unclosed\n")
     with pytest.raises(TephpyConfigError, match="not valid YAML"):
@@ -212,6 +234,166 @@ def test_a_non_mapping_document_raises(tmp_path):
         _configfile.read_document(path)
 
 
+def _annotation(section, option):
+    """Return the declared type of an option, for a direct ``coerce`` call."""
+    return _configfile._option_hints(type(getattr(tephpy.config, section)))[option]
+
+
+@pytest.mark.parametrize(
+    ("section", "option", "value", "expected"),
+    [
+        ("isotherms", "color", "purple", "purple"),
+        ("isotherms", "linewidth", 0.5, 0.5),
+        ("isotherms", "linewidth", 1, 1.0),
+        ("isotherms", "visible", False, False),
+        ("isotherms", "labels", True, True),
+        ("isotherms", "labels", "bottom", "bottom"),
+        ("isotherms", "labels", ["bottom", "right"], ("bottom", "right")),
+        ("isotherms", "values", [0, 10], (0.0, 10.0)),
+        ("isotherms", "emphasis", {0: {"color": "red"}}, {0.0: {"color": "red"}}),
+        ("cursor", "fields", ["pressure"], ("pressure",)),
+        (
+            "diagram",
+            "extent",
+            [[1000, -30], [300, 30]],
+            ((1000.0, -30.0), (300.0, 30.0)),
+        ),
+        ("moist_adiabats", "truncation", -30.0, -30.0),
+    ],
+)
+def test_a_well_typed_value_is_accepted(section, option, value, expected):
+    """One accepted case per annotation shape, plus the two YAML forces.
+
+    ``linewidth: 1`` is an ``int`` where a ``float`` is declared and must
+    be accepted and converted; ``labels`` covers three of its four arms.
+    The type assertion guards the scalar and container-shape rows: ``1 ==
+    1.0`` and ``False == 0`` in Python, so an equality-only test would
+    pass with no conversion happening at all (configfile spec §5.2). It
+    does not guard the inner element coercion for ``values``, ``extent``
+    or ``emphasis``, whose outer ``tuple``/``dict`` type is the same
+    either way; ``test_values_members_coerce_to_float``,
+    ``test_extent_corners_coerce_to_float`` and the pre-existing
+    ``test_emphasis_keys_coerce_to_float`` pin those separately.
+    """
+    coerced = _configfile.coerce(section, option, value, _annotation(section, option))
+    assert coerced == expected
+    assert type(coerced) is type(expected)
+
+
+def test_values_members_coerce_to_float():
+    """``[0, 10]``'s ``int`` members must not survive as ints inside the tuple."""
+    coerced = _configfile.coerce(
+        "isotherms", "values", [0, 10], _annotation("isotherms", "values")
+    )
+    assert coerced == (0.0, 10.0)
+    assert all(isinstance(member, float) for member in coerced)
+
+
+def test_extent_corners_coerce_to_float():
+    """Each corner's numbers must not survive as the ints the YAML wrote."""
+    coerced = _configfile.coerce(
+        "diagram",
+        "extent",
+        [[1000, -30], [300, 30]],
+        _annotation("diagram", "extent"),
+    )
+    assert coerced == ((1000.0, -30.0), (300.0, 30.0))
+    assert all(isinstance(number, float) for corner in coerced for number in corner)
+
+
+@pytest.mark.parametrize(
+    ("section", "option", "value", "match"),
+    [
+        ("isotherms", "linewidth", "thick", "expects a number, not the string 'thick'"),
+        ("isotherms", "linewidth", True, "expects a number, not the boolean true"),
+        ("isotherms", "color", 3, "expects a string, not the number 3"),
+        ("isotherms", "visible", "maybe", "expects true or false"),
+        ("isotherms", "values", "notalist", "expects a list of numbers"),
+        ("isotherms", "values", [0, "ten"], "expects a list of numbers"),
+        pytest.param(
+            "isotherms",
+            "linewidth",
+            10**400,
+            "expects a number, not a number that large",
+            id="too-large-scalar",
+        ),
+        pytest.param(
+            "isotherms",
+            "values",
+            [0, 10**400],
+            "expects a list of numbers, not a number that large",
+            id="too-large-member",
+        ),
+        ("isotherms", "labels", 3, "expects true, false, an edge name"),
+        ("isotherms", "emphasis", [0], "expects a mapping of member value"),
+        ("cursor", "fields", "notalist", "expects a list of strings"),
+        ("cursor", "fields", [1], "expects a list of strings"),
+        ("diagram", "extent", 5, "expects two [pressure, temperature] corners"),
+        ("diagram", "extent", [1, 2], "expects two [pressure, temperature] corners"),
+        (
+            "diagram",
+            "extent",
+            [[1000, -30], [300, "warm"]],
+            "expects two [pressure, temperature] corners",
+        ),
+    ],
+)
+def test_a_wrong_typed_value_is_rejected(section, option, value, match):
+    """Every measured case from the configfile spec §5.2 table, and then some.
+
+    ``linewidth: true`` is the one that drove the design: it drew a 1 pt
+    line, because ``isinstance(True, int)`` is ``True``. ``values:
+    notalist`` and ``fields: notalist`` are the strings that would
+    otherwise be iterated one character per member.
+    """
+    with pytest.raises(TephpyConfigError, match=re.escape(match)):
+        _configfile.coerce(section, option, value, _annotation(section, option))
+
+
+def test_a_yaml_timestamp_is_named_as_the_file_spells_it(tmp_path):
+    """``color: 2026-01-01`` is a date to PyYAML, and must be said in YAML.
+
+    An unquoted date matches YAML's timestamp resolver, so ``safe_load``
+    hands ``_describe`` a ``datetime.date``. Without an arm of its own it
+    falls through to the ``repr``, and the warning reads ``not
+    datetime.date(2026, 1, 1)`` — the Python vocabulary the message is
+    written to avoid (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  color: 2026-01-01\n")
+    with pytest.warns(TephpyConfigWarning, match="not the timestamp 2026-01-01$"):
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+    assert tephpy.config.isotherms.color is None
+
+
+def test_every_option_has_a_validator():
+    """An option whose type has no validator must fail here, not in silence.
+
+    ``coerce`` returns an unrecognised annotation's value untouched, so that adding
+    an option can never stop an import — which means nothing else in the suite would
+    notice the gap. The option would simply go back to being applied unchecked,
+    which is the defect configfile spec §5.2 exists to close.
+
+    The first two assertions are what stop this gate passing by checking
+    nothing, and the count is taken from ``CONFIG_DEFAULTS`` rather than
+    written down, so adding an option updates it.
+    """
+    annotations = {}
+    for field in dataclasses.fields(tephpy.config):
+        section = getattr(tephpy.config, field.name)
+        hints = _configfile._option_hints(type(section))
+        for option in dataclasses.fields(section):
+            annotations[field.name, option.name] = hints[option.name]
+    assert annotations
+    assert len(annotations) == sum(len(options) for options in CONFIG_DEFAULTS.values())
+    missing = [
+        key
+        for key, annotation in sorted(annotations.items())
+        if annotation not in _configfile._TYPE_VALIDATORS
+    ]
+    assert missing == []
+    assert set(_configfile._TYPE_VALIDATORS) - set(annotations.values()) == set()
+
+
 @pytest.mark.parametrize(
     ("text", "section", "option", "expected"),
     [
@@ -239,25 +421,106 @@ def test_sequences_coerce_to_tuples(tmp_path, text, section, option, expected):
 
 
 @pytest.mark.parametrize(
-    ("text", "match"),
+    ("text", "section", "option", "match"),
     [
-        ("diagram:\n  extent: [[1000, -30], [300, warm]]\n", "diagram.extent"),
-        ("isotherms:\n  emphasis: [0]\n", "isotherms.emphasis"),
-        ("isotherms:\n  values: [0, ten]\n", "isotherms.values"),
+        (
+            "diagram:\n  extent: [[1000, -30], [300, warm]]\n",
+            "diagram",
+            "extent",
+            "diagram.extent",
+        ),
+        (
+            "isotherms:\n  emphasis: [0]\n",
+            "isotherms",
+            "emphasis",
+            "isotherms.emphasis",
+        ),
+        ("isotherms:\n  values: [0, ten]\n", "isotherms", "values", "isotherms.values"),
     ],
     ids=["extent", "emphasis", "values"],
 )
-def test_a_malformed_value_raises(tmp_path, text, match):
-    """One malformed case apiece for the shapes ``coerce`` converts.
+def test_a_wrong_typed_value_warns_and_keeps_the_default(
+    tmp_path, text, section, option, match
+):
+    """The three cases that used to cost the reader the whole file.
 
-    The three failure modes differ — a corner that will not float, a
-    sequence where a mapping was wanted, a member that will not float — and
-    all three must arrive as ``TephpyConfigError`` naming the option, not as
-    the bare ``ValueError``/``AttributeError`` from inside the conversion.
+    Each is an option-level problem, so it warns and is skipped like an
+    unknown option and a null value, and the option keeps its default
+    (configfile spec §5.2). Before this change all three raised
+    ``TephpyConfigError`` out of ``apply``, which under the auto-load left
+    every other option in the file unapplied.
     """
     path = _write(tmp_path, text)
-    with pytest.raises(TephpyConfigError, match=match):
+    with pytest.warns(TephpyConfigWarning, match=match):
         _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+    assert getattr(getattr(tephpy.config, section), option) is None
+
+
+def test_a_wrong_typed_value_does_not_cost_the_rest_of_the_file(tmp_path):
+    """'The rest of the file still applies' is otherwise a claim about nothing.
+
+    One bad option beside a good one, in one file, reached through
+    ``Config.load`` so the rollback is in play: the good option must
+    survive, and ``source`` must be set — a rejected file leaves it
+    ``None`` (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  linewidth: thick\n  color: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="expects a number"):
+        tephpy.config.load(path)
+    assert tephpy.config.isotherms.linewidth is None
+    assert tephpy.config.isotherms.color == "purple"
+    assert tephpy.config.source == path
+
+
+def test_an_integer_too_large_for_a_float_cannot_stop_an_import(tmp_path):
+    """The one exception the type check can raise that nothing downstream catches.
+
+    A 401-digit integer is valid YAML and a valid Python ``int``, and fails
+    only at ``float(value)`` — with ``OverflowError``, which is neither
+    ``_MismatchError`` nor ``TephpyConfigError``. Uncaught it escapes
+    ``coerce``, ``apply`` and the auto-load's ``except TephpyConfigError``
+    alike, so a mistyped exponent would make ``tephpy`` unimportable — and
+    take ``tephpy config path``, the tool for diagnosing it, down with it
+    (configfile spec §2). It must warn and be skipped like any other
+    mismatch, leaving the rest of the file to apply.
+    """
+    path = _write(tmp_path, f"isotherms:\n  linewidth: {10**400}\n  color: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="not a number that large"):
+        tephpy.config.load(path)
+    assert tephpy.config.isotherms.linewidth is None
+    assert tephpy.config.isotherms.color == "purple"
+
+
+def test_every_option_level_warning_names_the_file(tmp_path):
+    """With three cascade entries, a warning naming no file is half an answer.
+
+    All three option-level warnings — unknown option, null value,
+    wrong-typed value — lead with the path, as the file-level errors
+    already do (configfile spec §5.2).
+    """
+    path = _write(
+        tmp_path,
+        "isotherms:\n  colour: purple\n  alpha:\n  linewidth: thick\n",
+    )
+    with pytest.warns(TephpyConfigWarning) as record:
+        tephpy.config.load(path)
+    assert len(record) == 3
+    assert all(str(entry.message).startswith(f"{path}: ") for entry in record)
+
+
+def test_apply_with_no_source_omits_the_prefix(tmp_path):
+    """``source=None`` must not render the path prefix as the literal ``"None"``.
+
+    No production caller passes ``source=None`` — ``Config.load`` always
+    resolves a path before calling ``apply`` — so
+    ``prefix = f"{source}: " if source is not None else ""`` is otherwise
+    unguarded: an unconditional ``f"{source}: "`` would still pass the whole
+    suite while emitting ``None: ignoring ...`` (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with pytest.warns(TephpyConfigWarning) as record:
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=None)
+    assert not str(record[0].message).startswith("None")
 
 
 def test_emphasis_keys_coerce_to_float(tmp_path):

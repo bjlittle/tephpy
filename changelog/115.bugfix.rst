@@ -1,0 +1,15 @@
+Fixed a configuration file value of the wrong type being applied unchecked
+(:issue:`105`). ``linewidth: thick`` loaded silently and failed much later inside
+Matplotlib, naming neither the file nor the option; ``linewidth: true`` and
+``visible: maybe`` loaded and drew the wrong thing without any error at all; and
+``extent: 5`` did the opposite, rejecting the whole file over one line. Every one
+of these now warns, naming the file and the option, and skips just that option —
+the rest of the file still applies. An integer is still accepted wherever a number
+is wanted, so ``linewidth: 1`` is unaffected. A quoted number is not:
+``values: ['1000', '850']`` and an ``emphasis`` key of ``'850'`` used to be read
+as numbers, and a number in ``fields`` used to be read as a string; all three now
+warn and are skipped. An integer of 309 or more digits has no number to convert
+to, and used to stop ``import tephpy`` outright; it now warns and is skipped like
+any other. The two errors that do reject a whole file — an unknown
+section, and a section that is not a mapping — now name the file too.
+(:user:`claude`)

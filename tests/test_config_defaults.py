@@ -5,9 +5,9 @@
 """Gate CONFIG_DEFAULTS against the defaults the plotting path resolves.
 
 ``CONFIG_DEFAULTS`` exists so the template generator never re-enters
-``IsoplethFamily._resolve``, which every image baseline covers (configfile
-spec §3.4). Being a second copy, it drifts unless something holds it in
-place; that is this file.
+``IsoplethFamily._resolve``, which every image baseline covers
+(configfile spec §3.4). Being a second copy, it drifts unless something holds
+it in place; that is this file.
 """
 
 from __future__ import annotations

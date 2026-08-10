@@ -12,12 +12,13 @@ reading a configuration file cannot pull in matplotlib figure machinery.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 import dataclasses
+import datetime
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, get_type_hints
 import warnings
 
 import platformdirs
@@ -123,17 +124,11 @@ def discover() -> Path | None:
     return None
 
 
-#: Options whose YAML sequence becomes a tuple of strings.
-_STRING_TUPLES: Final[frozenset[str]] = frozenset({"labels", "fields"})
-
-#: Options whose YAML sequence becomes a tuple of floats.
-_FLOAT_TUPLES: Final[frozenset[str]] = frozenset({"values"})
-
-#: Options whose value is a colour, and so can be swallowed by YAML's
-#: comment syntax when written as an unquoted hex triplet (configfile
-#: spec §5). Only these earn the quoting hint on a null value: the template
-#: instructs the reader to uncomment ``# emphasis:``, ``# values:`` and
-#: ``# interval:``, and a hint about colour quoting is noise for all three.
+#: Options whose value is a colour, and so can be swallowed by YAML's comment
+#: syntax when written as an unquoted hex triplet (configfile spec §5). Only
+#: these earn the quoting hint on a null value: the template instructs the
+#: reader to uncomment ``# emphasis:``, ``# values:`` and ``# interval:``, and
+#: a hint about colour quoting is noise for all three.
 _COLOR_OPTIONS: Final[frozenset[str]] = frozenset({"color"})
 
 
@@ -189,8 +184,351 @@ def read_document(path: Path) -> dict[str, object]:
     return dict(document)
 
 
-def coerce(section: str, option: str, value: object) -> object:
-    """Convert a parsed YAML value to what the configuration expects.
+class _MismatchError(Exception):
+    """A configuration value does not match the type its option declares.
+
+    Usually carries no message of its own. The section, the option and the
+    expected type are known to :func:`coerce` and not to the converter that
+    raises, so composing the text here would mean threading all three
+    through every converter (configfile spec §5.2). The exception is a
+    converter that knows something :func:`_describe` cannot see — an
+    integer with no float to convert to is still a number, so describing it
+    would say "expects a number, not the number" and print all 401 digits.
+    Such a converter passes the noun phrase as the sole argument, and
+    :func:`coerce` uses it in place of the description of the value.
+    """
+
+
+def _as_string(value: object) -> str:
+    """Check a value is a string.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    str
+        The value, unchanged.
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a string.
+    """
+    if not isinstance(value, str):
+        raise _MismatchError
+    return value
+
+
+def _as_number(value: object) -> float:
+    """Check a value is a number, and convert it to a float.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    float
+        The value as a float, so ``linewidth: 1`` and ``linewidth: 1.0``
+        reach the configuration as the same thing.
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a number, or is an integer with no float to
+        convert to. ``bool`` is excluded explicitly: ``isinstance(True,
+        int)`` is ``True`` in Python, which is how ``linewidth: true`` came
+        to draw a 1 pt line (configfile spec §5.2).
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise _MismatchError
+    try:
+        return float(value)
+    except OverflowError:
+        # An integer of 309 or more digits is valid YAML and a valid Python
+        # int, and only fails at the conversion. OverflowError is caught by
+        # neither coerce nor apply nor the auto-load, so letting it escape
+        # would make a typo'd zero stop `import tephpy` -- the one thing a
+        # value check must never do (configfile spec §5.2).
+        msg = "a number that large; the largest tephpy can hold is about 1.8e308"
+        raise _MismatchError(msg) from None
+
+
+def _as_flag(value: object) -> bool:
+    """Check a value is a boolean.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    bool
+        The value, unchanged.
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a boolean. YAML 1.1 spells more things
+        ``bool`` than Python does: ``yes``, ``no``, ``on`` and ``off``
+        all arrive here already converted.
+    """
+    if not isinstance(value, bool):
+        raise _MismatchError
+    return value
+
+
+def _as_string_tuple(value: object) -> tuple[str, ...]:
+    """Check a value is a list of strings, and convert it to a tuple.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    tuple of str
+        The list as a tuple (configfile spec §3.3).
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a list, or any entry is not a string.
+    """
+    if not isinstance(value, list) or not all(
+        isinstance(entry, str) for entry in value
+    ):
+        raise _MismatchError
+    return tuple(value)
+
+
+def _as_labels(value: object) -> bool | str | tuple[str, ...]:
+    """Check a value is a labels setting, and convert any list to a tuple.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    bool or str or tuple of str
+        The value, with a list of edge names as a tuple.
+
+    Raises
+    ------
+    _MismatchError
+        If the value is neither a boolean, nor a string, nor a list of
+        strings.
+    """
+    if isinstance(value, bool | str):
+        return value
+    return _as_string_tuple(value)
+
+
+def _as_number_tuple(value: object) -> tuple[float, ...]:
+    """Check a value is a list of numbers, and convert it to a tuple of floats.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    tuple of float
+        The list as a tuple of floats (configfile spec §3.3).
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a list, or any entry is not a number. A bare
+        string is the case worth naming: iterating it would otherwise
+        yield one member per character.
+    """
+    if not isinstance(value, list):
+        raise _MismatchError
+    return tuple(_as_number(entry) for entry in value)
+
+
+def _as_corner(value: object) -> tuple[float, float]:
+    """Check a value is one [pressure, temperature] corner.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    tuple of float
+        The corner as a two-tuple of floats.
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a list of exactly two numbers.
+    """
+    if not isinstance(value, list) or len(value) != 2:
+        raise _MismatchError
+    first, second = value
+    return (_as_number(first), _as_number(second))
+
+
+def _as_extent(value: object) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Check a value is two [pressure, temperature] corners.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    tuple of tuple of float
+        The extent as nested tuples of floats (configfile spec §3.3).
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a list of exactly two corners.
+    """
+    if not isinstance(value, list) or len(value) != 2:
+        raise _MismatchError
+    first, second = value
+    return (_as_corner(first), _as_corner(second))
+
+
+def _as_emphasis(value: object) -> dict[float, dict[str, object]]:
+    """Check a value is an emphasis mapping, and convert its keys to floats.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    dict
+        Member value to style overrides, keyed by float so ``850`` and
+        ``850.0`` are not two different members (configfile spec §3.3).
+
+    Raises
+    ------
+    _MismatchError
+        If the value is not a mapping, or a member is not a number, or a
+        style is not a mapping keyed by strings. The style *values* are
+        annotated ``object`` and so are not checked at all
+        (configfile spec §5.2).
+    """
+    if not isinstance(value, Mapping):
+        raise _MismatchError
+    emphasis: dict[float, dict[str, object]] = {}
+    for member, style in value.items():
+        if not isinstance(style, Mapping) or not all(
+            isinstance(key, str) for key in style
+        ):
+            raise _MismatchError
+        emphasis[_as_number(member)] = dict(style)
+    return emphasis
+
+
+#: One ``(description, converter)`` per distinct annotation in ``Config``:
+#: eight entries covering all 42 options. The keys are evaluated
+#: annotations, which compare equal to the ones ``typing.get_type_hints``
+#: returns for ``_config``'s dataclasses — so the expected types are read
+#: from the declarations rather than written out a second time. Each
+#: converter both checks and converts, which makes it the natural home for the
+#: configfile spec §3.3 coercions rather than a second pass over the same value
+#: (configfile spec §5.2).
+_TYPE_VALIDATORS: Final[Mapping[object, tuple[str, Callable[[object], object]]]] = (
+    MappingProxyType(
+        {
+            str | None: ("a string", _as_string),
+            float | None: ("a number", _as_number),
+            bool | None: ("true or false", _as_flag),
+            bool | str | tuple[str, ...] | None: (
+                "true, false, an edge name, or a list of edge names",
+                _as_labels,
+            ),
+            tuple[float, ...] | None: ("a list of numbers", _as_number_tuple),
+            tuple[str, ...] | None: ("a list of strings", _as_string_tuple),
+            tuple[tuple[float, float], tuple[float, float]] | None: (
+                "two [pressure, temperature] corners",
+                _as_extent,
+            ),
+            Mapping[float, Mapping[str, object]] | None: (
+                "a mapping of member value to style overrides",
+                _as_emphasis,
+            ),
+        }
+    )
+)
+
+
+def _describe(value: object) -> str:
+    """Name a value as the reader of the file would.
+
+    Parameters
+    ----------
+    value : object
+        The value as ``yaml.safe_load`` produced it.
+
+    Returns
+    -------
+    str
+        The value described in the vocabulary of the YAML file being
+        edited rather than of the annotation behind it — the reader has
+        never seen ``float`` (configfile spec §5.2). ``bool`` is tested
+        first because it is also an ``int``, and ``datetime.datetime`` is
+        covered by the ``datetime.date`` arm because it is also a
+        ``date``. What is left — a list or a mapping — a ``repr`` already
+        renders as the file itself spells it.
+    """
+    if isinstance(value, bool):
+        return f"the boolean {str(value).lower()}"
+    if isinstance(value, str):
+        return f"the string {value!r}"
+    if isinstance(value, int | float):
+        return f"the number {value!r}"
+    if isinstance(value, datetime.date):
+        # An unquoted `2026-01-01` matches YAML's timestamp resolver, so
+        # `safe_load` hands over a date rather than a string; `str` spells
+        # it the way the file did, where a `repr` would say
+        # `datetime.date(2026, 1, 1)`.
+        return f"the timestamp {value}"
+    return repr(value)
+
+
+def _option_hints(section_type: type[object]) -> Mapping[str, object]:
+    """Return each option's declared type for a configuration section.
+
+    Parameters
+    ----------
+    section_type : type
+        A section dataclass, as ``type(config.isotherms)`` gives it.
+
+    Returns
+    -------
+    mapping
+        Option name to the annotation ``_config`` declares for it.
+        ``get_type_hints`` evaluates the strings that ``from __future__
+        import annotations`` leaves behind, in the namespace of the module
+        that defined the class — which is how this module reads
+        ``_config``'s types without importing it and reversing the
+        dependency arrow (configfile spec §3).
+    """
+    return MappingProxyType(get_type_hints(section_type))
+
+
+def coerce(section: str, option: str, value: object, annotation: object) -> object:
+    """Check a parsed YAML value against its declared type, and convert it.
 
     Parameters
     ----------
@@ -200,37 +538,38 @@ def coerce(section: str, option: str, value: object) -> object:
         The option name.
     value : object
         The value as ``yaml.safe_load`` produced it.
+    annotation : object
+        The type ``_config`` declares for the option, as
+        :func:`_option_hints` returns it.
 
     Returns
     -------
     object
-        The value in the type ``tephpy.config`` holds
-        (configfile spec §3.3).
+        The value in the type ``tephpy.config`` holds (configfile spec §3.3). An
+        annotation with no validator is returned untouched rather than rejected:
+        adding an option must not be able to stop an import, and the
+        completeness gate in ``tests/test_configfile.py`` is what reports the
+        gap instead (configfile spec §5.2).
 
     Raises
     ------
     TephpyConfigError
-        If the value's shape cannot be converted.
+        If the value does not match the declared type. The message is a
+        noun phrase — ``isotherms.linewidth, which expects a number, not
+        the string 'thick'`` — so that :func:`apply` can lead with the
+        file and the word "ignoring" and have the whole read as one
+        sentence.
     """
+    validator = _TYPE_VALIDATORS.get(annotation)
+    if validator is None:
+        return value
+    description, convert = validator
     try:
-        if option == "extent":
-            return tuple(
-                tuple(float(number) for number in corner)
-                for corner in value  # type: ignore[attr-defined]
-            )
-        if option == "emphasis":
-            return {
-                float(member): dict(style)
-                for member, style in value.items()  # type: ignore[attr-defined]
-            }
-        if option in _FLOAT_TUPLES and isinstance(value, list):
-            return tuple(float(number) for number in value)
-        if option in _STRING_TUPLES and isinstance(value, list):
-            return tuple(str(entry) for entry in value)
-    except (AttributeError, TypeError, ValueError) as exc:
-        msg = f"{section}.{option}: cannot make sense of {value!r}: {exc}"
-        raise TephpyConfigError(msg) from exc
-    return value
+        return convert(value)
+    except _MismatchError as exc:
+        found = str(exc) or _describe(value)
+        msg = f"{section}.{option}, which expects {description}, not {found}"
+        raise TephpyConfigError(msg) from None
 
 
 #: Every file in the tephpy package, with the trailing separator that stops
@@ -277,18 +616,23 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
     Raises
     ------
     TephpyConfigError
-        If a section is unknown or is not a mapping.
+        If a section is unknown or is not a mapping. The message leads with
+        the file, as the option-level warnings do — a section-level problem
+        discards the whole file, so it is the outcome that most needs to say
+        which file (configfile spec §5.2).
 
     Warns
     -----
     TephpyConfigWarning
-        If an option is unknown, or its value is an explicit null.
+        If an option is unknown, its value is an explicit null, or its
+        value does not match the type the option declares.
     """
+    prefix = f"{source}: " if source is not None else ""
     sections = {field.name for field in dataclasses.fields(config)}
     for name, options in document.items():
         if name not in sections:
             msg = (
-                f"unknown configuration section {name!r}; expected one of "
+                f"{prefix}unknown configuration section {name!r}; expected one of "
                 f"{sorted(sections)}"
             )
             raise TephpyConfigError(msg)
@@ -298,17 +642,19 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
             continue
         if not isinstance(options, Mapping):
             msg = (
-                f"configuration section {name!r} must hold a mapping of "
+                f"{prefix}configuration section {name!r} must hold a mapping of "
                 f"options, not {type(options).__name__}"
             )
             raise TephpyConfigError(msg)
         section = getattr(config, name)
         valid = {field.name for field in dataclasses.fields(section)}
+        hints = _option_hints(type(section))
         for option, value in options.items():
             if option not in valid:
                 _warn_from_caller(
-                    f"ignoring unknown option {option!r} in configuration "
-                    f"section {name!r}; expected one of {sorted(valid)}"
+                    f"{prefix}ignoring unknown option {option!r} in "
+                    f"configuration section {name!r}; expected one of "
+                    f"{sorted(valid)}"
                 )
                 continue
             if value is None:
@@ -319,10 +665,13 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
                     else ""
                 )
                 _warn_from_caller(
-                    f"ignoring {name}.{option}, whose value is null{hint}"
+                    f"{prefix}ignoring {name}.{option}, whose value is null{hint}"
                 )
                 continue
-            setattr(section, option, coerce(name, option, value))
+            try:
+                setattr(section, option, coerce(name, option, value, hints[option]))
+            except TephpyConfigError as exc:
+                _warn_from_caller(f"{prefix}ignoring {exc}")
     config._source = source  # noqa: SLF001 -- the property behind Config.source
 
 
