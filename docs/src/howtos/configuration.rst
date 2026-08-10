@@ -134,11 +134,12 @@ puts tephpy's configuration warnings in front of every filter you set, so
 they always reach you. They are shown rather than raised, so a typo cannot
 take the import down with it either.
 
-Loading the file again from Python warns again, and *that* warning is an
-ordinary one. Once you have read it and decided it is safe to live with — an
-unknown option you are not using yet, say — filter it by category rather than
-by module: the warning is attributed to your own code, not to ``tephpy``, so a
-filter keyed on the module never matches it.
+Loading the file again from Python warns again — an unknown section raises
+there instead — and *those* warnings are ordinary ones. Once you have read
+one and decided it is safe to live with — an unknown option you are not
+using yet, say — filter it by category rather than by module: the warning
+is attributed to your own code, not to ``tephpy``, so a filter keyed on the
+module never matches it.
 
 .. code-block:: python
 
