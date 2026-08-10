@@ -520,11 +520,11 @@ def coerce(section: str, option: str, value: object, annotation: object) -> obje
     Returns
     -------
     object
-        The value in the type ``tephpy.config`` holds (configfile
-        spec §3.3). An annotation with no validator is returned untouched
-        rather than rejected: adding an option must not be able to stop an
-        import, and the completeness gate in ``tests/test_configfile.py``
-        is what reports the gap instead (configfile spec §5.2).
+        The value in the type ``tephpy.config`` holds (configfile spec §3.3). An
+        annotation with no validator is returned untouched rather than rejected:
+        adding an option must not be able to stop an import, and the
+        completeness gate in ``tests/test_configfile.py`` is what reports the
+        gap instead (configfile spec §5.2).
 
     Raises
     ------

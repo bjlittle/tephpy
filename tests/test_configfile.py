@@ -247,13 +247,39 @@ def test_a_well_typed_value_is_accepted(section, option, value, expected):
 
     ``linewidth: 1`` is an ``int`` where a ``float`` is declared and must
     be accepted and converted; ``labels`` covers three of its four arms.
-    The type assertion is not decoration: ``1 == 1.0`` and ``False == 0``
-    in Python, so an equality-only test would pass with no conversion
-    happening at all (configfile spec §5.2).
+    The type assertion guards the scalar and container-shape rows: ``1 ==
+    1.0`` and ``False == 0`` in Python, so an equality-only test would
+    pass with no conversion happening at all (configfile spec §5.2). It
+    does not guard the inner element coercion for ``values``, ``extent``
+    or ``emphasis``, whose outer ``tuple``/``dict`` type is the same
+    either way; ``test_values_members_coerce_to_float``,
+    ``test_extent_corners_coerce_to_float`` and the pre-existing
+    ``test_emphasis_keys_coerce_to_float`` pin those separately.
     """
     coerced = _configfile.coerce(section, option, value, _annotation(section, option))
     assert coerced == expected
     assert type(coerced) is type(expected)
+
+
+def test_values_members_coerce_to_float():
+    """``[0, 10]``'s ``int`` members must not survive as ints inside the tuple."""
+    coerced = _configfile.coerce(
+        "isotherms", "values", [0, 10], _annotation("isotherms", "values")
+    )
+    assert coerced == (0.0, 10.0)
+    assert all(isinstance(member, float) for member in coerced)
+
+
+def test_extent_corners_coerce_to_float():
+    """Each corner's numbers must not survive as the ints the YAML wrote."""
+    coerced = _configfile.coerce(
+        "diagram",
+        "extent",
+        [[1000, -30], [300, 30]],
+        _annotation("diagram", "extent"),
+    )
+    assert coerced == ((1000.0, -30.0), (300.0, 30.0))
+    assert all(isinstance(number, float) for corner in coerced for number in corner)
 
 
 @pytest.mark.parametrize(
