@@ -187,10 +187,15 @@ def read_document(path: Path) -> dict[str, object]:
 class _MismatchError(Exception):
     """A configuration value does not match the type its option declares.
 
-    Carries no message of its own. The section, the option and the expected
-    type are known to :func:`coerce` and not to the converter that raises,
-    so composing the text here would mean threading all three through every
-    converter (configfile spec §5.2).
+    Usually carries no message of its own. The section, the option and the
+    expected type are known to :func:`coerce` and not to the converter that
+    raises, so composing the text here would mean threading all three
+    through every converter (configfile spec §5.2). The exception is a
+    converter that knows something :func:`_describe` cannot see — an
+    integer with no float to convert to is still a number, so describing it
+    would say "expects a number, not the number" and print all 401 digits.
+    Such a converter passes the noun phrase as the sole argument, and
+    :func:`coerce` uses it in place of the description of the value.
     """
 
 
@@ -234,13 +239,23 @@ def _as_number(value: object) -> float:
     Raises
     ------
     _MismatchError
-        If the value is not a number. ``bool`` is excluded explicitly:
-        ``isinstance(True, int)`` is ``True`` in Python, which is how
-        ``linewidth: true`` came to draw a 1 pt line (configfile spec §5.2).
+        If the value is not a number, or is an integer with no float to
+        convert to. ``bool`` is excluded explicitly: ``isinstance(True,
+        int)`` is ``True`` in Python, which is how ``linewidth: true`` came
+        to draw a 1 pt line (configfile spec §5.2).
     """
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise _MismatchError
-    return float(value)
+    try:
+        return float(value)
+    except OverflowError:
+        # An integer of 309 or more digits is valid YAML and a valid Python
+        # int, and only fails at the conversion. OverflowError is caught by
+        # neither coerce nor apply nor the auto-load, so letting it escape
+        # would make a typo'd zero stop `import tephpy` -- the one thing a
+        # value check must never do (configfile spec §5.2).
+        msg = "a number that large; the largest tephpy can hold is about 1.8e308"
+        raise _MismatchError(msg) from None
 
 
 def _as_flag(value: object) -> bool:
@@ -551,8 +566,9 @@ def coerce(section: str, option: str, value: object, annotation: object) -> obje
     description, convert = validator
     try:
         return convert(value)
-    except _MismatchError:
-        msg = f"{section}.{option}, which expects {description}, not {_describe(value)}"
+    except _MismatchError as exc:
+        found = str(exc) or _describe(value)
+        msg = f"{section}.{option}, which expects {description}, not {found}"
         raise TephpyConfigError(msg) from None
 
 

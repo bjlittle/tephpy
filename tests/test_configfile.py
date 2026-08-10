@@ -310,6 +310,20 @@ def test_extent_corners_coerce_to_float():
         ("isotherms", "visible", "maybe", "expects true or false"),
         ("isotherms", "values", "notalist", "expects a list of numbers"),
         ("isotherms", "values", [0, "ten"], "expects a list of numbers"),
+        pytest.param(
+            "isotherms",
+            "linewidth",
+            10**400,
+            "expects a number, not a number that large",
+            id="too-large-scalar",
+        ),
+        pytest.param(
+            "isotherms",
+            "values",
+            [0, 10**400],
+            "expects a list of numbers, not a number that large",
+            id="too-large-member",
+        ),
         ("isotherms", "labels", 3, "expects true, false, an edge name"),
         ("isotherms", "emphasis", [0], "expects a mapping of member value"),
         ("cursor", "fields", "notalist", "expects a list of strings"),
@@ -456,6 +470,25 @@ def test_a_wrong_typed_value_does_not_cost_the_rest_of_the_file(tmp_path):
     assert tephpy.config.isotherms.linewidth is None
     assert tephpy.config.isotherms.color == "purple"
     assert tephpy.config.source == path
+
+
+def test_an_integer_too_large_for_a_float_cannot_stop_an_import(tmp_path):
+    """The one exception the type check can raise that nothing downstream catches.
+
+    A 401-digit integer is valid YAML and a valid Python ``int``, and fails
+    only at ``float(value)`` — with ``OverflowError``, which is neither
+    ``_MismatchError`` nor ``TephpyConfigError``. Uncaught it escapes
+    ``coerce``, ``apply`` and the auto-load's ``except TephpyConfigError``
+    alike, so a mistyped exponent would make ``tephpy`` unimportable — and
+    take ``tephpy config path``, the tool for diagnosing it, down with it
+    (configfile spec §2). It must warn and be skipped like any other
+    mismatch, leaving the rest of the file to apply.
+    """
+    path = _write(tmp_path, f"isotherms:\n  linewidth: {10**400}\n  color: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="not a number that large"):
+        tephpy.config.load(path)
+    assert tephpy.config.isotherms.linewidth is None
+    assert tephpy.config.isotherms.color == "purple"
 
 
 def test_every_option_level_warning_names_the_file(tmp_path):

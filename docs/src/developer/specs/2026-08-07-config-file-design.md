@@ -380,6 +380,18 @@ reader writes YAML and has never seen `float`:
 /home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects two [pressure, temperature] corners, not [1, 2]
 ```
 
+**One value fails at the conversion rather than at the check.** An integer of 309 or more
+digits is a number, so it passes the check; `float()` then raises `OverflowError`, which is
+neither `_MismatchError` nor `TephpyConfigError` and so is caught by nothing between there
+and `import tephpy` (§2). `_as_number` turns it into the same warn-and-skip as any other
+mismatch. It carries the one message that describes what was found instead of naming it —
+printing 401 digits back at the reader helps nobody, and "not the number" would be a lie
+about why it was refused:
+
+```text
+/home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not a number that large; the largest tephpy can hold is about 1.8e308
+```
+
 The path prefix is new to option-level warnings, and is extended to the other two — the
 unknown option and the null value — for one reason: with three cascade entries (§3.2), a
 warning that names `isotherms.linewidth` but no file does not say which file to edit. The
