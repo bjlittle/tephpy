@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from tephpy import _configfile
-from tephpy.exceptions import TephpyConfigError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -219,7 +218,9 @@ class Config:
         Warns
         -----
         TephpyConfigWarning
-            If an option is unknown, or its value is an explicit null.
+            If an option is unknown, or its value is an explicit null. A
+            caller who has filtered this category to an error gets that
+            exception instead, and the same all-or-nothing restore.
         """
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:
@@ -228,14 +229,22 @@ class Config:
             field.name: dataclasses.replace(getattr(self, field.name))
             for field in dataclasses.fields(self)
         }
+        applied = False
         try:
             _configfile.apply(self, _configfile.read_document(chosen), source=chosen)
-        except TephpyConfigError:
-            for section_name, snapshot in snapshots.items():
-                section = getattr(self, section_name)
-                for field in dataclasses.fields(snapshot):
-                    setattr(section, field.name, getattr(snapshot, field.name))
-            raise
+            applied = True
+        finally:
+            # Not `except TephpyConfigError`: under a filter that turns
+            # TephpyConfigWarning into an error, an unknown option raises
+            # the warning class instead, which is not a TephpyConfigError
+            # and would carry an earlier valid option's mutation past this
+            # handler. All-or-nothing has to mean every raise, not an
+            # enumerated few.
+            if not applied:
+                for section_name, snapshot in snapshots.items():
+                    section = getattr(self, section_name)
+                    for field in dataclasses.fields(snapshot):
+                        setattr(section, field.name, getattr(snapshot, field.name))
 
     def save(self, path: str | Path | None = None) -> Path:
         """Write the options set on this configuration to a file.

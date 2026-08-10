@@ -47,6 +47,20 @@ is what you want when a file appears to be ignored:
     /home/you/work/tephpyrc.yaml  [in force]
     /home/you/.config/tephpy/tephpyrc.yaml  [shadowed]
 
+Being found is not the same as being used. A file tephpy could not read is
+marked ``[rejected]``, and the defaults stay in force:
+
+.. code-block:: console
+
+    $ tephpy config path
+    /home/you/work/tephpyrc.yaml  [rejected]
+    /home/you/.config/tephpy/tephpyrc.yaml  [absent]
+
+    /home/you/work/tephpyrc.yaml was rejected; tephpy is using its defaults. The warning it raised on import says why.
+
+A directory that happens to be named ``tephpyrc.yaml`` is reported as
+``[not a file]``, and passed over.
+
 Setting ``$TEPHPYRC`` to a file that does not exist is never a fallthrough
 to the next candidate — naming a file explicitly and not having it is a
 mistake worth reporting. ``tephpy config path`` fails outright; ``import

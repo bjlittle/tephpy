@@ -156,8 +156,9 @@ def read_document(path: Path) -> dict[str, object]:
     Raises
     ------
     TephpyConfigError
-        If the file cannot be read, is not valid YAML, or holds anything
-        other than a mapping at the top level.
+        If the file cannot be read, is not valid YAML, holds a scalar
+        PyYAML cannot construct, or holds anything other than a mapping at
+        the top level.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -168,6 +169,14 @@ def read_document(path: Path) -> dict[str, object]:
         document = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         msg = f"{path}: not valid YAML: {exc}"
+        raise TephpyConfigError(msg) from exc
+    except ValueError as exc:
+        # PyYAML builds Python objects while parsing, and a resolver can
+        # match a scalar its constructor then rejects: `2026-13-01` is a
+        # timestamp right up until datetime.date sees the month. That is a
+        # ValueError, not a YAMLError, so it would otherwise escape every
+        # guard and stop the import (configfile spec §5).
+        msg = f"{path}: cannot make sense of a value: {exc}"
         raise TephpyConfigError(msg) from exc
     if document is None:
         return {}

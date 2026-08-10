@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 import tephpy
@@ -135,6 +137,19 @@ def test_malformed_yaml_raises(tmp_path):
         _configfile.read_document(path)
 
 
+def test_an_unconstructable_scalar_raises(tmp_path):
+    """PyYAML can reject a scalar with a ValueError, not a YAMLError.
+
+    ``2026-13-01`` matches the timestamp resolver and then fails in
+    ``datetime.date``. Catching only ``yaml.YAMLError`` lets that escape as
+    a bare ``ValueError``, which is the one thing ``read_document`` exists
+    to prevent.
+    """
+    path = _write(tmp_path, "isotherms:\n  color: 2026-13-01\n")
+    with pytest.raises(TephpyConfigError, match="cannot make sense of a value"):
+        _configfile.read_document(path)
+
+
 def test_a_non_utf8_file_raises(tmp_path):
     """A cp1252-saved comment must not raise an uncontained UnicodeDecodeError."""
     path = tmp_path / "tephpyrc.yaml"
@@ -238,4 +253,21 @@ def test_a_rejected_file_leaves_the_configuration_as_it_was(tmp_path):
         tephpy.config.load(path)
     assert tephpy.config.isotherms.color is None
     assert tephpy.config.isobars.linewidth == 3.0
+    assert tephpy.config.source is None
+
+
+def test_a_rejected_file_rolls_back_under_warnings_as_errors(tmp_path):
+    """The raise that undoes a load need not be a ``TephpyConfigError``.
+
+    A caller who filters ``TephpyConfigWarning`` to an error gets that
+    class raised from ``apply`` instead, out of the same half-applied
+    state. Rolling back only on ``TephpyConfigError`` would let
+    ``chartreuse`` survive a file the caller saw rejected.
+    """
+    path = _write(tmp_path, "isotherms:\n  color: chartreuse\n  colour: purple\n")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", TephpyConfigWarning)
+        with pytest.raises(TephpyConfigWarning, match="colour"):
+            tephpy.config.load(path)
+    assert tephpy.config.isotherms.color is None
     assert tephpy.config.source is None

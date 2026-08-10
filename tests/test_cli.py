@@ -83,6 +83,46 @@ def test_path_marks_a_shadowed_file(runner, monkeypatch, tmp_path, user_config):
     assert f"{user_config}  [shadowed]" in result.output
 
 
+def test_path_marks_a_rejected_file(runner, monkeypatch, tmp_path, user_config):
+    """The cascade picking a file is not the same as tephpy using it.
+
+    A malformed file is picked and then rejected, so tephpy runs on its
+    defaults. Reporting it "in force" answers "why is my file ignored?"
+    with "it isn't" — the one wrong answer this command can give.
+    """
+    monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tephpyrc.yaml").write_text(
+        "isotherms:\n  color: [unclosed\n", encoding="utf-8"
+    )
+    result = runner.invoke(_cli.main, ["config", "path"])
+    assert result.exit_code == 0
+    assert f"{tmp_path / 'tephpyrc.yaml'}  [rejected]" in result.output
+    assert f"{user_config}  [absent]" in result.output
+    assert "in force" not in result.output
+    assert "using its defaults" in result.output
+
+
+def test_path_marks_a_directory_as_not_a_file(
+    runner, monkeypatch, tmp_path, user_config
+):
+    """``discover()`` skips a directory on ``is_file``, so this must agree.
+
+    Calling it "shadowed" contradicts the "no configuration file found"
+    line printed directly underneath; calling it "absent" denies something
+    the user can see is there.
+    """
+    monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tephpyrc.yaml").mkdir()
+    result = runner.invoke(_cli.main, ["config", "path"])
+    assert result.exit_code == 0
+    assert f"{tmp_path / 'tephpyrc.yaml'}  [not a file]" in result.output
+    assert f"{user_config}  [absent]" in result.output
+    assert "shadowed" not in result.output
+    assert "No configuration file found" in result.output
+
+
 def test_path_reports_a_broken_environment_variable(runner, monkeypatch, tmp_path):
     monkeypatch.setenv(_configfile.CONFIG_ENV_VAR, str(tmp_path / "absent.yaml"))
     result = runner.invoke(_cli.main, ["config", "path"])

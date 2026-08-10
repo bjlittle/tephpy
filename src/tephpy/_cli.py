@@ -12,11 +12,13 @@ so the command line is never the only way to do something.
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 
 import click
 
 from tephpy import _configfile
-from tephpy.exceptions import TephpyConfigError
+from tephpy._config import Config
+from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 __all__ = ["main"]
 
@@ -37,24 +39,69 @@ def config(ctx: click.Context) -> None:
         ctx.invoke(path)
 
 
+def _applies(candidate: Path) -> bool:
+    """Report whether a file the cascade selected would actually apply.
+
+    Parameters
+    ----------
+    candidate : pathlib.Path
+        The file :func:`tephpy._configfile.discover` selected.
+
+    Returns
+    -------
+    bool
+        Whether applying it to a throwaway configuration succeeds. The
+        warnings it may emit along the way are not this command's to
+        repeat: importing tephpy has already issued them, over the same
+        cascade and the same file.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", TephpyConfigWarning)
+        try:
+            _configfile.apply(
+                Config(), _configfile.read_document(candidate), source=candidate
+            )
+        except TephpyConfigError:
+            return False
+    return True
+
+
 @config.command()
 def path() -> None:
     """Report the configuration file search, and which file is in force."""
     try:
-        active = _configfile.discover()
+        selected = _configfile.discover()
     except TephpyConfigError as exc:
         raise click.ClickException(str(exc)) from exc
+    # "Which file does the cascade pick" and "which file is tephpy using"
+    # are different questions: an unreadable or malformed file is picked
+    # and then rejected, leaving the defaults in force. Calling it "in
+    # force" would mislead the one user this command exists for — the one
+    # whose file is being ignored.
+    active = selected if selected is not None and _applies(selected) else None
     for candidate in _configfile.config_paths():
         if candidate == active:
             state = "in force"
-        elif candidate.exists():
+        elif candidate == selected:
+            state = "rejected"
+        elif candidate.is_file():
             state = "shadowed"
+        elif candidate.exists():
+            # discover() skips this one on is_file(), so calling it
+            # "absent" would deny something the user can see is there.
+            state = "not a file"
         else:
             state = "absent"
         click.echo(f"{candidate}  [{state}]")
     if active is None:
         click.echo("")
-        click.echo("No configuration file found; tephpy is using its defaults.")
+        if selected is None:
+            click.echo("No configuration file found; tephpy is using its defaults.")
+        else:
+            click.echo(
+                f"{selected} was rejected; tephpy is using its defaults. "
+                "The warning it raised on import says why."
+            )
 
 
 @config.command()

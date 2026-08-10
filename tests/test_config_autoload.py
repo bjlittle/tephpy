@@ -102,6 +102,23 @@ def test_a_non_utf8_file_warns_and_does_not_stop_the_import(tmp_path):
     assert source == "None"
 
 
+def test_an_unconstructable_scalar_does_not_stop_the_import(tmp_path):
+    """A YAML scalar can fail to build without ever being a YAMLError.
+
+    ``2026-13-01`` parses as a timestamp and then raises ``ValueError`` in
+    ``datetime.date``. Uncontained, it takes out the import and
+    ``tephpy config path`` with it — the failure mode the whole warn-and-
+    continue guarantee exists to prevent.
+    """
+    month = tmp_path / "month.yaml"
+    month.write_text("isotherms:\n  color: 2026-13-01\n", encoding="utf-8")
+    result = _run(tmp_path, TEPHPYRC=str(month))
+    assert "TephpyConfigWarning" in result.stderr
+    colour, source = result.stdout.splitlines()
+    assert colour == "None"
+    assert source == "None"
+
+
 def test_warnings_as_errors_does_not_stop_the_import(tmp_path):
     """``-W error`` turns a warning into an exception, including ours.
 
