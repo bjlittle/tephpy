@@ -328,12 +328,11 @@ different behaviours, none of them the one §2 asks for:
 | `cursor: {fields: notalist}` | loads silently and **draws**: the cursor readout is quietly wrong |
 | `diagram: {extent: 5}` | **raises**, discarding every other option in the file |
 
-The last four rows are the ones that decide the design. Three of them are silent
-wrongness — no
-warning, no traceback, a diagram that is simply not what the file asked for. The fourth is
-the mirror image: `coerce` raising escalates an option-level problem into a file-level one,
-which the table above never sanctioned. Under auto-load that escalation means a single
-mistyped `extent` leaves every other option in the file unapplied.
+The last four rows are the ones that decide the design. Three of them are silent wrongness
+— no warning, no traceback, a diagram that is simply not what the file asked for. The
+fourth is the mirror image: `coerce` raising escalates an option-level problem into a
+file-level one, which the table above never sanctioned. Under auto-load that escalation
+means a single mistyped `extent` leaves every other option in the file unapplied.
 
 **The rule.** A value whose type does not match its field is reported and skipped; the
 option keeps its default, and the rest of the file still applies. This is not a new
@@ -366,8 +365,9 @@ from the annotations that already exist:
   warns through `_warn_from_caller` (§5.1), and moves to the next option. That single
   `except` is what delivers the rule and what ends the escalation.
 - A completeness gate asserts every `(section, option)` in `Config` has a validator, and
-  asserts its own option set is non-empty and equal to the 42 that `dataclasses.fields`
-  reports — the same self-check the two gates in §3.4 carry, for the same reason.
+  asserts its own option set, built from `dataclasses.fields`, is non-empty and the same
+  size as the 42 that `CONFIG_DEFAULTS` holds — two independently written tables made to
+  agree, which is the same self-check the two gates in §3.4 carry, for the same reason.
 
 **The message** names the file, the option, what was expected and what was found, in the
 vocabulary of the file the user is editing rather than of the annotation behind it — the
@@ -383,7 +383,8 @@ reader writes YAML and has never seen `float`:
 The path prefix is new to option-level warnings, and is extended to the other two — the
 unknown option and the null value — for one reason: with three cascade entries (§3.2), a
 warning that names `isotherms.linewidth` but no file does not say which file to edit. The
-file-level errors already lead with the path, so this makes the two consistent.
+file-level errors lead with the path too — `apply`'s two section-level raises gained it
+here — so option-level and file-level messages read the same way.
 
 **A limit, stated rather than designed around.** `emphasis` is
 `Mapping[float, Mapping[str, object]]`: the member values and the style keys are typed, the
@@ -505,4 +506,4 @@ implementation plan carries an explicit one-off resolve of the declared minimums
   type its field declares, and stops there: `color: notacolour` is a string, so it loads,
   and matplotlib rejects it at the first draw. Answering it properly means a per-option
   vocabulary — the colours, the edge names, the cursor fields, the `emphasis` style keys —
-  which is a larger piece of work than the type check it would sit behind.
+  which is a larger piece of work than the type check it would sit behind ({issue}`116`).
