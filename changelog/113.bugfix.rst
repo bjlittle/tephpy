@@ -1,0 +1,8 @@
+Fixed the configuration-file warnings blaming a file inside ``tephpy`` rather than
+the code that triggered them (:issue:`107`). An unknown option, a null option
+value, and an unreadable configuration file each reported a tephpy frame the
+reader cannot act on; they now name your own ``tephpy.config.load`` call, or the
+``import tephpy`` that ran the auto-load. Code suppressing these by module —
+``filterwarnings(..., module="tephpy")`` — no longer matches as a result, and
+should filter on the :exc:`~tephpy.exceptions.TephpyConfigWarning` category
+instead, which is unaffected. (:user:`claude`)
