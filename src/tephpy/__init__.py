@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover
 
 from tephpy import calc, exceptions, io, plotting, transforms
 from tephpy._config import config
+from tephpy._configfile import _warn_from_caller
 from tephpy.sounding import Sounding
 
 __all__ = [
@@ -48,8 +49,8 @@ def _autoload_config() -> None:
     forces tephpy's own configuration warnings to "always" for the duration
     of the auto-load, which makes them shown and never raised, and leaves
     every other warning category on the user's own setting. It has to span
-    the ``warnings.warn`` below as well as ``config.load``: that call is on
-    the very failure path this function exists to survive.
+    the ``_warn_from_caller`` call below as well as ``config.load``: that
+    call is on the very failure path this function exists to survive.
     """
     import warnings  # noqa: PLC0415 -- avoids a public tephpy.warnings attribute
 
@@ -59,11 +60,7 @@ def _autoload_config() -> None:
             config.load()
         except exceptions.TephpyConfigError as exc:
             config.reset()
-            warnings.warn(
-                f"ignoring the configuration file: {exc}",
-                exceptions.TephpyConfigWarning,
-                stacklevel=2,
-            )
+            _warn_from_caller(f"ignoring the configuration file: {exc}")
 
 
 _autoload_config()
