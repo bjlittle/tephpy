@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import dataclasses
+import datetime
 import os
 from pathlib import Path
 from types import MappingProxyType
@@ -470,7 +471,10 @@ def _describe(value: object) -> str:
         The value described in the vocabulary of the YAML file being
         edited rather than of the annotation behind it — the reader has
         never seen ``float`` (configfile spec §5.2). ``bool`` is tested
-        first because it is also an ``int``.
+        first because it is also an ``int``, and ``datetime.datetime`` is
+        covered by the ``datetime.date`` arm because it is also a
+        ``date``. What is left — a list or a mapping — a ``repr`` already
+        renders as the file itself spells it.
     """
     if isinstance(value, bool):
         return f"the boolean {str(value).lower()}"
@@ -478,6 +482,12 @@ def _describe(value: object) -> str:
         return f"the string {value!r}"
     if isinstance(value, int | float):
         return f"the number {value!r}"
+    if isinstance(value, datetime.date):
+        # An unquoted `2026-01-01` matches YAML's timestamp resolver, so
+        # `safe_load` hands over a date rather than a string; `str` spells
+        # it the way the file did, where a `repr` would say
+        # `datetime.date(2026, 1, 1)`.
+        return f"the timestamp {value}"
     return repr(value)
 
 
@@ -590,7 +600,10 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
     Raises
     ------
     TephpyConfigError
-        If a section is unknown or is not a mapping.
+        If a section is unknown or is not a mapping. The message leads with
+        the file, as the option-level warnings do — a section-level problem
+        discards the whole file, so it is the outcome that most needs to say
+        which file (configfile spec §5.2).
 
     Warns
     -----
@@ -603,7 +616,7 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
     for name, options in document.items():
         if name not in sections:
             msg = (
-                f"unknown configuration section {name!r}; expected one of "
+                f"{prefix}unknown configuration section {name!r}; expected one of "
                 f"{sorted(sections)}"
             )
             raise TephpyConfigError(msg)
@@ -613,7 +626,7 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
             continue
         if not isinstance(options, Mapping):
             msg = (
-                f"configuration section {name!r} must hold a mapping of "
+                f"{prefix}configuration section {name!r} must hold a mapping of "
                 f"options, not {type(options).__name__}"
             )
             raise TephpyConfigError(msg)

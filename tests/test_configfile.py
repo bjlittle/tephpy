@@ -170,6 +170,25 @@ def test_a_non_mapping_section_raises(tmp_path):
         _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["isotherm:\n  color: purple\n", "isotherms:\n  - purple\n"],
+    ids=["unknown-section", "non-mapping-section"],
+)
+def test_a_section_level_error_names_the_file(tmp_path, text):
+    """The outcome that discards the whole file must say which file.
+
+    Both messages are rendered by the auto-load as ``ignoring the
+    configuration file: <message>``, and with three cascade entries that
+    names no file at all. The two tests above match on a substring and so
+    would pass with no path in the message; this one anchors on the path
+    (configfile spec §5.2).
+    """
+    path = _write(tmp_path, text)
+    with pytest.raises(TephpyConfigError, match=f"^{re.escape(str(path))}: "):
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+
+
 def test_malformed_yaml_raises(tmp_path):
     path = _write(tmp_path, "isotherms:\n  color: [unclosed\n")
     with pytest.raises(TephpyConfigError, match="not valid YAML"):
@@ -315,6 +334,21 @@ def test_a_wrong_typed_value_is_rejected(section, option, value, match):
     """
     with pytest.raises(TephpyConfigError, match=re.escape(match)):
         _configfile.coerce(section, option, value, _annotation(section, option))
+
+
+def test_a_yaml_timestamp_is_named_as_the_file_spells_it(tmp_path):
+    """``color: 2026-01-01`` is a date to PyYAML, and must be said in YAML.
+
+    An unquoted date matches YAML's timestamp resolver, so ``safe_load``
+    hands ``_describe`` a ``datetime.date``. Without an arm of its own it
+    falls through to the ``repr``, and the warning reads ``not
+    datetime.date(2026, 1, 1)`` — the Python vocabulary the message is
+    written to avoid (configfile spec §5.2).
+    """
+    path = _write(tmp_path, "isotherms:\n  color: 2026-01-01\n")
+    with pytest.warns(TephpyConfigWarning, match="not the timestamp 2026-01-01$"):
+        _configfile.apply(tephpy.config, _configfile.read_document(path), source=path)
+    assert tephpy.config.isotherms.color is None
 
 
 def test_every_option_has_a_validator():
