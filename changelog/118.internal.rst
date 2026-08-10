@@ -1,0 +1,5 @@
+Every python code example in the how-to, tutorial and explanation documentation is
+now executed by the test suite, as one script per page and in document order, so
+that a snippet cannot silently stop working (:issue:`114`). Each page's figures are
+drawn as well as built, because :mod:`matplotlib` defers most of its validation to
+draw time. (:user:`claude`)
