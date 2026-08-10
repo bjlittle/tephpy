@@ -10,6 +10,11 @@ problems raise :class:`TephpyUnitsError`; physically impossible data raises
 a :class:`TephpyValidationError` subclass carrying the offending level
 indices. Validation happens at ingest (``Sounding`` construction), not
 mid-plot.
+
+Configuration-file problems are the one place tephpy also warns:
+:class:`TephpyConfigWarning` is a ``UserWarning``, not a
+:class:`TephpyError`, because an unusable configuration file degrades to
+the hardwired defaults instead of stopping the import (configfile spec §5).
 """
 
 from __future__ import annotations
@@ -19,6 +24,8 @@ __all__ = [
     "MissingDataError",
     "NonMonotonicPressureError",
     "ProfileTooShortError",
+    "TephpyConfigError",
+    "TephpyConfigWarning",
     "TephpyError",
     "TephpyIOError",
     "TephpyUnitsError",
@@ -104,4 +111,25 @@ class ProfileTooShortError(TephpyValidationError):
     meaningless; ``calc.parcel_path`` and ``calc.indices`` both raise
     this. The LCL tested is the one the path would use — the corrected
     one when a cloud-base correction is requested.
+    """
+
+
+class TephpyConfigError(TephpyError):
+    """A configuration file could not be read or made sense of.
+
+    A malformed YAML document, a top-level entry that is not a mapping, an
+    unknown configuration section, and a ``$TEPHPYRC`` naming a file that
+    does not exist all raise this. Raised only when the file was asked for
+    explicitly; the import-time auto-load warns instead
+    (configfile spec §5).
+    """
+
+
+class TephpyConfigWarning(UserWarning):
+    """A configuration file was used, but something in it was ignored.
+
+    An unknown option, an option whose value is an explicit null, and any
+    failure during the import-time auto-load warn rather than raise, so a
+    typo in a configuration file cannot make ``tephpy`` unimportable
+    (configfile spec §5).
     """
