@@ -7,7 +7,7 @@
 > Read it as current.
 
 - **Date:** 2026-08-07 (originated; maintained since)
-- **Status:** living design specification, awaiting implementation
+- **Status:** living design specification, implemented in {pull}`112`
 - **Citation prefix:** `configfile spec §…` — deliberately not `config spec`, which would
   read as a near-duplicate of the parent's own spec §3.5 on `tephpy.config`; the prefix
   matches the module it governs
@@ -252,6 +252,59 @@ warn, and the distinction is deliberate: the generated template leaves section h
 uncommented so that uncommenting a single option needs no second edit, which makes a null
 section the expected state of every section the user has not touched. A null *option value*
 stays a warning, because nothing in the template produces one.
+
+(configfile-spec-5-1)=
+### 5.1 Warning provenance
+
+A `TephpyConfigWarning` reports a mistake in the *user's* file, so it must point at the
+user's own code — the `config.load(...)` call, or the `import tephpy` that ran the
+auto-load. A warning that names a file inside `src/tephpy/` reads as a tephpy bug and gives
+the user nothing to edit. Every configuration warning therefore routes through one private
+helper, `_configfile._warn_from_caller`, which passes `skip_file_prefixes` rather than
+`stacklevel`: `warnings.warn` walks outwards to the first frame whose filename does not
+start with the tephpy package directory, and blames that ({issue}`107`).
+
+`stacklevel` is the wrong instrument here because it is a fixed count and the depth is not
+fixed. `apply` is reached from `Config.load`, from the import-time auto-load, from the
+CLI's `_applies`, and directly from the tests — four depths, one number, so any choice is
+right for one caller and wrong for the rest. The import path is not merely a different
+count: the user's `import tephpy` sits behind importlib's frozen bootstrap frames, so no
+integer reaches it at all. `skip_file_prefixes` names the frames to *skip* instead, which
+makes attribution follow from where tephpy ends rather than from how deep the call went.
+
+**Measured** on Python 3.12.3 — the declared floor, and `skip_file_prefixes` is a 3.12
+addition, so the mechanism is available across the whole supported range:
+
+| Call path | `stacklevel=2` blames | `skip_file_prefixes` blames |
+|---|---|---|
+| `config.load(path)` → `apply` | `_config.py` | the caller's `load` line |
+| `import tephpy` → auto-load → `apply` | `_config.py` | the caller's `import` line |
+| `apply` called directly (tests) | the caller | the caller |
+
+Two consequences follow from attribution being depth-independent. Routing all three warning
+sites through a shared helper costs nothing — the frame the helper adds is inside the
+package and skipped like any other, where the same refactor under `stacklevel` would have
+meant re-counting every call site. And the prefix must carry a trailing `os.sep`: matching
+is a plain string compare, so a bare package directory would also match a sibling
+`tephpy_extras/`.
+
+`_cli._applies` suppresses `TephpyConfigWarning` outright for the duration of its probe,
+and that suppression is deliberate rather than incidental. There is no user frame worth
+blaming: the call originates in tephpy's own CLI, against a file the user asked to *locate*
+rather than to load (§4), and `import tephpy` has already warned over the same cascade.
+
+One consequence for downstream code, which is why it is recorded here: a filter written as
+`filterwarnings(..., module="tephpy")` no longer matches, because the warning now belongs
+to the user's module. Filtering on `category=TephpyConfigWarning` is unaffected, and is the
+axis the documentation points at — the category exists for exactly this.
+
+The auto-load is the one place no filter reaches, and that is deliberate rather than a
+limitation of the above. `_autoload_config` installs `filterwarnings("always",
+category=TephpyConfigWarning)` for the duration of the load, which sits in front of
+everything the user set, so the import-time notice is shown whatever their filters say —
+the same mechanism that stops `-W error` turning a typo'd option into a failed import. User
+code has not started running by then in any case. Only a later explicit `config.load(...)`
+is the user's to filter, so that is the call the how-to shows alongside the filter.
 
 (configfile-spec-6)=
 ## 6. Testing

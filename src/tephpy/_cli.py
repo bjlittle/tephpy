@@ -53,7 +53,9 @@ def _applies(candidate: Path) -> bool:
         Whether applying it to a throwaway configuration succeeds. The
         warnings it may emit along the way are not this command's to
         repeat: importing tephpy has already issued them, over the same
-        cascade and the same file.
+        cascade and the same file. Suppressing them wholesale is why this
+        is the one caller with no frame worth blaming
+        (configfile spec §5.1).
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", TephpyConfigWarning)

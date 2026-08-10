@@ -103,6 +103,28 @@ def test_path_marks_a_rejected_file(runner, monkeypatch, tmp_path, user_config):
     assert "using its defaults" in result.output
 
 
+def test_path_marks_a_file_with_an_unknown_option_in_force(
+    runner, monkeypatch, tmp_path, user_config
+):
+    """A guard against ``_applies``' warning suppression going away.
+
+    An unknown option warns and is skipped, but the rest of the file still
+    applies (configfile spec §2), so it must be reported ``[in force]``, not
+    ``[rejected]``. Without the suppression this warning would escape
+    ``_applies`` — and under ``filterwarnings = ["error"]`` it would raise,
+    turning a working file into a non-zero exit (configfile spec §5.1).
+    """
+    monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tephpyrc.yaml").write_text(
+        "isotherms:\n  colour: purple\n", encoding="utf-8"
+    )
+    result = runner.invoke(_cli.main, ["config", "path"])
+    assert result.exit_code == 0
+    assert f"{tmp_path / 'tephpyrc.yaml'}  [in force]" in result.output
+    assert not user_config.exists()
+
+
 def test_path_marks_a_directory_as_not_a_file(
     runner, monkeypatch, tmp_path, user_config
 ):

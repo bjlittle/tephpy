@@ -119,6 +119,42 @@ def test_an_unknown_option_warns_and_is_skipped(tmp_path):
     assert tephpy.config.isotherms.color == "purple"
 
 
+def test_a_warning_blames_the_caller_not_tephpy(tmp_path):
+    """The user's file is at fault, so the user's own frame is what is named.
+
+    Reached through ``Config.load`` rather than through ``apply`` on
+    purpose. A direct ``apply`` call is already one frame from the caller,
+    which is what ``stacklevel=2`` gets right, so a test written that way
+    passes whatever the warning does and guards nothing
+    (configfile spec §5.1).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="colour") as record:
+        tephpy.config.load(path)
+    assert record[0].filename == __file__
+
+
+def test_a_category_filter_silences_an_explicit_load(tmp_path):
+    """The axis this change left working, and the one the how-to shows.
+
+    Filtering by module stopped matching once the warning moved to the
+    caller's frame; filtering by category never depended on where the
+    warning was raised. The second block is the control — without it an
+    empty ``record`` would prove nothing, since a load that failed to warn
+    for any other reason would satisfy it too (configfile spec §5.1).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        warnings.filterwarnings("ignore", category=TephpyConfigWarning)
+        tephpy.config.load(path)
+    assert record == []
+    with warnings.catch_warnings(record=True) as control:
+        warnings.simplefilter("always")
+        tephpy.config.load(path)
+    assert len(control) == 1
+
+
 def test_an_unknown_section_raises(tmp_path):
     path = _write(tmp_path, "isotherm:\n  color: purple\n")
     with pytest.raises(TephpyConfigError, match="isotherm"):

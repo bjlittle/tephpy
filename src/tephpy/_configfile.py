@@ -233,6 +233,35 @@ def coerce(section: str, option: str, value: object) -> object:
     return value
 
 
+#: Every file in the tephpy package, with the trailing separator that stops
+#: the prefix also matching a sibling ``tephpy_extras`` — matching is a plain
+#: string compare (configfile spec §5.1).
+_PACKAGE_ROOT: Final[str] = str(Path(__file__).parent) + os.sep
+
+
+def _warn_from_caller(message: str) -> None:
+    """Warn about the configuration file, blaming the user's own frame.
+
+    ``skip_file_prefixes`` walks outwards to the first frame outside the
+    tephpy package, so the warning names the user's ``config.load(...)`` or
+    ``import tephpy`` line however deep inside tephpy it was raised.
+    ``stacklevel`` cannot: ``apply`` is reached at four different depths,
+    and the import path sits behind importlib's frozen bootstrap frames,
+    which no fixed count reaches (configfile spec §5.1).
+
+    Parameters
+    ----------
+    message : str
+        The warning text.
+
+    Warns
+    -----
+    TephpyConfigWarning
+        Always. The caller has already decided the situation warrants it.
+    """
+    warnings.warn(message, TephpyConfigWarning, skip_file_prefixes=(_PACKAGE_ROOT,))
+
+
 def apply(config: Config, document: Mapping[str, object], source: Path | None) -> None:
     """Apply a parsed configuration document to a configuration.
 
@@ -277,11 +306,9 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
         valid = {field.name for field in dataclasses.fields(section)}
         for option, value in options.items():
             if option not in valid:
-                warnings.warn(
+                _warn_from_caller(
                     f"ignoring unknown option {option!r} in configuration "
-                    f"section {name!r}; expected one of {sorted(valid)}",
-                    TephpyConfigWarning,
-                    stacklevel=2,
+                    f"section {name!r}; expected one of {sorted(valid)}"
                 )
                 continue
             if value is None:
@@ -291,10 +318,8 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
                     if option in _COLOR_OPTIONS
                     else ""
                 )
-                warnings.warn(
-                    f"ignoring {name}.{option}, whose value is null{hint}",
-                    TephpyConfigWarning,
-                    stacklevel=2,
+                _warn_from_caller(
+                    f"ignoring {name}.{option}, whose value is null{hint}"
                 )
                 continue
             setattr(section, option, coerce(name, option, value))

@@ -12,11 +12,14 @@ interpreter (configfile spec §6).
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import subprocess
 import sys
 import textwrap
 
 import matplotlib as mpl
+
+import tephpy
 
 PROBE = textwrap.dedent(
     """
@@ -27,9 +30,14 @@ PROBE = textwrap.dedent(
     """
 )
 
+#: ``PROBE``'s 1-based line number for ``import tephpy``, the line a warning
+#: from the auto-load should blame. Derived rather than hard-coded so adding
+#: another import to ``PROBE`` cannot silently break the tests that pin it.
+_PROBE_IMPORT_LINE = PROBE.splitlines().index("import tephpy") + 1
 
-def _run(tmp_path, **env_extra):
-    """Import tephpy in a fresh interpreter under a controlled environment.
+
+def _environ(tmp_path, **env_extra):
+    """Build the controlled environment both probes run under.
 
     ``HOME`` and ``XDG_CONFIG_HOME`` both move, which empties the user
     configuration directory on linux — where CI runs — and on macOS.
@@ -45,14 +53,40 @@ def _run(tmp_path, **env_extra):
     env["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     env["MPLCONFIGDIR"] = mpl.get_configdir()
     env.update(env_extra)
+    return env
+
+
+def _run(tmp_path, **env_extra):
+    """Import tephpy in a fresh interpreter under a controlled environment."""
     return subprocess.run(  # noqa: S603
         [sys.executable, "-c", PROBE],
         capture_output=True,
         text=True,
         check=True,
         cwd=tmp_path,
-        env=env,
+        env=_environ(tmp_path, **env_extra),
     )
+
+
+def _run_file(tmp_path, **env_extra):
+    """Run the same probe from a real file, and return the file with the result.
+
+    ``-c`` gives every frame the filename ``<string>``, which is no use to
+    a test about which file a warning points at. A script on disk gives the
+    ``import tephpy`` line a path and a line number — ``_PROBE_IMPORT_LINE``,
+    computed from ``PROBE`` rather than hard-coded (configfile spec §5.1).
+    """
+    probe = tmp_path / "probe.py"
+    probe.write_text(PROBE, encoding="utf-8")
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(probe)],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=tmp_path,
+        env=_environ(tmp_path, **env_extra),
+    )
+    return probe, result
 
 
 def test_autoload_applies_the_named_file(tmp_path):
@@ -155,6 +189,23 @@ def test_warnings_as_errors_survives_an_unreadable_file(tmp_path):
     assert source == "None"
 
 
+def test_the_auto_load_warning_outranks_a_users_ignore_filter(tmp_path):
+    """The import-time warning is the only notice the file was ignored.
+
+    ``catch_warnings`` forces tephpy's own configuration warnings to
+    "always" for the duration of the auto-load, which puts them in front of
+    every filter the user set — so even a blanket ``PYTHONWARNINGS=ignore``
+    cannot lose the notice. The configuration how-to promises exactly this,
+    and points filtering at a later explicit ``config.load`` instead
+    (configfile spec §5.1).
+    """
+    typo = tmp_path / "typo.yaml"
+    typo.write_text("isotherms:\n  colour: purple\n", encoding="utf-8")
+    result = _run(tmp_path, TEPHPYRC=str(typo), PYTHONWARNINGS="ignore")
+    assert "TephpyConfigWarning" in result.stderr
+    assert "colour" in result.stderr
+
+
 def test_a_partially_applied_file_still_resets(tmp_path):
     """``apply`` can set an earlier section before raising on a later one.
 
@@ -171,3 +222,31 @@ def test_a_partially_applied_file_still_resets(tmp_path):
     colour, source = result.stdout.splitlines()
     assert colour == "None"
     assert source == "None"
+
+
+def test_a_typo_blames_the_users_import_line(tmp_path):
+    """The deepest warn site: ``apply``, four frames inside tephpy.
+
+    ``stacklevel`` has nothing to aim at here. The user's frame is the
+    ``import`` statement, and it sits behind importlib's frozen bootstrap
+    frames (configfile spec §5.1).
+    """
+    typo = tmp_path / "typo.yaml"
+    typo.write_text("isotherms:\n  colour: purple\n", encoding="utf-8")
+    probe, result = _run_file(tmp_path, TEPHPYRC=str(typo))
+    assert f"{probe}:{_PROBE_IMPORT_LINE}:" in result.stderr
+    assert str(Path(tephpy.__file__).parent) not in result.stderr
+
+
+def test_an_unreadable_file_blames_the_users_import_line(tmp_path):
+    """The other warn site: the ``except`` clause in ``_autoload_config``.
+
+    A typo'd key warns from inside ``apply``; a file that cannot be parsed
+    at all never reaches it and warns from the handler instead. Two sites,
+    so two tests — one would leave the other free to regress.
+    """
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("isotherms:\n  color: [unclosed\n", encoding="utf-8")
+    probe, result = _run_file(tmp_path, TEPHPYRC=str(broken))
+    assert f"{probe}:{_PROBE_IMPORT_LINE}:" in result.stderr
+    assert str(Path(tephpy.__file__).parent) not in result.stderr
