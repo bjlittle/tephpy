@@ -113,6 +113,21 @@ So if a styling you have relied on for months disappears after an upgrade,
 read the warning: one obsolete section name is enough to switch off every
 other line in the file.
 
+A value of the wrong type is treated the same way as an option tephpy no
+longer recognises: ``linewidth: thick`` warns, that one option is skipped
+and keeps its default, and every other line in the file still applies. The
+warning names the file, the option, what was expected and what it found:
+
+.. code-block:: text
+
+    tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the string 'thick'
+
+Two details of YAML are worth knowing before you read one of these.
+``linewidth: 1`` is fine — an integer is accepted wherever a number is
+wanted. But ``linewidth: true`` is not a number at all, and neither are
+``yes``, ``no``, ``on`` and ``off``, which YAML also reads as true or
+false. Quote them if you meant the words.
+
 That warning arrives once, as the file is read, and no filter of yours can
 turn it off: your own code has not started running yet, and the auto-load
 puts tephpy's configuration warnings in front of every filter you set, so the

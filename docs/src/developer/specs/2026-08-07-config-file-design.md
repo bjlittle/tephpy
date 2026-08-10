@@ -352,9 +352,13 @@ Two adjustments to "matches the declared type", both forced by YAML:
 **Implementation.** The expected types are not written out a second time; they are read
 from the annotations that already exist:
 
-- `_OPTION_TYPES` — `{(section, option): annotation}`, built once with
-  `typing.get_type_hints`, which resolves cleanly through the `from __future__ import
-  annotations` in `_config.py`. **Measured:** 42 options over 8 distinct annotation shapes.
+- The expected type reaches `coerce` as an argument. `apply` resolves it from the section
+  it already holds, through `_option_hints`, a thin wrapper on `typing.get_type_hints`
+  which resolves cleanly through the `from __future__ import annotations` in `_config.py`.
+  A module-level `{(section, option): annotation}` table is not available: `_configfile`
+  cannot import `_config` at runtime without reversing the §3 dependency arrow, and a
+  lazily-built one would leave a direct `coerce` caller checking against an empty table.
+  **Measured:** 42 options over 8 distinct annotation shapes.
 - `_TYPE_VALIDATORS` — one `(description, converter)` per distinct shape, so eight entries
   cover all 42 options. Each converter both checks and converts, which makes it the natural
   home for the §3.3 coercions rather than a second pass over the same value.
