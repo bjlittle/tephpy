@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
+import dataclasses
+import re
 import warnings
 
 import pytest
 
 import tephpy
 from tephpy import _configfile
+from tephpy._constants import CONFIG_DEFAULTS
 from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 
@@ -210,6 +213,111 @@ def test_a_non_mapping_document_raises(tmp_path):
     path = _write(tmp_path, "- isotherms\n")
     with pytest.raises(TephpyConfigError, match="mapping of sections"):
         _configfile.read_document(path)
+
+
+def _annotation(section, option):
+    """Return the declared type of an option, for a direct ``coerce`` call."""
+    return _configfile._option_hints(type(getattr(tephpy.config, section)))[option]
+
+
+@pytest.mark.parametrize(
+    ("section", "option", "value", "expected"),
+    [
+        ("isotherms", "color", "purple", "purple"),
+        ("isotherms", "linewidth", 0.5, 0.5),
+        ("isotherms", "linewidth", 1, 1.0),
+        ("isotherms", "visible", False, False),
+        ("isotherms", "labels", True, True),
+        ("isotherms", "labels", "bottom", "bottom"),
+        ("isotherms", "labels", ["bottom", "right"], ("bottom", "right")),
+        ("isotherms", "values", [0, 10], (0.0, 10.0)),
+        ("isotherms", "emphasis", {0: {"color": "red"}}, {0.0: {"color": "red"}}),
+        ("cursor", "fields", ["pressure"], ("pressure",)),
+        (
+            "diagram",
+            "extent",
+            [[1000, -30], [300, 30]],
+            ((1000.0, -30.0), (300.0, 30.0)),
+        ),
+        ("moist_adiabats", "truncation", -30.0, -30.0),
+    ],
+)
+def test_a_well_typed_value_is_accepted(section, option, value, expected):
+    """One accepted case per annotation shape, plus the two YAML forces.
+
+    ``linewidth: 1`` is an ``int`` where a ``float`` is declared and must
+    be accepted and converted; ``labels`` covers three of its four arms.
+    The type assertion is not decoration: ``1 == 1.0`` and ``False == 0``
+    in Python, so an equality-only test would pass with no conversion
+    happening at all (configfile spec §5.2).
+    """
+    coerced = _configfile.coerce(section, option, value, _annotation(section, option))
+    assert coerced == expected
+    assert type(coerced) is type(expected)
+
+
+@pytest.mark.parametrize(
+    ("section", "option", "value", "match"),
+    [
+        ("isotherms", "linewidth", "thick", "expects a number, not the string 'thick'"),
+        ("isotherms", "linewidth", True, "expects a number, not the boolean true"),
+        ("isotherms", "color", 3, "expects a string, not the number 3"),
+        ("isotherms", "visible", "maybe", "expects true or false"),
+        ("isotherms", "values", "notalist", "expects a list of numbers"),
+        ("isotherms", "values", [0, "ten"], "expects a list of numbers"),
+        ("isotherms", "labels", 3, "expects true, false, an edge name"),
+        ("isotherms", "emphasis", [0], "expects a mapping of member value"),
+        ("cursor", "fields", "notalist", "expects a list of strings"),
+        ("cursor", "fields", [1], "expects a list of strings"),
+        ("diagram", "extent", 5, "expects two [pressure, temperature] corners"),
+        ("diagram", "extent", [1, 2], "expects two [pressure, temperature] corners"),
+        (
+            "diagram",
+            "extent",
+            [[1000, -30], [300, "warm"]],
+            "expects two [pressure, temperature] corners",
+        ),
+    ],
+)
+def test_a_wrong_typed_value_is_rejected(section, option, value, match):
+    """Every measured case from the configfile spec §5.2 table, and then some.
+
+    ``linewidth: true`` is the one that drove the design: it drew a 1 pt
+    line, because ``isinstance(True, int)`` is ``True``. ``values:
+    notalist`` and ``fields: notalist`` are the strings that would
+    otherwise be iterated one character per member.
+    """
+    with pytest.raises(TephpyConfigError, match=re.escape(match)):
+        _configfile.coerce(section, option, value, _annotation(section, option))
+
+
+def test_every_option_has_a_validator():
+    """An option whose type has no validator must fail here, not in silence.
+
+    ``coerce`` returns an unrecognised annotation's value untouched, so that adding
+    an option can never stop an import — which means nothing else in the suite would
+    notice the gap. The option would simply go back to being applied unchecked,
+    which is the defect configfile spec §5.2 exists to close.
+
+    The first two assertions are what stop this gate passing by checking
+    nothing, and the count is taken from ``CONFIG_DEFAULTS`` rather than
+    written down, so adding an option updates it.
+    """
+    annotations = {}
+    for field in dataclasses.fields(tephpy.config):
+        section = getattr(tephpy.config, field.name)
+        hints = _configfile._option_hints(type(section))
+        for option in dataclasses.fields(section):
+            annotations[field.name, option.name] = hints[option.name]
+    assert annotations
+    assert len(annotations) == sum(len(options) for options in CONFIG_DEFAULTS.values())
+    missing = [
+        key
+        for key, annotation in sorted(annotations.items())
+        if annotation not in _configfile._TYPE_VALIDATORS
+    ]
+    assert missing == []
+    assert set(_configfile._TYPE_VALIDATORS) - set(annotations.values()) == set()
 
 
 @pytest.mark.parametrize(
