@@ -22,8 +22,14 @@ supports.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
+import subprocess
+import sys
+
+import matplotlib as mpl
+import pytest
 
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
@@ -326,3 +332,137 @@ def test_the_script_ends_with_the_draw_epilogue():
     script = page_script(".. code-block:: python\n\n    value = 1\n")
     assert script.endswith(EPILOGUE)
     assert "canvas.draw()" in script
+
+
+def environment(home: Path) -> dict[str, str]:
+    """Build the controlled environment a page's script runs under.
+
+    ``HOME`` and ``XDG_CONFIG_HOME`` both move, which empties the user
+    configuration directory the discovery cascade searches; ``MPLCONFIGDIR``
+    keeps pointing at this process's matplotlib cache, so the relocated home
+    does not trigger a font-cache rebuild. ``tests/test_config_autoload.py``
+    carries the full reasoning, including what Windows does differently.
+
+    Parameters
+    ----------
+    home : Path
+        The temporary directory standing in for the user's home.
+
+    Returns
+    -------
+    dict of str to str
+        The environment for the subprocess.
+
+    """
+    env = dict(os.environ)
+    env.pop("TEPHPYRC", None)
+    env["HOME"] = str(home)
+    env["XDG_CONFIG_HOME"] = str(home / "config")
+    env["MPLCONFIGDIR"] = mpl.get_configdir()
+    env["MPLBACKEND"] = "Agg"
+    return env
+
+
+def run_page(page: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    """Execute one page's snippets in a sandboxed fresh interpreter.
+
+    Parameters
+    ----------
+    page : Path
+        The page to run.
+    tmp_path : Path
+        The temporary directory to run in; the script, the saved configuration
+        and any figure the page writes to a relative path all land here.
+
+    Returns
+    -------
+    subprocess.CompletedProcess
+        The finished process, with ``stdout`` and ``stderr`` captured as text.
+
+    """
+    script = page_script(page.read_text(encoding="utf-8"))
+    assert script is not None, f"{identify(page)} carries no python to run"
+    target = tmp_path / f"{page.stem}_snippets.py"
+    target.write_text(script, encoding="utf-8")
+    return subprocess.run(  # noqa: S603
+        [sys.executable, "-W", "error", str(target)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        env=environment(tmp_path),
+    )
+
+
+def report(page: Path, result: subprocess.CompletedProcess[str]) -> str:
+    """Render a failure so its line numbers are usable.
+
+    Parameters
+    ----------
+    page : Path
+        The page that failed.
+    result : subprocess.CompletedProcess
+        The finished process.
+
+    Returns
+    -------
+    str
+        The assertion message.
+
+    """
+    return (
+        f"\n{page.relative_to(REPO)} did not run clean (docs spec §3.9).\n"
+        "The traceback's line numbers are this page's line numbers. A frame in "
+        f"{page.stem}_snippets.py below the last block means the snippets ran and "
+        "a figure could not be drawn.\n\n"
+        f"{result.stdout}{result.stderr}"
+    )
+
+
+@pytest.mark.parametrize("page", code_pages(), ids=identify)
+def test_the_page_runs(page, tmp_path):
+    """A page's blocks run as one script, in order, and its figures draw."""
+    result = run_page(page, tmp_path)
+    assert result.returncode == 0, report(page, result)
+
+
+def test_the_quadrant_directories_exist():
+    """A renamed quadrant would empty the corpus without touching this file."""
+    missing = [name for name in QUADRANTS if not (DOCS / name).is_dir()]
+    assert missing == [], (
+        f"these user quadrants are not where this gate looks: {missing}. "
+        "A gate that checks nothing is a green tick over nothing (docs spec §3.9)"
+    )
+
+
+def test_pages_are_discovered():
+    """An empty corpus is a gate failure, not a quiet pass."""
+    assert user_pages(), (
+        f"no .rst pages found under {DOCS} in {QUADRANTS} (docs spec §3.9)"
+    )
+
+
+def test_the_documented_pages_yield_blocks():
+    """Named pages, not a count: a count has to be re-measured to stay true."""
+    found = {identify(page) for page in code_pages()}
+    assert set(DOCUMENTED) <= found, (
+        f"these pages carry python and yielded no block: "
+        f"{sorted(set(DOCUMENTED) - found)}. The extractor has stopped "
+        "recognising a directive (docs spec §3.9)"
+    )
+
+
+def test_no_block_hides_the_language_this_gate_runs():
+    """A python block spelled another way, or not spelled at all, is reported."""
+    offenders = [
+        (identify(page), line, language)
+        for page in user_pages()
+        for line, language, _ in literal_blocks(page.read_text(encoding="utf-8"))
+        if language.lower() in NEAR_MISS or not language
+    ]
+    assert offenders == [], (
+        "these blocks do not name a language this gate executes, so they would "
+        f"be passed over in silence: {offenders}. A block with no language is "
+        "highlighted using Sphinx's `highlight_language` and can be python on "
+        "the page; write them all as `python` (docs spec §3.9)"
+    )
