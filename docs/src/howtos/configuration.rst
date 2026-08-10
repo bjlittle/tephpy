@@ -128,10 +128,10 @@ wanted. But ``linewidth: true`` is not a number at all, and neither are
 ``yes``, ``no``, ``on`` and ``off``, which YAML also reads as true or
 false. Quote them if you meant the words.
 
-That warning arrives once, as the file is read, and no filter of yours can
-turn it off: your own code has not started running yet, and the auto-load
-puts tephpy's configuration warnings in front of every filter you set, so the
-notice always reaches you. It is shown rather than raised, so a typo cannot
+These warnings arrive once, as the file is read, and no filter of yours can
+turn them off: your own code has not started running yet, and the auto-load
+puts tephpy's configuration warnings in front of every filter you set, so
+they always reach you. They are shown rather than raised, so a typo cannot
 take the import down with it either.
 
 Loading the file again from Python warns again, and *that* warning is an
