@@ -119,6 +119,21 @@ def test_an_unknown_option_warns_and_is_skipped(tmp_path):
     assert tephpy.config.isotherms.color == "purple"
 
 
+def test_a_warning_blames_the_caller_not_tephpy(tmp_path):
+    """The user's file is at fault, so the user's own frame is what is named.
+
+    Reached through ``Config.load`` rather than through ``apply`` on
+    purpose. A direct ``apply`` call is already one frame from the caller,
+    which is what ``stacklevel=2`` gets right, so a test written that way
+    passes whatever the warning does and guards nothing
+    (configfile spec §5.1).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with pytest.warns(TephpyConfigWarning, match="colour") as record:
+        tephpy.config.load(path)
+    assert record[0].filename == __file__
+
+
 def test_an_unknown_section_raises(tmp_path):
     path = _write(tmp_path, "isotherm:\n  color: purple\n")
     with pytest.raises(TephpyConfigError, match="isotherm"):
