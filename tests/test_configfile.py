@@ -134,6 +134,27 @@ def test_a_warning_blames_the_caller_not_tephpy(tmp_path):
     assert record[0].filename == __file__
 
 
+def test_a_category_filter_silences_an_explicit_load(tmp_path):
+    """The axis this change left working, and the one the how-to shows.
+
+    Filtering by module stopped matching once the warning moved to the
+    caller's frame; filtering by category never depended on where the
+    warning was raised. The second block is the control — without it an
+    empty ``record`` would prove nothing, since a load that failed to warn
+    for any other reason would satisfy it too (configfile spec §5.1).
+    """
+    path = _write(tmp_path, "isotherms:\n  colour: purple\n")
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        warnings.filterwarnings("ignore", category=TephpyConfigWarning)
+        tephpy.config.load(path)
+    assert record == []
+    with warnings.catch_warnings(record=True) as control:
+        warnings.simplefilter("always")
+        tephpy.config.load(path)
+    assert len(control) == 1
+
+
 def test_an_unknown_section_raises(tmp_path):
     path = _write(tmp_path, "isotherm:\n  color: purple\n")
     with pytest.raises(TephpyConfigError, match="isotherm"):

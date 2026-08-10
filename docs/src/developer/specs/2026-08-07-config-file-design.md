@@ -298,6 +298,14 @@ One consequence for downstream code, which is why it is recorded here: a filter 
 to the user's module. Filtering on `category=TephpyConfigWarning` is unaffected, and is the
 axis the documentation points at — the category exists for exactly this.
 
+The auto-load is the one place no filter reaches, and that is deliberate rather than a
+limitation of the above. `_autoload_config` installs `filterwarnings("always",
+category=TephpyConfigWarning)` for the duration of the load, which sits in front of
+everything the user set, so the import-time notice is shown whatever their filters say —
+the same mechanism that stops `-W error` turning a typo'd option into a failed import. User
+code has not started running by then in any case. Only a later explicit `config.load(...)`
+is the user's to filter, so that is the call the how-to shows alongside the filter.
+
 (configfile-spec-6)=
 ## 6. Testing
 

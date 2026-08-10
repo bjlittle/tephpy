@@ -189,6 +189,23 @@ def test_warnings_as_errors_survives_an_unreadable_file(tmp_path):
     assert source == "None"
 
 
+def test_the_auto_load_warning_outranks_a_users_ignore_filter(tmp_path):
+    """The import-time warning is the only notice the file was ignored.
+
+    ``catch_warnings`` forces tephpy's own configuration warnings to
+    "always" for the duration of the auto-load, which puts them in front of
+    every filter the user set — so even a blanket ``PYTHONWARNINGS=ignore``
+    cannot lose the notice. The configuration how-to promises exactly this,
+    and points filtering at a later explicit ``config.load`` instead
+    (configfile spec §5.1).
+    """
+    typo = tmp_path / "typo.yaml"
+    typo.write_text("isotherms:\n  colour: purple\n", encoding="utf-8")
+    result = _run(tmp_path, TEPHPYRC=str(typo), PYTHONWARNINGS="ignore")
+    assert "TephpyConfigWarning" in result.stderr
+    assert "colour" in result.stderr
+
+
 def test_a_partially_applied_file_still_resets(tmp_path):
     """``apply`` can set an earlier section before raising on a later one.
 

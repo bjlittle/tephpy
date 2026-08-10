@@ -113,10 +113,17 @@ So if a styling you have relied on for months disappears after an upgrade,
 read the warning: one obsolete section name is enough to switch off every
 other line in the file.
 
-Once you have read the warning and decided it is safe to live with — an
-unknown option you are not using yet, say — filter it by category rather
-than by module: the warning is attributed to your own code, not to
-``tephpy``, so a filter keyed on the module never matches it.
+That warning arrives once, as the file is read, and no filter of yours can
+turn it off: your own code has not started running yet, and the auto-load
+puts tephpy's configuration warnings in front of every filter you set, so the
+notice always reaches you. It is shown rather than raised, so a typo cannot
+take the import down with it either.
+
+Loading the file again from Python warns again, and *that* warning is an
+ordinary one. Once you have read it and decided it is safe to live with — an
+unknown option you are not using yet, say — filter it by category rather than
+by module: the warning is attributed to your own code, not to ``tephpy``, so a
+filter keyed on the module never matches it.
 
 .. code-block:: python
 
@@ -125,6 +132,7 @@ than by module: the warning is attributed to your own code, not to
     import tephpy
 
     warnings.filterwarnings("ignore", category=tephpy.exceptions.TephpyConfigWarning)
+    tephpy.config.load()
 
 Saving From Python
 ------------------
