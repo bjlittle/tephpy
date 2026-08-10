@@ -113,6 +113,19 @@ So if a styling you have relied on for months disappears after an upgrade,
 read the warning: one obsolete section name is enough to switch off every
 other line in the file.
 
+Once you have read the warning and decided it is safe to live with — an
+unknown option you are not using yet, say — filter it by category rather
+than by module: the warning is attributed to your own code, not to
+``tephpy``, so a filter keyed on the module never matches it.
+
+.. code-block:: python
+
+    import warnings
+
+    import tephpy
+
+    warnings.filterwarnings("ignore", category=tephpy.exceptions.TephpyConfigWarning)
+
 Saving From Python
 ------------------
 

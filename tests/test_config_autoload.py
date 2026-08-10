@@ -30,6 +30,11 @@ PROBE = textwrap.dedent(
     """
 )
 
+#: ``PROBE``'s 1-based line number for ``import tephpy``, the line a warning
+#: from the auto-load should blame. Derived rather than hard-coded so adding
+#: another import to ``PROBE`` cannot silently break the tests that pin it.
+_PROBE_IMPORT_LINE = PROBE.splitlines().index("import tephpy") + 1
+
 
 def _environ(tmp_path, **env_extra):
     """Build the controlled environment both probes run under.
@@ -68,8 +73,8 @@ def _run_file(tmp_path, **env_extra):
 
     ``-c`` gives every frame the filename ``<string>``, which is no use to
     a test about which file a warning points at. A script on disk gives the
-    ``import tephpy`` line a path and a line number — line 2, after the
-    leading blank ``textwrap.dedent`` preserves (configfile spec §5.1).
+    ``import tephpy`` line a path and a line number — ``_PROBE_IMPORT_LINE``,
+    computed from ``PROBE`` rather than hard-coded (configfile spec §5.1).
     """
     probe = tmp_path / "probe.py"
     probe.write_text(PROBE, encoding="utf-8")
@@ -212,7 +217,7 @@ def test_a_typo_blames_the_users_import_line(tmp_path):
     typo = tmp_path / "typo.yaml"
     typo.write_text("isotherms:\n  colour: purple\n", encoding="utf-8")
     probe, result = _run_file(tmp_path, TEPHPYRC=str(typo))
-    assert f"{probe}:2:" in result.stderr
+    assert f"{probe}:{_PROBE_IMPORT_LINE}:" in result.stderr
     assert str(Path(tephpy.__file__).parent) not in result.stderr
 
 
@@ -226,5 +231,5 @@ def test_an_unreadable_file_blames_the_users_import_line(tmp_path):
     broken = tmp_path / "broken.yaml"
     broken.write_text("isotherms:\n  color: [unclosed\n", encoding="utf-8")
     probe, result = _run_file(tmp_path, TEPHPYRC=str(broken))
-    assert f"{probe}:2:" in result.stderr
+    assert f"{probe}:{_PROBE_IMPORT_LINE}:" in result.stderr
     assert str(Path(tephpy.__file__).parent) not in result.stderr
