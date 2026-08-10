@@ -576,9 +576,11 @@ directories exist, the discovered set is not empty, and the pages known to carry
 among those yielding blocks. Membership names them, not a block count, because a count is a
 figure that has to be re-measured to stay true. A fourth guards the near miss the other
 three cannot see: a page of eight good blocks and one spelled `pycon` or `python3` satisfies
-membership, and its odd block is passed over in silence. A block naming a language that
-means python and is not `python` is therefore reported — what the gate looks for has to be
-wider than what it accepts, or a near miss reads as compliance. They are separate test
+membership, and its odd block is passed over in silence. A block whose language means python
+and is not `python` is therefore reported, and so is one that names no language at all —
+Sphinx highlights that one with whatever `highlight_language` is set to, so it can be python
+on the page and invisible here. What the gate looks for has to be wider than what it accepts,
+or a near miss reads as compliance. They are separate test
 functions rather
 than parameters of the per-page one because pytest reports an empty parametrisation as a
 skip, so an extractor returning nothing would leave the summary line green.
@@ -689,9 +691,10 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   Mutation is what shows the gate is load-bearing rather than merely green: renaming a
   keyword a snippet passes fails that page's case and no other; narrowing the directive the
   extractor recognises fails the membership assertion rather than passing every page
-  vacuously; respelling one block's language as `pycon` fails the near-miss assertion while
-  membership still passes; and giving a snippet a typed-correct undrawable value —
-  `color="notacolour"` — fails only while the terminating draw is there to catch it.
+  vacuously; respelling one block's language as `pycon`, or deleting it altogether, fails
+  that assertion while membership still passes; and giving a snippet a typed-correct
+  undrawable value — `color="notacolour"` — fails only while the terminating draw is there
+  to catch it.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.

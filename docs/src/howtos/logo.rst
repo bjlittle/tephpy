@@ -19,7 +19,7 @@ in the margin, clear of the diagram:
 
     import matplotlib.pyplot as plt
 
-    import tephpy  # noqa: F401
+    import tephpy  # registers the "tephigram" projection
     from tephpy.plotting import add_logo
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
