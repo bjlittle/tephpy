@@ -151,21 +151,34 @@ def test_a_compound_run_cannot_span_a_line():
     assert "logo-spec-5" not in [slug for _text, slug in whole]
 
 
-#: Enough grammar to build every construction that has bitten so far — a
+#: Enough grammar to build the compound-run divergence below — a
 #: multi-word prefix, a one-word prefix, two section numbers, both run
-#: separators, a word that is not one, and the wrap itself. Five of these
-#: compose the compound-run divergence (prefix, number, separator, wrap,
-#: number), so nothing shorter than ``repeat=5`` can express it.
+#: separators, a word that is not one, and the wrap itself — but not
+#: every construction that has bitten: the split-prefix wrap (``logo``
+#: parted from ``spec``, one word from the other) needs them held apart,
+#: and here they exist only joined, as ``"logo spec"``; see the third
+#: paragraph below. Five of these compose the compound-run divergence
+#: (prefix, number, separator, wrap, number), so nothing shorter than
+#: ``repeat=5`` can express it.
 #:
-#: The floor was found by mutation, not by reading. The first version of
-#: ``test_a_scan_is_indifferent_to_how_its_source_is_segmented`` used
-#: ``repeat=4`` and passed under ``SEPARATOR`` widened to ``\s*[,/]\s*`` —
-#: vacuous for the compound-run divergence the test exists to catch. The
-#: other known divergence, the prefix gap widened to ``\s``, is already
-#: caught at ``repeat=3`` and gives no evidence either way about the floor.
-#: Do not lower ``repeat`` without re-running the ``SEPARATOR`` mutation at
-#: the new value — lowering it reads as a performance tidy-up and would
-#: silently empty the only test guarding the compound-run divergence.
+#: At ``repeat=4`` today, this property is vacuous under ``SEPARATOR``
+#: widened to ``\s*[,/]\s*``: the compound-run construction above needs
+#: all five pieces, and one fewer collapses it away. Do not lower
+#: ``repeat`` without re-running that mutation at the new value —
+#: lowering it reads as a performance tidy-up, and would silently remove
+#: the only guard against a third, unknown divergence of this shape. It
+#: would not remove the only guard against the known instance:
+#: ``test_a_compound_run_cannot_span_a_line`` fails independently under
+#: the same mutation.
+#:
+#: A second known divergence, the prefix-to-sign gap (``[^\S\n]*§`` in
+#: :func:`citation_pattern`) widened to ``\s``, is already caught at
+#: ``repeat=3`` and gives no evidence either way about the floor. A
+#: third, the gap inside a multi-word prefix widened the same way, is
+#: outside this generator's reach at any ``repeat``: ``PIECES`` never
+#: holds ``"logo"`` and ``"spec"`` apart, only joined. It is guarded
+#: only by ``test_a_citation_cannot_span_a_line`` (``WRAPPED[0]`` and
+#: ``WRAPPED[1]``), not by this property.
 PIECES = ["logo spec", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
 
 

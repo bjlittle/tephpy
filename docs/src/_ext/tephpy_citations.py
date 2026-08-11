@@ -302,9 +302,11 @@ def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
             # ``ensure_ascii=False`` is load-bearing, not style. The default
             # encodes ``§`` as a ``\u00a7`` escape, which never matches the
             # literal character ``nbformat`` writes, so every citation-bearing
-            # notebook line would fail to locate and fall back to file line 1.
-            # ``test_a_notebook_citation_reports_its_own_file_line`` catches the
-            # revert — but only for someone who runs the suite before deciding.
+            # notebook line would fail to locate and be reported against the
+            # previous located line instead — line 1 only if none has been
+            # located yet. ``test_a_notebook_citation_reports_its_own_file_line``
+            # catches the revert, but only for someone who runs the suite
+            # before deciding.
             encoded = json.dumps(line, ensure_ascii=False)[1:-1]
             at = cursor
             while at < len(raw) and encoded not in raw[at]:
