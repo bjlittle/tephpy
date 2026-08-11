@@ -156,6 +156,16 @@ def test_a_compound_run_cannot_span_a_line():
 #: separators, a word that is not one, and the wrap itself. Five of these
 #: compose the compound-run divergence (prefix, number, separator, wrap,
 #: number), so nothing shorter than ``repeat=5`` can express it.
+#:
+#: The floor was found by mutation, not by reading. The first version of
+#: ``test_a_scan_is_indifferent_to_how_its_source_is_segmented`` used
+#: ``repeat=4`` and passed under ``SEPARATOR`` widened to ``\s*[,/]\s*`` —
+#: vacuous for the compound-run divergence the test exists to catch. The
+#: other known divergence, the prefix gap widened to ``\s``, is already
+#: caught at ``repeat=3`` and gives no evidence either way about the floor.
+#: Do not lower ``repeat`` without re-running the ``SEPARATOR`` mutation at
+#: the new value — lowering it reads as a performance tidy-up and would
+#: silently empty the only test guarding the compound-run divergence.
 PIECES = ["logo spec", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
 
 

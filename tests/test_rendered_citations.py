@@ -402,7 +402,17 @@ def test_a_nested_citation_is_explained_and_not_merely_counted(
 
 
 def test_the_gate_fails_when_no_citation_became_a_link(monkeypatch, capsys, tmp_path):
-    """Total blindness — the extension unloaded — is reported as its own failure."""
+    """Total blindness — the extension unloaded — is reported as its own failure.
+
+    The implementation plan for docs spec §3.7 states that this branch "is the
+    one no fixture test can supply". That is wrong, and the correction belongs
+    here because a plan is a frozen point-in-time record (docs spec §3.4). The
+    branch is unreachable only against the real build; against a ``tmp_path``
+    tree of pages carrying citations and no links it fires directly, which is
+    what this test does. Left uncorrected, the document a maintainer reads to
+    understand the gate argues for a coverage hole that does not exist — in
+    the one branch that catches the extension being dropped from ``conf.py``.
+    """
     root = build(tmp_path, {"index.html": "<p>spec @3.2 and spec @3.1</p>"})
     assert run(monkeypatch, root) == 1
     assert "no citation became a link across 1 pages" in capsys.readouterr().out
