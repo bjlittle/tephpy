@@ -108,8 +108,8 @@ def test_each_citation_form_resolves(source, owner, expected):
 
 
 WRAPPED = [
-    "the tephpy logo\nspec @3.2 explains it",  # a whole prefix carried onto a wrap
-    "read the docs\nspec @3.2 for the rule",  # a prefix split between its words
+    "the tephpy logo\nspec @3.2 explains it",  # a split-prefix wrap, `logo spec`
+    "read the docs\nspec @3.2 for the rule",  # the same wrap, `docs spec`
     "read the spec\n@3.2 for the rule",  # a prefix parted from its sign
 ]
 
@@ -151,23 +151,23 @@ def test_a_compound_run_cannot_span_a_line():
     assert "logo-spec-5" not in [slug for _text, slug in whole]
 
 
-#: Enough grammar to build the compound-run divergence below — a
-#: multi-word prefix, a one-word prefix, two section numbers, both run
-#: separators, a word that is not one, and the wrap itself — but not
-#: every construction that has bitten: the split-prefix wrap (``logo``
-#: parted from ``spec``, one word from the other) needs them held apart,
-#: and here they exist only joined, as ``"logo spec"``; see the third
-#: paragraph below. Five of these compose the compound-run divergence
+#: Enough grammar to build the divergence of
+#: ``test_a_compound_run_cannot_span_a_line`` — a multi-word prefix, a
+#: one-word prefix, two section numbers, both run separators, a word that
+#: is not one, and the wrap itself — but not every construction that has
+#: bitten: the split-prefix wrap of ``WRAPPED[0]`` and ``WRAPPED[1]``
+#: needs ``logo`` and ``spec`` held apart, and here they exist only
+#: joined, as ``"logo spec"``. Five of these compose that divergence
 #: (prefix, number, separator, wrap, number), so nothing shorter than
 #: ``repeat=5`` can express it.
 #:
 #: At ``repeat=4`` today, this property is vacuous under ``SEPARATOR``
-#: widened to ``\s*[,/]\s*``: the compound-run construction above needs
-#: all five pieces, and one fewer collapses it away. Do not lower
-#: ``repeat`` without re-running that mutation at the new value —
-#: lowering it reads as a performance tidy-up, and would silently remove
-#: the only guard against a third, unknown divergence of this shape. It
-#: would not remove the only guard against the known instance:
+#: widened to ``\s*[,/]\s*``: that construction needs all five pieces,
+#: and one fewer collapses it away. Do not lower ``repeat`` without
+#: re-running that mutation at the new value — lowering it reads as a
+#: performance tidy-up, and would silently remove the only guard against
+#: a further, unknown divergence of this shape. It would not remove the
+#: only guard against the known instance:
 #: ``test_a_compound_run_cannot_span_a_line`` fails independently under
 #: the same mutation.
 #:
@@ -175,9 +175,10 @@ def test_a_compound_run_cannot_span_a_line():
 #: :func:`citation_pattern`) widened to ``\s``, is already caught at
 #: ``repeat=3`` and gives no evidence either way about the floor. A
 #: third, the gap inside a multi-word prefix widened the same way, is
-#: outside this generator's reach at any ``repeat``: ``PIECES`` never
-#: holds ``"logo"`` and ``"spec"`` apart, only joined. It is guarded
-#: only by ``test_a_citation_cannot_span_a_line`` (``WRAPPED[0]`` and
+#: outside this generator's reach at any ``repeat``: ``PIECES`` carries
+#: ``"logo spec"`` only as one joined piece, and no ``"logo"`` of its
+#: own for a wrap to part from ``"spec"``. It is guarded only by
+#: ``test_a_citation_cannot_span_a_line`` (``WRAPPED[0]`` and
 #: ``WRAPPED[1]``), not by this property.
 PIECES = ["logo spec", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
 
@@ -194,10 +195,14 @@ def test_a_scan_is_indifferent_to_how_its_source_is_segmented(owner):
     readings differ, both gates pass and the citation names a document nobody
     checked.
 
-    Two instances of that divergence were found by hand, in the prefix gap and
-    in the run separator, each a ``\s`` that spanned a newline. The property is
-    asserted over generated sources so that a third is caught here rather than
-    by a reader who followed a link into the wrong specification.
+    Three instances of that divergence were found by hand, each a ``\s`` that
+    spanned a newline: the gap inside a multi-word prefix and the gap between a
+    prefix and its section sign, both held by
+    ``test_a_citation_cannot_span_a_line``, and the run separator, held by
+    ``test_a_compound_run_cannot_span_a_line``. The property is asserted over
+    generated sources so that a further, unknown one is caught here rather than
+    by a reader who followed a link into the wrong specification — as far as
+    ``PIECES`` reaches, which its own comment bounds.
     """
     for combination in itertools.product(PIECES, repeat=5):
         source = "".join(combination)

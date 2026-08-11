@@ -29,8 +29,9 @@ A second limitation runs the other way, and matters more: an ``<a>`` a theme
 template leaves unclosed survives on the stack only until an ancestor's end tag
 pops past it, because ``handle_endtag`` pops the whole run down to the tag it
 matches and takes the stray ``<a>`` with it. Every bare citation inside that window
-counts as linked instead of bare — the gate passing by finding nothing, not by
-anything the pattern actually found. The inverse, an ``<a>`` nested inside an
+counts as linked instead of bare — the pattern finds them and the count buckets
+them wrong, so the gate passes on an empty bare list rather than on anything
+really being linked. The inverse, an ``<a>`` nested inside an
 ``<a>``, fails closed. Sphinx output is well-formed, so this is theoretical today;
 a theme upgrade is the change that would introduce it.
 

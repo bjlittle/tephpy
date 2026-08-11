@@ -404,11 +404,11 @@ def test_a_nested_citation_is_explained_and_not_merely_counted(
 def test_the_gate_fails_when_no_citation_became_a_link(monkeypatch, capsys, tmp_path):
     """Total blindness — the extension unloaded — is reported as its own failure.
 
-    The implementation plan for docs spec §3.7, at
-    ``docs/src/developer/plans/2026-08-04-tephpy-citation-crossrefs.md:1228``,
-    states that this branch "is the one no fixture test can supply". That is
-    wrong, and the correction belongs here because a plan is a frozen
-    point-in-time record (docs spec §3.4). The branch is unreachable only
+    The implementation plan for docs spec §3.7,
+    ``docs/src/developer/plans/2026-08-04-tephpy-citation-crossrefs.md``, states
+    that this branch "is the one no fixture test can supply". That is wrong, and
+    the correction belongs here because a plan is a frozen point-in-time record
+    (docs spec §3.4). The branch is unreachable only
     against the real build; against a ``tmp_path`` tree of pages carrying
     citations and no links it fires directly, which is what this test does.
     Left uncorrected, the document a maintainer reads to understand the gate

@@ -667,3 +667,59 @@ git add changelog/
 git commit -m "Add the changelog fragment"
 git push
 ```
+
+---
+
+## Corrections
+
+Eight claims in the tasks above turned out to be false when the code was executed
+during implementation and again during the branch's own review. The task text is
+left exactly as it was written: this document is a point-in-time record (docs spec
+§3.4), and what it records is what was *planned*, mistakes included. This section
+exists because nothing else can flag them — a plan is excluded from the docs build,
+from the sdist, and from every gate, so a false claim inside one survives
+indefinitely. The branch spent one of its seven facts correcting a claim of exactly
+this kind in an earlier plan; the point of writing these down is not to leave eight
+more behind. In each case the code carries the true statement, and it is the code
+that should be copied out, not the step.
+
+- **Task 2 Step 2** names §3.6 as one of the two gates folded into `pixi run docs`.
+  It is not: the gate of docs spec §3.6 reads the *sources*, not the build's
+  output, and already ran under `pixi run lint`. What `pixi run docs` gained is the
+  gate of docs spec §3.7 and the documentation-link check. The committed comment in
+  `pyproject.toml` says so.
+- **Task 2 Step 3** expects `grep -c "reading sources"` to print `1` as evidence
+  that the shared dependency built once. Sphinx logs that line once per source file
+  when its output is not a TTY — 33 times in this build — so the expectation could
+  never hold, whatever the task graph did. Build-once was established instead by
+  `grep -c "build succeeded"` and `grep -c "^Running Sphinx"`, each of which is 1.
+- **Task 3 Step 1** gives the tolerant pop in `handle_endtag` as the reason an
+  unclosed `<a>` survives on the stack. It is the reason it does *not*: the pop
+  unwinds the whole run down to the tag it matches, and takes the stray `<a>` with
+  it. The fail-open window therefore ends at the enclosing element's end tag rather
+  than running to the end of the page. The module docstring of
+  `check_rendered_citations.py` states the mechanism as it was measured.
+- **Task 3 Step 5** expects the corpus count to have moved on this branch because
+  "the plan document you are reading is a new tracked file". Plans are dropped by
+  `EXCLUDED`, so this document is not in the corpus and cannot move the count. The
+  count is 195 at the branch point and 195 at its head.
+- **Task 3 Step 6** gives the corpus count as moving from 160 to 166 across
+  {pull}`90`'s branch. It moved from 160 to 167, which is the figure written into
+  `corpus()`.
+- **Task 3 Step 7** describes the citation run surviving in
+  `2026-08-03-tephpy-published-specs.md` as breaking *because* it wraps after its
+  comma. The run is unprefixed on both physical lines, so the wrap changes nothing:
+  scanning the two lines whole and scanning them one at a time agree. The step also
+  treats `add_logo` as a citation prefix form. It is not one — it is a function name
+  written in prose, and the logo specification's prefix is `logo spec`. Fact 4, as
+  committed at `EXCLUDED`, says both of these correctly.
+- **Task 4 Step 2** has a notebook line that fails to locate falling back to file
+  line 1. It falls back to the previous located line, `max(cursor, 1)`, and reaches
+  line 1 only when nothing has been located yet. The committed comment at the
+  `json.dumps` call and the `notebook_lines` docstring both say so.
+- **Task 4 Step 3** says the first version of
+  `test_a_scan_is_indifferent_to_how_its_source_is_segmented` used `repeat=4` and
+  "passed under both known mutations". It passes under the `SEPARATOR` mutation
+  only; the prefix-to-sign mutation is caught from `repeat=3` upward and so says
+  nothing about the floor. `repeat=4` is also not in the history: the test landed at
+  `1665bd8` already at `repeat=5`, so no commit ever carried the vacuous version.

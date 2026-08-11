@@ -719,7 +719,7 @@ One-off work, performed once and then finished:
 ## 6. Verification
 
 The docs build runs with `--fail-on-warning --keep-going` and nitpicky cross-references,
-and `pixi run docs` now runs the output gates of §3.7 and of the documentation-link check
+and `pixi run docs` runs the output gates of §3.7 and of the documentation-link check
 after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 
 - `_build/html/developer/plans/` does not exist, and no plan page is reachable.
@@ -734,7 +734,9 @@ after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   unlinked. The literals are fewer than a reader would count from §3.7 above, because the
   gate does not read `_modules/`: viewcode renders the 203 section signs of Python source
   verbatim, and they are code rather than prose. Reading those pages too gives 238 literals
-  and the same verdict, every one of them already covered by `<pre>`.
+  and the same verdict, every one of them already covered by `<pre>`. Those counts are a
+  one-off record of what the gate found then; the property itself is not beyond the primary
+  gate but part of it, checked on every `pixi run docs`.
 - No bare `#N` and no hand-written `bjlittle/tephpy` issue or pull-request URL survives in
   the corpus (§3.8), and every reference renders as a link on the built specification
   pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
