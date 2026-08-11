@@ -329,11 +329,29 @@ sphinx_changelog = ">=1.6"
 sphinxcontrib-bibtex = ">=2.6"
 towncrier = ">=24.8"
 
-[tool.pixi.feature.docs.tasks.docs]
+[tool.pixi.feature.docs.tasks.docs-html]
 cmd = "make html"
 cwd = "docs"
 depends-on = ["docs-clean"]
 description = "Build the HTML documentation"
+
+# The two gates of docs spec §3.6, §3.7 read the build's output, and until now ran
+# only in `ci-docs.yml`. Neither is visible to `pixi run tests` or `pixi run lint`,
+# and a build that linked no citation at all exits 0 -- so `docs` depends on both,
+# and a contributor reproduces a `ci-docs` failure without pushing (:issue:`91`).
+[tool.pixi.feature.docs.tasks.docs-check-citations]
+cmd = "python .github/scripts/check_rendered_citations.py docs/_build/html"
+depends-on = ["docs-html"]
+description = "Check that every rendered citation became a link"
+
+[tool.pixi.feature.docs.tasks.docs-check-links]
+cmd = "python .github/scripts/check_documentation_links.py docs/_build/html"
+depends-on = ["docs-html"]
+description = "Check that every documentation link resolves in the build"
+
+[tool.pixi.feature.docs.tasks.docs]
+depends-on = ["docs-check-citations", "docs-check-links"]
+description = "Build the HTML documentation and check its output"
 
 [tool.pixi.feature.docs.tasks.docs-clean]
 cmd = "make clean"

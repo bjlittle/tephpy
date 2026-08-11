@@ -719,7 +719,8 @@ One-off work, performed once and then finished:
 ## 6. Verification
 
 The docs build runs with `--fail-on-warning --keep-going` and nitpicky cross-references,
-so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
+and `pixi run docs` now runs the output gates of §3.7 and of the documentation-link check
+after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 
 - `_build/html/developer/plans/` does not exist, and no plan page is reachable.
 - The sdist carries the specifications and not the plans (item 2).
