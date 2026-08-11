@@ -581,8 +581,10 @@ three cannot see: a page of eight good blocks and one spelled `pycon` or `python
 membership, and its odd block is passed over in silence. A block whose language means python
 and is not `python` is therefore reported, and so is one that names no language at all, in
 either of the two shapes that takes: a directive that omits it, and reStructuredText's other
-code-block form — a paragraph ending in `::` with an indented body under it, which is not a
-directive at all and so is invisible to an extractor that reads directives. Sphinx highlights
+code-block form — a paragraph ending in `::`, a blank line, then an indented body, which is
+not a directive at all and so is invisible to an extractor that reads directives. The blank
+line is part of the shape rather than a formality: written without one, the same two lines
+are a definition list or a field, and docutils renders neither as code. Sphinx highlights
 both with whatever `highlight_language` is set to, and `conf.py` leaves it at the default,
 which highlights as python — so either can be python on the page and invisible here. What
 the gate looks for has to be wider than what it accepts, or a near miss reads as compliance.

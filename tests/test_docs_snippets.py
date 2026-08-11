@@ -150,10 +150,13 @@ def implicit_blocks(text: str) -> list[int]:
     block is python on the page and is reported rather than run, which is what a
     directive naming no language already gets (docs spec §3.9).
 
-    A candidate is a line whose stripped form ends in ``::`` with a strictly
-    more-indented body under it. The body is what keeps an ordinary sentence
-    out: a marker with nothing indented after it is a docutils error rather
-    than a block. A line opening ``..`` is a directive or a comment -- both
+    A candidate is a line whose stripped form ends in ``::`` with a blank line
+    and then a strictly more-indented body under it. The body is what keeps an
+    ordinary sentence out: a marker with nothing indented after it is a docutils
+    error rather than a block. The blank line is what keeps a definition list
+    out: written without one, ``term::`` over an indented line is a definition
+    and ``:field::`` over one is a field body, and docutils renders neither as
+    code. A line opening ``..`` is a directive or a comment -- both
     ``.. note::`` and a language-less ``.. code-block::`` end in ``::``, and the
     second is :func:`literal_blocks`'s to report. A line already inside a block
     that function returned is that block's content, which the body of a
@@ -185,6 +188,11 @@ def implicit_blocks(text: str) -> list[int]:
         if index + 1 in claimed:
             continue
         cursor = index + 1
+        if cursor >= len(lines) or lines[cursor].strip():
+            # The blank line is what makes this a literal block. Without it
+            # docutils reads the indented lines below as a definition or as a
+            # field body, and neither is rendered as code.
+            continue
         while cursor < len(lines) and not lines[cursor].strip():
             cursor += 1
         if cursor >= len(lines):
@@ -394,6 +402,12 @@ def test_a_marker_with_no_indented_body_is_not_a_block():
     """Nothing indented under it is a docutils error, not code to report."""
     text = "At the prompt::\n\nProse at column zero.\n"
     assert implicit_blocks(text) == []
+
+
+def test_a_marker_with_no_blank_line_is_not_a_block():
+    """Without the blank line docutils renders a definition, not code."""
+    assert implicit_blocks("term::\n    The definition of the term.\n") == []
+    assert implicit_blocks(":Some Field::\n    The field's body.\n") == []
 
 
 def test_the_script_is_line_aligned_with_the_page():
