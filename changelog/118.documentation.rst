@@ -1,3 +1,4 @@
 Added a Code Examples section to the documentation style guide, stating what an
 author may rely on across the blocks of a page, and replaced the ``# noqa`` comment
-in two how-to snippets with the reason the import is there. (:user:`claude`)
+in two how-to snippets with the reason the import is there. (:issue:`114`,
+:user:`claude`)

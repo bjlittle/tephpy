@@ -61,7 +61,10 @@ PYTHON = "python"
 #: rather than skipped: the detector has to be wider than the validator, or a
 #: near-miss reads as compliance instead of as something to look at. ``pycon``
 #: is here too -- a REPL transcript is still code a reader is invited to copy,
-#: and the answer is to rewrite it as a script, not to exempt it.
+#: and the answer is to rewrite it as a script, not to exempt it. The widest
+#: near miss names no language at all and so cannot be listed here: a directive
+#: that omits one, and the bare ``::`` marker :func:`implicit_blocks` finds, are
+#: reported by their shape instead.
 NEAR_MISS = frozenset({"ipython", "ipython3", "py", "py3", "pycon", "python3"})
 
 #: Appended to every page's script. Matplotlib defers most of its validation to
@@ -113,8 +116,9 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
         body = len(lines[cursor]) - len(lines[cursor].lstrip())
         if body <= opening:
             # The directive has no body -- the next content is a sibling, not a
-            # child. Step by one rather than to `cursor`, so that a directive
-            # immediately following this one is not stepped over.
+            # child. Step by one rather than to `cursor + 1`, where the scan
+            # resumes after a block with a body, because that would step over a
+            # directive immediately following this one.
             index += 1
             continue
         start = cursor
@@ -134,6 +138,60 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
             )
         )
         index = cursor
+    return found
+
+
+def implicit_blocks(text: str) -> list[int]:
+    """Find every literal block introduced by a bare ``::`` marker.
+
+    reStructuredText's other code-block form -- a paragraph ending in ``::``, a
+    blank line, then an indented body -- names no language, so Sphinx renders it
+    with whatever ``highlight_language`` says, and the default is python. Such a
+    block is python on the page and is reported rather than run, which is what a
+    directive naming no language already gets (docs spec §3.9).
+
+    A candidate is a line whose stripped form ends in ``::`` with a strictly
+    more-indented body under it. The body is what keeps an ordinary sentence
+    out: a marker with nothing indented after it is a docutils error rather
+    than a block. A line opening ``..`` is a directive or a comment -- both
+    ``.. note::`` and a language-less ``.. code-block::`` end in ``::``, and the
+    second is :func:`literal_blocks`'s to report. A line already inside a block
+    that function returned is that block's content, which the body of a
+    ``code-block:: text`` is free to end with.
+
+    Parameters
+    ----------
+    text : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    list of int
+        The 1-based first line of each such block's body, in document order,
+        so that a report of one reads like a report of the others.
+
+    """
+    lines = text.splitlines()
+    claimed = {
+        number
+        for first, _, body in literal_blocks(text)
+        for number in range(first, first + len(body))
+    }
+    found: list[int] = []
+    for index, line in enumerate(lines):
+        marker = line.strip()
+        if not marker.endswith("::") or marker.startswith(".."):
+            continue
+        if index + 1 in claimed:
+            continue
+        cursor = index + 1
+        while cursor < len(lines) and not lines[cursor].strip():
+            cursor += 1
+        if cursor >= len(lines):
+            continue
+        body = len(lines[cursor]) - len(lines[cursor].lstrip())
+        if body > len(line) - len(line.lstrip()):
+            found.append(cursor + 1)
     return found
 
 
@@ -183,8 +241,19 @@ def page_script(text: str) -> str | None:
     return "\n".join(script) + "\n" + EPILOGUE
 
 
-def user_pages() -> list[Path]:
+def user_pages(docs: Path = DOCS) -> list[Path]:
     """Every page in the user quadrants, whether or not it carries code.
+
+    The search descends: a tutorial series is the thing that gets a directory of
+    its own, and a page inside one is governed from the day it lands like any
+    other (docs spec §3.9).
+
+    Parameters
+    ----------
+    docs : Path, optional
+        The documentation source root holding the quadrant directories. It
+        defaults to this repository's, which is what the gate reads; a test
+        passes a tree of its own to show that the descent happens.
 
     Returns
     -------
@@ -194,7 +263,7 @@ def user_pages() -> list[Path]:
     """
     found: list[Path] = []
     for quadrant in QUADRANTS:
-        found.extend(sorted((DOCS / quadrant).glob("*.rst")))
+        found.extend(sorted((docs / quadrant).rglob("*.rst")))
     return found
 
 
@@ -303,6 +372,30 @@ def test_two_adjacent_directives_are_both_found():
     assert literal_blocks(text) == [(5, "python", ["value = 1"])]
 
 
+def test_a_bare_marker_block_is_found():
+    """``::`` ending a paragraph opens a block Sphinx highlights as python."""
+    text = "At the prompt::\n\n    value = 1\n"
+    assert implicit_blocks(text) == [3]
+
+
+def test_a_marker_inside_a_block_body_is_not_a_block():
+    """A ``text`` block may end a line in ``::``; that line is its content."""
+    text = ".. code-block:: text\n\n    At the prompt::\n\n        value = 1\n"
+    assert implicit_blocks(text) == []
+
+
+def test_a_directive_is_not_a_bare_marker():
+    """``.. note::`` ends in ``::`` and opens an admonition, not a block."""
+    text = ".. note::\n\n    Prose inside the admonition.\n"
+    assert implicit_blocks(text) == []
+
+
+def test_a_marker_with_no_indented_body_is_not_a_block():
+    """Nothing indented under it is a docutils error, not code to report."""
+    text = "At the prompt::\n\nProse at column zero.\n"
+    assert implicit_blocks(text) == []
+
+
 def test_the_script_is_line_aligned_with_the_page():
     """Block code sits at the line numbers it occupies in the source."""
     text = "\n".join(["Prose."] * 9 + [".. code-block:: python", "", "    value = 1"])
@@ -332,6 +425,17 @@ def test_the_script_ends_with_the_draw_epilogue():
     script = page_script(".. code-block:: python\n\n    value = 1\n")
     assert script.endswith(EPILOGUE)
     assert "canvas.draw()" in script
+
+
+def test_a_page_in_a_subdirectory_is_found(tmp_path):
+    """A quadrant's pages are every page under it, not its top level only."""
+    nested = []
+    for quadrant in QUADRANTS:
+        page = tmp_path / quadrant / "series" / "index.rst"
+        page.parent.mkdir(parents=True)
+        page.write_text("Prose.\n", encoding="utf-8")
+        nested.append(page)
+    assert user_pages(tmp_path) == nested
 
 
 def environment(home: Path) -> dict[str, str]:
@@ -454,15 +558,19 @@ def test_the_documented_pages_yield_blocks():
 
 def test_no_block_hides_the_language_this_gate_runs():
     """A python block spelled another way, or not spelled at all, is reported."""
-    offenders = [
-        (identify(page), line, language)
-        for page in user_pages()
-        for line, language, _ in literal_blocks(page.read_text(encoding="utf-8"))
-        if language.lower() in NEAR_MISS or not language
-    ]
+    offenders: list[tuple[str, int, str]] = []
+    for page in user_pages():
+        text = page.read_text(encoding="utf-8")
+        offenders.extend(
+            (identify(page), line, language)
+            for line, language, _ in literal_blocks(text)
+            if language.lower() in NEAR_MISS or not language
+        )
+        offenders.extend((identify(page), line, "") for line in implicit_blocks(text))
     assert offenders == [], (
         "these blocks do not name a language this gate executes, so they would "
         f"be passed over in silence: {offenders}. A block with no language is "
         "highlighted using Sphinx's `highlight_language` and can be python on "
-        "the page; write them all as `python` (docs spec §3.9)"
+        "the page, whether it is a directive that names none or a paragraph "
+        "ending in `::`; write them all as `python` (docs spec §3.9)"
     )

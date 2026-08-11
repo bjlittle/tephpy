@@ -108,7 +108,7 @@ must state two things a reader cannot infer from any single document:
   |---|---|---|
   | `spec §…` | `2026-07-22-tephpy-design.md` | 329 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
-  | `docs spec §…` | this document | 46 |
+  | `docs spec §…` | this document | 56 |
   | `configfile spec §…` | `2026-08-07-config-file-design.md` | 66 |
 
   The column is named rather than left as a bare "count" so the figures can be reproduced
@@ -519,8 +519,10 @@ document order.**
 
 The corpus is derived rather than declared, for the reason §3.6 gives: it is every `.rst`
 under `docs/src/howtos/`, `docs/src/tutorials/` and `docs/src/explanation/` — the three
-Diátaxis quadrants written for users — so a page is governed from the day it lands. The reference quadrant is out of scope because it cannot drift — autoapi generates
-it from the docstrings and `sphinx_click` from the live CLI — and the developer section is
+Diátaxis quadrants written for users — so a page is governed from the day it lands, and so
+is a page in a subdirectory of one, which is the shape a tutorial series takes.
+The reference quadrant is out of scope because it cannot drift — autoapi generates it from
+the docstrings and `sphinx_click` from the live CLI — and the developer section is
 contributor material whose specifications and plans quote code as illustration. A page with
 no python block contributes nothing to run, which is the ordinary case in the explanation
 quadrant.
@@ -577,13 +579,16 @@ among those yielding blocks. Membership names them, not a block count, because a
 figure that has to be re-measured to stay true. A fourth guards the near miss the other
 three cannot see: a page of eight good blocks and one spelled `pycon` or `python3` satisfies
 membership, and its odd block is passed over in silence. A block whose language means python
-and is not `python` is therefore reported, and so is one that names no language at all —
-Sphinx highlights that one with whatever `highlight_language` is set to, so it can be python
-on the page and invisible here. What the gate looks for has to be wider than what it accepts,
-or a near miss reads as compliance. They are separate test
-functions rather
-than parameters of the per-page one because pytest reports an empty parametrisation as a
-skip, so an extractor returning nothing would leave the summary line green.
+and is not `python` is therefore reported, and so is one that names no language at all, in
+either of the two shapes that takes: a directive that omits it, and reStructuredText's other
+code-block form — a paragraph ending in `::` with an indented body under it, which is not a
+directive at all and so is invisible to an extractor that reads directives. Sphinx highlights
+both with whatever `highlight_language` is set to, and `conf.py` leaves it at the default,
+which highlights as python — so either can be python on the page and invisible here. What
+the gate looks for has to be wider than what it accepts, or a near miss reads as compliance.
+They are separate test functions rather than parameters of the per-page one because pytest
+reports an empty parametrisation as a skip, so an extractor returning nothing would leave
+the summary line green.
 
 The gate is an ordinary test module, so it runs in every test environment on every Python
 the project supports — which is more than a docs-build gate could do, the docs build having
@@ -612,6 +617,23 @@ they are pinned in one environment while this gate runs in every one; and a page
 are anonymous and positional, so a baseline could only be keyed on figure order and would
 break when an author inserts a snippet. What a how-to's figures should look like is already
 pinned by `tests/plotting/test_images.py`, against the APIs the pages call.
+
+What the terminating draw validates is each figure's *final* state, because there is one
+draw and it is at the end. Where a later block replaces an earlier one's artists — two
+blocks of `emphasis.rst` call `ax.isotherms(...)` on the same axes, and the second supersedes
+the first — the superseded artists are never drawn, and an undrawable value in the block that
+made them raises nothing. Measured: `"color": "notacolour"` in the later block fails that
+page, and the same mutation in the earlier one passes. Drawing after every block would close
+it, and would cost the property that makes a failure readable: the draw would have to be
+interleaved into the script at the line numbers the page's own prose occupies, so a
+traceback would no longer name the page's lines. The end of the script is the only place a
+statement can be added without disturbing the alignment above it.
+
+Only `.rst` is read. myst-nb is among the extensions, so a Markdown page in a user quadrant
+would build and publish like any other and this gate would not see it — the corpus is scoped
+to `.rst` above because that is what the user quadrants are written in, and the first author
+to reach for Markdown should meet that boundary here rather than discover it as a page the
+gate silently exempts.
 
 (docs-spec-4)=
 ## 4. Canonical usage
@@ -691,10 +713,14 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   Mutation is what shows the gate is load-bearing rather than merely green: renaming a
   keyword a snippet passes fails that page's case and no other; narrowing the directive the
   extractor recognises fails the membership assertion rather than passing every page
-  vacuously; respelling one block's language as `pycon`, or deleting it altogether, fails
-  that assertion while membership still passes; and giving a snippet a typed-correct
-  undrawable value — `color="notacolour"` — fails only while the terminating draw is there
-  to catch it.
+  vacuously; respelling one block's language as `pycon`, rewriting it as a bare `::` block,
+  or deleting its language altogether, fails that assertion while membership still passes;
+  a page added in a subdirectory of a quadrant is found and run like any other; and giving a
+  snippet a typed-correct undrawable value — `color="notacolour"` — fails only while the
+  terminating draw is there to catch it. That last one has a condition, or it is not
+  reproducible: the mutated block must be the last on its page to draw the artist it styles,
+  because only each figure's final state is drawn. Mutating an earlier block whose artists a
+  later one replaces leaves the suite green, and says nothing about the draw.
 
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.

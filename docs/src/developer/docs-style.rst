@@ -242,8 +242,8 @@ Code Examples
 
 Every python block in the how-to, tutorial and explanation quadrants is executed
 by ``tests/test_docs_snippets.py``, as one script per page and in document order,
-ending with a draw of every figure the page leaves open. Four rules follow, and
-the rule is specified in docs spec §3.9.
+ending with a draw of every figure the page leaves open. Four rules follow from
+that, and the gate itself is specified in docs spec §3.9.
 
 A page is a session, not a catalogue. A later block may rely on a name an earlier
 one bound — ``add_logo()`` with no argument brands the figure the block above it
