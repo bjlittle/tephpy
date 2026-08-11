@@ -31,15 +31,15 @@ SPECS = REPO / "docs" / "src" / "developer" / "specs"
 GRAMMAR = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
 #: The plans are dropped because their citations are frozen with them
 #: (docs spec §3.4). One consequence is worth knowing before copying prose out
-#: of a plan: ``2026-08-03-tephpy-published-specs.md`` names its own sections
-#: in prose (``add_logo``) rather than by the ``logo spec`` prefix, so its
-#: whole compound run is already unprefixed -- no gate ever sees this, because
-#: plans are excluded from both this corpus and the docs build. Moving such
-#: prose into a specification is the case to watch: a bare section number
-#: there falls back to the destination document's own prefix and resolves
-#: anyway, silently landing on the wrong section. Moving it into any other
-#: governed file fails this gate loudly instead, reported as having no
-#: prefix.
+#: of a plan: ``2026-08-03-tephpy-published-specs.md`` names in prose the
+#: ``add_logo`` specification whose sections it cites, rather than using the
+#: ``logo spec`` prefix, so its whole compound run is already unprefixed —
+#: no gate ever sees this, because plans are excluded from both this corpus
+#: and the docs build. Moving such prose into a specification is the case to
+#: watch: a bare section number there falls back to the destination
+#: document's own prefix and resolves anyway, silently landing on the wrong
+#: section. Moving it into any other governed file fails this gate loudly
+#: instead, reported as having no prefix.
 EXCLUDED = ("docs/src/developer/plans/",)
 
 
