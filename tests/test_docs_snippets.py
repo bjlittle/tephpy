@@ -61,11 +61,19 @@ PYTHON = "python"
 #: rather than skipped: the detector has to be wider than the validator, or a
 #: near-miss reads as compliance instead of as something to look at. ``pycon``
 #: is here too -- a REPL transcript is still code a reader is invited to copy,
-#: and the answer is to rewrite it as a script, not to exempt it. The widest
-#: near miss names no language at all and so cannot be listed here: a directive
-#: that omits one, and the bare ``::`` marker :func:`implicit_blocks` finds, are
-#: reported by their shape instead.
-NEAR_MISS = frozenset({"ipython", "ipython3", "py", "py3", "pycon", "python3"})
+#: and the answer is to rewrite it as a script, not to exempt it. Every spelling
+#: Pygments resolves to the python or the python-console lexer is here, both
+#: names of each. The widest near miss names no language at all and so cannot be
+#: listed here: a directive that omits one, the bare ``::`` marker
+#: :func:`implicit_blocks` finds, and the ``>>>`` paragraph
+#: :func:`doctest_blocks` finds are reported by their shape instead.
+NEAR_MISS = frozenset(
+    {"ipython", "ipython3", "py", "py3", "pycon", "python-console", "python3"}
+)
+
+#: Opens a doctest block, which needs no directive and no marker to be rendered
+#: as a python console session (docs spec §3.9).
+PROMPT = ">>>"
 
 #: Appended to every page's script. Matplotlib defers most of its validation to
 #: draw time -- ``emphasis={0.0: {"color": "notacolour"}}`` is accepted without
@@ -107,29 +115,44 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
             continue
         opening = len(directive["indent"])
         cursor = index + 1
-        while cursor < len(lines) and (
-            not lines[cursor].strip() or OPTION.match(lines[cursor])
+        if (
+            cursor < len(lines)
+            and lines[cursor].strip()
+            and OPTION.match(lines[cursor])
         ):
+            # The option block is consumed whole, to the blank line
+            # reStructuredText requires before the content -- a directive
+            # carrying an argument or an option and no blank line under it is a
+            # docutils error. Taking it line by line instead would stop at the
+            # continuation of a wrapped ``:caption:``, which matches no option
+            # and would be read as the first line of the code.
+            while cursor < len(lines) and lines[cursor].strip():
+                cursor += 1
+        while cursor < len(lines) and not lines[cursor].strip():
             cursor += 1
-        if cursor >= len(lines):
-            break
-        body = len(lines[cursor]) - len(lines[cursor].lstrip())
-        if body <= opening:
+        start = cursor
+        while cursor < len(lines):
+            line = lines[cursor]
+            if line.strip() and len(line) - len(line.lstrip()) <= opening:
+                break
+            cursor += 1
+        end = cursor
+        while end > start and not lines[end - 1].strip():
+            end -= 1
+        if end == start:
             # The directive has no body -- the next content is a sibling, not a
             # child. Step by one rather than to `cursor + 1`, where the scan
             # resumes after a block with a body, because that would step over a
             # directive immediately following this one.
             index += 1
             continue
-        start = cursor
-        while cursor < len(lines):
-            line = lines[cursor]
-            if line.strip() and len(line) - len(line.lstrip()) < body:
-                break
-            cursor += 1
-        end = cursor
-        while end > start and not lines[end - 1].strip():
-            end -= 1
+        # The body is dedented by the least-indented line rather than by the
+        # first, which is what docutils does: a block opening deeper than it
+        # ends keeps that opening indentation, and measuring from the first line
+        # would end the block early and drop everything under the outdent.
+        body = min(
+            len(line) - len(line.lstrip()) for line in lines[start:end] if line.strip()
+        )
         found.append(
             (
                 start + 1,
@@ -139,6 +162,31 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
         )
         index = cursor
     return found
+
+
+def block_lines(text: str) -> set[int]:
+    """Collect every line already spoken for as a directive block's content.
+
+    A block's body is free to contain anything, including the shapes the two
+    marker-free detectors below look for -- a ``code-block:: text`` may end a
+    line in ``::`` or open one with ``>>>`` -- so both of them subtract this.
+
+    Parameters
+    ----------
+    text : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    set of int
+        The 1-based line numbers, body lines only.
+
+    """
+    return {
+        number
+        for first, _, body in literal_blocks(text)
+        for number in range(first, first + len(body))
+    }
 
 
 def implicit_blocks(text: str) -> list[int]:
@@ -175,11 +223,7 @@ def implicit_blocks(text: str) -> list[int]:
 
     """
     lines = text.splitlines()
-    claimed = {
-        number
-        for first, _, body in literal_blocks(text)
-        for number in range(first, first + len(body))
-    }
+    claimed = block_lines(text)
     found: list[int] = []
     for index, line in enumerate(lines):
         marker = line.strip()
@@ -201,6 +245,43 @@ def implicit_blocks(text: str) -> list[int]:
         if body > len(line) - len(line.lstrip()):
             found.append(cursor + 1)
     return found
+
+
+def doctest_blocks(text: str) -> list[int]:
+    """Find every doctest block, the third shape python takes on a page.
+
+    A paragraph opening with ``>>>`` is a doctest block. It needs no directive
+    and no ``::`` marker, and docutils renders it as one whatever the prose
+    around it says, so Sphinx highlights it as a python console session. That
+    is the same transcript ``pycon`` names, and it is reported for the same
+    reason: a reader is still invited to copy it, and the answer is to rewrite
+    it as a script rather than to exempt it (docs spec §3.9).
+
+    The paragraph is what makes it a block, so only a ``>>>`` line opening one
+    is reported -- under a line of prose the same text is that paragraph's
+    content. A line already inside a directive's block belongs to that block,
+    which is how a ``code-block:: text`` may quote a session unmolested.
+
+    Parameters
+    ----------
+    text : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    list of int
+        The 1-based first line of each such block, in document order.
+
+    """
+    lines = text.splitlines()
+    claimed = block_lines(text)
+    return [
+        index + 1
+        for index, line in enumerate(lines)
+        if line.strip().startswith(PROMPT)
+        and index + 1 not in claimed
+        and not (index and lines[index - 1].strip())
+    ]
 
 
 def python_blocks(text: str) -> list[tuple[int, list[str]]]:
@@ -324,6 +405,32 @@ def test_a_directive_option_is_not_code():
     assert literal_blocks(text) == [(4, "python", ["value = 1"])]
 
 
+def test_a_wrapped_option_is_not_code():
+    """A ``:caption:`` running onto a second line is still the option.
+
+    Its continuation matches no option and is indented past the code, so
+    reading the option block line by line would take the continuation for the
+    body and drop ``value = 1`` -- running caption prose as python, and
+    executing none of the snippet the page is really showing.
+    """
+    text = (
+        ".. code-block:: python\n    :caption: a very long caption\n"
+        "        wrapped onto here\n\n    value = 1\n"
+    )
+    assert literal_blocks(text) == [(5, "python", ["value = 1"])]
+
+
+def test_a_body_is_dedented_by_its_least_indented_line():
+    """A block opening deeper than it ends keeps that opening indentation.
+
+    docutils measures the block from its least-indented line, so both lines
+    below are content. Measuring from the first would end the block at the
+    outdent and drop every statement under it, unexecuted and unreported.
+    """
+    text = ".. code-block:: python\n\n        first = 1\n    second = 2\n"
+    assert literal_blocks(text) == [(3, "python", ["    first = 1", "second = 2"])]
+
+
 def test_the_block_ends_at_the_next_outdented_line():
     """Prose following a block is not swept into it."""
     text = ".. code-block:: python\n\n    value = 1\n\nAnd then some prose.\n"
@@ -408,6 +515,31 @@ def test_a_marker_with_no_blank_line_is_not_a_block():
     """Without the blank line docutils renders a definition, not code."""
     assert implicit_blocks("term::\n    The definition of the term.\n") == []
     assert implicit_blocks(":Some Field::\n    The field's body.\n") == []
+
+
+def test_a_doctest_block_is_found():
+    """A paragraph opening ``>>>`` is a console session, marker or not."""
+    text = "Prose.\n\n>>> raise RuntimeError('boom')\n"
+    assert doctest_blocks(text) == [3]
+
+
+def test_a_prompt_under_prose_is_not_a_doctest_block():
+    """The paragraph is the block; inside one the same text is content."""
+    text = "Prose that runs on\n>>> and mentions the prompt.\n"
+    assert doctest_blocks(text) == []
+
+
+def test_a_prompt_inside_a_block_body_is_not_a_doctest_block():
+    """A ``text`` block may quote a session; that line is its content."""
+    text = ".. code-block:: text\n\n    >>> raise RuntimeError('boom')\n"
+    assert doctest_blocks(text) == []
+
+
+def test_the_console_lexer_alias_is_a_near_miss():
+    """``python-console`` is Pygments' other name for ``pycon``."""
+    text = ".. code-block:: python-console\n\n    >>> value = 1\n"
+    assert python_blocks(text) == []
+    assert literal_blocks(text)[0][1] in NEAR_MISS
 
 
 def test_the_script_is_line_aligned_with_the_page():
@@ -581,10 +713,14 @@ def test_no_block_hides_the_language_this_gate_runs():
             if language.lower() in NEAR_MISS or not language
         )
         offenders.extend((identify(page), line, "") for line in implicit_blocks(text))
+        offenders.extend(
+            (identify(page), line, PROMPT) for line in doctest_blocks(text)
+        )
     assert offenders == [], (
         "these blocks do not name a language this gate executes, so they would "
         f"be passed over in silence: {offenders}. A block with no language is "
         "highlighted using Sphinx's `highlight_language` and can be python on "
         "the page, whether it is a directive that names none or a paragraph "
-        "ending in `::`; write them all as `python` (docs spec §3.9)"
+        "ending in `::`, and a paragraph opening `>>>` is a console session "
+        "whatever the page says; write them all as `python` (docs spec §3.9)"
     )

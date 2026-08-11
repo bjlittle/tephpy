@@ -108,15 +108,17 @@ must state two things a reader cannot infer from any single document:
   |---|---|---|
   | `spec §…` | `2026-07-22-tephpy-design.md` | 329 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
-  | `docs spec §…` | this document | 56 |
+  | `docs spec §…` | this document | 58 |
   | `configfile spec §…` | `2026-08-07-config-file-design.md` | 66 |
 
   The column is named rather than left as a bare "count" so the figures can be reproduced
   and seen to have drifted: they are occurrences of the literal prefixed form under
   `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
-  document — 558, 40, 151 and 105 across the whole corpus, once the bare and compound forms
-  below are counted too. Both sets have to be re-measured to stay true, which is the defect
-  {issue}`94` records against this document's other figures.
+  document — 558, 40, 165 and 105 across the whole corpus, once the bare and compound forms
+  below are counted too. That second set is reproduced by tallying `citations.scan` over
+  `check_citations.corpus()`, keyed by the document each resolved anchor sits in; it is the
+  gate of §3.6 counting rather than reporting. Both sets have to be re-measured to stay true,
+  which is the defect {issue}`94` records against this document's other figures.
 
   The prefix is load-bearing, not decorative: `logo spec §3.6` names a section that has no
   counterpart in the parent specification, so a reader who ignores the prefix lands in the
@@ -579,15 +581,20 @@ among those yielding blocks. Membership names them, not a block count, because a
 figure that has to be re-measured to stay true. A fourth guards the near miss the other
 three cannot see: a page of eight good blocks and one spelled `pycon` or `python3` satisfies
 membership, and its odd block is passed over in silence. A block whose language means python
-and is not `python` is therefore reported, and so is one that names no language at all, in
-either of the two shapes that takes: a directive that omits it, and reStructuredText's other
-code-block form — a paragraph ending in `::`, a blank line, then an indented body, which is
-not a directive at all and so is invisible to an extractor that reads directives. The blank
-line is part of the shape rather than a formality: written without one, the same two lines
-are a definition list or a field, and docutils renders neither as code. Sphinx highlights
-both with whatever `highlight_language` is set to, and `conf.py` leaves it at the default,
-which highlights as python — so either can be python on the page and invisible here. What
-the gate looks for has to be wider than what it accepts, or a near miss reads as compliance.
+and is not `python` is therefore reported — every spelling Pygments resolves to the python
+or the python-console lexer, both names of each, since `pycon` and `python-console` are one
+lexer under two labels and only one of them looks like a near miss. So is a block that names
+no language at all, in each of the three shapes that takes. A directive can omit it.
+reStructuredText's other code-block form — a paragraph ending in `::`, a blank line, then an
+indented body — is not a directive at all, and is invisible to an extractor that reads
+directives; the blank line is part of the shape rather than a formality, because written
+without one the same two lines are a definition list or a field, and docutils renders
+neither as code. A doctest block — a paragraph opening `>>>` — needs neither a directive nor
+a marker, and docutils renders it as a console session whatever the prose around it says.
+Sphinx highlights the first two with whatever `highlight_language` is set to, and `conf.py`
+leaves it at the default, which highlights as python; the third is a python console session
+by construction. Any of them can be python on the page and invisible here. What the gate
+looks for has to be wider than what it accepts, or a near miss reads as compliance.
 They are separate test functions rather than parameters of the per-page one because pytest
 reports an empty parametrisation as a skip, so an extractor returning nothing would leave
 the summary line green.
@@ -595,6 +602,19 @@ the summary line green.
 The gate is an ordinary test module, so it runs in every test environment on every Python
 the project supports — which is more than a docs-build gate could do, the docs build having
 one environment.
+
+**The extractor reads the source as text, so it owes docutils an exact answer.** Sphinx is
+in the `docs` feature and not in `test`, and a gate that always-skips in the CI matrix is
+not a gate — so the block boundaries are found by reading lines rather than by parsing. That
+buys the environments back at the price of having to agree with docutils on where a block
+starts and ends, and two of its rules are the ones a line reader gets wrong. A directive's
+options end at the blank line reStructuredText requires before the content, not at the last
+line that looks like an option: a wrapped `:caption:` continues onto a line matching nothing,
+and stopping there reads the caption as the code and drops the block. And a block is
+dedented by its least-indented line, not by its first: one that opens deeper than it ends
+keeps that opening indentation, and measuring from the first line ends the block at the
+outdent and silently drops every statement below. Both fail the same way, which is the
+dangerous way — a short block that runs clean, standing in for a longer one that would not.
 
 **Why not `sphinx.ext.doctest`.** It would mean rewriting every `code-block:: python` as
 `testcode::`, adding per-page `testsetup::` blocks to carry the session a page's blocks
@@ -715,9 +735,13 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   Mutation is what shows the gate is load-bearing rather than merely green: renaming a
   keyword a snippet passes fails that page's case and no other; narrowing the directive the
   extractor recognises fails the membership assertion rather than passing every page
-  vacuously; respelling one block's language as `pycon`, rewriting it as a bare `::` block,
-  or deleting its language altogether, fails that assertion while membership still passes;
-  a page added in a subdirectory of a quadrant is found and run like any other; and giving a
+  vacuously; respelling one block's language as `pycon` or `python-console`, rewriting it as
+  a bare `::` block, recasting it as a bare `>>>` transcript, or deleting its language
+  altogether, fails that assertion while membership still passes; a block whose `:caption:`
+  wraps onto a continuation line, and one whose first line is indented deeper than the lines
+  below it, both execute in full — before the fixes the extractor truncated them to a caption
+  fragment and to that opening line, and both truncations ran clean; a page added in a
+  subdirectory of a quadrant is found and run like any other; and giving a
   snippet a typed-correct undrawable value — `color="notacolour"` — fails only while the
   terminating draw is there to catch it. That last one has a condition, or it is not
   reproducible: the mutated block must be the last on its page to draw the artist it styles,
