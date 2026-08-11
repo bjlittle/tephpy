@@ -237,6 +237,36 @@ silence, so removing the last link means removing the entry too — and emptying
 ``SOURCES`` entirely fails the same way, rather than passing on a search of
 nothing.
 
+Code Examples
+-------------
+
+Every python block in the how-to, tutorial and explanation quadrants is executed
+by ``tests/test_docs_snippets.py``, as one script per page and in document order,
+ending with a draw of every figure the page leaves open. Four rules follow from
+that, and the gate itself is specified in docs spec §3.9.
+
+A page is a session, not a catalogue. A later block may rely on a name an earlier
+one bound — ``add_logo()`` with no argument brands the figure the block above it
+created — so the blocks of a page cannot be reordered freely, and a block that
+would not run after the ones above it is a page defect rather than a gate problem.
+
+There is no way to mark a block as not for execution. A block a reader is invited
+to copy and which cannot run is the defect; the answer is to fix the snippet, or
+to stop presenting it as one. A REPL transcript is code too — write it as a script
+in a ``python`` block rather than as ``pycon``, which the gate reports rather than
+skips.
+
+Snippets carry no linter directives. ``# noqa`` and ``# type: ignore`` suppress
+nothing in a ``.rst`` file, and they ask a reader pasting the line to satisfy
+tooling they are not running. Where an import looks unused, say why it is there
+instead — ``import tephpy  # registers the "tephigram" projection``.
+
+Where a snippet's surrounding prose makes a behavioural promise, a test pins the
+promise. Execution and truth fail independently: :pull:`113` fixed a passage whose
+snippet ran perfectly and whose prose was wrong, and the gate would have passed it.
+Name the test in the pull request that adds the prose, so the connection is on the
+record.
+
 Attribute Documentation
 -----------------------
 

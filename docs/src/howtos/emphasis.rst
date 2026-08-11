@@ -19,7 +19,7 @@ ink, heavier line:
 
     import matplotlib.pyplot as plt
 
-    import tephpy  # noqa: F401
+    import tephpy  # registers the "tephigram" projection
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     ax.isotherms(emphasis={0.0: {}})

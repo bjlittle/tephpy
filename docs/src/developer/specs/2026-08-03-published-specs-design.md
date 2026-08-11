@@ -13,9 +13,10 @@
 (docs-spec-1)=
 ## 1. Purpose
 
-`src/` and `tests/` carry 364 `spec §…` citations. Until now the documents they cite never
-entered the docs build, so a reader on Read the Docs met a reference to something that,
-from where they were standing, did not exist — on twelve published API reference pages.
+`src/` and `tests/` carry `spec §…` citations in the hundreds — §3.2 counts them, and is the
+one place that does. Until now the documents they cite never entered the docs build, so a
+reader on Read the Docs met a reference to something that, from where they were standing,
+did not exist — on twelve published API reference pages.
 
 This specification closes that gap and states the conventions that keep it closed. It has
 two halves, and only the first is a migration:
@@ -53,6 +54,11 @@ before implementation, not updated afterwards. Everything below follows from tha
    The opposite of decision 5, and for the reason that decides both: an extlink's caption
    is generated from its value, so writing the role is what makes the text and the target
    inseparable, where writing a citation's role would let them come apart (§3.8).
+8. **The code the user documentation tells a reader to type is executed** — every python
+   block in the user quadrants, as one script per page, in document order, ending with a
+   draw of every figure the page leaves open (§3.9). Whether a snippet does what the prose
+   around it claims is a separate property, and an authoring rule rather than a gate; what
+   its figure looks like is `pytest-mpl`'s, not this gate's.
 
 (docs-spec-3)=
 ## 3. Architecture
@@ -69,7 +75,8 @@ docs/src/developer/
     ├── index.rst
     ├── 2026-07-22-tephpy-design.md
     ├── 2026-08-01-add-logo-design.md
-    └── 2026-08-03-published-specs-design.md
+    ├── 2026-08-03-published-specs-design.md
+    └── 2026-08-07-config-file-design.md
 ```
 
 `docs/Makefile` sets `SOURCEDIR = src`, so both directories sit inside the source tree and
@@ -80,10 +87,13 @@ Sphinx reads the specifications natively. The plans are withheld by a single
 exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
-The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-{pull}`73` link to `../specs/`, and the parent specification refers to the plans in the other
-direction. Any layout that published the specifications while leaving the plans
-elsewhere would break one direction and not the other, which is the confusing failure.
+The two directories stay siblings. This is not cosmetic: the plan banners {pull}`73`
+introduced link to `../specs/` — every plan carries one — and the parent specification refers
+to the plans in the other direction. Any layout that published the specifications while
+leaving the plans elsewhere would break one direction and not the other, which is the
+confusing failure. Stating it as "every plan" rather than as a count is deliberate: the
+number was twelve when this was written and grows with the repository, and a figure that
+has to be re-measured to stay true is the defect {issue}`94` records.
 
 `docs/superpowers/` no longer exists. The superpowers skills default to writing
 specifications and plans there, and their own instructions state that a user preference
@@ -101,15 +111,19 @@ must state two things a reader cannot infer from any single document:
 
   | citation | document | in `src/` and `tests/` |
   |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 327 |
+  | `spec §…` | `2026-07-22-tephpy-design.md` | 329 |
   | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
-  | `docs spec §…` | this document | 13 |
+  | `docs spec §…` | this document | 58 |
+  | `configfile spec §…` | `2026-08-07-config-file-design.md` | 66 |
 
   The column is named rather than left as a bare "count" so the figures can be reproduced
   and seen to have drifted: they are occurrences of the literal prefixed form under
   `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
-  document — 531, 39 and 46 across the whole corpus, once the bare and compound forms
-  below are counted too.
+  document — 558, 40, 173 and 105 across the whole corpus, once the bare and compound forms
+  below are counted too. That second set is reproduced by tallying `citations.scan` over
+  `check_citations.corpus()`, keyed by the document each resolved anchor sits in; it is the
+  gate of §3.6 counting rather than reporting. Both sets have to be re-measured to stay true,
+  which is the defect {issue}`94` records against this document's other figures.
 
   The prefix is load-bearing, not decorative: `logo spec §3.6` names a section that has no
   counterpart in the parent specification, so a reader who ignores the prefix lands in the
@@ -158,8 +172,9 @@ resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and s
 anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
 derived from prose are unstable under exactly the edits a living document invites.
 
-The prefixes are `spec-`, `logo-spec-` and `docs-spec-`, matching the citation prefixes in
-§3.2 with spaces replaced by hyphens. Sphinx labels are global, so the prefix is what
+The prefixes are `spec-`, `logo-spec-`, `docs-spec-` and `configfile-spec-`, matching the
+citation prefixes in §3.2 with spaces replaced by hyphens — one per document in the table
+there, and a new specification adds its own. Sphinx labels are global, so the prefix is what
 keeps `spec-3-2` and `logo-spec-3-2` distinct.
 
 (docs-spec-3-4)=
@@ -217,9 +232,12 @@ carrying the label must be cited by a specification. A one-directional check let
 issue be closed while the specification still claims the item is open.
 
 The parent specification is not the only document this governs. A specification with no
-spec §10 or spec §11 — the `add_logo` specification, or this one — records its unsettled
-items in its **§Scope** section instead, and those entries carry the same tags and the
-same issue pointers. The section differs; the contract does not. Scoping it to the one
+spec §10 or spec §11 records its unsettled items in whatever section it does carry —
+**§Scope** in the `add_logo` specification and in this one, **§Non-goals** in the
+`configfile` specification — and those entries carry the same tags and the same issue
+pointers. The heading differs; the contract does not, and it binds by the section's role
+rather than by its name, because a specification that named its ledger something new would
+otherwise fall outside a rule written against a list of headings. Scoping it to the one
 document that happens to have the right headings would leave live work sitting unseen in
 exactly the published pages the contract exists to protect, and a reader has no way to
 know that the absence of a tag means "not covered" rather than "nothing outstanding".
@@ -497,6 +515,157 @@ still arrives where they should, and only the source misnames the kind. Settling
 mean asking GitHub which each number is, and a hook that needs the network fails offline
 and is rate-limited in CI. Review is what narrows this one.
 
+(docs-spec-3-9)=
+### 3.9 Snippet execution
+
+The three gates above police how the documentation *refers* to things. None of them reads
+what it *tells a reader to type*. The how-to guides are the shop window for the package,
+and their code was correct only because it had been checked by hand — `ci-docs.yml` builds
+the HTML and then checks citations and links, `sphinx.ext.doctest` is not among the
+extensions, myst-nb executes nothing, and sphinx-gallery is configured with no example
+directories.
+
+**Every python code block in the user quadrants is executed, as one script per page, in
+document order.**
+
+The corpus is derived rather than declared, for the reason §3.6 gives: it is every `.rst`
+under `docs/src/howtos/`, `docs/src/tutorials/` and `docs/src/explanation/` — the three
+Diátaxis quadrants written for users — so a page is governed from the day it lands, and so
+is a page in a subdirectory of one, which is the shape a tutorial series takes.
+The reference quadrant is out of scope because it cannot drift — autoapi generates it from
+the docstrings and `sphinx_click` from the live CLI — and the developer section is
+contributor material whose specifications and plans quote code as illustration. A page with
+no python block contributes nothing to run, which is the ordinary case in the explanation
+quadrant.
+
+**A page is a session, not a catalogue.** The second block of the `add_logo` how-to is
+`add_logo()` with no argument, which brands the figure the first block bound; executed
+alone it has nothing to brand. Running the blocks of a page as one script is therefore not
+a convenience but the only reading under which the page is correct — and it binds the
+author in return, so the style guide carries the consequence: a later block may rely on an
+earlier one's names, and the blocks of a page cannot be reordered freely.
+
+**A fresh interpreter, because that is what a reader pastes into.** Three of the properties
+the configuration how-to describes exist only in one: the file is read once, at
+`import tephpy`, and inside a test process that import has already happened, so a page
+whose whole subject is import-time behaviour could not exercise its own subject. The
+isolation is the same argument from the other side — that page calls `tephpy.config.save()`,
+which writes to the user's configuration directory, and `tephpy.config.load()`, which
+searches it. Run in place, the gate would write into the contributor's own configuration
+and read back whatever they happened to have. The subprocess runs with `HOME` and
+`XDG_CONFIG_HOME` relocated, `$TEPHPYRC` cleared and the working directory in a temporary
+tree, so the cascade sees a controlled empty tree, the save lands in it, and a snippet that
+writes a figure to a relative path writes it there. `-W error` mirrors the suite's own
+`filterwarnings`, so a snippet that warns fails exactly as one that raises does.
+
+**Reaching the end of the script is not the whole of running it.** Matplotlib defers most
+of its validation to draw time: `emphasis={0.0: {"color": "notacolour"}}` is accepted
+without complaint and raises `ValueError: Invalid RGBA argument` only when the canvas is
+drawn — the class of defect {issue}`116` describes, where a value of the right type is
+still not a value. A how-to whose figure cannot be rendered would pass a gate that stopped
+at the last statement, and a page showing a plot is exactly the page where that matters.
+Each page's script therefore ends by drawing every figure it leaves open. This is free to
+adopt: the figures the how-tos build today draw clean under `-W error`.
+
+**The generated script is line-aligned with its page.** Each block's code occupies the line
+numbers it occupies in the `.rst`, the gaps padded with blank lines, so a traceback naming
+line 80 names line 80 of the page. Blank padding is safe because a block's lines are
+contiguous in the source too, so it only ever falls between blocks. The alternative —
+marker comments to count back from — asks a reader of a failure to do arithmetic at the
+moment they are least inclined to.
+
+**There is no way to mark a block as not for execution.** A block a reader is invited to
+copy, which cannot run, is a defect in the page rather than a case for the gate to
+accommodate. An exemption with no reason attached is the form that cancels a rule quietly,
+because the cheapest way to make a failing snippet pass is to reach for it; if one is ever
+genuinely needed, the block that needs it will say what the reason is, which is not
+knowable now.
+
+**Refusing its own empty input.** A gate that derives its corpus can be made to check
+nothing by an edit that has nothing to do with it — a renamed quadrant directory, or a
+directive spelling the extractor stops recognising, after which every page passes by not
+being found. Three assertions therefore stand apart from the per-page cases: the quadrant
+directories exist, the discovered set is not empty, and the pages known to carry code are
+among those yielding blocks. Membership names them, not a block count, because a count is a
+figure that has to be re-measured to stay true. A fourth guards the near miss the other
+three cannot see: a page of eight good blocks and one spelled `pycon` or `python3` satisfies
+membership, and its odd block is passed over in silence. A block whose language means python
+and is not `python` is therefore reported — every spelling Pygments resolves to the python
+or the python-console lexer, both names of each, since `pycon` and `python-console` are one
+lexer under two labels and only one of them looks like a near miss. So is a block that names
+no language at all, in each of the three shapes that takes. A directive can omit it.
+reStructuredText's other code-block form — a paragraph ending in `::`, a blank line, then an
+indented body — is not a directive at all, and is invisible to an extractor that reads
+directives; the blank line is part of the shape rather than a formality, because written
+without one the same two lines are a definition list or a field, and docutils renders
+neither as code. A doctest block — a paragraph opening `>>>` — needs neither a directive nor
+a marker, and docutils renders it as a console session whatever the prose around it says.
+Sphinx highlights the first two with whatever `highlight_language` is set to, and `conf.py`
+leaves it at the default, which highlights as python; the third is a python console session
+by construction. Any of them can be python on the page and invisible here. What the gate
+looks for has to be wider than what it accepts, or a near miss reads as compliance.
+They are separate test functions rather than parameters of the per-page one because pytest
+reports an empty parametrisation as a skip, so an extractor returning nothing would leave
+the summary line green.
+
+The gate is an ordinary test module, so it runs in every test environment on every Python
+the project supports — which is more than a docs-build gate could do, the docs build having
+one environment.
+
+**The extractor reads the source as text, so it owes docutils an exact answer.** Sphinx is
+in the `docs` feature and not in `test`, and a gate that always-skips in the CI matrix is
+not a gate — so the block boundaries are found by reading lines rather than by parsing. That
+buys the environments back at the price of having to agree with docutils on where a block
+starts and ends, and two of its rules are the ones a line reader gets wrong. A directive's
+options end at the blank line reStructuredText requires before the content, not at the last
+line that looks like an option: a wrapped `:caption:` continues onto a line matching nothing,
+and stopping there reads the caption as the code and drops the block. And a block is
+dedented by its least-indented line, not by its first: one that opens deeper than it ends
+keeps that opening indentation, and measuring from the first line ends the block at the
+outdent and silently drops every statement below. Both fail the same way, which is the
+dangerous way — a short block that runs clean, standing in for a longer one that would not.
+
+**Why not `sphinx.ext.doctest`.** It would mean rewriting every `code-block:: python` as
+`testcode::`, adding per-page `testsetup::` blocks to carry the session a page's blocks
+form, and maintaining a second execution path in the docs environment, for the same
+coverage. Its one real advantage is output checking, and the only blocks with output
+are the CLI transcripts, whose markers `tests/test_cli.py` already pins.
+
+**What this cannot catch.** Execution proves that a snippet runs. It says nothing about
+whether it does what the sentence above it says, and the two fail independently: {pull}`113`
+fixed a passage whose snippet ran perfectly and whose surrounding prose was wrong, so this
+gate would have passed it. That half is an authoring rule rather than a check — where a
+snippet's surrounding prose makes a behavioural promise, a test pins the promise — and the
+style guide carries it. Nor does this gate read the rendered page: a block Sphinx fails to
+render is a docs-build failure, and a block that renders while saying something false is
+review's.
+
+Drawing a figure is likewise not the same as looking at it, and comparing the result
+against a baseline image is deliberately out of scope. `pytest-mpl` is a decorator on an
+in-process test function returning one figure, which is not the shape of a subprocess
+running a page; its baselines are sensitive to the freetype and matplotlib versions, so
+they are pinned in one environment while this gate runs in every one; and a page's figures
+are anonymous and positional, so a baseline could only be keyed on figure order and would
+break when an author inserts a snippet. What a how-to's figures should look like is already
+pinned by `tests/plotting/test_images.py`, against the APIs the pages call.
+
+What the terminating draw validates is each figure's *final* state, because there is one
+draw and it is at the end. Where a later block replaces an earlier one's artists — two
+blocks of `emphasis.rst` call `ax.isotherms(...)` on the same axes, and the second supersedes
+the first — the superseded artists are never drawn, and an undrawable value in the block that
+made them raises nothing. Measured: `"color": "notacolour"` in the later block fails that
+page, and the same mutation in the earlier one passes. Drawing after every block would close
+it, and would cost the property that makes a failure readable: the draw would have to be
+interleaved into the script at the line numbers the page's own prose occupies, so a
+traceback would no longer name the page's lines. The end of the script is the only place a
+statement can be added without disturbing the alignment above it.
+
+Only `.rst` is read. myst-nb is among the extensions, so a Markdown page in a user quadrant
+would build and publish like any other and this gate would not see it — the corpus is scoped
+to `.rst` above because that is what the user quadrants are written in, and the first author
+to reach for Markdown should meet that boundary here rather than discover it as a page the
+gate silently exempts.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 
@@ -570,6 +739,24 @@ so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
   nothing and 19 written as URLs.
 
+- Every python block in the user quadrants executes clean, per page and in document order
+  (§3.9), in every test environment, and every figure a page leaves open draws clean.
+  Mutation is what shows the gate is load-bearing rather than merely green: renaming a
+  keyword a snippet passes fails that page's case and no other; narrowing the directive the
+  extractor recognises fails the membership assertion rather than passing every page
+  vacuously; respelling one block's language as `pycon` or `python-console`, rewriting it as
+  a bare `::` block, recasting it as a bare `>>>` transcript, or deleting its language
+  altogether, fails that assertion while membership still passes; a block whose `:caption:`
+  wraps onto a continuation line, and one whose first line is indented deeper than the lines
+  below it, both execute in full — before the fixes the extractor truncated them to a caption
+  fragment and to that opening line, and both truncations ran clean; a page added in a
+  subdirectory of a quadrant is found and run like any other; and giving a
+  snippet a typed-correct undrawable value — `color="notacolour"` — fails only while the
+  terminating draw is there to catch it. That last one has a condition, or it is not
+  reproducible: the mutated block must be the last on its page to draw the artist it styles,
+  because only each figure's final state is drawn. Mutating an earlier block whose artists a
+  later one replaces leaves the suite green, and says nothing about the draw.
+
 A trial build of the moved specifications has already been run: 1,533 lines of Markdown
 through myst produced exactly one warning, the `../plans/` link of item 4 above.
 
@@ -581,6 +768,16 @@ Not in this change:
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
+
+Open:
+
+- **Open** ({issue}`94`) — **the counts this document records drift silently.** Every figure
+  here derived from content a pull request can change — the §3.2 table and the resolving
+  counts beside it, the citations naming one section in §3.3, the section signs in §3.7 —
+  is true when written and nothing checks it afterwards. §3.2 says so where the figures
+  are; this entry is the ledger record §3.5 requires, so the item is not visible only to a
+  reader who happens to reach that paragraph. The fix is to quote each gate's invariant and
+  leave the counting to the gate, not to re-measure on a schedule nobody controls.
 
 Settled since:
 
@@ -602,5 +799,8 @@ Settled since:
 - {pull}`73` — the living/point-in-time contract
 - {issue}`85` — render citations as cross-references
 - {issue}`86` — the citation-integrity gate
+- {issue}`94` — the citation counts recorded in this document drift silently
+- {issue}`114` — nothing executes the code examples in the how-to guides
+- {issue}`116` — a configuration value of the right type is not checked for validity
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent
 - [MyST targets and cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html)
