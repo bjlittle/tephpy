@@ -25,24 +25,25 @@ another — so the case reads here as a pass. Distinguishing it would mean match
 the transform's output classes, which is exactly the coupling this gate exists to
 avoid.
 
-A second limitation runs the other way, and is the one that matters. ``handle_endtag``
-pops back to a matching tag, so an ``<a>`` a theme template leaves unclosed is never
-popped, and every later bare citation on that page counts as linked -- the gate
-reporting success while doing nothing, which is what the paragraph above says it exists
-to rule out. The inverse, an ``<a>`` nested inside an ``<a>``, fails closed. Sphinx
-output is well-formed, so this is theoretical today; a theme upgrade is the change that
-would introduce it.
+A second limitation runs the other way, and matters more: an ``<a>`` a theme
+template leaves unclosed survives on the stack only until an ancestor's end tag
+pops past it, because ``handle_endtag`` pops the whole run down to the tag it
+matches and takes the stray ``<a>`` with it. Every bare citation inside that window
+counts as linked instead of bare — the gate passing by finding nothing, not by
+anything the pattern actually found. The inverse, an ``<a>`` nested inside an
+``<a>``, fails closed. Sphinx output is well-formed, so this is theoretical today;
+a theme upgrade is the change that would introduce it.
 
 The nested bucket below is the same collision arrived at from the other side, and
-is not that limitation. A skip set can only decline to rewrite text that is
-*already* inside a link; it cannot stop a later transform from wrapping one the
-transform made. Docutils' ``contents`` transform does precisely that, at a lower
-priority than the citation transform, linking each heading it lists both in the
-list and in the heading itself — so a citation written in a heading is rewritten
-first and enclosed second, and the page really does carry one anchor inside
-another. Sphinx reports nothing, and ``--fail-on-warning`` sees a clean build.
-Reading the finished HTML is what catches it, which is the case for this gate
-that neither the transform nor the input gate can make.
+is not the unrelated-hyperlink limitation. A skip set can only decline to rewrite
+text that is *already* inside a link; it cannot stop a later transform from
+wrapping one the transform made. Docutils' ``contents`` transform does precisely
+that, at a lower priority than the citation transform, linking each heading it
+lists both in the list and in the heading itself — so a citation written in a
+heading is rewritten first and enclosed second, and the page really does carry one
+anchor inside another. Sphinx reports nothing, and ``--fail-on-warning`` sees a
+clean build. Reading the finished HTML is what catches it, which is the case for
+this gate that neither the transform nor the input gate can make.
 
 The exemptions below are narrower than that skip set, which is why a citation in
 a raw block, in an API signature, in a toctree caption, or in a page title --
