@@ -13,9 +13,10 @@
 (docs-spec-1)=
 ## 1. Purpose
 
-`src/` and `tests/` carry 364 `spec §…` citations. Until now the documents they cite never
-entered the docs build, so a reader on Read the Docs met a reference to something that,
-from where they were standing, did not exist — on twelve published API reference pages.
+`src/` and `tests/` carry `spec §…` citations in the hundreds — §3.2 counts them, and is the
+one place that does. Until now the documents they cite never entered the docs build, so a
+reader on Read the Docs met a reference to something that, from where they were standing,
+did not exist — on twelve published API reference pages.
 
 This specification closes that gap and states the conventions that keep it closed. It has
 two halves, and only the first is a migration:
@@ -74,7 +75,8 @@ docs/src/developer/
     ├── index.rst
     ├── 2026-07-22-tephpy-design.md
     ├── 2026-08-01-add-logo-design.md
-    └── 2026-08-03-published-specs-design.md
+    ├── 2026-08-03-published-specs-design.md
+    └── 2026-08-07-config-file-design.md
 ```
 
 `docs/Makefile` sets `SOURCEDIR = src`, so both directories sit inside the source tree and
@@ -85,10 +87,13 @@ Sphinx reads the specifications natively. The plans are withheld by a single
 exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 ```
 
-The two directories stay siblings. This is not cosmetic: the twelve plan banners added by
-{pull}`73` link to `../specs/`, and the parent specification refers to the plans in the other
-direction. Any layout that published the specifications while leaving the plans
-elsewhere would break one direction and not the other, which is the confusing failure.
+The two directories stay siblings. This is not cosmetic: the plan banners {pull}`73`
+introduced link to `../specs/` — every plan carries one — and the parent specification refers
+to the plans in the other direction. Any layout that published the specifications while
+leaving the plans elsewhere would break one direction and not the other, which is the
+confusing failure. Stating it as "every plan" rather than as a count is deliberate: the
+number was twelve when this was written and grows with the repository, and a figure that
+has to be re-measured to stay true is the defect {issue}`94` records.
 
 `docs/superpowers/` no longer exists. The superpowers skills default to writing
 specifications and plans there, and their own instructions state that a user preference
@@ -114,7 +119,7 @@ must state two things a reader cannot infer from any single document:
   The column is named rather than left as a bare "count" so the figures can be reproduced
   and seen to have drifted: they are occurrences of the literal prefixed form under
   `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
-  document — 558, 40, 165 and 105 across the whole corpus, once the bare and compound forms
+  document — 558, 40, 173 and 105 across the whole corpus, once the bare and compound forms
   below are counted too. That second set is reproduced by tallying `citations.scan` over
   `check_citations.corpus()`, keyed by the document each resolved anchor sits in; it is the
   gate of §3.6 counting rather than reporting. Both sets have to be re-measured to stay true,
@@ -167,8 +172,9 @@ resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and s
 anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
 derived from prose are unstable under exactly the edits a living document invites.
 
-The prefixes are `spec-`, `logo-spec-` and `docs-spec-`, matching the citation prefixes in
-§3.2 with spaces replaced by hyphens. Sphinx labels are global, so the prefix is what
+The prefixes are `spec-`, `logo-spec-`, `docs-spec-` and `configfile-spec-`, matching the
+citation prefixes in §3.2 with spaces replaced by hyphens — one per document in the table
+there, and a new specification adds its own. Sphinx labels are global, so the prefix is what
 keeps `spec-3-2` and `logo-spec-3-2` distinct.
 
 (docs-spec-3-4)=
@@ -226,9 +232,12 @@ carrying the label must be cited by a specification. A one-directional check let
 issue be closed while the specification still claims the item is open.
 
 The parent specification is not the only document this governs. A specification with no
-spec §10 or spec §11 — the `add_logo` specification, or this one — records its unsettled
-items in its **§Scope** section instead, and those entries carry the same tags and the
-same issue pointers. The section differs; the contract does not. Scoping it to the one
+spec §10 or spec §11 records its unsettled items in whatever section it does carry —
+**§Scope** in the `add_logo` specification and in this one, **§Non-goals** in the
+`configfile` specification — and those entries carry the same tags and the same issue
+pointers. The heading differs; the contract does not, and it binds by the section's role
+rather than by its name, because a specification that named its ledger something new would
+otherwise fall outside a rule written against a list of headings. Scoping it to the one
 document that happens to have the right headings would leave live work sitting unseen in
 exactly the published pages the contract exists to protect, and a reader has no way to
 know that the absence of a tag means "not covered" rather than "nothing outstanding".
@@ -759,6 +768,16 @@ Not in this change:
 - **Rejected** (2026-08-03) — **editing the specifications' technical content.** They are
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
+
+Open:
+
+- **Open** ({issue}`94`) — **the counts this document records drift silently.** Every figure
+  here derived from content a pull request can change — the §3.2 table and the resolving
+  counts beside it, the citations naming one section in §3.3, the section signs in §3.7 —
+  is true when written and nothing checks it afterwards. §3.2 says so where the figures
+  are; this entry is the ledger record §3.5 requires, so the item is not visible only to a
+  reader who happens to reach that paragraph. The fix is to quote each gate's invariant and
+  leave the counting to the gate, not to re-measure on a schedule nobody controls.
 
 Settled since:
 

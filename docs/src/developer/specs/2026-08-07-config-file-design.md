@@ -505,17 +505,23 @@ implementation plan carries an explicit one-off resolve of the declared minimums
 (configfile-spec-9)=
 ## 9. Non-goals
 
-- **Merging across cascade entries.** First hit wins (§2).
-- **Per-figure or per-axes config files.** `tephpy.config` is process-wide; a file changes
-  its starting values, not its scope.
-- **Comment-preserving round trips.** Would mean `ruamel.yaml` in the core dependency tree
-  to serve `save()` alone (§3.5).
-- **Environment-variable overrides per option.** `$TEPHPYRC` selects a file; it does not
-  become a parallel `TEPHPY_ISOTHERMS_COLOR` namespace.
-- **Validating a config file without loading it.** `tephpy config path` reports discovery;
-  a `--check` mode can follow if asked for.
-- **Domain validation of a value that has the right type.** §5.2 checks a value against the
-  type its field declares, and stops there: `color: notacolour` is a string, so it loads,
-  and matplotlib rejects it at the first draw. Answering it properly means a per-option
-  vocabulary — the colours, the edge names, the cursor fields, the `emphasis` style keys —
-  which is a larger piece of work than the type check it would sit behind ({issue}`116`).
+This is the section that carries this specification's unsettled items, so its entries take
+the status tags and issue pointers docs spec §3.5 requires. Most are settled against: a
+non-goal is a decision, not an omission.
+
+- **Rejected** (2026-08-07) — **merging across cascade entries.** First hit wins (§2).
+- **Rejected** (2026-08-07) — **per-figure or per-axes config files.** `tephpy.config` is
+  process-wide; a file changes its starting values, not its scope.
+- **Rejected** (2026-08-07) — **comment-preserving round trips.** Would mean `ruamel.yaml`
+  in the core dependency tree to serve `save()` alone (§3.5).
+- **Rejected** (2026-08-07) — **environment-variable overrides per option.** `$TEPHPYRC`
+  selects a file; it does not become a parallel `TEPHPY_ISOTHERMS_COLOR` namespace.
+- **Rejected** (2026-08-07) — **validating a config file without loading it.**
+  `tephpy config path` reports discovery; a `--check` mode can follow if asked for.
+- **Deferred** ({issue}`116`) — **domain validation of a value that has the right type.**
+  §5.2 checks a value against the type its field declares, and stops there:
+  `color: notacolour` is a string, so it loads, and matplotlib rejects it at the first draw.
+  Answering it properly means a per-option vocabulary — the colours, the edge names, the
+  cursor fields, the `emphasis` style keys — which is a larger piece of work than the type
+  check it would sit behind. This is the one entry here that is not a decision against, and
+  the only one the docs spec §3.5 contract requires an issue for.
