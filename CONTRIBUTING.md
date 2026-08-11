@@ -4,9 +4,10 @@ Thanks for your interest! Development uses [pixi](https://pixi.sh):
 
 ```bash
 pixi install
-pixi run tests    # run the test suite
-pixi run lint     # run pre-commit
-pixi run docs     # build the docs
+pixi run tests      # run the test suite
+pixi run lint       # run pre-commit
+pixi run docs-html  # build the docs
+pixi run docs       # build the docs, then check the HTML the build produced
 ```
 
 Tests live in `tests/`, mirroring the `src/tephpy` package layout: tests for

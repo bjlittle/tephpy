@@ -28,7 +28,18 @@ if TYPE_CHECKING:
 
 REPO = Path(__file__).resolve().parents[2]
 SPECS = REPO / "docs" / "src" / "developer" / "specs"
-GRAMMAR = REPO / "docs" / "src" / "_ext" / "citations.py"
+GRAMMAR = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
+#: The plans are dropped because their citations are frozen with them
+#: (docs spec §3.4). One consequence is worth knowing before copying prose out
+#: of a plan: ``2026-08-03-tephpy-published-specs.md`` names in prose the
+#: ``add_logo`` specification whose sections it cites, rather than using the
+#: ``logo spec`` prefix, so its whole compound run is already unprefixed —
+#: no gate ever sees this, because plans are excluded from both this corpus
+#: and the docs build. Moving such prose into a specification is the case to
+#: watch: a bare section number there falls back to the destination
+#: document's own prefix and resolves anyway, silently landing on the wrong
+#: section. Moving it into any other governed file fails this gate loudly
+#: instead, reported as having no prefix.
 EXCLUDED = ("docs/src/developer/plans/",)
 
 
@@ -64,7 +75,7 @@ def _grammar() -> types.ModuleType:
     Returns
     -------
     module
-        The loaded ``citations`` module.
+        The loaded ``tephpy_citations`` module.
 
     """
     # The file is checked for rather than the ``ModuleSpec``: a spec is returned
@@ -74,7 +85,7 @@ def _grammar() -> types.ModuleType:
     if not GRAMMAR.is_file():
         print(f"cannot load the citation grammar from {display(GRAMMAR)}")
         raise SystemExit(1)
-    spec = importlib.util.spec_from_file_location("citations", GRAMMAR)
+    spec = importlib.util.spec_from_file_location("tephpy_citations", GRAMMAR)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -296,6 +307,13 @@ def corpus() -> list[Path]:
     ``tests/**/*.py`` left ``tests/fixtures/io/README.md`` and its two citations
     outside the check, along with those in ``pyproject.toml`` and the
     specifications' own ``index.rst``.
+
+    The count this feeds the summary line is therefore not an invariant. It
+    moves with every tracked text file any pull request adds — it moved from 160
+    to 167 across :pull:`90`'s branch alone — so it must not be asserted in a
+    test or quoted in a review. The drift is the healthy half of deriving the
+    corpus: a file is governed the moment it is tracked. The anchor count beside
+    it is the figure that pins the grammar.
 
     Returns
     -------

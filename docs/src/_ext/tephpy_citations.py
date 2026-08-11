@@ -14,6 +14,10 @@ text the gate had never audited.
 Nothing here is imported from outside the standard library, so this module runs
 in the CI test matrix, which carries no Sphinx.
 
+The ``tephpy_`` prefix claims a top-level name this repository owns, because
+``docs/src/_ext`` sits at ``sys.path[0]`` for the whole build (:issue:`92`). It
+is not part of the installed package -- nothing under ``docs/`` is.
+
 Notes
 -----
 .. versionadded:: 0.1.0
@@ -295,6 +299,14 @@ def notebook_lines(text: str) -> Iterator[tuple[int, str]]:
         )
         located: list[tuple[int, str]] = []
         for line in lines:
+            # ``ensure_ascii=False`` is load-bearing, not style. The default
+            # encodes ``§`` as a ``\u00a7`` escape, which never matches the
+            # literal character ``nbformat`` writes, so every citation-bearing
+            # notebook line would fail to locate and be reported against the
+            # previous located line instead — line 1 only if none has been
+            # located yet. ``test_a_notebook_citation_reports_its_own_file_line``
+            # catches the revert, but only for someone who runs the suite
+            # before deciding.
             encoded = json.dumps(line, ensure_ascii=False)[1:-1]
             at = cursor
             while at < len(raw) and encoded not in raw[at]:

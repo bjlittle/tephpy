@@ -25,16 +25,26 @@ another — so the case reads here as a pass. Distinguishing it would mean match
 the transform's output classes, which is exactly the coupling this gate exists to
 avoid.
 
+A second limitation runs the other way, and matters more: an ``<a>`` a theme
+template leaves unclosed survives on the stack only until an ancestor's end tag
+pops past it, because ``handle_endtag`` pops the whole run down to the tag it
+matches and takes the stray ``<a>`` with it. Every bare citation inside that window
+counts as linked instead of bare — the pattern finds them and the count buckets
+them wrong, so the gate passes on an empty bare list rather than on anything really
+being linked. The inverse, an ``<a>`` nested inside an ``<a>``, fails closed.
+Sphinx output is well-formed, so this is theoretical today; a theme upgrade is the
+change that would introduce it.
+
 The nested bucket below is the same collision arrived at from the other side, and
-is not that limitation. A skip set can only decline to rewrite text that is
-*already* inside a link; it cannot stop a later transform from wrapping one the
-transform made. Docutils' ``contents`` transform does precisely that, at a lower
-priority than the citation transform, linking each heading it lists both in the
-list and in the heading itself — so a citation written in a heading is rewritten
-first and enclosed second, and the page really does carry one anchor inside
-another. Sphinx reports nothing, and ``--fail-on-warning`` sees a clean build.
-Reading the finished HTML is what catches it, which is the case for this gate
-that neither the transform nor the input gate can make.
+is not the unrelated-hyperlink limitation. A skip set can only decline to rewrite
+text that is *already* inside a link; it cannot stop a later transform from
+wrapping one the transform made. Docutils' ``contents`` transform does precisely
+that, at a lower priority than the citation transform, linking each heading it
+lists both in the list and in the heading itself — so a citation written in a
+heading is rewritten first and enclosed second, and the page really does carry one
+anchor inside another. Sphinx reports nothing, and ``--fail-on-warning`` sees a
+clean build. Reading the finished HTML is what catches it, which is the case for
+this gate that neither the transform nor the input gate can make.
 
 The exemptions below are narrower than that skip set, which is why a citation in
 a raw block, in an API signature, in a toctree caption, or in a page title --
@@ -106,9 +116,10 @@ SIGNATURE = (
 )
 BODY = (
     "Body text is where a citation that simply failed to link comes out. Check "
-    "that 'citation_xrefs' is still first in conf.py's extensions and that the "
-    "section named exists; failing that, the citation is in a '.. raw:: html' "
-    "block or a toctree ':caption:', neither of which the transform rewrites."
+    "that 'tephpy_citation_xrefs' is still first in conf.py's extensions and "
+    "that the section named exists; failing that, the citation is in a "
+    "'.. raw:: html' block or a toctree ':caption:', neither of which the "
+    "transform rewrites."
 )
 ADVICE = {"title": TITLE, "nav": NAVIGATION, "dt": SIGNATURE, "": BODY}
 #: The other bucket, which is nobody's authoring mistake and everybody's puzzle.
@@ -149,7 +160,15 @@ class Scan(HTMLParser):
     def handle_startendtag(
         self, _tag: str, _attrs: list[tuple[str, str | None]]
     ) -> None:
-        """Ignore a self-closing tag; it encloses nothing."""
+        """Ignore a self-closing tag; it encloses nothing.
+
+        Defensive, not load-bearing: deleting this leaves every test in
+        ``tests/test_rendered_citations.py`` passing, because ``HTMLParser``
+        defaults to ``handle_starttag`` then ``handle_endtag``, which is
+        net-neutral for a stack-and-pop model. The test pins the behaviour, not
+        the override, and no test can distinguish the two. It stops being
+        redundant the moment the classification stops being stack-and-pop.
+        """
 
     def handle_endtag(self, tag: str) -> None:
         """Pop back to ``tag``, tolerating elements left unclosed."""
@@ -257,8 +276,8 @@ def main() -> int:
         return 1
     if not linked:
         print(
-            f"no citation became a link across {pages} pages -- is 'citation_xrefs' "
-            "still first in conf.py's extensions?"
+            f"no citation became a link across {pages} pages -- is "
+            "'tephpy_citation_xrefs' still first in conf.py's extensions?"
         )
         return 1
     if not unlinked and not nested:

@@ -1,0 +1,9 @@
+The two Sphinx extension modules behind the design-specification citation
+cross-references are renamed ``tephpy_citations`` and ``tephpy_citation_xrefs``, so
+that a documentation build no longer claims a generic top-level name ahead of every
+installed package on ``sys.path`` (:issue:`92`). ``pixi run docs`` now runs the two
+gates that read the HTML it just built, which until now ran only in CI, so a change
+breaking the rendered cross-references failed after pushing rather than locally
+(:issue:`91`) — ``pixi run docs-html`` builds without checking. The details that
+govern how those gates and the shared citation grammar behave, each verified by
+mutation, are recorded beside the code they govern (:issue:`93`). (:user:`claude`)

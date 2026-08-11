@@ -25,17 +25,17 @@ EXT = SRC / "_ext"
 pytest.importorskip("sphinx", reason="the docs feature is not installed here")
 
 # `_ext` is a `sys.path` entry at build time rather than a package, so the module
-# resolves its sibling `citations` by top-level name and cannot be imported until
-# that entry exists.
+# resolves its sibling `tephpy_citations` by top-level name and cannot be imported
+# until that entry exists.
 if str(EXT) not in sys.path:
     sys.path.insert(0, str(EXT))
 
 
 def _load():
     """Import the transform by path; ``_ext`` is not an importable package."""
-    path = EXT / "citation_xrefs.py"
+    path = EXT / "tephpy_citation_xrefs.py"
     assert path.is_file(), f"the citation transform is missing from {path}"
-    spec = importlib.util.spec_from_file_location("citation_xrefs", path)
+    spec = importlib.util.spec_from_file_location("tephpy_citation_xrefs", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
