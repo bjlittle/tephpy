@@ -674,14 +674,14 @@ git push
 
 Eight claims in the tasks above turned out to be false when the code was executed
 during implementation and again during the branch's own review. The task text is
-left exactly as it was written: this document is a point-in-time record (docs spec
-§3.4), and what it records is what was *planned*, mistakes included. This section
-exists because nothing else can flag them — a plan is excluded from the docs build,
-from the sdist, and from every gate, so a false claim inside one survives
-indefinitely. The branch spent one of its seven facts correcting a claim of exactly
-this kind in an earlier plan; the point of writing these down is not to leave eight
-more behind. In each case the code carries the true statement, and it is the code
-that should be copied out, not the step.
+left exactly as it was written: this document is a point-in-time record
+(docs spec §3.4), and what it records is what was *planned*, mistakes included.
+This section exists because nothing else can flag them — a plan is excluded from
+the docs build, from the sdist, and from every gate, so a false claim inside one
+survives indefinitely. The branch spent one of its seven facts correcting a claim
+of exactly this kind in an earlier plan; the point of writing these down is not to
+leave eight more behind. In each case the code carries the true statement, and it
+is the code that should be copied out, not the step.
 
 - **Task 2 Step 2** names §3.6 as one of the two gates folded into `pixi run docs`.
   It is not: the gate of docs spec §3.6 reads the *sources*, not the build's

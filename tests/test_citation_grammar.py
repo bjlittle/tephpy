@@ -161,13 +161,13 @@ def test_a_compound_run_cannot_span_a_line():
 #: (prefix, number, separator, wrap, number), so nothing shorter than
 #: ``repeat=5`` can express it.
 #:
-#: At ``repeat=4`` today, this property is vacuous under ``SEPARATOR``
-#: widened to ``\s*[,/]\s*``: that construction needs all five pieces,
-#: and one fewer collapses it away. Do not lower ``repeat`` without
-#: re-running that mutation at the new value — lowering it reads as a
-#: performance tidy-up, and would silently remove the only guard against
-#: a further, unknown divergence of this shape. It would not remove the
-#: only guard against the known instance:
+#: Lowered to ``repeat=4`` against today's ``PIECES``, this property goes
+#: vacuous under ``SEPARATOR`` widened to ``\s*[,/]\s*``: that construction
+#: needs all five pieces, and one fewer collapses it away. Do not lower
+#: ``repeat`` without re-running that mutation at the new value — lowering
+#: it reads as a performance tidy-up, and would silently remove the only
+#: guard against a further, unknown divergence of this shape. It would not
+#: remove the only guard against the known instance:
 #: ``test_a_compound_run_cannot_span_a_line`` fails independently under
 #: the same mutation.
 #:
