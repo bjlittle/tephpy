@@ -29,6 +29,14 @@ if TYPE_CHECKING:
 REPO = Path(__file__).resolve().parents[2]
 SPECS = REPO / "docs" / "src" / "developer" / "specs"
 GRAMMAR = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
+#: The plans are dropped because their citations are frozen with them
+#: (docs spec §3.4). One consequence is worth knowing before copying prose out
+#: of a plan: a compound run that wraps after its comma survives in
+#: ``docs/src/developer/plans/2026-08-03-tephpy-published-specs.md``, where the
+#: continuation reads as that document's own sections rather than as
+#: ``add_logo``'s. The docs build excludes plans too, so no gate sees it and it
+#: stays. Re-check the citations of any prose moved from a plan into a governed
+#: file.
 EXCLUDED = ("docs/src/developer/plans/",)
 
 
@@ -296,6 +304,13 @@ def corpus() -> list[Path]:
     ``tests/**/*.py`` left ``tests/fixtures/io/README.md`` and its two citations
     outside the check, along with those in ``pyproject.toml`` and the
     specifications' own ``index.rst``.
+
+    The count this feeds the summary line is therefore not an invariant. It moves
+    with every tracked text file any pull request adds -- it moved from 160 to 167
+    across :pull:`90`'s branch alone -- so it must not be asserted in a test or
+    quoted in a review. The drift is the healthy half of deriving the corpus: a
+    file is governed the moment it is tracked. The anchor count beside it is the
+    figure that pins the grammar.
 
     Returns
     -------

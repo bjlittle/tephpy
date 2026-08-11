@@ -25,6 +25,14 @@ another — so the case reads here as a pass. Distinguishing it would mean match
 the transform's output classes, which is exactly the coupling this gate exists to
 avoid.
 
+A second limitation runs the other way, and is the one that matters. ``handle_endtag``
+pops back to a matching tag, so an ``<a>`` a theme template leaves unclosed is never
+popped, and every later bare citation on that page counts as linked -- the gate
+reporting success while doing nothing, which is what the paragraph above says it exists
+to rule out. The inverse, an ``<a>`` nested inside an ``<a>``, fails closed. Sphinx
+output is well-formed, so this is theoretical today; a theme upgrade is the change that
+would introduce it.
+
 The nested bucket below is the same collision arrived at from the other side, and
 is not that limitation. A skip set can only decline to rewrite text that is
 *already* inside a link; it cannot stop a later transform from wrapping one the
@@ -150,7 +158,15 @@ class Scan(HTMLParser):
     def handle_startendtag(
         self, _tag: str, _attrs: list[tuple[str, str | None]]
     ) -> None:
-        """Ignore a self-closing tag; it encloses nothing."""
+        """Ignore a self-closing tag; it encloses nothing.
+
+        Defensive, not load-bearing: deleting this leaves every test in
+        ``tests/test_rendered_citations.py`` passing, because ``HTMLParser``
+        defaults to ``handle_starttag`` then ``handle_endtag``, which is
+        net-neutral for a stack-and-pop model. The test pins the behaviour, not
+        the override, and no test can distinguish the two. It stops being
+        redundant the moment the classification stops being stack-and-pop.
+        """
 
     def handle_endtag(self, tag: str) -> None:
         """Pop back to ``tag``, tolerating elements left unclosed."""
