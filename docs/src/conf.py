@@ -23,7 +23,7 @@ release = _dist_version("tephpy")
 version = ".".join(release.split(".")[:2])
 
 extensions = [
-    "citation_xrefs",
+    "tephpy_citation_xrefs",
     "autoapi.extension",
     "myst_nb",
     "numpydoc",

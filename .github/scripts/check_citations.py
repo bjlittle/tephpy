@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 REPO = Path(__file__).resolve().parents[2]
 SPECS = REPO / "docs" / "src" / "developer" / "specs"
-GRAMMAR = REPO / "docs" / "src" / "_ext" / "citations.py"
+GRAMMAR = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
 EXCLUDED = ("docs/src/developer/plans/",)
 
 
@@ -64,7 +64,7 @@ def _grammar() -> types.ModuleType:
     Returns
     -------
     module
-        The loaded ``citations`` module.
+        The loaded ``tephpy_citations`` module.
 
     """
     # The file is checked for rather than the ``ModuleSpec``: a spec is returned
@@ -74,7 +74,7 @@ def _grammar() -> types.ModuleType:
     if not GRAMMAR.is_file():
         print(f"cannot load the citation grammar from {display(GRAMMAR)}")
         raise SystemExit(1)
-    spec = importlib.util.spec_from_file_location("citations", GRAMMAR)
+    spec = importlib.util.spec_from_file_location("tephpy_citations", GRAMMAR)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

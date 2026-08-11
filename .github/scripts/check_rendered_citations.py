@@ -106,9 +106,10 @@ SIGNATURE = (
 )
 BODY = (
     "Body text is where a citation that simply failed to link comes out. Check "
-    "that 'citation_xrefs' is still first in conf.py's extensions and that the "
-    "section named exists; failing that, the citation is in a '.. raw:: html' "
-    "block or a toctree ':caption:', neither of which the transform rewrites."
+    "that 'tephpy_citation_xrefs' is still first in conf.py's extensions and "
+    "that the section named exists; failing that, the citation is in a "
+    "'.. raw:: html' block or a toctree ':caption:', neither of which the "
+    "transform rewrites."
 )
 ADVICE = {"title": TITLE, "nav": NAVIGATION, "dt": SIGNATURE, "": BODY}
 #: The other bucket, which is nobody's authoring mistake and everybody's puzzle.
@@ -257,8 +258,8 @@ def main() -> int:
         return 1
     if not linked:
         print(
-            f"no citation became a link across {pages} pages -- is 'citation_xrefs' "
-            "still first in conf.py's extensions?"
+            f"no citation became a link across {pages} pages -- is "
+            "'tephpy_citation_xrefs' still first in conf.py's extensions?"
         )
         return 1
     if not unlinked and not nested:

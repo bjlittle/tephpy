@@ -16,7 +16,7 @@ import sys
 import pytest
 
 REPO = Path(__file__).parents[1]
-MODULE = REPO / "docs" / "src" / "_ext" / "citations.py"
+MODULE = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
 
 # As in `test_citations.py`: this file sits inside the corpus the checker reads
 # (docs spec §3.6), so the fixtures below build the section sign rather than
@@ -37,7 +37,7 @@ def _load():
     # populated even for a path that does not exist, so the checks it invites are
     # dead, and a missing module surfaces as a ``FileNotFoundError`` instead.
     assert MODULE.is_file(), f"the citation grammar is missing from {MODULE}"
-    spec = importlib.util.spec_from_file_location("citations", MODULE)
+    spec = importlib.util.spec_from_file_location("tephpy_citations", MODULE)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

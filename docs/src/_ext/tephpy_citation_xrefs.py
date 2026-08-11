@@ -12,7 +12,11 @@ is edited to make it so: ``spec §3.2`` in a docstring stays the characters it h
 always been.
 
 What a citation is, and which anchor it names, is not decided here. That is
-:mod:`citations`, shared with the pre-commit gate of docs spec §3.6.
+:mod:`tephpy_citations`, shared with the pre-commit gate of docs spec §3.6.
+
+The ``tephpy_`` prefix claims a top-level name this repository owns, because
+``docs/src/_ext`` sits at ``sys.path[0]`` for the whole build (:issue:`92`). It
+is not part of the installed package -- nothing under ``docs/`` is.
 
 Notes
 -----
@@ -26,12 +30,12 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import citations
 from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
 from sphinx.ext.autosummary import autosummary_table
 from sphinx.transforms import SphinxTransform
+import tephpy_citations
 
 if TYPE_CHECKING:
     import re
@@ -129,7 +133,7 @@ def _convert(source: str, owner: str | None, docname: str) -> list[nodes.Node] |
     """
     out: list[nodes.Node] = []
     cursor = 0
-    for citation in citations.scan(source, PATTERN, owner):
+    for citation in tephpy_citations.scan(source, PATTERN, owner):
         if citation.slug is None:
             # A bare section number with nothing to be relative to. The gate of
             # docs spec §3.6 rejects it on commit; here, leave it as written.
@@ -212,15 +216,15 @@ def _build_registry(app: Sphinx) -> None:
     root = Path(app.srcdir)
     specs = sorted((root / "developer" / "specs").glob("*.md"))
     try:
-        anchors, owners = citations.collect_anchors(specs)
-    except citations.DuplicateAnchorError as duplicate:
+        anchors, owners = tephpy_citations.collect_anchors(specs)
+    except tephpy_citations.DuplicateAnchorError as duplicate:
         first, second = duplicate.first, duplicate.second
         message = (
             f"duplicate citation anchor '{duplicate.slug}': "
             f"{first.path}:{first.line} and {second.path}:{second.line}"
         )
         raise ExtensionError(message) from duplicate
-    PATTERN = citations.citation_pattern(anchors) if anchors else None
+    PATTERN = tephpy_citations.citation_pattern(anchors) if anchors else None
     OWNERS.clear()
     OWNERS.update(
         {
@@ -231,7 +235,9 @@ def _build_registry(app: Sphinx) -> None:
     FINGERPRINT = _fingerprint(anchors, OWNERS)
 
 
-def _fingerprint(anchors: dict[str, citations.Anchor], owners: dict[str, str]) -> str:
+def _fingerprint(
+    anchors: dict[str, tephpy_citations.Anchor], owners: dict[str, str]
+) -> str:
     """Digest the registry, so that a build can tell it has changed since the last.
 
     Only what the transform reads is digested. Where an anchor sits is not part of

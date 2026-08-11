@@ -14,6 +14,10 @@ text the gate had never audited.
 Nothing here is imported from outside the standard library, so this module runs
 in the CI test matrix, which carries no Sphinx.
 
+The ``tephpy_`` prefix claims a top-level name this repository owns, because
+``docs/src/_ext`` sits at ``sys.path[0]`` for the whole build (:issue:`92`). It
+is not part of the installed package -- nothing under ``docs/`` is.
+
 Notes
 -----
 .. versionadded:: 0.1.0
