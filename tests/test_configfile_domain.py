@@ -10,13 +10,21 @@ passed the type check that ``tests/test_configfile.py`` covers.
 
 from __future__ import annotations
 
+import dataclasses
 import re
+import warnings
 
+import matplotlib.pyplot as plt
 import pytest
 
 import tephpy
 from tephpy import _configfile
-from tephpy._constants import CURSOR_FIELD_NAMES, EDGES, EMPHASIS_STYLE_KEYS
+from tephpy._constants import (
+    CONFIG_DEFAULTS,
+    CURSOR_FIELD_NAMES,
+    EDGES,
+    EMPHASIS_STYLE_KEYS,
+)
 from tephpy.exceptions import TephpyConfigWarning
 
 
@@ -144,9 +152,11 @@ def test_a_bad_value_warns_keeps_the_default_and_spares_the_file(
 ):
     """The whole of domain spec §2's rule, in one assertion each.
 
-    Every one of these loaded silently before: eight failed at the first
-    draw with tephpy's own message, four with matplotlib's, and three drew a
-    diagram that was simply not the one the file asked for (domain spec §1).
+    Every one of these loaded silently before: most failed at the first draw,
+    with tephpy's message or matplotlib's, and the rest drew a diagram that
+    was simply not the one the file asked for (domain spec §1). Which case
+    falls where is not counted here — ``DRAWS_IN_SILENCE`` below is where
+    that split is recorded, and it is checked rather than asserted in prose.
 
     The sibling option is what makes "the rest of the file still applies" a
     claim about something. It goes in a second section, so a rule that
@@ -207,4 +217,281 @@ def test_one_bad_member_skips_the_whole_emphasis_option(tmp_path):
     path = _write(tmp_path, text)
     with pytest.warns(TephpyConfigWarning, match="isotherms.emphasis"):
         tephpy.config.load(path)
+    assert tephpy.config.isotherms.emphasis is None
+
+
+#: The five options that have no domain rule, and why. A bool is the whole of
+#: its own domain, so ``visible`` needs none (domain spec §3.3).
+UNDOMAINED = {
+    (section, "visible")
+    for section, defaults in CONFIG_DEFAULTS.items()
+    if "visible" in defaults
+}
+
+
+def test_every_option_bar_the_flags_has_a_domain_rule():
+    """An option with no rule must fail here, not go quietly unchecked.
+
+    ``coerce`` returns an option with no entry in ``_DOMAIN_VALIDATORS``
+    untouched, exactly as it does for an unrecognised annotation and for the
+    same reason: adding an option must not be able to stop an import. So
+    nothing else in the suite would notice the gap — the option would simply
+    go back to being applied unchecked, which is the defect this work exists
+    to close.
+
+    The first two assertions are what stop this gate passing by checking
+    nothing, and the count comes from ``CONFIG_DEFAULTS`` rather than being
+    written down, so adding an option updates it.
+    """
+    options = {
+        (section, option)
+        for section, defaults in CONFIG_DEFAULTS.items()
+        for option in defaults
+    }
+    assert options
+    assert len(options) == 42
+    assert len(UNDOMAINED) == 5
+    missing = sorted(
+        key
+        for key in options - UNDOMAINED
+        if key[1] not in _configfile._DOMAIN_VALIDATORS
+    )
+    assert missing == []
+    assert {option for _, option in options} - set(_configfile._DOMAIN_VALIDATORS) == {
+        "visible"
+    }
+
+
+def test_no_option_name_carries_two_domains():
+    """The assumption behind keying by name rather than by annotation.
+
+    ``_DOMAIN_VALIDATORS`` is keyed by option name, so ``values`` in
+    ``isotherms`` and ``values`` in ``mixing_ratios`` get the same rule.
+    That is sound today because the two mean the same kind of thing — finite
+    numbers, whether the family measures degrees Celsius or g/kg — and it is
+    a property of the current ``Config``, not a law (domain spec §3.1).
+
+    An option that ever needs a per-section domain has to be keyed by
+    ``(section, option)``, and this is where that shows up. The proxy for
+    "same domain" is the declared type: two sections that give one option
+    name different types cannot share a rule that runs on the converted
+    value.
+    """
+    annotations: dict[str, set[object]] = {}
+    for field in dataclasses.fields(tephpy.config):
+        section = getattr(tephpy.config, field.name)
+        hints = _configfile._option_hints(type(section))
+        for option in dataclasses.fields(section):
+            annotations.setdefault(option.name, set()).add(hints[option.name])
+    assert annotations
+    ambiguous = sorted(name for name, types in annotations.items() if len(types) > 1)
+    assert ambiguous == []
+
+
+#: Values every rule must accept: the legitimate lookalikes. A validator that
+#: refuses a value the draw would have accepted is worse than no validator,
+#: and no other gate here can see it -- every refusal test passes just as
+#: well against a rule that is too strict (domain spec §5).
+ACCEPTED = [
+    ("isotherms", "color", "C0"),
+    ("isotherms", "color", "'xkcd:sky blue'"),
+    ("isotherms", "color", "'0.5'"),
+    ("isotherms", "color", "'#b0b0b0'"),
+    ("isotherms", "linewidth", "0.5"),
+    ("isotherms", "alpha", "0"),
+    ("isotherms", "alpha", "1"),
+    ("isotherms", "labels", "true"),
+    ("isotherms", "labels", "false"),
+    ("isotherms", "labels", "bottom"),
+    ("isotherms", "labels", "[bottom, left]"),
+    ("isotherms", "values", "[]"),
+    ("isotherms", "values", "[0, 10]"),
+    ("isotherms", "visible", "false"),
+    ("isotherms", "emphasis", "{}"),
+    ("isotherms", "emphasis", "{850.0: {}}"),
+    ("isotherms", "emphasis", "{850.0: {linestyle: '--'}}"),
+    ("isotherms", "emphasis", "{850.0: {linestyle: dashed}}"),
+    ("isotherms", "emphasis", "{850.0: {linewidth: 2}}"),
+    ("isotherms", "emphasis", "{850.0: {alpha: 1}}"),
+    ("isotherms", "emphasis", "{850.0: {color: red, linewidth: 2.0, alpha: 1.0}}"),
+    ("isobars", "interval", "10.0"),
+    ("moist_adiabats", "truncation", "-40"),
+    ("diagram", "extent", "[[1050.0, -80.0], [300.0, 40.0]]"),
+    ("cursor", "fields", "[pressure, theta_w]"),
+]
+
+
+@pytest.mark.parametrize(("section", "option", "yaml"), ACCEPTED)
+def test_a_legitimate_value_is_not_refused(tmp_path, section, option, yaml):
+    """Each rule's lookalikes, loaded through the file (domain spec §5).
+
+    ``C0``, ``xkcd:sky blue`` and ``0.5`` are all colours and none of them
+    looks like one. ``alpha: 0`` and ``alpha: 1`` are the inclusive bounds.
+    ``labels: bottom`` is the bare-string arm and ``[bottom, left]`` the list
+    arm. ``truncation: -40`` is the negative number the one invented rule
+    must not read as out of range. The three ``emphasis`` overrides written
+    as integers are the case that drove ``_as_float``: a style value is
+    annotated ``object`` and so arrives unconverted, so a rule testing for
+    ``float`` would refuse ``linewidth: 2`` where ``linewidth: 2.0`` passes
+    (domain spec §3.3).
+    """
+    path = _write(tmp_path, f"{section}:\n  {option}: {yaml}\n")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", TephpyConfigWarning)
+        tephpy.config.load(path)
+    assert getattr(getattr(tephpy.config, section), option) is not None
+
+
+def test_the_accepted_table_reaches_every_rule():
+    """An emptied table would pass the gate above having checked nothing."""
+    assert len(ACCEPTED) == 25
+    assert {option for _, option, _ in ACCEPTED} == set(
+        _configfile._DOMAIN_VALIDATORS
+    ) | {"visible"}
+
+
+#: The four values the draw accepts in silence (domain spec §1). Each draws a
+#: diagram that is simply not the one the file asked for, which is the worst
+#: outcome available and the reason this work exists. Their rules are lifted
+#: from the *emphasis* checks on the same quantities, not from a check the
+#: family-level option reaches, so the load refuses what the draw does not --
+#: and this set is where that asymmetry is written down rather than assumed.
+#:
+#: Both ``linewidth`` values are here for one reason: the family-level option
+#: is not range-checked anywhere in the draw, so -1.0 and .inf alike reach
+#: matplotlib and produce a line width that is not the one asked for. The
+#: infinity was measured, not assumed -- it emits two numpy RuntimeWarnings
+#: from a scalar multiply and draws.
+#:
+#: A list, and a separate one, rather than an exemption set consulted by
+#: membership: seven of the refused values below are dicts, which are
+#: unhashable, and two are NaN, which is not equal to itself -- so
+#: ``(section, option, value) in a_set`` neither runs nor means anything
+#: here. Which list a row is written in carries the split, and no value is
+#: ever compared.
+DRAWS_IN_SILENCE = [
+    ("isotherms", "linewidth", -1.0),
+    ("isotherms", "linewidth", float("inf")),
+    ("isotherms", "values", (0.0, float("nan"))),
+    ("moist_adiabats", "truncation", float("nan")),
+]
+
+#: The sixteen the draw refuses loudly, in one of the three exception types
+#: the gate below accepts.
+RAISES_AT_THE_DRAW = [
+    ("isotherms", "color", "notacolour"),
+    ("isotherms", "alpha", 5.0),
+    ("isotherms", "emphasis", {0.0: {"color": "notacolour"}}),
+    ("isotherms", "emphasis", {0.0: {"linestyle": "notaline"}}),
+    ("isotherms", "labels", ("botom",)),
+    ("isobars", "interval", 0.0),
+    ("isobars", "interval", float("inf")),
+    ("diagram", "extent", ((0.0, -80.0), (1050.0, 40.0))),
+    ("diagram", "extent", ((1050.0, float("nan")), (300.0, 40.0))),
+    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
+    ("isotherms", "emphasis", {700.0: {"lw": 2.0}}),
+    ("isotherms", "emphasis", {0.0: {"linewidth": "thick"}}),
+    ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
+    ("isotherms", "emphasis", {float("nan"): {}}),
+    ("isotherms", "emphasis", {850.0: {"linewidth": int("9" * 400)}}),
+    ("cursor", "fields", ("nonsuch",)),
+]
+
+#: What the draw does with a refused value, as a parametrisation label:
+#: strings rather than booleans so a failing case names its own expectation.
+DRAWS, RAISES = "draws", "raises"
+
+#: Every refused value again, as the Python objects ``coerce`` would have
+#: produced, for the draw to be asked about directly. Written out rather than
+#: derived from ``REFUSED`` because ``coerce`` refuses these -- deriving them
+#: would mean running the stage under test to build the input to its own gate.
+REFUSED_AT_THE_DRAW = [
+    (section, option, value, DRAWS) for section, option, value in DRAWS_IN_SILENCE
+] + [(section, option, value, RAISES) for section, option, value in RAISES_AT_THE_DRAW]
+
+
+def _draw_with(section, option, value):
+    """Set an option through the Python API and exercise everything that reads it.
+
+    Three actions, because "the draw" is not one thing: ``diagram.extent``
+    is consumed when the axes are built, the isopleth options when the
+    canvas is drawn, and ``cursor.fields`` only on mouse motion — which is
+    why its mistake reaches an interactive user and nobody else
+    (domain spec §1).
+
+    The draw itself runs with ``RuntimeWarning`` suppressed: the
+    ``isotherms.linewidth: .inf`` row in ``DRAWS_IN_SILENCE`` emits two from
+    a numpy scalar multiply during the render, and the suite's
+    ``filterwarnings = ["error"]`` would otherwise turn the one row whose
+    whole point is that the draw *succeeds* into a failure. Nothing else is
+    suppressed.
+    """
+    with tephpy.config.context(**{section: {option: value}}):
+        fig = plt.figure()
+        try:
+            ax = fig.add_subplot(projection="tephigram")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                fig.canvas.draw()
+                ax.format_coord(0.0, 0.0)
+        finally:
+            plt.close(fig)
+
+
+@pytest.mark.parametrize(("section", "option", "value", "outcome"), REFUSED_AT_THE_DRAW)
+def test_what_the_load_refuses_the_draw_refuses_too(section, option, value, outcome):
+    """Makes "lifted, not invented" a checked property (domain spec §5).
+
+    The Python API is unguarded by design (domain spec §2), so setting the
+    value there and drawing asks the draw-time rule directly. Sixteen of these
+    raise; the four in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
+    is the point — a later change that makes one of them raise is a change to
+    a diagram a user already has, and this is where it surfaces.
+
+    ``OverflowError`` is in the tuple for the huge-integer row alone. It is
+    not a ``ValueError`` — it descends from ``ArithmeticError`` — so leaving
+    it out would let that row pass this gate by raising something the gate
+    never asked about. It is the draw-time counterpart of the rule that keeps
+    such a value from stopping an import (configfile spec §5.2).
+    """
+    if outcome == DRAWS:
+        _draw_with(section, option, value)
+        return
+    with pytest.raises((TypeError, ValueError, OverflowError)):
+        _draw_with(section, option, value)
+
+
+@pytest.mark.parametrize(("section", "option", "yaml"), ACCEPTED)
+def test_what_the_load_accepts_the_draw_accepts_too(tmp_path, section, option, yaml):
+    """The half that has no exceptions, and the false-positive gate's teeth.
+
+    A rule that is too strict refuses a diagram that would have drawn. Here
+    the value goes in through the file — so the whole pipeline runs — and
+    then the diagram is drawn from the configuration it produced.
+    """
+    path = _write(tmp_path, f"{section}:\n  {option}: {yaml}\n")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", TephpyConfigWarning)
+        tephpy.config.load(path)
+    _draw_with(section, option, getattr(getattr(tephpy.config, section), option))
+
+
+def test_the_draw_table_covers_every_refusal():
+    """``REFUSED_AT_THE_DRAW`` is hand-written, so nothing else keeps it in step.
+
+    It is deliberately not derived from ``REFUSED`` — deriving it would mean
+    running the stage under test to build the input to its own gate — and the
+    price of writing it out is that a row added to one table and forgotten in
+    the other goes unnoticed. The refusal would keep its own test and quietly
+    stop being asked whether the draw agrees, which is the property this
+    module exists to check.
+
+    Compared by ``(section, option)`` rather than by value: the two tables
+    hold the same cases in different forms, YAML text on one side and the
+    Python objects ``coerce`` would have produced on the other.
+    """
+    assert len(REFUSED_AT_THE_DRAW) == len(REFUSED)
+    refused = sorted((section, option) for section, option, _, _ in REFUSED)
+    drawn = sorted((section, option) for section, option, _, _ in REFUSED_AT_THE_DRAW)
+    assert drawn == refused
     assert tephpy.config.isotherms.emphasis is None
