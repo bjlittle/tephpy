@@ -15,7 +15,12 @@ import pytest
 
 import tephpy
 from tephpy import _configfile
-from tephpy._constants import CONFIG_DEFAULTS
+from tephpy._constants import (
+    CONFIG_DEFAULTS,
+    CURSOR_FIELD_NAMES,
+    EDGES,
+    EMPHASIS_STYLE_KEYS,
+)
 
 #: The how-to the methods section sends the reader to. Read rather than built,
 #: because the claim being checked is about that page's contents.
@@ -245,3 +250,40 @@ def test_a_default_is_rendered_by_its_kind():
     assert "Default: ``{}``" in text
     assert "Default: ``dimgrey``" in text
     assert "Default: ``[[1050.0, -40.0], [200.0, 40.0]]``" in text
+
+
+@pytest.mark.parametrize(
+    ("section", "option", "vocabulary"),
+    [
+        ("isotherms", "labels", EDGES),
+        ("cursor", "fields", CURSOR_FIELD_NAMES),
+    ],
+)
+def test_a_description_lists_its_whole_closed_vocabulary(section, option, vocabulary):
+    """The page cannot document a legal set the loader rejects.
+
+    The joined names are asserted as one run, not member by member, so a
+    name added to the constant and not to the prose fails here — which is
+    the only way to tell a derived string from a hand-written one that
+    happens to agree today (domain spec §6).
+    """
+    description = _configfile.CONFIG_DESCRIPTIONS[section][option]
+    assert ", ".join(vocabulary) in description
+
+
+def test_the_emphasis_detail_names_every_style_key():
+    """The other closed vocabulary, in the prose that documents overrides.
+
+    The whole ``and``-list as one run, for the same reason: a key added to
+    the constant and left out of the prose has to fail somewhere.
+    """
+    keys = ", ".join(f"``{key}``" for key in EMPHASIS_STYLE_KEYS[:-1])
+    detail = _configfile.CONFIG_DETAILS["isotherms"]["emphasis"]
+    assert f"{keys} and ``{EMPHASIS_STYLE_KEYS[-1]}``" in detail
+
+
+def test_the_page_carries_the_vocabularies_it_documents():
+    """The descriptions above reach the rendered page, not just the table."""
+    page = rendered()
+    assert ", ".join(EDGES) in page
+    assert ", ".join(CURSOR_FIELD_NAMES) in page

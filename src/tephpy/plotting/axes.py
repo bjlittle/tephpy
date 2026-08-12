@@ -53,6 +53,7 @@ from tephpy._constants import (
     EDGE_LABEL_GUTTER_PAD,
     EDGE_TICK_LENGTH,
     EDGE_TICK_PAD,
+    EDGES,
     INDICES_PANEL_FONTSIZE,
     INDICES_PANEL_PAD,
     INDICES_PANEL_ROWS,
@@ -71,7 +72,6 @@ from tephpy.plotting import shading
 from tephpy.plotting.barbs import BarbStaff
 from tephpy.plotting.isopleths import (
     _FAMILY_SPECS,
-    EDGES,
     IsoplethFamily,
     _EdgeFormatter,
     _EdgeLocator,

@@ -130,6 +130,47 @@ wanted. But ``linewidth: true`` is not a number at all, and neither are
 ``yes``, ``no``, ``on`` and ``off``, which YAML also reads as true or
 false. Quote them if you meant the words.
 
+A value of the right type can still be refused. ``color: notacolour`` is a
+string and ``interval: 0`` is a number, and neither is something tephpy can
+draw; both warn and are skipped exactly as ``linewidth: thick`` is, and the
+warning says what the option can accept:
+
+.. code-block:: text
+
+    tephpyrc.yaml: ignoring isotherms.color, which expects a colour matplotlib knows, not the string 'notacolour'
+    tephpyrc.yaml: ignoring isobars.interval, which expects a positive, finite number, not the number 0.0
+
+Where the set of legal values is closed, the warning lists it, because your
+next move is to pick from it. Where it is open — no message can enumerate the
+colours matplotlib knows — it is described instead. And ``color: b0b0b0``,
+the mirror image of the ``#`` trap above, is told what it is probably missing:
+
+.. code-block:: text
+
+    tephpyrc.yaml: ignoring isotherms.color, which expects a colour matplotlib knows, not the string 'b0b0b0'; did you mean '#b0b0b0'?
+
+One of these refusals will catch you out if you have relied on it.
+``linewidth: 0`` is a working matplotlib instruction — a line of zero width
+is a line you cannot see — but tephpy refuses it, because a line width is
+expected to be a positive number and because hiding a family has an option
+of its own:
+
+.. code-block:: yaml
+
+    isotherms:
+      visible: false
+
+That is the one to reach for. It says what you mean, it reads that way to
+whoever opens the file next, and it costs you nothing: ``visible`` is
+available on every isopleth family.
+
+An option is skipped whole. ``emphasis`` holds a mapping of members to
+styles, so one bad member costs you the whole ``emphasis`` option, not just
+that member — the good members go back to being drawn like every other
+member of the family. This is deliberate: told that ``emphasis`` was ignored
+you can read your own file and see what you lost, where told it was partly
+applied you could not tell what was in force.
+
 These warnings arrive once, as the file is read, and no filter of yours can
 turn them off: your own code has not started running yet, and the auto-load
 puts tephpy's configuration warnings in front of every filter you set, so

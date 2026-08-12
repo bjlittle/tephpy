@@ -536,7 +536,8 @@ style *values* are `object`. So `emphasis: {0.0: {linewidth: thick}}` still reac
 draw. Checking it needs to know which style keys exist and what each accepts, which is the
 knowledge a domain check needs — and domain validity is out of scope here. This section
 covers types only. Whether `notacolour` names a colour, or `nonsuch` a cursor field, is a
-separate question, deliberately left unanswered (§9).
+separate question, answered by domain spec §3: a second stage behind this one, which reads
+the converted value and so reaches the `emphasis` style values this section cannot (§9).
 
 **Rejected: pydantic.** A `TypeAdapter` per annotation — `Strict()` on the scalar leaves,
 lax on the containers so YAML's lists still become tuples — was measured against the rule
@@ -678,10 +679,11 @@ non-goal is a decision, not an omission.
   not publish a private module, so it sets no precedent for the 135 `#:`-documented
   constants. Those are the conventions a configuration file exists to override, reachable by
   a user as the `tephpy.config` options that override them — not as names to import.
-- **Deferred** ({issue}`116`) — **domain validation of a value that has the right type.**
-  §5.2 checks a value against the type its field declares, and stops there:
-  `color: notacolour` is a string, so it loads, and matplotlib rejects it at the first draw.
-  Answering it properly means a per-option vocabulary — the colours, the edge names, the
-  cursor fields, the `emphasis` style keys — which is a larger piece of work than the type
-  check it would sit behind. This is the one entry here that is not a decision against, and
-  the only one the docs spec §3.5 contract requires an issue for.
+- **Resolved** (2026-08-12, PR {pull}`126`) — **domain validation of a value that has the
+  right type.** §5.2 checks a value against the type its field declares and stops there:
+  `color: notacolour` is a string, so it loaded, and matplotlib rejected it at the first
+  draw. Answering it properly meant a per-option vocabulary — the colours, the edge names,
+  the cursor fields, the `emphasis` style keys — which is why it was a larger piece of work
+  than the type check it sits behind. Specified as domain spec §1–domain spec §7 and settled by that
+  work ({issue}`116`). This was the one entry here that was not a decision against, and the
+  only one the docs spec §3.5 contract required an issue for.

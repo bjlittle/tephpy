@@ -7,7 +7,11 @@
 Discovery, parsing and rendering of the YAML configuration file. This module
 owns everything about the file; ``_config`` owns only the shape of the
 configuration and its lifecycle. Nothing here imports ``tephpy.plotting``, so
-reading a configuration file cannot pull in matplotlib figure machinery.
+the dependency arrow stays one-way. matplotlib itself -- ``LineCollection``
+and ``is_color_like``, for domain validation -- is imported directly, and
+that costs nothing importing ``tephpy`` had not already spent: the package
+``__init__`` imports ``plotting``, which leaves matplotlib in
+``sys.modules`` before this module is ever reached (domain spec §3.2).
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from collections.abc import Callable, Mapping
 import dataclasses
 import datetime
 import inspect
+import math
 import os
 from pathlib import Path
 import textwrap
@@ -23,13 +28,24 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast, get_type_hints
 import warnings
 
+from matplotlib.collections import LineCollection
+from matplotlib.colors import is_color_like
 import platformdirs
 import yaml
 
-from tephpy._constants import CONFIG_DEFAULTS
+from tephpy._constants import (
+    CONFIG_DEFAULTS,
+    CURSOR_FIELD_NAMES,
+    EDGES,
+    EMPHASIS_STYLE_KEYS,
+)
 from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 if TYPE_CHECKING:
+    from typing import SupportsFloat
+
+    from matplotlib.typing import LineStyleType
+
     from tephpy._config import Config
 
 __all__ = [
@@ -553,6 +569,405 @@ def _describe(value: object) -> str:
     return repr(value)
 
 
+class _DomainError(Exception):
+    """A value of the right type that its option still cannot accept.
+
+    Carries the two halves of the message separately, where
+    :class:`_MismatchError` carries at most one. For a compound option both
+    halves vary with the offending part — ``emphasis`` names the member and
+    the style key in the *expects* half — so :func:`coerce` cannot compose
+    the sentence from the option alone as it does for a type mismatch
+    (domain spec §3.1).
+
+    Parameters
+    ----------
+    expects : str
+        The noun phrase for what the option can accept, as it reads after
+        "which expects".
+    found : str
+        The offending value, named as :func:`_describe` names it. For a
+        compound option this is the offending *part*, not the whole value:
+        printing a forty-member ``values`` list back at someone who
+        mistyped one entry helps nobody (domain spec §4).
+    """
+
+    def __init__(self, expects: str, found: str) -> None:
+        """Store the two halves of the message.
+
+        Parameters
+        ----------
+        expects : str
+            The noun phrase for what the option can accept.
+        found : str
+            The offending value, named as :func:`_describe` names it.
+        """
+        super().__init__(f"{expects}, not {found}")
+        self.expects = expects
+        self.found = found
+
+
+def _as_float(value: object, expects: str) -> float:
+    """Convert a style override to a float, or say what was expected instead.
+
+    Parameters
+    ----------
+    value : object
+        The value to convert.
+    expects : str
+        The noun phrase to report if it will not convert.
+
+    Returns
+    -------
+    float
+        The value as a float.
+
+    Raises
+    ------
+    _DomainError
+        If the value is not a number, or is a number with no float to
+        convert to.
+
+    Notes
+    -----
+    Coercion rather than an ``isinstance`` test, matching
+    ``isopleths._emphasis_number`` exactly. An ``emphasis`` style *value* is
+    annotated ``object`` and so reaches this stage unconverted, which makes
+    ``emphasis: {850: {linewidth: 2}}`` an ``int`` where ``linewidth: 2`` is
+    a ``float`` (configfile spec §5.2). A rule that tested the type would
+    refuse a value the draw accepts (domain spec §3.3).
+
+    Deliberately not excluding ``bool`` is part of that: ``_as_number``
+    excludes it explicitly (``linewidth: true`` reads as a type mismatch, not
+    a 1 pt line), but ``emphasis: {850: {linewidth: true}}`` reaches here as
+    a plain ``bool`` and is accepted as ``1.0`` -- because
+    ``isopleths._emphasis_number`` also just does ``float(value)``, so the
+    draw already accepts it. Refusing it here would be a false positive:
+    a rule that is stricter than the draw it protects (domain spec §3.3,
+    domain spec §5). This is left deliberately asymmetric with
+    ``_as_number``, not an oversight.
+
+    Unconverted also means un-guarded: ``_as_number`` catches
+    ``OverflowError`` for exactly this reason and this function must too, or
+    a 309-plus-digit integer in an ``emphasis`` override -- valid YAML, valid
+    Python, and rejected only by ``float()`` -- would escape this function,
+    :func:`coerce`'s ``except _DomainError`` and :func:`apply`'s ``except
+    TephpyConfigError`` alike, stopping ``import tephpy`` outright
+    (configfile spec §5.2). The message does not echo the value back:
+    printing a 309-digit number helps nobody (domain spec §4).
+    """
+    try:
+        return float(cast("SupportsFloat", value))
+    except (TypeError, ValueError):
+        raise _DomainError(expects, _describe(value)) from None
+    except OverflowError:
+        found = "a number that large; the largest tephpy can hold is about 1.8e308"
+        raise _DomainError(expects, found) from None
+
+
+def _domain_color(value: object) -> None:
+    """Check a colour is one matplotlib knows.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``color`` value, or a ``color`` style override.
+
+    Raises
+    ------
+    _DomainError
+        If matplotlib does not recognise the colour. matplotlib is asked
+        rather than re-derived, because it owns the domain (domain spec §2).
+        A string that becomes a colour with a ``#`` in front earns a hint:
+        ``color: #b0b0b0`` is eaten by YAML as a comment
+        (configfile spec §5) and ``color: b0b0b0`` lands here, so the two
+        halves of one trap warn about each other (domain spec §4).
+    """
+    if is_color_like(value):
+        return
+    hint = ""
+    if isinstance(value, str) and is_color_like(f"#{value}"):
+        hint = f"; did you mean '#{value}'?"
+    expects = "a colour matplotlib knows"
+    found = f"{_describe(value)}{hint}"
+    raise _DomainError(expects, found)
+
+
+def _domain_linestyle(value: object) -> None:
+    """Check a linestyle is one matplotlib knows.
+
+    Parameters
+    ----------
+    value : object
+        A ``linestyle`` style override.
+
+    Raises
+    ------
+    _DomainError
+        If ``LineCollection.set_linestyle`` will not take it. That is the
+        oracle because a ``LineCollection`` is what the draw sets the style
+        on. Measured on matplotlib 3.11.1: it and ``Line2D.set_linestyle``
+        accept and reject the same ten probes and differ only in wording,
+        and ``matplotlib.rcsetup._validate_linestyle`` is private
+        (domain spec §3.3).
+
+        Asked in the *shape the draw builds*, not bare.
+        ``IsoplethFamily.draw`` sets one style per member, so the value
+        arrives inside a list of them. ``set_linestyle`` also accepts a
+        sequence of linestyles, so a bare ``['--']`` is a legal argument
+        on its own and an illegal one nested — it would load in silence
+        and then raise at the draw, which is the whole failure this stage
+        exists to stop (domain spec §3.3).
+    """
+    expects = "a linestyle matplotlib knows"
+    try:
+        LineCollection([]).set_linestyle([cast("LineStyleType", value)])
+    except (TypeError, ValueError):
+        raise _DomainError(expects, _describe(value)) from None
+
+
+def _domain_positive(value: object) -> None:
+    """Check a number is positive and finite.
+
+    Parameters
+    ----------
+    value : object
+        A ``linewidth`` or ``interval`` value, or a ``linewidth`` override.
+
+    Raises
+    ------
+    _DomainError
+        If the value is not a positive, finite number. Lifted from
+        ``isopleths._emphasis_number`` and ``IsoplethFamily._resolve``
+        (domain spec §3.3).
+    """
+    expects = "a positive, finite number"
+    number = _as_float(value, expects)
+    if not (number > 0.0 and math.isfinite(number)):
+        raise _DomainError(expects, _describe(value))
+
+
+def _domain_alpha(value: object) -> None:
+    """Check an opacity falls in ``[0, 1]``.
+
+    Parameters
+    ----------
+    value : object
+        An ``alpha`` value, or an ``alpha`` style override.
+
+    Raises
+    ------
+    _DomainError
+        If the value is outside ``[0, 1]``. The bounds are inclusive, as
+        ``isopleths._emphasis_number`` has them (domain spec §3.3).
+    """
+    expects = "a number between 0 and 1"
+    number = _as_float(value, expects)
+    if not 0.0 <= number <= 1.0:
+        raise _DomainError(expects, _describe(value))
+
+
+def _domain_finite(value: object) -> None:
+    """Check a number is finite.
+
+    Parameters
+    ----------
+    value : object
+        A ``truncation`` value.
+
+    Raises
+    ------
+    _DomainError
+        If the value is not finite. This is the one invented rule, and
+        deliberately the weakest available: a temperature below which moist
+        adiabats are truncated has no defensible bound that is not a guess,
+        and a validator that refuses a value the draw would have accepted is
+        a regression wearing a feature's clothes (domain spec §3.3).
+    """
+    expects = "a finite number"
+    if not math.isfinite(_as_float(value, expects)):
+        raise _DomainError(expects, _describe(value))
+
+
+def _domain_values(value: object) -> None:
+    """Check every explicit member value is finite.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``values`` tuple.
+
+    Raises
+    ------
+    _DomainError
+        If any member is not finite. No draw-time counterpart on this
+        option, but not invented either: it is
+        ``isopleths._normalize_emphasis``'s member rule applied to the other
+        place member values come from, for the reason that function already
+        records — a non-finite member would build a full NaN polyline that
+        the view mask silently drops (domain spec §3.3).
+    """
+    expects = "finite numbers"
+    for member in cast("tuple[float, ...]", value):
+        if not math.isfinite(member):
+            raise _DomainError(expects, _describe(member))
+
+
+def _domain_labels(value: object) -> None:
+    """Check a label placement names diagram edges.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``labels`` value: a bool, an edge name, or a tuple of
+        them.
+
+    Raises
+    ------
+    _DomainError
+        If a name is not in :data:`tephpy._constants.EDGES`. Lifted from
+        ``isopleths._normalize_labels`` (domain spec §3.3). The bool arms
+        return early, and the bare-string arm is handled before the iterable
+        one so ``"bottom"`` is never iterated character by character.
+    """
+    if isinstance(value, bool):
+        return
+    names = (value,) if isinstance(value, str) else cast("tuple[str, ...]", value)
+    expects = f"true, false, or edge name(s) from {list(EDGES)}"
+    for name in names:
+        if name not in EDGES:
+            raise _DomainError(expects, _describe(name))
+
+
+def _domain_fields(value: object) -> None:
+    """Check every cursor readout field is one that exists.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``fields`` tuple.
+
+    Raises
+    ------
+    _DomainError
+        If a name is not in :data:`tephpy._constants.CURSOR_FIELD_NAMES`.
+        Lifted from ``plotting.axes.format_coord``, whose check fires on
+        mouse motion and so only ever reaches an interactive user
+        (domain spec §1).
+    """
+    expects = f"field name(s) from {list(CURSOR_FIELD_NAMES)}"
+    for name in cast("tuple[str, ...]", value):
+        if name not in CURSOR_FIELD_NAMES:
+            raise _DomainError(expects, _describe(name))
+
+
+def _domain_extent(value: object) -> None:
+    """Check both view corners are physical.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``extent``, as two ``(pressure, temperature)`` pairs.
+
+    Raises
+    ------
+    _DomainError
+        If a corner number is not finite, or a pressure is not above zero.
+        Lifted from ``axes.TephigramAxes.set_extent``, whose message names
+        the pressure but whose test is finiteness after the transform — so a
+        non-finite temperature is refused there too (domain spec §3.3).
+    """
+    corners = cast("tuple[tuple[float, float], tuple[float, float]]", value)
+    finite = "finite corner numbers"
+    positive = "corner pressures above 0 hPa"
+    for pressure, temperature in corners:
+        if not math.isfinite(temperature):
+            raise _DomainError(finite, _describe(temperature))
+        if not (pressure > 0.0 and math.isfinite(pressure)):
+            raise _DomainError(positive, _describe(pressure))
+
+
+#: The rule for each ``emphasis`` style override, keyed by style key. A key
+#: absent from this table is a legal style key with no domain of its own;
+#: today there is none, and ``tests/test_configfile_domain.py`` pins that.
+_EMPHASIS_STYLE_RULES: Final[Mapping[str, Callable[[object], None]]] = MappingProxyType(
+    {
+        "color": _domain_color,
+        "linewidth": _domain_positive,
+        "linestyle": _domain_linestyle,
+        "alpha": _domain_alpha,
+    }
+)
+
+
+def _domain_emphasis(value: object) -> None:
+    """Check every emphasised member and every style override it carries.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``emphasis`` mapping.
+
+    Raises
+    ------
+    _DomainError
+        If a member value is not finite, a style names a key outside
+        :data:`tephpy._constants.EMPHASIS_STYLE_KEYS`, or an override falls
+        outside its own domain. The six rules of domain spec §3.3, this
+        being the one option that nests a style mapping. A failing override
+        is re-raised with the member and the key in front of it, so the
+        warning locates the fault inside a mapping that may hold dozens
+        (domain spec §4).
+    """
+    members = cast("Mapping[float, Mapping[str, object]]", value)
+    finite_members = "finite member values"
+    for member, style in members.items():
+        if not math.isfinite(member):
+            raise _DomainError(finite_members, _describe(member))
+        for key in style:
+            if key not in EMPHASIS_STYLE_KEYS:
+                expects = (
+                    f"member {member:g} to use style key(s) from "
+                    f"{list(EMPHASIS_STYLE_KEYS)}"
+                )
+                raise _DomainError(expects, _describe(key))
+        for key, rule in _EMPHASIS_STYLE_RULES.items():
+            if key in style:
+                try:
+                    rule(style[key])
+                except _DomainError as exc:
+                    expects = f"member {member:g} {key!r} to be {exc.expects}"
+                    raise _DomainError(expects, exc.found) from None
+
+
+#: The domain rule for each option that has one, keyed by **option name**
+#: where ``_TYPE_VALIDATORS`` is keyed by annotation. The two tables are
+#: shaped by different things: eight annotations cover all 42 options because
+#: a type is a coarse property, while a domain is a property of what the
+#: option *means* -- ``color`` and ``linewidth`` are both scalars and share no
+#: domain at all. Ten names cover the 42 options bar the five ``visible``
+#: flags, which are bools and need no domain (domain spec §3.1).
+#:
+#: Keying by name alone is sound only because no two sections give one option
+#: name different domains: ``values`` is finite numbers whether the family
+#: measures degrees Celsius or g/kg. That is a property of the current
+#: ``Config``, not a law, so ``tests/test_configfile_domain.py`` gates it
+#: rather than trusting it.
+_DOMAIN_VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = MappingProxyType(
+    {
+        "color": _domain_color,
+        "linewidth": _domain_positive,
+        "alpha": _domain_alpha,
+        "labels": _domain_labels,
+        "emphasis": _domain_emphasis,
+        "values": _domain_values,
+        "interval": _domain_positive,
+        "extent": _domain_extent,
+        "fields": _domain_fields,
+        "truncation": _domain_finite,
+    }
+)
+
+
 def _option_hints(section_type: type[object]) -> Mapping[str, object]:
     """Return each option's declared type for a configuration section.
 
@@ -598,25 +1013,50 @@ def coerce(section: str, option: str, value: object, annotation: object) -> obje
         completeness gate in ``tests/test_configfile.py`` is what reports the
         gap instead (configfile spec §5.2).
 
+        An option with no *domain* rule is likewise returned untouched: the
+        five ``visible`` flags are bools, and a bool needs no domain
+        (domain spec §3.3).
+
     Raises
     ------
     TephpyConfigError
-        If the value does not match the declared type. The message is a
-        noun phrase — ``isotherms.linewidth, which expects a number, not
-        the string 'thick'`` — so that :func:`apply` can lead with the
-        file and the word "ignoring" and have the whole read as one
-        sentence.
+        If the value does not match the declared type, or matches it and is
+        still not a value the option can accept. The message is a noun
+        phrase — ``isotherms.linewidth, which expects a number, not the
+        string 'thick'`` — so that :func:`apply` can lead with the file and
+        the word "ignoring" and have the whole read as one sentence. One
+        frame serves both stages, so a domain warning reads like a type
+        warning and the description does the work of locating the fault
+        (domain spec §4).
+
+    Notes
+    -----
+    Two stages. The type stage checks the value against the type its field
+    declares and performs the configfile spec §3.3 coercions; the domain
+    stage then runs on the *converted* value, so a rule sees a
+    ``tuple[float, ...]`` and never a list of ``int`` (domain spec §3.1).
+    Both raise the same exception, so :func:`apply` needs no second
+    ``except`` and nothing about the warning, the provenance or the message
+    prefix has to be restated.
     """
     validator = _TYPE_VALIDATORS.get(annotation)
     if validator is None:
         return value
     description, convert = validator
     try:
-        return convert(value)
+        converted = convert(value)
     except _MismatchError as exc:
         found = str(exc) or _describe(value)
         msg = f"{section}.{option}, which expects {description}, not {found}"
         raise TephpyConfigError(msg) from None
+    domain = _DOMAIN_VALIDATORS.get(option)
+    if domain is not None:
+        try:
+            domain(converted)
+        except _DomainError as exc:
+            msg = f"{section}.{option}, which expects {exc.expects}, not {exc.found}"
+            raise TephpyConfigError(msg) from None
+    return converted
 
 
 #: Every file in the tephpy package, with the trailing separator that stops
@@ -730,8 +1170,8 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
         "linewidth": "Line width in points.",
         "alpha": "Line and label opacity, 0 to 1.",
         "labels": (
-            "true, false, or the diagram edges to label (bottom, top, left, "
-            "right), singly or as a list."
+            "true, false, or the diagram edges to label "
+            f"({', '.join(EDGES)}), singly or as a list."
         ),
         "visible": "Whether the family is drawn at all.",
     }
@@ -844,10 +1284,25 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
         ),
         "cursor": MappingProxyType(
             {
-                "fields": "Cursor readout fields, in display order.",
+                "fields": (
+                    "Cursor readout fields, in display order, from "
+                    f"{', '.join(CURSOR_FIELD_NAMES)}."
+                ),
             }
         ),
     }
+)
+
+#: ``EMPHASIS_STYLE_KEYS`` as an ``and``-list of reStructuredText literals, for
+#: the ``emphasis`` detail below. Built from the constant the loader checks
+#: against, so the page cannot list a style key the loader rejects, nor omit
+#: one it accepts (domain spec §6). Detail prose, not a description, so the
+#: double backquotes are wanted here -- the markup ban applies to
+#: ``CONFIG_DESCRIPTIONS`` alone, which has to read as a plain-text comment in
+#: the generated template too.
+_EMPHASIS_STYLE_PROSE: Final[str] = (
+    f"{', '.join(f'``{key}``' for key in EMPHASIS_STYLE_KEYS[:-1])} "
+    f"and ``{EMPHASIS_STYLE_KEYS[-1]}``"
 )
 
 #: Detail shared by the ``labels`` and ``emphasis`` options, which behave the
@@ -863,8 +1318,8 @@ _LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
             "inline; ``false`` labels none."
         ),
         "emphasis": (
-            "Each value is a mapping of style overrides -- ``color``, "
-            "``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
+            "Each value is a mapping of style overrides -- "
+            f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
             "falls back to the family's own style, so ``{20.0: {}}`` is the "
             "member at 20 in the family's own units, drawn at the emphasis "
             "line width in the family's own colour. An emphasised member is "

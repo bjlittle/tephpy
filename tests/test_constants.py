@@ -14,6 +14,7 @@ import pytest
 
 from tephpy import _constants as constants
 from tephpy.calc import SoundingIndices
+from tephpy.plotting import isopleths
 
 INTERVAL_LADDERS = (
     constants.ISOTHERM_STEPS,
@@ -99,6 +100,39 @@ def test_sounding_label_format():
 def test_cursor_fields():
     """The default cursor readout trio, in display order (spec §3.2)."""
     assert constants.CURSOR_FIELDS == ("pressure", "temperature", "theta")
+
+
+def test_cursor_field_names_cover_the_default_trio():
+    """The vocabulary and the default are different facts (domain spec §3.2).
+
+    ``CURSOR_FIELDS`` is what a user gets without asking;
+    ``CURSOR_FIELD_NAMES`` is everything they may ask for. A default naming a
+    field outside the vocabulary would be a readout that raises on the first
+    mouse move.
+    """
+    assert set(constants.CURSOR_FIELDS) <= set(constants.CURSOR_FIELD_NAMES)
+    assert constants.CURSOR_FIELDS != constants.CURSOR_FIELD_NAMES
+
+
+def test_cursor_field_names_are_sorted():
+    """The unknown-field message lists them, and ``format_coord`` sorts.
+
+    ``plotting.axes.format_coord`` says ``expected
+    sorted(_CURSOR_FORMATTERS)``, so a vocabulary in registry order would make
+    the load-time warning and the draw-time error name the same five fields in
+    two different orders (domain spec §4).
+    """
+    assert list(constants.CURSOR_FIELD_NAMES) == sorted(constants.CURSOR_FIELD_NAMES)
+
+
+def test_the_isopleth_vocabularies_are_the_objects_plotting_uses():
+    """A copy would be two tables a test has to keep in step (domain spec §3.2).
+
+    Identity, not equality: the move is a change of address, and equality
+    would pass just as well against a second tuple that has since drifted.
+    """
+    assert isopleths.EDGES is constants.EDGES
+    assert isopleths._EMPHASIS_STYLE_KEYS is constants.EMPHASIS_STYLE_KEYS
 
 
 def test_shading_conventions():
