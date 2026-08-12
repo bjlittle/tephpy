@@ -1421,8 +1421,12 @@ nothing else.
 helper floods the suite and proves nothing.
 
 1. Delete the `"truncation"` entry from `_DOMAIN_VALIDATORS` →
-   `test_every_option_bar_the_flags_has_a_domain_rule` fails, and only the one `truncation`
-   row of `test_a_bad_value_warns_keeps_the_default_and_spares_the_file` alongside it.
+   `test_every_option_bar_the_flags_has_a_domain_rule` fails, the one `truncation` row of
+   `test_a_bad_value_warns_keeps_the_default_and_spares_the_file` alongside it, and both
+   completeness gates — `test_the_refused_table_covers_every_rule` and
+   `test_the_accepted_table_reaches_every_rule` — which read the same table and now see a
+   rule that has rows but no entry. Four failures, not two: the gates added in this task
+   overlap by design, so the blast radius here is wider than a single missing rule.
 2. Change `_config`'s `mixing_ratios.values` annotation to `tuple[str, ...] | None` →
    `test_no_option_name_carries_two_domains` fails. Revert immediately; this one does break
    other tests, which is why it is listed last-resort rather than first.
@@ -1430,10 +1434,19 @@ helper floods the suite and proves nothing.
    `test_a_legitimate_value_is_not_refused` fails on the two bound rows, and no refusal test
    fails. This is the mutation that shows the no-false-positives gate is the only one that
    can see an over-strict rule.
-4. In `_as_float`, replace the body with
-   `if not isinstance(value, float): raise _DomainError(expects, _describe(value))` →
-   `test_a_legitimate_value_is_not_refused` fails on `emphasis: {850.0: {linewidth: 2}}` and
-   `{850.0: {alpha: 1}}`, and every refusal test still passes.
+4. In `_as_float`, replace the body with an `isinstance` test in place of the coercion:
+
+   ```python
+       if not isinstance(value, float):
+           raise _DomainError(expects, _describe(value))
+       return value
+   ```
+
+   → `test_a_legitimate_value_is_not_refused` fails on `emphasis: {850.0: {linewidth: 2}}`
+   and `{850.0: {alpha: 1}}`, and every refusal test still passes. The `return value` is
+   load-bearing: `_as_float` is annotated `-> float` and its callers use the result, so a
+   body that only raises returns `None` on the success path and takes ~25 tests down with
+   it, which proves nothing about the coercion.
 5. *Move* the `("isotherms", "alpha", 5.0)` row from `RAISES_AT_THE_DRAW` into
    `DRAWS_IN_SILENCE` → one `test_what_the_load_refuses_the_draw_refuses_too` case fails,
    with `ValueError: alpha (5.0) is outside 0-1 range` escaping `_draw_with` uncaught, and
