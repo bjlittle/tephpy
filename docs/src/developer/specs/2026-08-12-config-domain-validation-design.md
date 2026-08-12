@@ -161,11 +161,12 @@ This tidies an existing split rather than creating one. `plotting.axes` already 
 `_constants`, and `EDGES` from `isopleths`, in two adjacent import blocks; afterwards the
 edge constants are all in one of them.
 
-The cursor formatter *functions* do not move. They call `tephpy.transforms` and would drag
-it beneath `_constants`, which is the arrow this section exists to respect. So
-`_CURSOR_FORMATTERS` keeps its home in `plotting.axes` and §5 asserts its keys are exactly
-`CURSOR_FIELD_NAMES` — two independently written tables made to agree, the same self-check
-configfile spec §3.4 and configfile spec §5.2 each already carry, for the same reason.
+The cursor formatter *functions* do not move. Two import MetPy function-locally so that
+`import tephpy` stays light, and every one formats a value for display — presentation, not
+the vocabulary this section moves below the arrow. So `_CURSOR_FORMATTERS` keeps its home in
+`plotting.axes` and §5 asserts its keys are exactly `CURSOR_FIELD_NAMES` — two independently
+written tables made to agree, the same self-check configfile spec §3.4 and
+configfile spec §5.2 each already carry, for the same reason.
 
 `CURSOR_FIELDS` stays: it is the three-field *default*, a different fact from the five-name
 vocabulary, and §5 asserts it is a subset.

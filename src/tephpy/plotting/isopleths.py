@@ -122,7 +122,7 @@ _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
 #: configfile spec §3 dependency arrow, so the configuration loader can check a
 #: ``labels`` value against it (domain spec §3.2). Re-bound here, rather than
 #: left as a bare import, because it is public API: it is in ``__all__``, and
-#: three docstrings in this module reference it as :data:`EDGES`. autoapi is a
+#: other docstrings in this module reference it as :data:`EDGES`. autoapi is a
 #: static parser and does not render imported names, so an import alone would
 #: drop the attribute from the API page and break those references under
 #: ``nitpicky``. It is the same object, not a copy.

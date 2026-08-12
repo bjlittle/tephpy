@@ -206,8 +206,11 @@ CURSOR_FIELDS: Final[tuple[str, ...]] = ("pressure", "temperature", "theta")
 #: ``plotting.axes.format_coord`` lists ``sorted(_CURSOR_FORMATTERS)`` when it
 #: refuses an unknown field, and the load-time warning must name the five in the
 #: same order (domain spec §3.2, domain spec §4). The formatter functions
-#: themselves stay in ``plotting.axes``: they call ``tephpy.transforms``, which
-#: would drag it beneath this module.
+#: themselves stay in ``plotting.axes``: two import MetPy function-locally so
+#: that ``import tephpy`` stays light, and every one formats a value for
+#: display -- presentation, not the data this module holds. Only their names
+#: are the closed vocabulary the configuration loader must validate against,
+#: so only the names move here.
 CURSOR_FIELD_NAMES: Final[tuple[str, ...]] = (
     "mixing_ratio",
     "pressure",
