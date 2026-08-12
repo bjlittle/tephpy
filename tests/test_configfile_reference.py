@@ -101,6 +101,42 @@ def test_every_description_carries_no_markup_but_literals():
             assert not _TRAILING_UNDERSCORE.search(description), key
 
 
+#: A double-backquoted literal, masked out before the prose around it is read.
+_LITERAL = re.compile(r"``[^`]+``")
+
+
+def unliteralled(text):
+    """Return the prose with each double-backquoted literal blanked out."""
+    return _LITERAL.sub(" ", text)
+
+
+def test_every_number_in_the_option_prose_is_a_literal():
+    """A bound blends into a sentence as readily as a name does.
+
+    The vocabularies are words and so were the visible half of the problem,
+    but ``alpha``'s bounds and the ``emphasis`` example's key are values a
+    reader types too. Every digit in either table therefore has to sit inside
+    a literal. Nothing here counts anything: the option prose spells a count
+    as a word, so a bare digit is always a value (configfile spec §3.4).
+    """
+    for table in (_configfile.CONFIG_DESCRIPTIONS, _configfile.CONFIG_DETAILS):
+        for section, options in table.items():
+            for option, text in options.items():
+                bare = re.findall(r"\S*\d\S*", unliteralled(text))
+                assert not bare, f"{section}.{option}: {bare}"
+
+
+def test_the_prose_the_number_gate_reads_still_carries_numbers():
+    """The gate above passes over prose that mentions no number at all.
+
+    Both numbers are pinned where they are written, so dropping either --
+    rewording the bounds away, or the worked ``emphasis`` key -- fails here
+    rather than quietly emptying the gate's input.
+    """
+    assert "``0`` to ``1``" in _configfile.CONFIG_DESCRIPTIONS["isotherms"]["alpha"]
+    assert "at ``20`` in" in _configfile.CONFIG_DETAILS["isotherms"]["emphasis"]
+
+
 #: A dotted or bare Python name inside rendered type text.
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
 

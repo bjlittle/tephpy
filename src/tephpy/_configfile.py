@@ -1188,7 +1188,7 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "color": "Matplotlib colour for the lines and their labels.",
         "linewidth": "Line width in points.",
-        "alpha": "Line and label opacity, 0 to 1.",
+        "alpha": "Line and label opacity, ``0`` to ``1``.",
         "labels": (
             "``true``, ``false``, or the diagram edges to label "
             f"({_as_literals(EDGES)}), singly or as a list."
@@ -1343,7 +1343,7 @@ _LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
             "Each value is a mapping of style overrides -- "
             f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
             "falls back to the family's own style, so ``{20.0: {}}`` is the "
-            "member at 20 in the family's own units, drawn at the emphasis "
+            "member at ``20`` in the family's own units, drawn at the emphasis "
             "line width in the family's own colour. An emphasised member is "
             "always drawn, whatever the zoom-adaptive ladder would otherwise "
             "select. An empty mapping emphasises nothing."

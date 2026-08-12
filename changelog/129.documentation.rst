@@ -1,6 +1,6 @@
 :ref:`tephpy-config-options` now shows the values a reader has to type as
 inline literals — the diagram edges for ``labels``, the readout fields for
-``cursor.fields``, and the corner shape for ``diagram.extent`` — rather than
-as prose they blend into. The file ``tephpy config generate`` writes is
-unchanged, since the same descriptions have to read there as plain-text YAML
-comments (:issue:`127`). (:user:`claude`)
+``cursor.fields``, the opacity bounds for ``alpha``, and the corner shape for
+``diagram.extent`` — rather than as prose they blend into. The file
+``tephpy config generate`` writes is unchanged, since the same descriptions
+have to read there as plain-text YAML comments (:issue:`127`). (:user:`claude`)
