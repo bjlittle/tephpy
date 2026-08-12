@@ -33,6 +33,7 @@ A configuration value can have exactly the right type and still be wrong. `color
 | File | At load | At first draw |
 |---|---|---|
 | `isotherms: {linewidth: -1.0}` | silent | **draws** |
+| `isotherms: {linewidth: .inf}` | silent | **draws** |
 | `isotherms: {values: [.nan]}` | silent | **draws** |
 | `moist_adiabats: {truncation: .nan}` | silent | **draws** |
 | `isotherms: {color: notacolour}` | silent | `ValueError: 'notacolour' is not a valid color value.` |
@@ -42,8 +43,10 @@ A configuration value can have exactly the right type and still be wrong. `color
 | `isotherms: {emphasis: {0.0: {linestyle: notaline}}}` | silent | `ValueError: Do not know how to convert ['solid', 'solid', 'solid', … ] to dashes` |
 | `isotherms: {labels: [botom]}` | silent | `TypeError: unknown 'isotherms' label placement 'botom'; expected True, False, or edge name(s) from ['bottom', 'top', 'left', 'right']` |
 | `isobars: {interval: 0.0}` | silent | `ValueError: 'isobars' interval must be a positive, finite number: 0.0` |
-| `diagram: {extent: [[0.0, -80.0], [1050.0, 40.0]]}` | silent | `ValueError: extent corners must be physical (pressure > 0 hPa)` |
-| `isotherms: {emphasis: {0.0: {lw: 2.0}}}` | silent | `TypeError: unknown 'isotherms' emphasis style key(s) ['lw']; expected ['color', 'linewidth', 'linestyle', 'alpha']` |
+| `isobars: {interval: .inf}` | silent | `ValueError: 'isobars' interval must be a positive, finite number: inf` |
+| `diagram: {extent: [[0.0, -80.0], [1050.0, 40.0]]}` | silent | `ValueError: extent corners must be physical (pressure > 0 hPa): ((0.0, -80.0), (1050.0, 40.0))` |
+| `diagram: {extent: [[.inf, -80.0], [300.0, 40.0]]}` | silent | `ValueError: extent corners must be physical (pressure > 0 hPa): ((inf, -80.0), (300.0, 40.0))` |
+| `isotherms: {emphasis: {0.0: {lw: 2.0}}}` | silent | `TypeError: unknown 'isotherms' emphasis style key(s) ['lw'] for member 0; expected ['color', 'linewidth', 'linestyle', 'alpha']` |
 | `isotherms: {emphasis: {0.0: {linewidth: thick}}}` | silent | `TypeError: 'isotherms' emphasis 'linewidth' for member 0 must be a number: 'thick'` |
 | `isotherms: {emphasis: {0.0: {alpha: 5.0}}}` | silent | `ValueError: 'isotherms' emphasis 'alpha' for member 0 must be between 0 and 1: 5.0` |
 | `cursor: {fields: [nonsuch]}` | silent | `TypeError: unknown cursor field(s) ['nonsuch']; expected ['mixing_ratio', 'pressure', 'temperature', 'theta', 'theta_w']` |
@@ -51,11 +54,12 @@ A configuration value can have exactly the right type and still be wrong. `color
 Every row loads silently. What happens afterwards divides into three cases, and the
 division is what this specification is built on.
 
-**Three values never produce a message at all.** `linewidth: -1.0`, `values: [.nan]` and
-`truncation: .nan` draw a diagram that is simply not the one the file asked for. This is
-the worst outcome available and it is the one the type check cannot reach.
+**Four values never produce a message at all.** `linewidth: -1.0`, `linewidth: .inf`,
+`values: [.nan]` and `truncation: .nan` draw a diagram that is simply not the one the file
+asked for. This is the worst outcome available and it is the one the type check cannot
+reach.
 
-**Eight fail with tephpy's own message**, which already names the family, the option and
+**Ten fail with tephpy's own message**, which already names the family, the option and
 the legal set. Nothing is wrong with these messages. What is wrong is *when* they arrive:
 under the auto-load cascade (configfile spec §3.2) `import tephpy` succeeds, and the
 mistake surfaces at the first draw, in a traceback through tephpy rather than at the file
@@ -251,6 +255,11 @@ value. Printing a forty-member `values` list back at someone who mistyped one en
 nobody, which is the reasoning configfile spec §5.2 already applied to the 401-digit
 number it refuses to echo.
 
+A number too large to convert is refused with the same frame rather than escaping as an
+`OverflowError`. The type stage already guards this for a plain number
+(configfile spec §5.2); an `emphasis` style value reaches the domain stage unconverted, so
+the guard has to be repeated where the conversion actually happens.
+
 **One hint earns its place.** configfile spec §5 warns that `color: #b0b0b0` parses to
 null, because YAML consumes the unquoted `#` as a comment. The mirror-image typo is
 `color: b0b0b0` — a perfectly good string that is not a colour — and it lands here instead.
@@ -276,7 +285,7 @@ Extends spec §7 and configfile spec §6.
 | Vocabulary agreement | `set(_CURSOR_FORMATTERS) == set(CURSOR_FIELD_NAMES)`, and `CURSOR_FIELDS` is a subset |
 | Address change only | `plotting` uses the `_constants` objects themselves, not copies of them |
 | **No false positives** | Every rule accepts its legitimate lookalikes |
-| **Load/draw agreement** | Every accepted value draws, and every refused value raises at the draw bar the three §1 rows that do not |
+| **Load/draw agreement** | Every accepted value draws; every refused value raises at the draw bar the four that silently do not, and the two tables cover the same options |
 
 The last two carry the weight.
 
@@ -294,14 +303,19 @@ unguarded — and the diagram is drawn. Every accepted value must draw. Two tabl
 today drift apart silently otherwise, and the symptom is a configuration file that is
 refused for a diagram that would have drawn.
 
-The other direction is deliberately not symmetric, because §1 measured that it is not:
-twelve of its fifteen rows raise at the draw, and `linewidth: -1.0`, `values: [.nan]` and
-`truncation: .nan` do not. Those three are the rows §1 calls the worst outcome
-available, and they are the reason this work exists — a rule with no draw-time counterpart
-on the option that carries it (§3.3). So the gate asserts what each case actually does:
-raises for the twelve, draws for the three. Pinning the silence is the point. A later
-change that makes one of them raise is a change to the diagram a user already has, and this
-gate is where it surfaces.
+The other direction is deliberately not symmetric, because §1 measured that it is not. The
+gate's own table holds twenty refused values; sixteen raise at the draw and four do not.
+Those four — `linewidth: -1.0`, `linewidth: .inf`, `values: [.nan]` and `truncation: .nan` —
+are the rows §1 calls the worst outcome available, and they are the reason this work exists:
+a rule with no draw-time counterpart on the option that carries it (§3.3). So the gate
+asserts what each case actually does, and a further gate asserts that the two tables hold
+the same `(section, option)` pairs, because both are hand-written and would otherwise drift.
+Pinning the silence is the point. A later change that makes one of those four raise is a
+change to the diagram a user already has, and this gate is where it surfaces.
+
+The counts here are the gate's, not §1's. The two sets overlap without matching: the gate
+drops `color: 'b0b0b0'`, which has its own named test for the `#` hint, and adds cases §1
+does not tabulate.
 
 Each new gate is proved by a mutation that fails it alone.
 
