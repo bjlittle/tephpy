@@ -151,6 +151,19 @@ ISOPLETH_ALPHA: Final[float] = 1.0
 #: override that.
 EMPHASIS_LINEWIDTH: Final[float] = 1.5
 
+#: Style keys one emphasised isopleth member may override; an omitted key falls
+#: back to the family's own style (spec §3.2). Here rather than in
+#: ``plotting.isopleths`` so that the configuration loader can check an
+#: ``emphasis`` style key against the same tuple the draw uses, without
+#: importing ``plotting`` and reversing the configfile spec §3 dependency arrow
+#: (domain spec §3.2).
+EMPHASIS_STYLE_KEYS: Final[tuple[str, ...]] = (
+    "color",
+    "linewidth",
+    "linestyle",
+    "alpha",
+)
+
 #: Isotherm draw order.
 ISOTHERM_ZORDER: Final[float] = 1.1
 
@@ -186,6 +199,22 @@ SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
 #: Default interactive cursor readout fields (spec §3.2), in display order;
 #: names index the ``plotting.axes`` cursor formatter registry.
 CURSOR_FIELDS: Final[tuple[str, ...]] = ("pressure", "temperature", "theta")
+
+#: Every interactive cursor readout field a user may ask for, sorted. The
+#: vocabulary behind ``CURSOR_FIELDS`` above, which is the three-field default:
+#: a different fact, and a strict subset of this one. Sorted because
+#: ``plotting.axes.format_coord`` lists ``sorted(_CURSOR_FORMATTERS)`` when it
+#: refuses an unknown field, and the load-time warning must name the five in the
+#: same order (domain spec §3.2, domain spec §4). The formatter functions
+#: themselves stay in ``plotting.axes``: they call ``tephpy.transforms``, which
+#: would drag it beneath this module.
+CURSOR_FIELD_NAMES: Final[tuple[str, ...]] = (
+    "mixing_ratio",
+    "pressure",
+    "temperature",
+    "theta",
+    "theta_w",
+)
 
 #: The operational cloud-base correction to Normand's point, in hPa: UK
 #: operational tephigram practice raises the constructed LCL by 25 mb to
@@ -289,6 +318,13 @@ LABEL_BOX_COLOR: Final[str] = "white"
 
 #: Isopleth label box alpha.
 LABEL_BOX_ALPHA: Final[float] = 0.6
+
+#: The diagram edges an isopleth family may claim for its labels (spec §3.2).
+#: Here rather than in ``plotting.isopleths`` so that the configuration loader
+#: can check a ``labels`` value against the same tuple the draw uses, without
+#: importing ``plotting`` and reversing the configfile spec §3 dependency arrow
+#: (domain spec §3.2).
+EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
 
 #: Axis titles for edge-labelled isopleth families, keyed by accessor name.
 #: A claimed edge takes its family's title only when the axis has none, so a

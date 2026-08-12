@@ -70,6 +70,12 @@ from tephpy._constants import (
     TEMPERATURE_DOMAIN,
     THETA_DOMAIN,
 )
+from tephpy._constants import (
+    EDGES as _EDGES,
+)
+from tephpy._constants import (
+    EMPHASIS_STYLE_KEYS as _EMPHASIS_STYLE_KEYS,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -112,16 +118,15 @@ _STYLE_KEYS: Final[frozenset[str]] = frozenset(
 _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
 
 #: The diagram edges an isopleth family may claim for its labels (spec §3.2).
-EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
-
-#: Style keys one emphasised member may override; an omitted key falls back to
-#: the family's own style (spec §3.2).
-_EMPHASIS_STYLE_KEYS: Final[tuple[str, ...]] = (
-    "color",
-    "linewidth",
-    "linestyle",
-    "alpha",
-)
+#: The tuple itself lives in ``tephpy._constants``, below the
+#: configfile spec §3 dependency arrow, so the configuration loader can check a
+#: ``labels`` value against it (domain spec §3.2). Re-bound here, rather than
+#: left as a bare import, because it is public API: it is in ``__all__``, and
+#: three docstrings in this module reference it as :data:`EDGES`. autoapi is a
+#: static parser and does not render imported names, so an import alone would
+#: drop the attribute from the API page and break those references under
+#: ``nitpicky``. It is the same object, not a copy.
+EDGES: Final[tuple[str, ...]] = _EDGES
 
 #: Tolerance for matching a member value against an emphasis key. ``abs_tol``
 #: carries the 0 °C case, where a relative tolerance alone matches nothing.
