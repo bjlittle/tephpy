@@ -1256,14 +1256,21 @@ Add `import warnings` to the module's imports.
 Append:
 
 ```python
-#: The three values the draw accepts in silence (domain spec §1). Each draws a
+#: The four values the draw accepts in silence (domain spec §1). Each draws a
 #: diagram that is simply not the one the file asked for, which is the worst
 #: outcome available and the reason this work exists. Their rules are lifted
 #: from the *emphasis* checks on the same quantities, not from a check the
 #: family-level option reaches, so the load refuses what the draw does not --
 #: and this set is where that asymmetry is written down rather than assumed.
+#:
+#: Both ``linewidth`` values are here for one reason: the family-level option
+#: is not range-checked anywhere in the draw, so -1.0 and .inf alike reach
+#: matplotlib and produce a line width that is not the one asked for. The
+#: infinity was measured, not assumed -- it emits two numpy RuntimeWarnings
+#: from a scalar multiply and draws.
 DRAWS_IN_SILENCE = {
     ("isotherms", "linewidth", -1.0),
+    ("isotherms", "linewidth", float("inf")),
     ("isotherms", "values", (0.0, float("nan"))),
     ("moist_adiabats", "truncation", float("nan")),
 }
@@ -1289,6 +1296,10 @@ REFUSED_AT_THE_DRAW = [
     ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
     ("isotherms", "emphasis", {float("nan"): {}}),
     ("cursor", "fields", ("nonsuch",)),
+    ("isotherms", "emphasis", {850.0: {"linewidth": int("9" * 400)}}),
+    ("isotherms", "linewidth", float("inf")),
+    ("isobars", "interval", float("inf")),
+    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
 ]
 
 
@@ -1316,15 +1327,21 @@ def test_what_the_load_refuses_the_draw_refuses_too(section, option, value):
     """Makes "lifted, not invented" a checked property (domain spec §5).
 
     The Python API is unguarded by design (domain spec §2), so setting the
-    value there and drawing asks the draw-time rule directly. Twelve of these
-    raise; the three in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
+    value there and drawing asks the draw-time rule directly. Sixteen of these
+    raise; the four in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
     is the point — a later change that makes one of them raise is a change to
     a diagram a user already has, and this is where it surfaces.
+
+    ``OverflowError`` is in the tuple for the huge-integer row alone. It is
+    not a ``ValueError`` — it descends from ``ArithmeticError`` — so leaving
+    it out would let that row pass this gate by raising something the gate
+    never asked about. It is the draw-time counterpart of the rule that keeps
+    such a value from stopping an import (configfile spec §5.2).
     """
     if (section, option, value) in DRAWS_IN_SILENCE:
         _draw_with(section, option, value)
         return
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, OverflowError)):
         _draw_with(section, option, value)
 
 
@@ -1341,6 +1358,26 @@ def test_what_the_load_accepts_the_draw_accepts_too(tmp_path, section, option, y
         warnings.simplefilter("error", TephpyConfigWarning)
         tephpy.config.load(path)
     _draw_with(section, option, getattr(getattr(tephpy.config, section), option))
+
+
+def test_the_draw_table_covers_every_refusal():
+    """``REFUSED_AT_THE_DRAW`` is hand-written, so nothing else keeps it in step.
+
+    It is deliberately not derived from ``REFUSED`` — deriving it would mean
+    running the stage under test to build the input to its own gate — and the
+    price of writing it out is that a row added to one table and forgotten in
+    the other goes unnoticed. The refusal would keep its own test and quietly
+    stop being asked whether the draw agrees, which is the property this
+    module exists to check.
+
+    Compared by ``(section, option)`` rather than by value: the two tables
+    hold the same cases in different forms, YAML text on one side and the
+    Python objects ``coerce`` would have produced on the other.
+    """
+    assert len(REFUSED_AT_THE_DRAW) == len(REFUSED)
+    refused = sorted((section, option) for section, option, _, _ in REFUSED)
+    drawn = sorted((section, option) for section, option, _ in REFUSED_AT_THE_DRAW)
+    assert drawn == refused
 ```
 
 Add `import matplotlib.pyplot as plt` to the module's imports, and check
@@ -1355,8 +1392,15 @@ Run:
 ```bash
 pixi run --frozen python -m pytest tests/test_configfile_domain.py -q
 ```
-Expected: PASS. The load/draw agreement tests draw ~41 diagrams and take appreciably longer
+Expected: PASS. The load/draw agreement tests draw ~45 diagrams and take appreciably longer
 than the rest of the module; that is the cost of the gate and is expected.
+
+Two of those draws emit `RuntimeWarning: invalid value encountered in scalar multiply` from
+matplotlib, for the `isotherms.linewidth: .inf` row in `DRAWS_IN_SILENCE`. That is a numpy
+warning from the render, not a tephpy signal, and `_draw_with` must not let the suite's
+`filterwarnings = ["error"]` turn it into a failure — the whole point of that row is that
+the draw *succeeds*. Suppress `RuntimeWarning` around the draw inside `_draw_with`, and
+nothing else.
 
 - [ ] **Step 5: Prove each gate with a mutation that fails it alone**
 
@@ -1385,8 +1429,36 @@ helper floods the suite and proves nothing.
    disagreement. Note that a triple absent from `REFUSED_AT_THE_DRAW` is not a valid
    mutation here — the parametrisation never reaches it, so the gate passes and nothing is
    proved.
+6. Delete the `("cursor", "fields", ("nonsuch",))` entry from `REFUSED_AT_THE_DRAW` →
+   `test_the_draw_table_covers_every_refusal` fails on the length assertion, and no other
+   test does. This is the drift the gate exists to catch: the `cursor.fields` refusal keeps
+   its own row in `REFUSED` and simply stops being asked whether the draw agrees. Confirm
+   that without the new gate the suite is entirely green with that entry gone — that is the
+   whole argument for adding it.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Correct a count that has already drifted**
+
+`test_a_bad_value_warns_keeps_the_default_and_spares_the_file`'s docstring says "eight
+failed at the first draw with tephpy's own message, four with matplotlib's, and three drew a
+diagram that was simply not the one the file asked for". Those numbers describe fifteen
+rows. `REFUSED` held sixteen when they were written and holds twenty now, so the sentence
+was wrong before this task and is wronger after it.
+
+Replace the hand-count with a sentence that carries no number, pointing instead at the gate
+below that measures it:
+
+```python
+    Every one of these loaded silently before: most failed at the first draw,
+    with tephpy's message or matplotlib's, and the rest drew a diagram that
+    was simply not the one the file asked for (domain spec §1). Which case
+    falls where is not counted here — ``DRAWS_IN_SILENCE`` below is where
+    that split is recorded, and it is checked rather than asserted in prose.
+```
+
+A number in a docstring that nothing checks will drift again; this is the third time these
+counts have needed correcting, so remove the number rather than fixing it.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 pixi run --frozen lint
