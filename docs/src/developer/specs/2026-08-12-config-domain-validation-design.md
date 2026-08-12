@@ -170,11 +170,12 @@ configfile spec §3.4 and configfile spec §5.2 each already carry, for the same
 `CURSOR_FIELDS` stays: it is the three-field *default*, a different fact from the five-name
 vocabulary, and §5 asserts it is a subset.
 
-`_configfile` gains `matplotlib.colors` as an import. That is not a new dependency in any
-sense that costs anything — **measured:** `from tephpy import _configfile` already leaves
-`matplotlib.colors` in `sys.modules`, because importing any tephpy submodule runs the
-package `__init__`, which imports `plotting`. matplotlib is also absent from the layering
-the parent spec describes, so nothing in configfile spec §3 is bent by naming it.
+`_configfile` gains `matplotlib.colors` and `matplotlib.collections` as imports — the
+colour oracle and the linestyle oracle of §3.3. Neither is a new dependency in any sense
+that costs anything — **measured:** `from tephpy import _configfile` already leaves both in
+`sys.modules`, because importing any tephpy submodule runs the package `__init__`, which
+imports `plotting`. matplotlib is also absent from the layering the parent spec describes,
+so nothing in configfile spec §3 is bent by naming it.
 
 (domain-spec-3-3)=
 ### 3.3 The rules
@@ -188,15 +189,22 @@ the parent spec describes, so nothing in configfile spec §3 is bent by naming i
 | `emphasis` | 5 | see below | `isopleths._normalize_emphasis`, `isopleths._emphasis_number` |
 | `values` | 5 | every member finite | `isopleths._normalize_emphasis`'s member rule |
 | `interval` | 4 | > 0 and finite | `isopleths.IsoplethFamily._resolve` |
-| `extent` | 1 | both pressures > 0 | `axes.TephigramAxes.set_extent` |
+| `extent` | 1 | every corner number finite, both pressures > 0 | `axes.TephigramAxes.set_extent` |
 | `fields` | 1 | names from `CURSOR_FIELD_NAMES` | `plotting.axes.format_coord` |
 | `truncation` | 1 | finite | **nothing — see below** |
 | `visible` | 5 | — | a bool needs no domain |
 
-`emphasis` carries five rules, being five options in one: each member value finite; each
-style key from `EMPHASIS_STYLE_KEYS`; a `linewidth` override > 0 and finite; an `alpha`
-override in [0, 1]; a `color` override `is_color_like`; and a `linestyle` override accepted
-by `LineCollection.set_linestyle`.
+`emphasis` carries six rules, being the one option that nests a style mapping: each member
+value finite; each style key from `EMPHASIS_STYLE_KEYS`; a `linewidth` override > 0 and
+finite; an `alpha` override in [0, 1]; a `color` override `is_color_like`; and a
+`linestyle` override accepted by `LineCollection.set_linestyle`.
+
+A style *value* is annotated `object` and so reaches this stage unconverted
+(configfile spec §5.2), where an option-level value has already been through its type
+validator. **Measured:** that makes `emphasis: {850: {linewidth: 2}}` an `int` where
+`linewidth: 2` is a `float`, so the numeric rules coerce with `float()` exactly as
+`_emphasis_number` does rather than testing for `float` — a rule that tested the type
+would refuse a value the draw accepts, which is §5's no-false-positives gate failing.
 
 `values` has no draw-time counterpart, but its rule is not invented either — it is
 `_normalize_emphasis`'s member-value rule applied to the other place member values come
@@ -267,7 +275,7 @@ Extends spec §7 and configfile spec §6.
 | Vocabulary agreement | `set(_CURSOR_FORMATTERS) == set(CURSOR_FIELD_NAMES)`, and `CURSOR_FIELDS` is a subset |
 | Address change only | `plotting` uses the `_constants` objects themselves, not copies of them |
 | **No false positives** | Every rule accepts its legitimate lookalikes |
-| **Load/draw agreement** | What the load refuses, the draw would also have refused |
+| **Load/draw agreement** | Every accepted value draws, and every refused value raises at the draw bar the three §1 rows that do not |
 
 The last two carry the weight.
 
@@ -280,10 +288,19 @@ bottom` as a bare string and `[bottom, left]` as a list; `truncation: -40`; an `
 style with `linestyle: '--'`.
 
 **Load/draw agreement** is what makes §2's "lifted, not invented" a checked property rather
-than a claim in a comment. For each refused value, the same value is set through the Python
-API — which §2 leaves unguarded — and the draw must still raise; for each accepted value,
-the draw must succeed. Two tables that agree today drift apart silently otherwise, and the
-symptom is a configuration file that is refused for a diagram that would have drawn.
+than a claim in a comment. Each value is set through the Python API — which §2 leaves
+unguarded — and the diagram is drawn. Every accepted value must draw. Two tables that agree
+today drift apart silently otherwise, and the symptom is a configuration file that is
+refused for a diagram that would have drawn.
+
+The other direction is deliberately not symmetric, because §1 measured that it is not:
+twelve of its fifteen rows raise at the draw, and `linewidth: -1.0`, `values: [.nan]` and
+`truncation: .nan` do not. Those three are the rows §1 calls the worst outcome
+available, and they are the reason this work exists — a rule with no draw-time counterpart
+on the option that carries it (§3.3). So the gate asserts what each case actually does:
+raises for the twelve, draws for the three. Pinning the silence is the point. A later
+change that makes one of them raise is a change to the diagram a user already has, and this
+gate is where it surfaces.
 
 Each new gate is proved by a mutation that fails it alone.
 
