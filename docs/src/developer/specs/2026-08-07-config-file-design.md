@@ -679,7 +679,7 @@ non-goal is a decision, not an omission.
   not publish a private module, so it sets no precedent for the 135 `#:`-documented
   constants. Those are the conventions a configuration file exists to override, reachable by
   a user as the `tephpy.config` options that override them — not as names to import.
-- **Resolved** (2026-08-12, PR {pull}`<PR>`) — **domain validation of a value that has the
+- **Resolved** (2026-08-12, PR {pull}`126`) — **domain validation of a value that has the
   right type.** §5.2 checks a value against the type its field declares and stops there:
   `color: notacolour` is a string, so it loaded, and matplotlib rejected it at the first
   draw. Answering it properly meant a per-option vocabulary — the colours, the edge names,

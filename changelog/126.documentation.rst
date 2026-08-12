@@ -1,0 +1,6 @@
+:ref:`configure-from-a-file` now covers a value of the right type that its
+option still cannot accept, and :ref:`tephpy-config-options` lists the closed
+sets of legal values — the diagram edges for ``labels``, the style keys for
+``emphasis``, and the cursor readout fields — from the same objects the loader
+checks against, so the page cannot document a value the loader rejects
+(:issue:`116`). (:user:`claude`)

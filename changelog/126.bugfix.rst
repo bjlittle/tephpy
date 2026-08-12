@@ -1,0 +1,18 @@
+Fixed a configuration file value being applied without any check that its
+option can accept it (:issue:`116`). ``color: notacolour`` is a string and
+``interval: 0`` is a number, so both passed the type check added in
+:issue:`105` and loaded in silence; matplotlib or tephpy then rejected them at
+the first draw, in a traceback naming neither the file nor the line you edited.
+Some did not even do that — ``linewidth: -1.0``, ``linewidth: .inf``,
+``values: [0, .nan]`` and ``truncation: .nan`` drew a diagram that was simply
+not the one the file asked for. Every one of these now warns as the file is
+read, naming the file, the option and what the option can accept, and skips
+just that option — the rest of the file still applies. Where the legal set is
+closed, the warning lists it. ``color: b0b0b0`` is told it is probably missing
+a ``#``, the mirror image of the ``color: #b0b0b0`` trap that YAML reads as a
+comment. A compound option is skipped whole: one bad member of an ``emphasis``
+mapping costs the whole ``emphasis`` option. One value that used to work is now
+refused: ``linewidth: 0`` is how matplotlib is told to draw no line, and
+``visible: false`` is the option that means it. Values set through Python —
+assigning to :attr:`tephpy.config.isotherms.color` directly — are unaffected,
+and still fail at the draw as before. (:user:`claude`)
