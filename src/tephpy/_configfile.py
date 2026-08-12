@@ -65,6 +65,60 @@ def user_config_path() -> Path:
     return Path(platformdirs.user_config_dir("tephpy")) / CONFIG_FILENAME
 
 
+def _named_path() -> Path | None:
+    """Return the path ``$TEPHPYRC`` names, if it names one.
+
+    Returns
+    -------
+    pathlib.Path or None
+        The path the environment variable names, or ``None`` when it is unset
+        or empty. Both entry points to the discovery cascade take their answer
+        from here, so the environment is read once per call: the file
+        ``discover`` checks for existence is then necessarily the file it
+        returns (configfile spec §3.2).
+    """
+    named = os.environ.get(CONFIG_ENV_VAR)
+    return Path(named) if named else None
+
+
+def _cascade(named: Path | None) -> tuple[Path, ...]:
+    """Build the discovery cascade around an already-resolved ``$TEPHPYRC``.
+
+    Parameters
+    ----------
+    named : pathlib.Path or None
+        The path ``$TEPHPYRC`` names, as :func:`_named_path` resolved it, or
+        ``None`` when it names none.
+
+    Returns
+    -------
+    tuple of pathlib.Path
+        The named path when there is one, then the working directory, then the
+        user configuration directory. The entries need not exist: a caller
+        reporting the search shows the absent ones too, so nothing here rejects
+        a path for not being a file.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the current working directory no longer exists, so the failure
+        surfaces the same way every other unreadable-configuration case does,
+        instead of an uncontained ``FileNotFoundError`` reaching
+        ``import tephpy`` (configfile spec §5).
+    """
+    paths: list[Path] = []
+    if named is not None:
+        paths.append(named)
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError as exc:
+        msg = f"cannot read the working directory to look for {CONFIG_FILENAME}: {exc}"
+        raise TephpyConfigError(msg) from exc
+    paths.append(cwd / CONFIG_FILENAME)
+    paths.append(user_config_path())
+    return tuple(paths)
+
+
 def config_paths() -> tuple[Path, ...]:
     """Return the discovery cascade, in precedence order (configfile spec §3.2).
 
@@ -82,18 +136,7 @@ def config_paths() -> tuple[Path, ...]:
         does, instead of an uncontained ``FileNotFoundError`` reaching
         ``import tephpy`` (configfile spec §5).
     """
-    paths: list[Path] = []
-    named = os.environ.get(CONFIG_ENV_VAR)
-    if named:
-        paths.append(Path(named))
-    try:
-        cwd = Path.cwd()
-    except FileNotFoundError as exc:
-        msg = f"cannot read the working directory to look for {CONFIG_FILENAME}: {exc}"
-        raise TephpyConfigError(msg) from exc
-    paths.append(cwd / CONFIG_FILENAME)
-    paths.append(user_config_path())
-    return tuple(paths)
+    return _cascade(_named_path())
 
 
 def discover() -> Path | None:
@@ -111,14 +154,14 @@ def discover() -> Path | None:
         If ``$TEPHPYRC`` is set but does not name a file. Falling through
         would silently ignore an explicit instruction.
     """
-    named = os.environ.get(CONFIG_ENV_VAR)
-    if named and not Path(named).is_file():
+    named = _named_path()
+    if named is not None and not named.is_file():
         msg = (
-            f"{CONFIG_ENV_VAR} names {named!r}, which is not a file; unset "
+            f"{CONFIG_ENV_VAR} names {str(named)!r}, which is not a file; unset "
             f"{CONFIG_ENV_VAR} to fall back to the {CONFIG_FILENAME} search"
         )
         raise TephpyConfigError(msg)
-    for path in config_paths():
+    for path in _cascade(named):
         if path.is_file():
             return path
     return None
