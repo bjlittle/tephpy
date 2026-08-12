@@ -7,7 +7,11 @@
 Discovery, parsing and rendering of the YAML configuration file. This module
 owns everything about the file; ``_config`` owns only the shape of the
 configuration and its lifecycle. Nothing here imports ``tephpy.plotting``, so
-reading a configuration file cannot pull in matplotlib figure machinery.
+the dependency arrow stays one-way. matplotlib itself -- ``LineCollection``
+and ``is_color_like``, for domain validation -- is imported directly, and
+that costs nothing importing ``tephpy`` had not already spent: the package
+``__init__`` imports ``plotting``, which leaves matplotlib in
+``sys.modules`` before this module is ever reached (domain spec §3.2).
 """
 
 from __future__ import annotations
@@ -620,7 +624,8 @@ def _as_float(value: object, expects: str) -> float:
     Raises
     ------
     _DomainError
-        If the value is not a number.
+        If the value is not a number, or is a number with no float to
+        convert to.
 
     Notes
     -----
@@ -630,11 +635,33 @@ def _as_float(value: object, expects: str) -> float:
     ``emphasis: {850: {linewidth: 2}}`` an ``int`` where ``linewidth: 2`` is
     a ``float`` (configfile spec §5.2). A rule that tested the type would
     refuse a value the draw accepts (domain spec §3.3).
+
+    Deliberately not excluding ``bool`` is part of that: ``_as_number``
+    excludes it explicitly (``linewidth: true`` reads as a type mismatch, not
+    a 1 pt line), but ``emphasis: {850: {linewidth: true}}`` reaches here as
+    a plain ``bool`` and is accepted as ``1.0`` -- because
+    ``isopleths._emphasis_number`` also just does ``float(value)``, so the
+    draw already accepts it. Refusing it here would be a false positive:
+    a rule that is stricter than the draw it protects (domain spec §3.3,
+    domain spec §5). This is left deliberately asymmetric with
+    ``_as_number``, not an oversight.
+
+    Unconverted also means un-guarded: ``_as_number`` catches
+    ``OverflowError`` for exactly this reason and this function must too, or
+    a 309-plus-digit integer in an ``emphasis`` override -- valid YAML, valid
+    Python, and rejected only by ``float()`` -- would escape this function,
+    :func:`coerce`'s ``except _DomainError`` and :func:`apply`'s ``except
+    TephpyConfigError`` alike, stopping ``import tephpy`` outright
+    (configfile spec §5.2). The message does not echo the value back:
+    printing a 309-digit number helps nobody (domain spec §4).
     """
     try:
         return float(cast("SupportsFloat", value))
     except (TypeError, ValueError):
         raise _DomainError(expects, _describe(value)) from None
+    except OverflowError:
+        found = "a number that large; the largest tephpy can hold is about 1.8e308"
+        raise _DomainError(expects, found) from None
 
 
 def _domain_color(value: object) -> None:
@@ -644,11 +671,6 @@ def _domain_color(value: object) -> None:
     ----------
     value : object
         The converted ``color`` value, or a ``color`` style override.
-
-    Returns
-    -------
-    None
-        Nothing; the value is a colour matplotlib knows.
 
     Raises
     ------
@@ -678,11 +700,6 @@ def _domain_linestyle(value: object) -> None:
     value : object
         A ``linestyle`` style override.
 
-    Returns
-    -------
-    None
-        Nothing; the value is a linestyle matplotlib knows.
-
     Raises
     ------
     _DomainError
@@ -708,11 +725,6 @@ def _domain_positive(value: object) -> None:
     value : object
         A ``linewidth`` or ``interval`` value, or a ``linewidth`` override.
 
-    Returns
-    -------
-    None
-        Nothing; the value is a positive, finite number.
-
     Raises
     ------
     _DomainError
@@ -734,11 +746,6 @@ def _domain_alpha(value: object) -> None:
     value : object
         An ``alpha`` value, or an ``alpha`` style override.
 
-    Returns
-    -------
-    None
-        Nothing; the value is a number between 0 and 1.
-
     Raises
     ------
     _DomainError
@@ -758,11 +765,6 @@ def _domain_finite(value: object) -> None:
     ----------
     value : object
         A ``truncation`` value.
-
-    Returns
-    -------
-    None
-        Nothing; the value is finite.
 
     Raises
     ------
@@ -785,11 +787,6 @@ def _domain_values(value: object) -> None:
     ----------
     value : object
         The converted ``values`` tuple.
-
-    Returns
-    -------
-    None
-        Nothing; every member is finite.
 
     Raises
     ------
@@ -816,11 +813,6 @@ def _domain_labels(value: object) -> None:
         The converted ``labels`` value: a bool, an edge name, or a tuple of
         them.
 
-    Returns
-    -------
-    None
-        Nothing; the value is true, false, or edge name(s).
-
     Raises
     ------
     _DomainError
@@ -846,11 +838,6 @@ def _domain_fields(value: object) -> None:
     value : object
         The converted ``fields`` tuple.
 
-    Returns
-    -------
-    None
-        Nothing; every field name exists.
-
     Raises
     ------
     _DomainError
@@ -872,11 +859,6 @@ def _domain_extent(value: object) -> None:
     ----------
     value : object
         The converted ``extent``, as two ``(pressure, temperature)`` pairs.
-
-    Returns
-    -------
-    None
-        Nothing; both corners are physical.
 
     Raises
     ------
@@ -916,11 +898,6 @@ def _domain_emphasis(value: object) -> None:
     ----------
     value : object
         The converted ``emphasis`` mapping.
-
-    Returns
-    -------
-    None
-        Nothing; every member and its style overrides are within domain.
 
     Raises
     ------

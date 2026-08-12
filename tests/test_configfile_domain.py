@@ -26,6 +26,12 @@ def _write(tmp_path, text):
     return path
 
 
+#: A 320-digit plain integer: valid YAML, valid Python, and rejected only by
+#: ``float()``'s own ``OverflowError`` -- the failure mode ``_as_float`` must
+#: catch alongside ``_as_number``'s existing guard, or the emphasis-style
+#: numeric path stops ``import tephpy`` outright (configfile spec §5.2).
+_HUGE_INT = "9" * 320
+
 #: One case per row of the domain spec §1 table, plus the three parts of
 #: ``emphasis`` that table reaches only through a style key. Each is
 #: ``(section, option, yaml, expected message tail)``, the tail picking up
@@ -112,6 +118,23 @@ REFUSED = [
         "[nonsuch]",
         f"field name(s) from {list(CURSOR_FIELD_NAMES)}, not the string 'nonsuch'",
     ),
+    (
+        "isotherms",
+        "emphasis",
+        "{850.0: {linewidth: " + _HUGE_INT + "}}",
+        (
+            "member 850 'linewidth' to be a positive, finite number, not a "
+            "number that large; the largest tephpy can hold is about 1.8e308"
+        ),
+    ),
+    ("isotherms", "linewidth", ".inf", "a positive, finite number, not the number inf"),
+    ("isobars", "interval", ".inf", "a positive, finite number, not the number inf"),
+    (
+        "diagram",
+        "extent",
+        "[[.inf, -80.0], [300.0, 40.0]]",
+        "corner pressures above 0 hPa, not the number inf",
+    ),
 ]
 
 
@@ -144,7 +167,7 @@ def test_the_refused_table_covers_every_rule():
     Pinning the count and the option set is what stops a rule being deleted
     from ``REFUSED`` along with the bug report that motivated it.
     """
-    assert len(REFUSED) == 16
+    assert len(REFUSED) == 20
     covered = {option for _, option, _, _ in REFUSED}
     assert covered == set(_configfile._DOMAIN_VALIDATORS)
 
