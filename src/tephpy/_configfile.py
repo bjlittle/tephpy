@@ -730,8 +730,8 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
         "linewidth": "Line width in points.",
         "alpha": "Line and label opacity, 0 to 1.",
         "labels": (
-            "true, false, or the diagram edges to label - bottom, top, "
-            "left, right - singly or as a list."
+            "true, false, or the diagram edges to label (bottom, top, left, "
+            "right), singly or as a list."
         ),
         "visible": "Whether the family is drawn at all.",
     }
@@ -881,11 +881,11 @@ _LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
 #: ``CONFIG_DEFAULTS`` with its own membership pinned, not a completeness check.
 CONFIG_DETAILS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
     {
-        "isotherms": MappingProxyType(dict(_LINE_DETAILS)),
-        "isobars": MappingProxyType(dict(_LINE_DETAILS)),
-        "dry_adiabats": MappingProxyType(dict(_LINE_DETAILS)),
-        "moist_adiabats": MappingProxyType(dict(_LINE_DETAILS)),
-        "mixing_ratios": MappingProxyType(dict(_LINE_DETAILS)),
+        "isotherms": _LINE_DETAILS,
+        "isobars": _LINE_DETAILS,
+        "dry_adiabats": _LINE_DETAILS,
+        "moist_adiabats": _LINE_DETAILS,
+        "mixing_ratios": _LINE_DETAILS,
     }
 )
 
@@ -1015,12 +1015,12 @@ def render_template() -> str:
 _REFERENCE_METHODS: Final[tuple[str, ...]] = ("load", "save", "reset", "context")
 
 
-def _reference_signature(method: object) -> str:
+def _reference_signature(method: Callable[..., object]) -> str:
     """Spell a method's parameters as the reference page shows them.
 
     Parameters
     ----------
-    method : object
+    method : collections.abc.Callable
         An unbound method of ``Config``.
 
     Returns
@@ -1031,7 +1031,7 @@ def _reference_signature(method: object) -> str:
         as quoted strings, which is noise on a page whose types come from
         elsewhere; name and default are what the reader needs.
     """
-    signature = inspect.signature(cast("Callable[..., object]", method))
+    signature = inspect.signature(method)
     parameters = list(signature.parameters.values())[1:]
     rendered = []
     for parameter in parameters:

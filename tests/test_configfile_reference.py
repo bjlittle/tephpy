@@ -58,6 +58,29 @@ def test_every_detail_is_prose():
             assert len(detail) > 40, option
 
 
+#: A word ending in an underscore, which reStructuredText reads as a
+#: hyperlink reference rather than prose. A mid-word underscore, as in
+#: ``dry_adiabats``, is ordinary text and must not match.
+_TRAILING_UNDERSCORE = re.compile(r"\w*_\b")
+
+
+def test_every_description_is_free_of_markup():
+    """A stray ``*``, `` ` ``, ``|`` or ``--`` would render as markup, not prose.
+
+    ``CONFIG_DESCRIPTIONS`` is dual-register: the same string is a plain-text
+    YAML comment in the generated template and a paragraph of
+    reStructuredText on the options reference page. A character the first
+    rendering shows literally can be read as markup by the second, and
+    nothing here escapes for it -- so the strings themselves stay free of it.
+    """
+    for section, options in _configfile.CONFIG_DESCRIPTIONS.items():
+        for option, description in options.items():
+            key = f"{section}.{option}"
+            for token in ("*", "`", "|", "--"):
+                assert token not in description, key
+            assert not _TRAILING_UNDERSCORE.search(description), key
+
+
 #: A dotted or bare Python name inside rendered type text.
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
 

@@ -18,6 +18,8 @@ Generate the Template
 The template carries every option tephpy has, each commented out and showing
 the default in force, with a line of prose above it. Nothing in it is active
 until you uncomment something, so a freshly generated file changes nothing.
+Every option is also listed in :ref:`tephpy-config-options`, with its type, its
+default, and the longer prose the template has no room for.
 
 Uncomment what you want and edit the value:
 

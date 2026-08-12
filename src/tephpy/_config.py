@@ -70,10 +70,13 @@ class LineOptions:
 
     #: Members drawn with a distinguishing style, keyed by member value in the
     #: family's native units, each value a mapping of style overrides. An
-    #: omitted key falls back to the family's own style, and an emphasised
-    #: member is always drawn, at ``EMPHASIS_LINEWIDTH``. Spec §3.2 specifies
-    #: the behaviour; ``_configfile.CONFIG_DETAILS["<family>"]["emphasis"]``
-    #: publishes it (configfile spec §3.6).
+    #: omitted key falls back to the family's own style, so an empty mapping
+    #: draws the member at ``EMPHASIS_LINEWIDTH`` in the family's own colour,
+    #: while a ``linewidth`` override replaces it. An emphasised member is
+    #: always drawn, whatever the zoom-adaptive ladder would otherwise select.
+    #: Spec §3.2 specifies the behaviour;
+    #: ``_configfile.CONFIG_DETAILS["<family>"]["emphasis"]`` publishes it
+    #: (configfile spec §3.6).
     emphasis: Mapping[float, Mapping[str, object]] | None = None
 
 

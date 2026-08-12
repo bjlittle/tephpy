@@ -22,7 +22,7 @@ from sphinx.util.docutils import SphinxDirective
 from sphinx.util.nodes import nested_parse_with_titles
 
 import tephpy
-from tephpy import _configfile
+from tephpy import _config, _configfile, _constants
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -42,9 +42,14 @@ class ConfigOptionsDirective(SphinxDirective):
             One section per configuration section, plus the methods section.
         """
         # The rendered text is not a source file Sphinx knows to watch, so an
-        # incremental build would serve the previous options until this page's
-        # own source changed.
+        # incremental build would serve the previous options until one of
+        # these three changed: ``render_reference`` and ``_option_hints`` live
+        # in ``_configfile``, the defaults they read come from ``_constants``,
+        # and the annotations, signatures and docstring first lines they
+        # introspect come from ``_config``.
         self.env.note_dependency(_configfile.__file__)
+        self.env.note_dependency(_constants.__file__)
+        self.env.note_dependency(_config.__file__)
         text = _configfile.render_reference(tephpy.config)
         lines = StringList(
             text.splitlines(), source="tephpy._configfile.render_reference"
