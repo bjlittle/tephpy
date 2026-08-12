@@ -1815,7 +1815,7 @@ Replace lines 681-687 with:
   `color: notacolour` is a string, so it loaded, and matplotlib rejected it at the first
   draw. Answering it properly meant a per-option vocabulary — the colours, the edge names,
   the cursor fields, the `emphasis` style keys — which is why it was a larger piece of work
-  than the type check it sits behind. Specified as domain spec §1–§7 and settled by that
+  than the type check it sits behind. Specified as domain spec §1–domain spec §7 and settled by that
   work ({issue}`116`). This was the one entry here that was not a decision against, and the
   only one the docs spec §3.5 contract required an issue for.
 ```

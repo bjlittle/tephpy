@@ -369,6 +369,12 @@ def scan(
     owner exists, both of those resolve, so both gates pass and the reader is
     sent to the wrong document.
 
+    A range is the same trap by a different route. ``SEPARATOR`` is a comma or a
+    solidus and nothing else, so the dash of a range does not join a run: a
+    prefixed ``§N`` followed by a dash and a bare ``§M`` cites that
+    specification's ``§N`` and the *containing* document's ``§M``. Write the
+    prefix on both ends of a range.
+
     Parameters
     ----------
     source : str
