@@ -80,20 +80,24 @@ def test_every_detail_is_prose():
 _TRAILING_UNDERSCORE = re.compile(r"\w*_\b")
 
 
-def test_every_description_is_free_of_markup():
-    """A stray ``*``, `` ` ``, ``|`` or ``--`` would render as markup, not prose.
+def test_every_description_carries_no_markup_but_literals():
+    """A stray ``*``, ``|`` or ``--`` would render as markup, not prose.
 
     ``CONFIG_DESCRIPTIONS`` is dual-register: the same string is a plain-text
     YAML comment in the generated template and a paragraph of
     reStructuredText on the options reference page. A character the first
-    rendering shows literally can be read as markup by the second, and
-    nothing here escapes for it -- so the strings themselves stay free of it.
+    rendering shows literally is read as markup by the second, so the strings
+    carry exactly one construct -- the double-backquoted literal, which
+    ``_unmarked`` strips for the template -- and nothing else. A single
+    backquote is left over from a literal written wrong, and would reach the
+    template as itself (configfile spec §3.4).
     """
     for section, options in _configfile.CONFIG_DESCRIPTIONS.items():
         for option, description in options.items():
             key = f"{section}.{option}"
-            for token in ("*", "`", "|", "--"):
+            for token in ("*", "|", "--"):
                 assert token not in description, key
+            assert "`" not in _configfile._unmarked(description), key
             assert not _TRAILING_UNDERSCORE.search(description), key
 
 
@@ -265,10 +269,12 @@ def test_a_description_lists_its_whole_closed_vocabulary(section, option, vocabu
     The joined names are asserted as one run, not member by member, so a
     name added to the constant and not to the prose fails here — which is
     the only way to tell a derived string from a hand-written one that
-    happens to agree today (domain spec §6).
+    happens to agree today (domain spec §6). Each name is asserted as a
+    literal, since a value the reader types has to stand out from the prose
+    around it rather than blend into it (configfile spec §3.4).
     """
     description = _configfile.CONFIG_DESCRIPTIONS[section][option]
-    assert ", ".join(vocabulary) in description
+    assert ", ".join(f"``{name}``" for name in vocabulary) in description
 
 
 def test_the_emphasis_detail_names_every_style_key():
@@ -283,7 +289,12 @@ def test_the_emphasis_detail_names_every_style_key():
 
 
 def test_the_page_carries_the_vocabularies_it_documents():
-    """The descriptions above reach the rendered page, not just the table."""
+    """The descriptions above reach the rendered page, not just the table.
+
+    As literals, which is the whole point of writing them as literals: the
+    page is where the markup renders, and the reader who has to pick a value
+    out of a sentence is the reader of this page (configfile spec §3.4).
+    """
     page = rendered()
-    assert ", ".join(EDGES) in page
-    assert ", ".join(CURSOR_FIELD_NAMES) in page
+    assert ", ".join(f"``{name}``" for name in EDGES) in page
+    assert ", ".join(f"``{name}``" for name in CURSOR_FIELD_NAMES) in page
