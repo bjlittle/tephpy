@@ -59,14 +59,14 @@ division is what this specification is built on.
 asked for. This is the worst outcome available and it is the one the type check cannot
 reach.
 
-**Ten fail with tephpy's own message**, which already names the family, the option and
+**Nine fail with tephpy's own message**, which already names the family, the option and
 the legal set. Nothing is wrong with these messages. What is wrong is *when* they arrive:
 under the auto-load cascade (configfile spec §3.2) `import tephpy` succeeds, and the
 mistake surfaces at the first draw, in a traceback through tephpy rather than at the file
 the user edited. `cursor.fields` is worse again — its check lives in `format_coord`, so it
 fires on mouse motion and only ever reaches an interactive user.
 
-**Four fail with matplotlib's message**, which names neither the option nor the file. The
+**Five fail with matplotlib's message**, which names neither the option nor the file. The
 `emphasis` `linestyle` case is the sharpest: the reader is shown a list of a dozen
 `'solid'` strings they never wrote.
 
