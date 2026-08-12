@@ -16,7 +16,7 @@ that costs nothing importing ``tephpy`` had not already spent: the package
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 import dataclasses
 import datetime
 import inspect
@@ -1162,16 +1162,36 @@ def apply(config: Config, document: Mapping[str, object], source: Path | None) -
     config._source = source  # noqa: SLF001 -- the property behind Config.source
 
 
+def _as_literals(names: Iterable[str]) -> str:
+    """Render a vocabulary as a run of reStructuredText literals.
+
+    Parameters
+    ----------
+    names : iterable of str
+        The vocabulary, in the order a reader should meet it.
+
+    Returns
+    -------
+    str
+        Each name in double backquotes, comma-joined, so a value a reader
+        types stands out from the prose around it rather than blending into
+        it. Built from the constant the loader checks against, so no
+        rendering can name a value the loader rejects, nor omit one it
+        accepts (domain spec §6).
+    """
+    return ", ".join(f"``{name}``" for name in names)
+
+
 #: Prose shared by the ``color``, ``linewidth``, ``alpha``, ``labels`` and
 #: ``visible`` options, which mean the same thing for every isopleth family.
 _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "color": "Matplotlib colour for the lines and their labels.",
         "linewidth": "Line width in points.",
-        "alpha": "Line and label opacity, 0 to 1.",
+        "alpha": "Line and label opacity, ``0`` to ``1``.",
         "labels": (
-            "true, false, or the diagram edges to label "
-            f"({', '.join(EDGES)}), singly or as a list."
+            "``true``, ``false``, or the diagram edges to label "
+            f"({_as_literals(EDGES)}), singly or as a list."
         ),
         "visible": "Whether the family is drawn at all.",
     }
@@ -1187,6 +1207,12 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
 #: are not shared: the units differ per family -- hPa for isobars, degrees
 #: Celsius for the temperature families, g/kg for mixing ratios -- so each
 #: family spells its own out.
+#:
+#: A value the reader types is written as a reStructuredText literal, so that
+#: it stands out on the reference page instead of blending into the prose.
+#: That is the only markup these strings may carry: they are dual-register,
+#: and ``_unmarked`` strips exactly this one construct for the template. Any
+#: other markup would reach the template as itself.
 CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
     {
         "isotherms": MappingProxyType(
@@ -1277,8 +1303,8 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
         "diagram": MappingProxyType(
             {
                 "extent": (
-                    "Default view corners as [[pressure, temperature], "
-                    "[pressure, temperature]], in hPa and degrees Celsius."
+                    "Default view corners as ``[[pressure, temperature], "
+                    "[pressure, temperature]]``, in hPa and degrees Celsius."
                 ),
             }
         ),
@@ -1286,7 +1312,7 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
             {
                 "fields": (
                     "Cursor readout fields, in display order, from "
-                    f"{', '.join(CURSOR_FIELD_NAMES)}."
+                    f"{_as_literals(CURSOR_FIELD_NAMES)}."
                 ),
             }
         ),
@@ -1294,15 +1320,11 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
 )
 
 #: ``EMPHASIS_STYLE_KEYS`` as an ``and``-list of reStructuredText literals, for
-#: the ``emphasis`` detail below. Built from the constant the loader checks
-#: against, so the page cannot list a style key the loader rejects, nor omit
-#: one it accepts (domain spec §6). Detail prose, not a description, so the
-#: double backquotes are wanted here -- the markup ban applies to
-#: ``CONFIG_DESCRIPTIONS`` alone, which has to read as a plain-text comment in
-#: the generated template too.
+#: the ``emphasis`` detail below. The one vocabulary ``_as_literals`` cannot
+#: render whole: prose reads better with the last key conjoined than
+#: comma-joined, and this is the only run long enough for that to matter.
 _EMPHASIS_STYLE_PROSE: Final[str] = (
-    f"{', '.join(f'``{key}``' for key in EMPHASIS_STYLE_KEYS[:-1])} "
-    f"and ``{EMPHASIS_STYLE_KEYS[-1]}``"
+    f"{_as_literals(EMPHASIS_STYLE_KEYS[:-1])} and ``{EMPHASIS_STYLE_KEYS[-1]}``"
 )
 
 #: Detail shared by the ``labels`` and ``emphasis`` options, which behave the
@@ -1321,7 +1343,7 @@ _LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
             "Each value is a mapping of style overrides -- "
             f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
             "falls back to the family's own style, so ``{20.0: {}}`` is the "
-            "member at 20 in the family's own units, drawn at the emphasis "
+            "member at ``20`` in the family's own units, drawn at the emphasis "
             "line width in the family's own colour. An emphasised member is "
             "always drawn, whatever the zoom-adaptive ladder would otherwise "
             "select. An empty mapping emphasises nothing."
@@ -1424,6 +1446,28 @@ def _write(path: Path, text: str) -> None:
 _TEMPLATE_WIDTH: Final[int] = 88
 
 
+def _unmarked(description: str) -> str:
+    """Strip a description's literal markup for the generated template.
+
+    Parameters
+    ----------
+    description : str
+        A ``CONFIG_DESCRIPTIONS`` entry, whose vocabularies are written as
+        double-backquoted literals so they stand out on the options
+        reference page.
+
+    Returns
+    -------
+    str
+        The same prose without the double backquotes. The descriptions are
+        dual-register -- reStructuredText on the page, a plain-text YAML
+        comment in the template -- and this is the escape that lets the one
+        table serve both, rather than the table going without markup
+        (configfile spec §3.4).
+    """
+    return description.replace("``", "")
+
+
 def render_template() -> str:
     """Render the fully-commented configuration template.
 
@@ -1452,7 +1496,7 @@ def render_template() -> str:
         for option, default in options.items():
             lines.extend(
                 textwrap.fill(
-                    CONFIG_DESCRIPTIONS[section][option],
+                    _unmarked(CONFIG_DESCRIPTIONS[section][option]),
                     width=_TEMPLATE_WIDTH,
                     initial_indent="  # ",
                     subsequent_indent="  # ",

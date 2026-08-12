@@ -16,7 +16,7 @@ import yaml
 import tephpy
 from tephpy import _configfile
 from tephpy._config import Config
-from tephpy._constants import CONFIG_DEFAULTS
+from tephpy._constants import CONFIG_DEFAULTS, CURSOR_FIELD_NAMES, EDGES
 from tephpy.exceptions import TephpyConfigError
 
 
@@ -52,6 +52,27 @@ def test_every_description_is_prose(section, option):
     description = _configfile.CONFIG_DESCRIPTIONS[section][option]
     assert isinstance(description, str)
     assert description.strip()
+
+
+def test_the_template_shows_its_vocabularies_as_plain_text():
+    """The reference page's literal markup does not reach the file.
+
+    The descriptions are dual-register (configfile spec §3.4): a value the
+    reader types is a reStructuredText literal on the options reference
+    page, and has to be bare prose in the YAML comment above the option it
+    describes. Both halves are asserted -- that no backquote survives, and
+    that the vocabulary itself does -- because stripping the markup by
+    dropping the whole phrase would pass the first alone. The surviving
+    vocabulary is checked on the stripped description rather than on the
+    rendered file, where an 88-column wrap can fall mid-run.
+    """
+    assert "`" not in _configfile.render_template()
+    for section, option, vocabulary in (
+        ("isotherms", "labels", EDGES),
+        ("cursor", "fields", CURSOR_FIELD_NAMES),
+    ):
+        description = _configfile.CONFIG_DESCRIPTIONS[section][option]
+        assert ", ".join(vocabulary) in _configfile._unmarked(description)
 
 
 def test_the_template_is_an_empty_configuration_as_generated():

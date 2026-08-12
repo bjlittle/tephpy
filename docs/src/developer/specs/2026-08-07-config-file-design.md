@@ -197,6 +197,14 @@ Being second copies of what the dataclasses declare, the tables need gates:
   `_resolve()` returns with empty kwargs and an empty config.
 - **Description gate:** every option in `CONFIG_DEFAULTS` has a description, and no
   description is an orphan.
+- **Markup gate:** the descriptions are dual-register — a paragraph of reStructuredText on
+  the reference page, a plain-text YAML comment in the template — so they carry exactly one
+  construct, the double-backquoted literal, and no `*`, `|`, `--` or trailing underscore. A
+  value the reader types is written as a literal, so that it stands out on the page instead
+  of blending into the sentence around it; `_unmarked()` strips that one construct for the
+  template, and the gate holds both ends — no backquote survives into the template, and the
+  vocabulary itself does. Any other markup would reach the template as itself, which is why
+  the escape is a single construct and not a general one.
 - **Detail gate:** every `CONFIG_DETAILS` key names a real option, so a detail cannot
   outlive the option it describes. There is deliberately no converse: the table is sparse.
 - **Coverage gate:** the targets `render_reference()` emits are exactly
