@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CONFIG_DESCRIPTIONS",
+    "CONFIG_DETAILS",
     "CONFIG_ENV_VAR",
     "CONFIG_FILENAME",
     "apply",
@@ -844,6 +845,45 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
                 "fields": "Cursor readout fields, in display order.",
             }
         ),
+    }
+)
+
+#: Detail shared by the ``labels`` and ``emphasis`` options, which behave the
+#: same way for every isopleth family, as ``_LINE_DESCRIPTIONS`` above is.
+#: Unlike the descriptions, this prose is unit-neutral: ``LineOptions`` is the
+#: base for isobars in hPa and mixing ratios in g/kg as well as the temperature
+#: families, so no example here names a unit.
+_LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "labels": (
+            "Listed edges label the members that reach them, and every member "
+            "left over is labelled inline. ``true`` labels every member "
+            "inline; ``false`` labels none."
+        ),
+        "emphasis": (
+            "Each value is a mapping of style overrides -- ``color``, "
+            "``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
+            "falls back to the family's own style, so ``{20.0: {}}`` is the "
+            "member at 20 in the family's own units, drawn at the emphasis "
+            "line width in the family's own colour. An emphasised member is "
+            "always drawn, whatever the zoom-adaptive ladder would otherwise "
+            "select. An empty mapping emphasises nothing."
+        ),
+    }
+)
+
+#: The longer prose the options reference page has room for and the generated
+#: template does not (configfile spec §3.6). Sparse: an option with nothing
+#: more to say than its ``CONFIG_DESCRIPTIONS`` line is absent, and the gate in
+#: ``tests/test_configfile_reference.py`` is a subset check against
+#: ``CONFIG_DEFAULTS`` with its own membership pinned, not a completeness check.
+CONFIG_DETAILS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
+    {
+        "isotherms": MappingProxyType(dict(_LINE_DETAILS)),
+        "isobars": MappingProxyType(dict(_LINE_DETAILS)),
+        "dry_adiabats": MappingProxyType(dict(_LINE_DETAILS)),
+        "moist_adiabats": MappingProxyType(dict(_LINE_DETAILS)),
+        "mixing_ratios": MappingProxyType(dict(_LINE_DETAILS)),
     }
 )
 

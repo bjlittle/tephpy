@@ -60,20 +60,19 @@ class LineOptions:
     #: Whether member values are labelled, and where: ``True`` (every member
     #: labelled inline — the default), ``False`` (none), or the diagram edge
     #: names ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly as a
-    #: bare string or together as a tuple. Listed edges label the members that
-    #: reach them; every member left over is labelled inline (spec §3.2).
+    #: bare string or together as a tuple. What each choice draws is
+    #: ``_configfile.CONFIG_DETAILS["<family>"]["labels"]``, which the options
+    #: reference page publishes (configfile spec §3.6).
     labels: bool | str | tuple[str, ...] | None = None
 
     #: Whether the family is drawn at all.
     visible: bool | None = None
 
     #: Members drawn with a distinguishing style, keyed by member value in the
-    #: family's native units. Each value is a mapping of style overrides --
-    #: ``color``, ``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted
-    #: key falls back to the family's own style, so ``{0.0: {}}`` is the 0 °C
-    #: member at ``EMPHASIS_LINEWIDTH`` in the family's own colour. An emphasised
-    #: member is always drawn, whatever the zoom ladder would select. An empty
-    #: mapping emphasises nothing (spec §3.2).
+    #: family's native units, each value a mapping of style overrides. What an
+    #: override does, and what an omitted key or an empty mapping means, is
+    #: ``_configfile.CONFIG_DETAILS["<family>"]["emphasis"]``, which the options
+    #: reference page publishes (configfile spec §3.6).
     emphasis: Mapping[float, Mapping[str, object]] | None = None
 
 
