@@ -44,11 +44,14 @@ from tephpy.plotting.isopleths import EDGES, IsoplethFamily
 def test_the_cursor_registry_and_the_vocabulary_agree():
     """Two independently written tables, made to agree (domain spec §3.2).
 
-    The formatter functions call ``tephpy.transforms`` and so cannot move to
-    ``_constants`` without dragging it beneath the dependency floor. So the
-    registry stays here and the names live there, and this is what stops a
-    sixth formatter being unreachable from a configuration file — or a sixth
-    name being accepted by the loader and unformattable at the cursor.
+    The formatter functions stay in ``plotting.axes``: two import MetPy
+    function-locally so that ``import tephpy`` stays light, and every one
+    formats a value for display — presentation, not the data ``_constants``
+    holds. Only their names are the closed vocabulary the configuration
+    loader must validate against, so only the names moved. So the registry
+    stays here and the names live there, and this is what stops a sixth
+    formatter being unreachable from a configuration file — or a sixth name
+    being accepted by the loader and unformattable at the cursor.
     """
     assert set(axes._CURSOR_FORMATTERS) == set(CURSOR_FIELD_NAMES)
 

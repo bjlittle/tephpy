@@ -280,7 +280,7 @@ Extends spec §7 and configfile spec §6.
 | Gate | Holds |
 |---|---|
 | One case per §1 row | The value warns, the option keeps its default, **and a sibling option in the same file still applies** |
-| Completeness | Every `(section, option)` in `Config` bar the five `visible` has a domain rule |
+| Completeness | Every `(section, option)` in `Config` bar the five `visible` has a domain rule, and every `EMPHASIS_STYLE_KEYS` member has an entry in `_EMPHASIS_STYLE_RULES` |
 | Unambiguous keys | No two sections give one option name a different domain — the §3.1 assumption |
 | Vocabulary agreement | `set(_CURSOR_FORMATTERS) == set(CURSOR_FIELD_NAMES)`, and `CURSOR_FIELDS` is a subset |
 | Address change only | `plotting` uses the `_constants` objects themselves, not copies of them |

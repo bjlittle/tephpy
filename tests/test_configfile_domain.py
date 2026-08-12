@@ -40,8 +40,13 @@ def _write(tmp_path, text):
 #: numeric path stops ``import tephpy`` outright (configfile spec §5.2).
 _HUGE_INT = "9" * 320
 
-#: One case per row of the domain spec §1 table, plus the three parts of
-#: ``emphasis`` that table reaches only through a style key. Each is
+#: Seventeen of the domain spec §1 table's eighteen rows -- the gate drops
+#: ``color: 'b0b0b0'``, which has its own named test for the ``#`` hint --
+#: plus three cases that table does not tabulate: a ``diagram.extent``
+#: corner with a non-finite temperature rather than a non-finite pressure,
+#: an ``emphasis`` member key that is itself non-finite (a member key, not
+#: a style key), and an ``emphasis`` ``linewidth`` override carrying the
+#: huge integer above rather than an ordinary bad number. Each is
 #: ``(section, option, yaml, expected message tail)``, the tail picking up
 #: after "which expects". Where the tail names a closed vocabulary it is
 #: built from the constant rather than written out: the message is built
@@ -260,6 +265,21 @@ def test_every_option_bar_the_flags_has_a_domain_rule():
     assert {option for _, option in options} - set(_configfile._DOMAIN_VALIDATORS) == {
         "visible"
     }
+
+
+def test_every_emphasis_style_key_has_a_domain_rule():
+    """A style key with no rule reaches the draw with no domain check at all.
+
+    ``_domain_emphasis`` accepts any key ``EMPHASIS_STYLE_KEYS`` lists, then hands the
+    value to ``_EMPHASIS_STYLE_RULES``. A key present in the first table and absent
+    from the second is legal at load time and undomained at the draw -- the same gap
+    the top-level completeness gate above closes, one option's rules deep rather than
+    across all of them (domain spec §3.3).
+
+    The first assertion is what stops this gate passing by checking nothing.
+    """
+    assert EMPHASIS_STYLE_KEYS
+    assert set(_configfile._EMPHASIS_STYLE_RULES) == set(EMPHASIS_STYLE_KEYS)
 
 
 def test_no_option_name_carries_two_domains():
