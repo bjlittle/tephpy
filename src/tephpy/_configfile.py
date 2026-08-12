@@ -1162,8 +1162,8 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
         "linewidth": "Line width in points.",
         "alpha": "Line and label opacity, 0 to 1.",
         "labels": (
-            "true, false, or the diagram edges to label (bottom, top, left, "
-            "right), singly or as a list."
+            "true, false, or the diagram edges to label "
+            f"({', '.join(EDGES)}), singly or as a list."
         ),
         "visible": "Whether the family is drawn at all.",
     }
@@ -1276,10 +1276,25 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
         ),
         "cursor": MappingProxyType(
             {
-                "fields": "Cursor readout fields, in display order.",
+                "fields": (
+                    "Cursor readout fields, in display order, from "
+                    f"{', '.join(CURSOR_FIELD_NAMES)}."
+                ),
             }
         ),
     }
+)
+
+#: ``EMPHASIS_STYLE_KEYS`` as an ``and``-list of reStructuredText literals, for
+#: the ``emphasis`` detail below. Built from the constant the loader checks
+#: against, so the page cannot list a style key the loader rejects, nor omit
+#: one it accepts (domain spec §6). Detail prose, not a description, so the
+#: double backquotes are wanted here -- the markup ban applies to
+#: ``CONFIG_DESCRIPTIONS`` alone, which has to read as a plain-text comment in
+#: the generated template too.
+_EMPHASIS_STYLE_PROSE: Final[str] = (
+    f"{', '.join(f'``{key}``' for key in EMPHASIS_STYLE_KEYS[:-1])} "
+    f"and ``{EMPHASIS_STYLE_KEYS[-1]}``"
 )
 
 #: Detail shared by the ``labels`` and ``emphasis`` options, which behave the
@@ -1295,8 +1310,8 @@ _LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
             "inline; ``false`` labels none."
         ),
         "emphasis": (
-            "Each value is a mapping of style overrides -- ``color``, "
-            "``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
+            "Each value is a mapping of style overrides -- "
+            f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
             "falls back to the family's own style, so ``{20.0: {}}`` is the "
             "member at 20 in the family's own units, drawn at the emphasis "
             "line width in the family's own colour. An emphasised member is "
