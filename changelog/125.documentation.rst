@@ -1,0 +1,8 @@
+Gave every method on the :ref:`configuration options reference <tephpy-config-options>` page
+a worked example (:issue:`124`). A signature and a sentence say what
+:meth:`tephpy.config.context` is; they do not say that its keyword arguments are section
+names mapped to ``{option: value}`` mappings. That method and :meth:`tephpy.config.reset` act
+on the configuration already in memory, so the configuration how-to covers neither, and the
+reference page was the only place in the documentation either one appeared at all. The
+examples are executed by the test suite, against the live API rather than a transcript of it.
+(:user:`claude`)
