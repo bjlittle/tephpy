@@ -10,6 +10,9 @@ import builtins
 from pathlib import Path
 import re
 
+import matplotlib.pyplot as plt
+import pytest
+
 import tephpy
 from tephpy import _configfile
 from tephpy._constants import CONFIG_DEFAULTS
@@ -176,6 +179,56 @@ def test_the_how_to_covers_the_methods_the_page_sends_readers_to():
         f"the methods section sends readers to {HOWTO.name} for {sorted(named)}, "
         f"but that page names {sorted(covered)}"
     )
+
+
+def test_every_method_carries_an_example():
+    """A method listed without one would render an empty literal block.
+
+    Equality, not a subset: the page is the only documentation ``reset`` and
+    ``context`` have, so a method reaching ``_REFERENCE_METHODS`` without an
+    example is the case worth failing on (configfile spec §3.6).
+    """
+    assert set(_configfile._REFERENCE_EXAMPLES) == set(_configfile._REFERENCE_METHODS)
+
+
+def test_every_example_reaches_the_page_as_a_literal_block():
+    """Indented four short of the directive and the block silently ends early."""
+    text = rendered()
+    for name, example in _configfile._REFERENCE_EXAMPLES.items():
+        first, last = example.splitlines()[0], example.splitlines()[-1]
+        assert "   .. code-block:: python\n\n      " + first in text, name
+        assert f"      {last}" in text, name
+
+
+@pytest.mark.parametrize("name", _configfile._REFERENCE_METHODS)
+def test_the_example_runs(name, monkeypatch, tmp_path):
+    """The page's only hand-written content, and so its only content that drifts.
+
+    ``tests/test_docs_snippets.py`` excludes the reference quadrant because a
+    generated page cannot drift -- true of everything else here, and not of
+    these. Run against the live API, an example that names a method that has
+    been renamed, or passes an argument that no longer exists, fails here
+    rather than reaching a reader (configfile spec §3.6, §6).
+
+    The working directory is a ``tmp_path`` and ``$TEPHPYRC`` is cleared, so
+    the two examples naming a file cannot reach the developer's own
+    configuration. The autouse ``_pristine_config`` fixture restores the
+    singleton the examples mutate.
+    """
+    monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        _configfile, "user_config_path", lambda: tmp_path / "absent" / "tephpyrc.yaml"
+    )
+    # `load` needs the file its example names to exist; running the example
+    # under the conditions its prose describes is the point of running it.
+    (tmp_path / "tephpyrc.yaml").write_text(
+        "isobars:\n  interval: 25.0\n", encoding="utf-8"
+    )
+    try:
+        exec(_configfile._REFERENCE_EXAMPLES[name], {"__name__": "__main__"})  # noqa: S102
+    finally:
+        plt.close("all")
 
 
 def test_a_default_is_rendered_by_its_kind():
