@@ -1268,39 +1268,52 @@ Append:
 #: matplotlib and produce a line width that is not the one asked for. The
 #: infinity was measured, not assumed -- it emits two numpy RuntimeWarnings
 #: from a scalar multiply and draws.
-DRAWS_IN_SILENCE = {
+#:
+#: A list, and a separate one, rather than an exemption set consulted by
+#: membership: seven of the refused values below are dicts, which are
+#: unhashable, and two are NaN, which is not equal to itself -- so
+#: ``(section, option, value) in a_set`` neither runs nor means anything
+#: here. Which list a row is written in carries the split, and no value is
+#: ever compared.
+DRAWS_IN_SILENCE = [
     ("isotherms", "linewidth", -1.0),
     ("isotherms", "linewidth", float("inf")),
     ("isotherms", "values", (0.0, float("nan"))),
     ("moist_adiabats", "truncation", float("nan")),
-}
+]
 
-#: Every refused value again, as the Python objects ``coerce`` would have
-#: produced, for the draw to be asked about directly. Written out rather than
-#: derived from ``REFUSED`` because ``coerce`` refuses these -- deriving them
-#: would mean running the stage under test to build the input to its own gate.
-REFUSED_AT_THE_DRAW = [
-    ("isotherms", "linewidth", -1.0),
-    ("isotherms", "values", (0.0, float("nan"))),
-    ("moist_adiabats", "truncation", float("nan")),
+#: The sixteen the draw refuses loudly, in one of the three exception types
+#: the gate below accepts.
+RAISES_AT_THE_DRAW = [
     ("isotherms", "color", "notacolour"),
     ("isotherms", "alpha", 5.0),
     ("isotherms", "emphasis", {0.0: {"color": "notacolour"}}),
     ("isotherms", "emphasis", {0.0: {"linestyle": "notaline"}}),
     ("isotherms", "labels", ("botom",)),
     ("isobars", "interval", 0.0),
+    ("isobars", "interval", float("inf")),
     ("diagram", "extent", ((0.0, -80.0), (1050.0, 40.0))),
     ("diagram", "extent", ((1050.0, float("nan")), (300.0, 40.0))),
+    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
     ("isotherms", "emphasis", {700.0: {"lw": 2.0}}),
     ("isotherms", "emphasis", {0.0: {"linewidth": "thick"}}),
     ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
     ("isotherms", "emphasis", {float("nan"): {}}),
-    ("cursor", "fields", ("nonsuch",)),
     ("isotherms", "emphasis", {850.0: {"linewidth": int("9" * 400)}}),
-    ("isotherms", "linewidth", float("inf")),
-    ("isobars", "interval", float("inf")),
-    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
+    ("cursor", "fields", ("nonsuch",)),
 ]
+
+#: What the draw does with a refused value, as a parametrisation label:
+#: strings rather than booleans so a failing case names its own expectation.
+DRAWS, RAISES = "draws", "raises"
+
+#: Every refused value again, as the Python objects ``coerce`` would have
+#: produced, for the draw to be asked about directly. Written out rather than
+#: derived from ``REFUSED`` because ``coerce`` refuses these -- deriving them
+#: would mean running the stage under test to build the input to its own gate.
+REFUSED_AT_THE_DRAW = [
+    (section, option, value, DRAWS) for section, option, value in DRAWS_IN_SILENCE
+] + [(section, option, value, RAISES) for section, option, value in RAISES_AT_THE_DRAW]
 
 
 def _draw_with(section, option, value):
@@ -1322,8 +1335,8 @@ def _draw_with(section, option, value):
             plt.close(fig)
 
 
-@pytest.mark.parametrize(("section", "option", "value"), REFUSED_AT_THE_DRAW)
-def test_what_the_load_refuses_the_draw_refuses_too(section, option, value):
+@pytest.mark.parametrize(("section", "option", "value", "outcome"), REFUSED_AT_THE_DRAW)
+def test_what_the_load_refuses_the_draw_refuses_too(section, option, value, outcome):
     """Makes "lifted, not invented" a checked property (domain spec §5).
 
     The Python API is unguarded by design (domain spec §2), so setting the
@@ -1338,7 +1351,7 @@ def test_what_the_load_refuses_the_draw_refuses_too(section, option, value):
     never asked about. It is the draw-time counterpart of the rule that keeps
     such a value from stopping an import (configfile spec §5.2).
     """
-    if (section, option, value) in DRAWS_IN_SILENCE:
+    if outcome == DRAWS:
         _draw_with(section, option, value)
         return
     with pytest.raises((TypeError, ValueError, OverflowError)):
@@ -1376,7 +1389,7 @@ def test_the_draw_table_covers_every_refusal():
     """
     assert len(REFUSED_AT_THE_DRAW) == len(REFUSED)
     refused = sorted((section, option) for section, option, _, _ in REFUSED)
-    drawn = sorted((section, option) for section, option, _ in REFUSED_AT_THE_DRAW)
+    drawn = sorted((section, option) for section, option, _, _ in REFUSED_AT_THE_DRAW)
     assert drawn == refused
 ```
 
@@ -1421,15 +1434,14 @@ helper floods the suite and proves nothing.
    `if not isinstance(value, float): raise _DomainError(expects, _describe(value))` →
    `test_a_legitimate_value_is_not_refused` fails on `emphasis: {850.0: {linewidth: 2}}` and
    `{850.0: {alpha: 1}}`, and every refusal test still passes.
-5. Add `("isotherms", "alpha", 5.0)` to `DRAWS_IN_SILENCE` →
-   `test_what_the_load_refuses_the_draw_refuses_too[isotherms-alpha-5.0]` fails, with
-   `ValueError: alpha (5.0) is outside 0-1 range` escaping `_draw_with` uncaught. The
-   exemption set has to be a list of three specific triples that the draw is *known* to
-   accept, and this is what shows it is not a blanket that would swallow a genuine
-   disagreement. Note that a triple absent from `REFUSED_AT_THE_DRAW` is not a valid
-   mutation here — the parametrisation never reaches it, so the gate passes and nothing is
-   proved.
-6. Delete the `("cursor", "fields", ("nonsuch",))` entry from `REFUSED_AT_THE_DRAW` →
+5. *Move* the `("isotherms", "alpha", 5.0)` row from `RAISES_AT_THE_DRAW` into
+   `DRAWS_IN_SILENCE` → one `test_what_the_load_refuses_the_draw_refuses_too` case fails,
+   with `ValueError: alpha (5.0) is outside 0-1 range` escaping `_draw_with` uncaught, and
+   nothing else does. Move rather than copy: a copy leaves the row in both lists, so the
+   correspondence gate fails on the length too and the isolation is lost. `DRAWS_IN_SILENCE`
+   has to be four specific triples the draw is *known* to accept, and this is what shows it
+   is not a blanket that would swallow a genuine disagreement.
+6. Delete the `("cursor", "fields", ("nonsuch",))` entry from `RAISES_AT_THE_DRAW` →
    `test_the_draw_table_covers_every_refusal` fails on the length assertion, and no other
    test does. This is the drift the gate exists to catch: the `cursor.fields` refusal keeps
    its own row in `REFUSED` and simply stops being asked whether the draw agrees. Confirm
