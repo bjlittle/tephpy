@@ -37,6 +37,7 @@ extensions = [
     "sphinx_gallery.gen_gallery",
     "sphinx_togglebutton",
     "sphinxcontrib.bibtex",
+    "tephpy_config_reference",
 ]
 
 # -- autoapi -----------------------------------------------------------------
