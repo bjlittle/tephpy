@@ -308,10 +308,13 @@ For each mutation: apply it, run the named test, confirm it fails, revert with
    `test_cursor_field_names_are_sorted` fails.
 3. Change `_constants.CURSOR_FIELDS` to `("pressure", "nonsuch")` →
    `test_cursor_field_names_cover_the_default_trio` fails.
-4. In `isopleths.py`, change the re-export to `EDGES: Final[tuple[str, ...]] = tuple(_EDGES)`
-   → `test_the_isopleth_vocabularies_are_the_objects_plotting_uses` fails on the identity
+4. In `isopleths.py`, change the re-export to
+   `EDGES: Final[tuple[str, ...]] = tuple(list(_EDGES))` →
+   `test_the_isopleth_vocabularies_are_the_objects_plotting_uses` fails on the identity
    assertion while `tests/plotting/test_isopleths.py:618`'s equality assertion still passes.
-   This is the mutation that shows why the gate is identity and not equality.
+   This is the mutation that shows why the gate is identity and not equality. The
+   `list()` is load-bearing: CPython's `tuple()` returns its argument unchanged when given
+   an exact tuple, so `tuple(_EDGES) is _EDGES` and that mutation would prove nothing.
 
 - [ ] **Step 8: Build the docs**
 
