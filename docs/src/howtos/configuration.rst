@@ -149,6 +149,21 @@ the mirror image of the ``#`` trap above, is told what it is probably missing:
 
     tephpyrc.yaml: ignoring isotherms.color, which expects a colour matplotlib knows, not the string 'b0b0b0'; did you mean '#b0b0b0'?
 
+One of these refusals will catch you out if you have relied on it.
+``linewidth: 0`` is a working matplotlib instruction — a line of zero width
+is a line you cannot see — but tephpy refuses it, because a line width is
+expected to be a positive number and because hiding a family has an option
+of its own:
+
+.. code-block:: yaml
+
+    isotherms:
+      visible: false
+
+That is the one to reach for. It says what you mean, it reads that way to
+whoever opens the file next, and it costs you nothing: ``visible`` is
+available on every isopleth family.
+
 An option is skipped whole. ``emphasis`` holds a mapping of members to
 styles, so one bad member costs you the whole ``emphasis`` option, not just
 that member — the good members go back to being drawn like every other

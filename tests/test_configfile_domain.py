@@ -42,11 +42,13 @@ _HUGE_INT = "9" * 320
 
 #: Seventeen of the domain spec §1 table's eighteen rows -- the gate drops
 #: ``color: 'b0b0b0'``, which has its own named test for the ``#`` hint --
-#: plus three cases that table does not tabulate: a ``diagram.extent``
+#: plus four cases that table does not tabulate: a ``diagram.extent``
 #: corner with a non-finite temperature rather than a non-finite pressure,
 #: an ``emphasis`` member key that is itself non-finite (a member key, not
-#: a style key), and an ``emphasis`` ``linewidth`` override carrying the
-#: huge integer above rather than an ordinary bad number. Each is
+#: a style key), an ``emphasis`` ``linewidth`` override carrying the huge
+#: integer above rather than an ordinary bad number, and ``linewidth: 0``,
+#: which that table cannot hold because it drew the diagram it was asked
+#: for. Each is
 #: ``(section, option, yaml, expected message tail)``, the tail picking up
 #: after "which expects". Where the tail names a closed vocabulary it is
 #: built from the constant rather than written out: the message is built
@@ -59,6 +61,12 @@ REFUSED = [
         "linewidth",
         "-1.0",
         "a positive, finite number, not the number -1.0",
+    ),
+    (
+        "isotherms",
+        "linewidth",
+        "0.0",
+        "a positive, finite number, not the number 0.0",
     ),
     ("isotherms", "values", "[0, .nan]", "finite numbers, not the number nan"),
     ("moist_adiabats", "truncation", ".nan", "a finite number, not the number nan"),
@@ -182,7 +190,7 @@ def test_the_refused_table_covers_every_rule():
     Pinning the count and the option set is what stops a rule being deleted
     from ``REFUSED`` along with the bug report that motivated it.
     """
-    assert len(REFUSED) == 20
+    assert len(REFUSED) == 21
     covered = {option for _, option, _, _ in REFUSED}
     assert covered == set(_configfile._DOMAIN_VALIDATORS)
 
@@ -370,18 +378,24 @@ def test_the_accepted_table_reaches_every_rule():
     ) | {"visible"}
 
 
-#: The four values the draw accepts in silence (domain spec §1). Each draws a
-#: diagram that is simply not the one the file asked for, which is the worst
-#: outcome available and the reason this work exists. Their rules are lifted
-#: from the *emphasis* checks on the same quantities, not from a check the
-#: family-level option reaches, so the load refuses what the draw does not --
-#: and this set is where that asymmetry is written down rather than assumed.
+#: The five values the draw accepts in silence. Four are domain spec §1
+#: rows, and each draws a diagram that is simply not the one the file
+#: asked for, which is the worst outcome available and the reason this work
+#: exists. Their rules are lifted from the *emphasis* checks on the same
+#: quantities, not from a check the family-level option reaches, so the load
+#: refuses what the draw does not -- and this set is where that asymmetry is
+#: written down rather than assumed.
 #:
-#: Both ``linewidth`` values are here for one reason: the family-level option
-#: is not range-checked anywhere in the draw, so -1.0 and .inf alike reach
-#: matplotlib and produce a line width that is not the one asked for. The
-#: infinity was measured, not assumed -- it emits two numpy RuntimeWarnings
-#: from a scalar multiply and draws.
+#: All three ``linewidth`` values are here for one reason: the family-level
+#: option is not range-checked anywhere in the draw, so each reaches
+#: matplotlib. -1.0 and .inf produce a line width that is not the one asked
+#: for; the infinity was measured, not assumed -- it emits two numpy
+#: RuntimeWarnings from a scalar multiply and draws. 0.0 is the fifth value
+#: and the odd one out: matplotlib reads it as *draw no line*, so it is a
+#: working configuration the load stage refuses anyway (domain spec §3.3),
+#: which is why domain spec §1 has no row for it. ``visible: false`` is the
+#: supported spelling, and the warning names the option rather than
+#: dropping it in silence.
 #:
 #: A list, and a separate one, rather than an exemption set consulted by
 #: membership: seven of the refused values below are dicts, which are
@@ -391,6 +405,7 @@ def test_the_accepted_table_reaches_every_rule():
 #: ever compared.
 DRAWS_IN_SILENCE = [
     ("isotherms", "linewidth", -1.0),
+    ("isotherms", "linewidth", 0.0),
     ("isotherms", "linewidth", float("inf")),
     ("isotherms", "values", (0.0, float("nan"))),
     ("moist_adiabats", "truncation", float("nan")),

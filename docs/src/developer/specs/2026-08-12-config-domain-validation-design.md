@@ -199,6 +199,15 @@ so nothing in configfile spec §3 is bent by naming it.
 | `truncation` | 1 | finite | **nothing — see below** |
 | `visible` | 5 | — | a bool needs no domain |
 
+`linewidth` is the one rule stricter than the draw, and deliberately so. matplotlib reads a
+zero line width as *draw no line*, so `linewidth: 0` is a working configuration that this
+stage now refuses — measured, and pinned as such by §5. It is refused rather than
+special-cased because the rule is lifted whole from `_emphasis_number` rather than
+assembled per option (§2), because a zero-width line is a degenerate spelling of
+`visible: false`, which the same section already offers, and because the value is not
+dropped in silence: the warning names the option and what it expects, which is the whole of
+§2's rule.
+
 `emphasis` carries six rules, being the one option that nests a style mapping: each member
 value finite; each style key from `EMPHASIS_STYLE_KEYS`; a `linewidth` override > 0 and
 finite; an `alpha` override in [0, 1]; a `color` override `is_color_like`; and a
@@ -285,7 +294,7 @@ Extends spec §7 and configfile spec §6.
 | Vocabulary agreement | `set(_CURSOR_FORMATTERS) == set(CURSOR_FIELD_NAMES)`, and `CURSOR_FIELDS` is a subset |
 | Address change only | `plotting` uses the `_constants` objects themselves, not copies of them |
 | **No false positives** | Every rule accepts its legitimate lookalikes |
-| **Load/draw agreement** | Every accepted value draws; every refused value raises at the draw bar the four that silently do not, and the two tables cover the same options |
+| **Load/draw agreement** | Every accepted value draws; every refused value raises at the draw bar the five that silently do not, and the two tables cover the same options |
 
 The last two carry the weight.
 
@@ -304,14 +313,17 @@ today drift apart silently otherwise, and the symptom is a configuration file th
 refused for a diagram that would have drawn.
 
 The other direction is deliberately not symmetric, because §1 measured that it is not. The
-gate's own table holds twenty refused values; sixteen raise at the draw and four do not.
-Those four — `linewidth: -1.0`, `linewidth: .inf`, `values: [.nan]` and `truncation: .nan` —
-are the rows §1 calls the worst outcome available, and they are the reason this work exists:
-a rule with no draw-time counterpart on the option that carries it (§3.3). So the gate
-asserts what each case actually does, and a further gate asserts that the two tables hold
-the same `(section, option)` pairs, because both are hand-written and would otherwise drift.
-Pinning the silence is the point. A later change that makes one of those four raise is a
-change to the diagram a user already has, and this gate is where it surfaces.
+gate's own table holds twenty-one refused values; sixteen raise at the draw and five do not.
+Four of those five — `linewidth: -1.0`, `linewidth: .inf`, `values: [.nan]` and
+`truncation: .nan` — are the rows §1 calls the worst outcome available, and they are the
+reason this work exists: a rule with no draw-time counterpart on the option that carries it
+(§3.3). The fifth is the opposite case, and the only one of its kind: `linewidth: 0` is not
+a diagram the file failed to ask for but a working configuration this stage deliberately
+refuses, for the reasons §3.3 gives. So the gate asserts what each case actually does, and a
+further gate asserts that the two tables hold the same `(section, option)` pairs, because
+both are hand-written and would otherwise drift. Pinning the silence is the point. A later
+change that makes one of those five raise is a change to the diagram a user already has, and
+this gate is where it surfaces.
 
 The counts here are the gate's, not §1's. The two sets overlap without matching: the gate
 drops `color: 'b0b0b0'`, which has its own named test for the `#` hint, and adds cases §1
@@ -325,6 +337,8 @@ Each new gate is proved by a mutation that fails it alone.
 - The configuration how-to gains a paragraph: a value of the right *type* can still be
   refused, it warns and is skipped like any other option-level problem, and a compound
   option is skipped whole (§3.3).
+- The same how-to names `linewidth: 0` outright, since that is the one refusal a reader
+  may have relied on, and points at `visible: false` as the option that means it (§3.3).
 - The options reference page (configfile spec §3.6) publishes the closed vocabularies
   from the same `_constants` objects that enforce them, so the page cannot document a legal
   set the loader rejects.
