@@ -1,0 +1,9 @@
+Collapsed the duplicated ``$TEPHPYRC`` lookup in the configuration-file discovery
+cascade (:issue:`110`). Building the cascade and discovering the file in force
+each read the environment variable independently, so a change to one would have
+diverged silently from the other, and the two could answer differently about
+which file was named. Both now take that answer from a single helper. What they
+do with it stays deliberately asymmetric: the cascade lists a named path whether
+or not it exists, so ``tephpy config path`` can report it as ``[absent]``, while
+discovery treats a named file that is missing as an error rather than falling
+through. (:user:`claude`)

@@ -1,0 +1,194 @@
+# Copyright (c) 2026, tephpy Contributors.
+#
+# This file is part of tephpy and is distributed under the 3-Clause BSD license.
+# See the LICENSE file in the package root directory for licensing details.
+"""The reference-page rendering of the configuration tables (configfile spec §3.6)."""
+
+from __future__ import annotations
+
+import builtins
+from pathlib import Path
+import re
+
+import tephpy
+from tephpy import _configfile
+from tephpy._constants import CONFIG_DEFAULTS
+
+#: The how-to the methods section sends the reader to. Read rather than built,
+#: because the claim being checked is about that page's contents.
+HOWTO = Path(__file__).parents[1] / "docs" / "src" / "howtos" / "configuration.rst"
+
+#: A method the methods section cross-references in its own prose.
+CROSS_REFERENCED = re.compile(r":meth:`tephpy\.config\.(\w+)`")
+
+#: Every option ``CONFIG_DETAILS`` is expected to carry. Written out rather than
+#: derived, so that both losing a detail and gaining an ungated one are failures
+#: (configfile spec §3.4).
+EXPECTED_DETAILS = {
+    (section, option)
+    for section in (
+        "isotherms",
+        "isobars",
+        "dry_adiabats",
+        "moist_adiabats",
+        "mixing_ratios",
+    )
+    for option in ("labels", "emphasis")
+}
+
+
+def test_details_name_only_real_options():
+    """A detail cannot outlive the option it details (configfile spec §3.4)."""
+    for section, options in _configfile.CONFIG_DETAILS.items():
+        assert section in CONFIG_DEFAULTS, section
+        assert set(options) <= set(CONFIG_DEFAULTS[section]), section
+
+
+def test_the_detail_table_carries_what_it_is_expected_to():
+    """The subset gate above passes vacuously over an empty table.
+
+    Pinning membership is what makes it refuse its own empty input.
+    """
+    detailed = {
+        (section, option)
+        for section, options in _configfile.CONFIG_DETAILS.items()
+        for option in options
+    }
+    assert detailed == EXPECTED_DETAILS
+
+
+def test_every_detail_is_prose():
+    """Details are sentences the reference page prints, not fragments."""
+    for options in _configfile.CONFIG_DETAILS.values():
+        for option, detail in options.items():
+            assert detail.strip() == detail, option
+            assert detail.endswith("."), option
+            assert len(detail) > 40, option
+
+
+#: A word ending in an underscore, which reStructuredText reads as a
+#: hyperlink reference rather than prose. A mid-word underscore, as in
+#: ``dry_adiabats``, is ordinary text and must not match.
+_TRAILING_UNDERSCORE = re.compile(r"\w*_\b")
+
+
+def test_every_description_is_free_of_markup():
+    """A stray ``*``, `` ` ``, ``|`` or ``--`` would render as markup, not prose.
+
+    ``CONFIG_DESCRIPTIONS`` is dual-register: the same string is a plain-text
+    YAML comment in the generated template and a paragraph of
+    reStructuredText on the options reference page. A character the first
+    rendering shows literally can be read as markup by the second, and
+    nothing here escapes for it -- so the strings themselves stay free of it.
+    """
+    for section, options in _configfile.CONFIG_DESCRIPTIONS.items():
+        for option, description in options.items():
+            key = f"{section}.{option}"
+            for token in ("*", "`", "|", "--"):
+                assert token not in description, key
+            assert not _TRAILING_UNDERSCORE.search(description), key
+
+
+#: A dotted or bare Python name inside rendered type text.
+NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+
+
+def rendered():
+    """Return the reference page as ``render_reference`` renders it."""
+    return _configfile.render_reference(tephpy.config)
+
+
+def test_the_reference_names_every_option_and_no_others():
+    """The page and the template render the same table (configfile spec §3.6)."""
+    prefix = ".. py:attribute:: "
+    emitted = {
+        line.removeprefix(prefix)
+        for line in rendered().splitlines()
+        if line.startswith(prefix)
+    }
+    assert emitted == {
+        f"tephpy.config.{section}.{option}"
+        for section, options in CONFIG_DEFAULTS.items()
+        for option in options
+    }
+
+
+def test_the_option_set_the_page_is_gated_against_is_not_empty():
+    """Forty-two, so the gate above cannot pass by rendering nothing."""
+    assert sum(len(options) for options in CONFIG_DEFAULTS.values()) == 42
+
+
+def test_every_rendered_type_is_resolvable_text():
+    """``str()`` of an annotation naming a class yields ``<class '...'>``.
+
+    That reaches the page as neither valid type text nor a resolvable target,
+    and the docs build is where it would surface — a build ``pixi run tests``
+    never runs (configfile spec §3.4).
+    """
+    prefix = "   :type: "
+    types = [
+        line.removeprefix(prefix)
+        for line in rendered().splitlines()
+        if line.startswith(prefix)
+    ]
+    assert len(types) == 42
+    for text in types:
+        assert "<" not in text, text
+        for name in NAME.findall(text):
+            assert "." in name or hasattr(builtins, name), f"{name!r} in {text!r}"
+
+
+def test_every_method_is_given_a_target():
+    """Prose cross-references the methods; the page is where they resolve."""
+    emitted = [
+        line for line in rendered().splitlines() if line.startswith(".. py:method:: ")
+    ]
+    assert emitted == [
+        ".. py:method:: tephpy.config.load(path=None)",
+        ".. py:method:: tephpy.config.save(path=None)",
+        ".. py:method:: tephpy.config.reset()",
+        ".. py:method:: tephpy.config.context(**overrides)",
+    ]
+
+
+def test_the_how_to_covers_the_methods_the_page_sends_readers_to():
+    """A page's promise about another page is otherwise nobody's to keep.
+
+    The methods section names the how-to and the methods it covers. Neither
+    file imports the other, so the claim can go stale from either end: a
+    method dropped from the how-to, or one added to it and not said here.
+    Equality catches both (configfile spec §3.6).
+    """
+    text = rendered()
+    preamble = text[text.index("Methods\n-------") : text.index(".. py:method:: ")]
+    named = set(CROSS_REFERENCED.findall(preamble))
+    assert named, (
+        "the methods section sends the reader to the how-to for no method, so "
+        "this gate reads a sentence that no longer makes the claim it checks"
+    )
+    howto = HOWTO.read_text(encoding="utf-8")
+    covered = {
+        name
+        for name in _configfile._REFERENCE_METHODS
+        if f"tephpy.config.{name}" in howto
+    }
+    assert named == covered, (
+        f"the methods section sends readers to {HOWTO.name} for {sorted(named)}, "
+        f"but that page names {sorted(covered)}"
+    )
+
+
+def test_a_default_is_rendered_by_its_kind():
+    """Three branches, where the template's renderer has two.
+
+    ``_format_default`` renders both ``None`` and an empty mapping as the empty
+    string, because the template needs a line the reader can uncomment. The
+    page has no such constraint: an absent default and an empty one are
+    different facts and are printed differently (configfile spec §3.6).
+    """
+    text = rendered()
+    assert "Default: unset" in text
+    assert "Default: ``None``" not in text
+    assert "Default: ``{}``" in text
+    assert "Default: ``dimgrey``" in text
+    assert "Default: ``[[1050.0, -40.0], [200.0, 40.0]]``" in text

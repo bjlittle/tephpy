@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import re
 import warnings
 
@@ -570,3 +571,29 @@ def test_a_rejected_file_rolls_back_under_warnings_as_errors(tmp_path):
             tephpy.config.load(path)
     assert tephpy.config.isotherms.color is None
     assert tephpy.config.source is None
+
+
+def test_discover_returns_the_path_it_validated(monkeypatch, tmp_path):
+    """The path checked for existence is the path returned (configfile spec §3.2).
+
+    Reading ``$TEPHPYRC`` once in ``discover`` and again in ``config_paths``
+    leaves a window in which those are two different files. The stub makes the
+    window visible by answering with a different file the second time.
+    """
+    first = tmp_path / "first.yaml"
+    second = tmp_path / "second.yaml"
+    first.write_text("", encoding="utf-8")
+    second.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    answers = iter([str(first), str(second)])
+    real_get = os.environ.get
+
+    def get(key, default=None):
+        if key == _configfile.CONFIG_ENV_VAR:
+            return next(answers, str(second))
+        return real_get(key, default)
+
+    monkeypatch.setattr(os.environ, "get", get)
+
+    assert _configfile.discover() == first

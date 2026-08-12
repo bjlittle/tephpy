@@ -6,5 +6,6 @@ Reference
 
     generated/api/tephpy/index
     cli
+    config
     glossary
     changelog

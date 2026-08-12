@@ -1,0 +1,5 @@
+``tephpy config generate`` now wraps the line of prose above each option, so no
+line of the file it writes runs past 88 columns (:issue:`106`). Eleven lines used
+to overrun, the longest reaching 117. Option lines themselves are left alone — a
+wrapped YAML value is not YAML — so what you uncomment and edit is unchanged.
+(:user:`claude`)

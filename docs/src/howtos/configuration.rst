@@ -18,6 +18,8 @@ Generate the Template
 The template carries every option tephpy has, each commented out and showing
 the default in force, with a line of prose above it. Nothing in it is active
 until you uncomment something, so a freshly generated file changes nothing.
+Every option is also listed in :ref:`tephpy-config-options`, with its type, its
+default, and the longer prose the template has no room for.
 
 Uncomment what you want and edit the value:
 
@@ -105,7 +107,7 @@ two halves of that promise are not the same size. An option tephpy has since
 renamed or dropped warns and is skipped — the rest of the file still applies.
 An unknown *section*, though, is rejected outright, and rejecting a section
 means rejecting the whole file: ``import tephpy`` warns and falls back to the
-defaults entirely, and ``tephpy.config.load`` raises and leaves your
+defaults entirely, and :meth:`tephpy.config.load` raises and leaves your
 configuration as it found it. Nothing under that section is quietly lost,
 because nothing in the file is applied at all.
 
@@ -153,7 +155,7 @@ module never matches it.
 Saving From Python
 ------------------
 
-``tephpy.config.save`` writes the options you actually set, and nothing else:
+:meth:`tephpy.config.save` writes the options you actually set, and nothing else:
 
 .. code-block:: python
 
@@ -165,5 +167,5 @@ Saving From Python
 It is a data dump: comments and key order in an existing file are not
 preserved, because PyYAML cannot round-trip them. ``tephpy config generate``
 is the command that produces the annotated file — reach for
-``tephpy.config.save`` to capture a configuration you arrived at
+:meth:`tephpy.config.save` to capture a configuration you arrived at
 interactively, not to edit one you already have.

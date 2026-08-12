@@ -59,7 +59,9 @@ the file is a new *bottom* tier, not a new front door.
 | Unknown *section* | Raise | A mistyped section silently discards every option under it — too much to lose to a warning |
 | Wrong-typed *option value* | Warn, skip, continue (§5.2) | The same reasoning as an unknown option, and the same blast radius: one bad line must not cost the user the rest of the file. `int` is accepted where `float` is declared, because `linewidth: 1` is not a mistake; `bool` is not, because `linewidth: true` is |
 | Template defaults | A declarative `CONFIG_DEFAULTS` table in `_constants.py`, gated against `_resolve()` (§3.4) | Rendering the template must not re-enter the plotting path. A second table is only safe with a gate, so the gate is part of the design, not a follow-up |
-| Option descriptions | A table in `_configfile.py`, gated for completeness (§3.4) | The `#:` comments in `_config.py` are invisible at runtime — they are not docstrings |
+| Option descriptions | Two tables in `_configfile.py`, gated for completeness (§3.4) | The `#:` comments in `_config.py` are invisible at runtime — they are not docstrings — and unpublishable besides: `_config` is private and autoapi parses statically, so a `#:` comment there reaches no reader at all. `CONFIG_DESCRIPTIONS` carries the one-line summary both renderings show; `CONFIG_DETAILS` carries the longer prose only the reference page has room for (§3.6) |
+| Options reference page | Generated from the same tables at build time (§3.6) | Prose can only cross-reference an option that has a target, and the options live in the private `_config`, which autoapi does not document. Generating the page from `CONFIG_DEFAULTS` makes it drift-proof by construction and keeps `_config` private. The alternatives — re-exporting the dataclasses from a public module, or adding a private module to the autoapi list — each publish an implementation detail to buy the same targets (§9) |
+| Template line width | Wrapped to 88 columns; value lines never wrapped (§3.6) | 88 is the width ruff holds this repository's own sources to. A commented value line has to survive uncommenting as a single line, so wrapping one would hand a user who uncomments only its first line broken YAML |
 | CLI framework | **click**, documented by `sphinx-click` | Zero runtime dependencies of its own. The alternative pairing (typer + sphinxcontrib-typer) adds five transitive runtime dependencies for a two-subcommand CLI |
 | Default subcommand | `invoke_without_command=True` + `ctx.invoke(path)` | **Measured:** stock click covers the zero-argument default; `click-default-group` earns its place only for forwarding *arguments* to an unnamed default, which this CLI never needs. Defaulting to `path` rather than `generate` also means a bare `tephpy config` can never write a file |
 | Test isolation | `Config.reset()` + a conftest hook (§6) | A shipped `tephpytestrc.yaml` pinning the defaults was considered and rejected: it would route every image baseline through the YAML path, add a third defaults table, and mask accidental default changes that baselines exist to catch |
@@ -117,6 +119,15 @@ falling through would silently ignore an explicit instruction. Whether that repo
 warning or an exception follows the one rule in §5, like every other config-file problem:
 auto-load warns, explicit load raises.
 
+That rule is expressed once, and the split between the two functions is not symmetric.
+`config_paths()` reports the cascade *including* entries that do not exist — `tephpy config
+path` marks a missing named file `[absent]`, which is how a user diagnoses a typo in the
+variable — so the "absent is an error" half belongs to `discover()` alone. What both need
+is the answer to "which path does `$TEPHPYRC` name", and they take it from one helper,
+resolved once per call. `discover()` therefore validates and returns the same path: reading
+the environment twice, as it once did, left a window in which the file checked for
+existence and the file returned were two different files.
+
 (configfile-spec-3-3)=
 ### 3.3 File format
 
@@ -164,24 +175,45 @@ prose, never as a number — writing a plausible-looking default there would sil
 disable adaptive selection for every user who uncommented it.
 
 (configfile-spec-3-4)=
-### 3.4 `CONFIG_DEFAULTS` and the two gates
+### 3.4 The declarative tables and their gates
 
 `CONFIG_DEFAULTS` is a declarative `{section: {option: default}}` table in `_constants.py`,
-read only by the template generator. It records *effective* defaults — what the user
-actually gets — which for most options is the `_constants` convention `_resolve()` falls
-back to (`ISOPLETH_LINEWIDTH`, `ISOPLETH_ALPHA`, the per-family `spec.color`,
-`visible=True`), and for `interval`/`values` is the absence of one.
+read by the two renderings of §3.6 and by nothing else. It records *effective* defaults —
+what the user actually gets — which for most options is the `_constants` convention
+`_resolve()` falls back to (`ISOPLETH_LINEWIDTH`, `ISOPLETH_ALPHA`, the per-family
+`spec.color`, `visible=True`), and for `interval`/`values` is the absence of one.
 
-Being a second copy, it needs a gate, and so does the description table:
+Two description tables sit beside it in `_configfile.py`, and they are two registers rather
+than two copies. `CONFIG_DESCRIPTIONS` gives every option a one-line summary, keyed per
+`(section, option)` so a family can name its own units — hPa for isobars, degrees Celsius
+for the temperature families, g/kg for mixing ratios — with `_LINE_DESCRIPTIONS` supplying
+once the five options that mean the same thing for every family. `CONFIG_DETAILS` is
+sparse: an option earns an entry only where there is behaviour a summary cannot carry, and
+the reference page is the only rendering with room to show it.
+
+Being second copies of what the dataclasses declare, the tables need gates:
 
 - **Defaults gate:** for every `(section, option)`, `CONFIG_DEFAULTS` matches what
   `_resolve()` returns with empty kwargs and an empty config.
 - **Description gate:** every option in `CONFIG_DEFAULTS` has a description, and no
   description is an orphan.
+- **Detail gate:** every `CONFIG_DETAILS` key names a real option, so a detail cannot
+  outlive the option it describes. There is deliberately no converse: the table is sparse.
+- **Coverage gate:** the targets `render_reference()` emits are exactly
+  `tephpy.config.<section>.<option>` for every option in `CONFIG_DEFAULTS`. Generating the
+  page from the table makes it drift-proof, but not non-empty — this is the gate a renderer
+  that silently produced nothing would fail, and the docs build would not.
+- **Type-text gate:** no rendered `:type:` carries a bare name that is neither a builtin nor
+  dotted (§3.6).
+- **Width gate:** no line `render_template()` produces exceeds 88 columns. The literal is
+  written in the test rather than imported from the renderer, so raising one width does not
+  silently move the other.
 
-Both gates assert their own parameter list is non-empty *and* that the section set equals
-`{f.name for f in dataclasses.fields(Config)}` — a gate whose input silently emptied would
-otherwise pass by checking nothing.
+Every gate asserts its own parameter list is non-empty, and each gate that enumerates
+sections asserts the section set equals `{f.name for f in dataclasses.fields(Config)}` — a
+gate whose input silently emptied would otherwise pass by checking nothing. The detail gate
+is the exception on the second count, and only there: a sparse table has no section set to
+compare.
 
 (configfile-spec-3-5)=
 ### 3.5 Public API
@@ -196,6 +228,85 @@ otherwise pass by checking nothing.
 `save()` writes values only. Comments and key order in an existing file are **not**
 preserved — PyYAML cannot round-trip them. `generate` is the commented artefact; `save` is
 a data dump, and the docs say so.
+
+(configfile-spec-3-6)=
+### 3.6 Two renderings of one table
+
+The `CONFIG_DEFAULTS`, `CONFIG_DESCRIPTIONS` and `CONFIG_DETAILS` triple of §3.4 is
+rendered twice, by two functions in `_configfile.py`:
+
+| Rendering | Output | Shows |
+|---|---|---|
+| `render_template()` | the commented YAML `tephpy config generate` writes | summary, option, effective default |
+| `render_reference()` | reStructuredText for the options reference page | summary, detail, type, effective default |
+
+**Wrapping.** `render_template()` wraps each summary with `textwrap.fill`, at width 88
+counting the `  # ` prefix that `initial_indent` and `subsequent_indent` carry. Before this,
+eleven lines ran over — the longest 117 columns — because a description that reads
+comfortably in the source table overruns once it is commented and indented. Value lines are
+deliberately *not* wrapped: `  # emphasis: {}` has to survive uncommenting as a single line,
+and a wrapped flow-style value would leave a user who uncomments only its first line with
+broken YAML. The widest value line is 44 columns, so the width gate has headroom; should a
+future default ever cross 88, the answer is a judgement about that default's rendering, not
+automatic wrapping.
+
+**Why the renderer ships.** `render_reference()` lives in the package rather than in the
+Sphinx extension that calls it. Its gates are then ordinary tests that import `tephpy`, with
+no `sys.path` manipulation and no test that fails to collect from an unpacked sdist.
+`docs/src/_ext/tephpy_config_reference.py` reduces to a directive,
+`.. tephpy-config-options::`, which calls the function and parses what it returns. Nothing
+Sphinx-side is imported by the package.
+
+Its signature is `render_reference(config: Config) -> str`, taking the instance from its
+caller exactly as `apply()` does. That is not a stylistic choice: `_config` imports
+`_configfile` at module scope (§3), so `_configfile` may hold `Config` only as a
+`TYPE_CHECKING` annotation. Passing the instance in is what keeps the arrow one-way; a
+function-local import of `_config` would work at runtime and quietly reverse it.
+
+**Targets.** Each option becomes
+
+```rst
+.. py:attribute:: tephpy.config.isobars.emphasis
+   :type: collections.abc.Mapping[float, collections.abc.Mapping[str, object]] | None
+```
+
+so prose can write `` :attr:`tephpy.config.isobars.emphasis` ``. The page declares nothing at
+`tephpy.config` itself: `config` is in the package `__all__` and autoapi's `undoc-members`
+documents it as a data member of `tephpy`, so a second declaration would be a duplicate
+object and, under `--fail-on-warning`, a failed build. The option targets cannot collide —
+autoapi parses statically and cannot see the attributes of an instance.
+
+**Types** come from the *evaluated* annotations `_option_hints()` already returns for §5.2's
+validators — the same eight shapes §6's accept/reject matrix runs over. Because
+`typing.get_type_hints` has resolved them, `str()` alone yields text carrying what a source
+annotation would not: `Mapping` arrives as `collections.abc.Mapping[float,
+collections.abc.Mapping[str, object]]`, and the private `Extent` alias arrives expanded to
+`tuple[tuple[float, float], tuple[float, float]]`. No qualification table is needed, and one
+should not be added — it would be a second spelling of what the annotations already say, of
+exactly the kind §3.4's gates exist to catch.
+
+What §3.4's type-text gate guards is instead the case `str()` cannot render: an annotation
+naming a class stringifies as `<class 'tephpy._config.Thing'>`, which reaches the page as
+neither valid type text nor a resolvable target. That gate lives in the test suite rather
+than leaning on the build, because `pixi run tests` has no Sphinx and never runs one;
+`nitpicky` is the backstop for a name that is well-formed and still unresolvable.
+`tuple[float, ...]` needs nothing — `conf.py` already carries `("py:class", "Ellipsis")` for
+the existing API pages.
+
+**Defaults** print by one rule, with no per-option prose: the YAML form where there is one,
+`{}` for the five `emphasis` mappings, which default to empty, and `unset` for the nine
+`values` and `interval` options that have no default at all and whose summary already says
+what selects their members instead (§3.3). `render_template()` blanks all fourteen, because
+a template cannot show a value on a line meant to be uncommented; the page is under no such
+constraint.
+
+**Methods.** `load`, `save`, `reset` and `context` are emitted as `py:method` entries, with
+signatures from `inspect.signature` and a summary from each docstring's first line, so the
+how-to can cross-reference them instead of writing them as bare literals. They are
+deliberately thinner than the docstrings behind them: numpydoc runs as an autodoc hook and
+this build has no autodoc, so a full numpydoc body would render its `Parameters` heading as
+a document section. A signature, one sentence and a pointer to the how-to is what the page
+can carry truthfully (§9).
 
 (configfile-spec-4)=
 ## 4. Command-line interface
@@ -451,6 +562,8 @@ accordingly:
 | Accept/reject matrix over the eight annotation shapes | Each declared type accepts what it should and rejects what it should, `linewidth: 1` and `linewidth: true` among them (§5.2) |
 | Validator completeness gate | Every option in `Config` has a validator; the gate's own option set is non-empty and equals `dataclasses.fields` |
 | One wrong-typed option beside a good one, in one file | The warned option keeps its default **and** the good one applies — the case that makes "the rest of the file still applies" non-vacuous |
+| `discover()` under a changing environment | The path validated is the path returned: a stub whose second read of `$TEPHPYRC` differs from its first (§3.2) |
+| Detail, coverage, type-text and width gates (§3.4) | A detail cannot outlive its option; the reference page names every option and no others; no `:type:` reaches the docs unqualified; no generated template line exceeds 88 columns |
 
 Three notes on why these are shaped this way. The fixture is *complete* rather than
 representative because only completeness proves a newly added option is expressible in
@@ -496,7 +609,10 @@ implementation plan carries an explicit one-off resolve of the declared minimums
 - A Diátaxis **how-to** for configuring tephpy from a file, covering the cascade, the
   quoting trap (§5), what happens to a wrong-typed value (§5.2), and what `save()` does not
   preserve (§3.5).
-- A **reference** page generated by `sphinx-click`.
+- A **reference** page for the CLI, generated by `sphinx-click`.
+- An **options reference** page generated from `CONFIG_DEFAULTS` at build time (§3.6),
+  carrying a target per option so the how-to and any later prose can cross-reference them
+  with a Sphinx role instead of a bare literal.
 - `TephpyConfigError` and `TephpyConfigWarning` picked up by autoapi with the rest of
   `exceptions`.
 - `feature` and `dependency` changelog fragments from the implementing pull request — the
@@ -518,6 +634,18 @@ non-goal is a decision, not an omission.
   selects a file; it does not become a parallel `TEPHPY_ISOTHERMS_COLOR` namespace.
 - **Rejected** (2026-08-07) — **validating a config file without loading it.**
   `tephpy config path` reports discovery; a `--check` mode can follow if asked for.
+- **Rejected** (2026-08-11) — **making `Config` and its section dataclasses public.** It
+  would buy the same cross-reference targets as §3.6 by publishing a shape §3.3 already
+  documents as a file format, and would commit the project to that shape as API.
+- **Rejected** (2026-08-11) — **full method documentation on the options reference page.**
+  The `py:method` entries carry a signature and one sentence (§3.6). Rendering the numpydoc
+  bodies would mean enabling `sphinx.ext.autodoc` alongside autoapi purely to get the hook
+  that processes them — a second API renderer in the build, for four methods.
+- **Rejected** (2026-08-11) — **a matching reference page for `_constants.py`.** The options
+  page publishes the attributes of `tephpy.config`, an object already in `__all__`; it does
+  not publish a private module, so it sets no precedent for the 135 `#:`-documented
+  constants. Those are the conventions a configuration file exists to override, reachable by
+  a user as the `tephpy.config` options that override them — not as names to import.
 - **Deferred** ({issue}`116`) — **domain validation of a value that has the right type.**
   §5.2 checks a value against the type its field declares, and stops there:
   `color: notacolour` is a string, so it loads, and matplotlib rejects it at the first draw.

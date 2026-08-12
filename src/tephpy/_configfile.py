@@ -15,10 +15,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 import dataclasses
 import datetime
+import inspect
 import os
 from pathlib import Path
+import textwrap
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Final, get_type_hints
+from typing import TYPE_CHECKING, Final, cast, get_type_hints
 import warnings
 
 import platformdirs
@@ -32,6 +34,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CONFIG_DESCRIPTIONS",
+    "CONFIG_DETAILS",
     "CONFIG_ENV_VAR",
     "CONFIG_FILENAME",
     "apply",
@@ -39,6 +42,7 @@ __all__ = [
     "config_paths",
     "discover",
     "read_document",
+    "render_reference",
     "render_template",
     "user_config_path",
     "write_config",
@@ -65,6 +69,60 @@ def user_config_path() -> Path:
     return Path(platformdirs.user_config_dir("tephpy")) / CONFIG_FILENAME
 
 
+def _named_path() -> Path | None:
+    """Return the path ``$TEPHPYRC`` names, if it names one.
+
+    Returns
+    -------
+    pathlib.Path or None
+        The path the environment variable names, or ``None`` when it is unset
+        or empty. Both entry points to the discovery cascade take their answer
+        from here, so the environment is read once per call: the file
+        ``discover`` checks for existence is then necessarily the file it
+        returns (configfile spec §3.2).
+    """
+    named = os.environ.get(CONFIG_ENV_VAR)
+    return Path(named) if named else None
+
+
+def _cascade(named: Path | None) -> tuple[Path, ...]:
+    """Build the discovery cascade around an already-resolved ``$TEPHPYRC``.
+
+    Parameters
+    ----------
+    named : pathlib.Path or None
+        The path ``$TEPHPYRC`` names, as :func:`_named_path` resolved it, or
+        ``None`` when it names none.
+
+    Returns
+    -------
+    tuple of pathlib.Path
+        The named path when there is one, then the working directory, then the
+        user configuration directory. The entries need not exist: a caller
+        reporting the search shows the absent ones too, so nothing here rejects
+        a path for not being a file.
+
+    Raises
+    ------
+    TephpyConfigError
+        If the current working directory no longer exists, so the failure
+        surfaces the same way every other unreadable-configuration case does,
+        instead of an uncontained ``FileNotFoundError`` reaching
+        ``import tephpy`` (configfile spec §5).
+    """
+    paths: list[Path] = []
+    if named is not None:
+        paths.append(named)
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError as exc:
+        msg = f"cannot read the working directory to look for {CONFIG_FILENAME}: {exc}"
+        raise TephpyConfigError(msg) from exc
+    paths.append(cwd / CONFIG_FILENAME)
+    paths.append(user_config_path())
+    return tuple(paths)
+
+
 def config_paths() -> tuple[Path, ...]:
     """Return the discovery cascade, in precedence order (configfile spec §3.2).
 
@@ -82,18 +140,7 @@ def config_paths() -> tuple[Path, ...]:
         does, instead of an uncontained ``FileNotFoundError`` reaching
         ``import tephpy`` (configfile spec §5).
     """
-    paths: list[Path] = []
-    named = os.environ.get(CONFIG_ENV_VAR)
-    if named:
-        paths.append(Path(named))
-    try:
-        cwd = Path.cwd()
-    except FileNotFoundError as exc:
-        msg = f"cannot read the working directory to look for {CONFIG_FILENAME}: {exc}"
-        raise TephpyConfigError(msg) from exc
-    paths.append(cwd / CONFIG_FILENAME)
-    paths.append(user_config_path())
-    return tuple(paths)
+    return _cascade(_named_path())
 
 
 def discover() -> Path | None:
@@ -111,14 +158,14 @@ def discover() -> Path | None:
         If ``$TEPHPYRC`` is set but does not name a file. Falling through
         would silently ignore an explicit instruction.
     """
-    named = os.environ.get(CONFIG_ENV_VAR)
-    if named and not Path(named).is_file():
+    named = _named_path()
+    if named is not None and not named.is_file():
         msg = (
-            f"{CONFIG_ENV_VAR} names {named!r}, which is not a file; unset "
+            f"{CONFIG_ENV_VAR} names {str(named)!r}, which is not a file; unset "
             f"{CONFIG_ENV_VAR} to fall back to the {CONFIG_FILENAME} search"
         )
         raise TephpyConfigError(msg)
-    for path in config_paths():
+    for path in _cascade(named):
         if path.is_file():
             return path
     return None
@@ -683,8 +730,8 @@ _LINE_DESCRIPTIONS: Final[Mapping[str, str]] = MappingProxyType(
         "linewidth": "Line width in points.",
         "alpha": "Line and label opacity, 0 to 1.",
         "labels": (
-            "true, false, or the diagram edges to label - bottom, top, "
-            "left, right - singly or as a list."
+            "true, false, or the diagram edges to label (bottom, top, left, "
+            "right), singly or as a list."
         ),
         "visible": "Whether the family is drawn at all.",
     }
@@ -803,6 +850,45 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
     }
 )
 
+#: Detail shared by the ``labels`` and ``emphasis`` options, which behave the
+#: same way for every isopleth family, as ``_LINE_DESCRIPTIONS`` above is.
+#: Unlike the descriptions, this prose is unit-neutral: ``LineOptions`` is the
+#: base for isobars in hPa and mixing ratios in g/kg as well as the temperature
+#: families, so no example here names a unit.
+_LINE_DETAILS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "labels": (
+            "Listed edges label the members that reach them, and every member "
+            "left over is labelled inline. ``true`` labels every member "
+            "inline; ``false`` labels none."
+        ),
+        "emphasis": (
+            "Each value is a mapping of style overrides -- ``color``, "
+            "``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
+            "falls back to the family's own style, so ``{20.0: {}}`` is the "
+            "member at 20 in the family's own units, drawn at the emphasis "
+            "line width in the family's own colour. An emphasised member is "
+            "always drawn, whatever the zoom-adaptive ladder would otherwise "
+            "select. An empty mapping emphasises nothing."
+        ),
+    }
+)
+
+#: The longer prose the options reference page has room for and the generated
+#: template does not (configfile spec §3.6). Sparse: an option with nothing
+#: more to say than its ``CONFIG_DESCRIPTIONS`` line is absent, and the gate in
+#: ``tests/test_configfile_reference.py`` is a subset check against
+#: ``CONFIG_DEFAULTS`` with its own membership pinned, not a completeness check.
+CONFIG_DETAILS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
+    {
+        "isotherms": _LINE_DETAILS,
+        "isobars": _LINE_DETAILS,
+        "dry_adiabats": _LINE_DETAILS,
+        "moist_adiabats": _LINE_DETAILS,
+        "mixing_ratios": _LINE_DETAILS,
+    }
+)
+
 
 def _as_sequences(value: object) -> object:
     """Rebuild a configuration value in the types ``yaml.safe_dump`` knows.
@@ -876,6 +962,13 @@ def _write(path: Path, text: str) -> None:
         raise TephpyConfigError(msg) from exc
 
 
+#: Width the generated template's comment lines are wrapped to, matching the
+#: line length ruff holds this repository's own sources to. Value lines are not
+#: wrapped: a wrapped YAML value would no longer be uncommentable, which is the
+#: whole point of the template (configfile spec §3.6).
+_TEMPLATE_WIDTH: Final[int] = 88
+
+
 def render_template() -> str:
     """Render the fully-commented configuration template.
 
@@ -902,9 +995,146 @@ def render_template() -> str:
         lines.append("")
         lines.append(f"{section}:")
         for option, default in options.items():
-            lines.append(f"  # {CONFIG_DESCRIPTIONS[section][option]}")
+            lines.extend(
+                textwrap.fill(
+                    CONFIG_DESCRIPTIONS[section][option],
+                    width=_TEMPLATE_WIDTH,
+                    initial_indent="  # ",
+                    subsequent_indent="  # ",
+                ).splitlines()
+            )
             lines.append(f"  # {option}: {_format_default(default)}".rstrip())
     return "\n".join(lines) + "\n"
+
+
+#: Methods of ``tephpy.config`` given a target on the options reference page,
+#: in the order a reader meets them. Thinner than the docstrings ``Config``
+#: carries: numpydoc's docstring processing is an autodoc hook, and this
+#: project renders its API with autoapi, so a full rendering here would be a
+#: second, hand-maintained one (configfile spec §3.6, §9).
+_REFERENCE_METHODS: Final[tuple[str, ...]] = ("load", "save", "reset", "context")
+
+#: Those of ``_REFERENCE_METHODS`` the configuration how-to puts to work, which
+#: are the ones a configuration file involves. The methods section names them
+#: rather than sending the reader there for all four, and
+#: ``tests/test_configfile_reference.py`` checks the how-to still covers these
+#: and only these — a claim one page makes about another is otherwise nobody's
+#: to keep (configfile spec §3.6).
+_HOWTO_METHODS: Final[tuple[str, ...]] = ("load", "save")
+
+
+def _reference_signature(method: Callable[..., object]) -> str:
+    """Spell a method's parameters as the reference page shows them.
+
+    Parameters
+    ----------
+    method : collections.abc.Callable
+        An unbound method of ``Config``.
+
+    Returns
+    -------
+    str
+        The parameter list without enclosing parentheses, ``self`` dropped and
+        annotations omitted. ``inspect.signature`` renders resolved annotations
+        as quoted strings, which is noise on a page whose types come from
+        elsewhere; name and default are what the reader needs.
+    """
+    signature = inspect.signature(method)
+    parameters = list(signature.parameters.values())[1:]
+    rendered = []
+    for parameter in parameters:
+        if parameter.kind is inspect.Parameter.VAR_KEYWORD:
+            rendered.append(f"**{parameter.name}")
+        elif parameter.default is inspect.Parameter.empty:
+            rendered.append(parameter.name)
+        else:
+            rendered.append(f"{parameter.name}={parameter.default!r}")
+    return ", ".join(rendered)
+
+
+def _reference_default(value: object) -> str:
+    """Render a default as the reference page shows it.
+
+    Parameters
+    ----------
+    value : object
+        The default from ``CONFIG_DEFAULTS``.
+
+    Returns
+    -------
+    str
+        The value as inline literal YAML, or the word ``unset`` for an option
+        with no default. ``_format_default`` renders both ``None`` and an empty
+        mapping as the empty string, because the template needs a line a reader
+        can uncomment; the page has no such constraint and distinguishes them.
+    """
+    if value is None:
+        return "unset"
+    return f"``{_format_default(value) or '{}'}``"
+
+
+def render_reference(config: Config) -> str:
+    """Render the options reference page as reStructuredText.
+
+    Parameters
+    ----------
+    config : Config
+        The live configuration, supplying each section's dataclass so the
+        annotations can be evaluated. It is a parameter rather than an import
+        because ``_config`` imports this module at module scope: passing the
+        instance in is what keeps that arrow one-way (configfile spec §3.6).
+
+    Returns
+    -------
+    str
+        A section per configuration section, a ``py:attribute`` target per
+        option and a ``py:method`` target per method in
+        ``_REFERENCE_METHODS`` — the second rendering of the same tables the
+        configuration template is rendered from, so a new option reaches both
+        or neither.
+    """
+    lines = [
+        ".. Generated by tephpy._configfile.render_reference from the tables in",
+        "   _configfile.py. Edit those, not this output (configfile spec §3.6).",
+        "",
+    ]
+    for section, options in CONFIG_DEFAULTS.items():
+        hints = _option_hints(type(getattr(config, section)))
+        lines.append(section)
+        lines.append("-" * len(section))
+        lines.append("")
+        for option, default in options.items():
+            lines.append(f".. py:attribute:: tephpy.config.{section}.{option}")
+            lines.append(f"   :type: {hints[option]!s}")
+            lines.append("")
+            lines.append(f"   {CONFIG_DESCRIPTIONS[section][option]}")
+            detail = CONFIG_DETAILS.get(section, {}).get(option)
+            if detail is not None:
+                lines.append("")
+                lines.append(f"   {detail}")
+            lines.append("")
+            lines.append(f"   Default: {_reference_default(default)}")
+            lines.append("")
+    lines.append("Methods")
+    lines.append("-------")
+    lines.append("")
+    covered = " and ".join(f":meth:`tephpy.config.{name}`" for name in _HOWTO_METHODS)
+    lines.append(
+        "These entries exist so that prose can cross-reference them. The "
+        f"how-to :ref:`configure-from-a-file` covers {covered}, the methods a "
+        "configuration file involves; the rest act on the configuration "
+        "already in memory."
+    )
+    lines.append("")
+    for name in _REFERENCE_METHODS:
+        method = getattr(type(config), name)
+        lines.append(
+            f".. py:method:: tephpy.config.{name}({_reference_signature(method)})"
+        )
+        lines.append("")
+        lines.append(f"   {cast('str', inspect.getdoc(method)).splitlines()[0]}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def write_template(path: Path, *, force: bool = False) -> None:
