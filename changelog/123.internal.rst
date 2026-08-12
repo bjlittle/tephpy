@@ -1,0 +1,8 @@
+Collapsed the duplicated ``$TEPHPYRC`` rule in the configuration-file discovery
+cascade (:issue:`110`). Deciding where a configuration file comes from, and
+reporting where it came from, each read the environment variable and each applied
+the same "set but missing is an error, not a fallthrough" rule, so a change to one
+would have diverged silently from the other rather than failing the build. Both
+now build the cascade from a single helper, which also closes the window in which
+the file checked and the file reported could be two different files.
+(:user:`claude`)

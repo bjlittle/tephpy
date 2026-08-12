@@ -1,0 +1,7 @@
+``tephpy.config`` now has an options reference page,
+:ref:`tephpy-config-options`, listing every option with the type it accepts and
+the default in force, and giving each one a target that documentation and
+docstrings can link to — :attr:`tephpy.config.isotherms.emphasis` and the rest,
+alongside :meth:`tephpy.config.load` and its three companions (:issue:`108`). The
+page and the file ``tephpy config generate`` writes are two renderings of one
+table, so they cannot come to describe different options. (:user:`claude`)
