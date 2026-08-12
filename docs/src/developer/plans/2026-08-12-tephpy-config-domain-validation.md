@@ -1703,6 +1703,8 @@ git commit -m "Publish the closed vocabularies on the options reference page"
 **Files:**
 - Modify: `docs/src/howtos/configuration.rst:118-137`
 - Modify: `docs/src/developer/specs/2026-08-07-config-file-design.md:533-539`, `:681-687`
+- Modify: `docs/src/developer/specs/2026-08-12-config-domain-validation-design.md` — §1's
+  table and its two class counts, §4, §5's table row and asymmetry paragraph
 - Create: `changelog/<PR>.bugfix.rst`, `changelog/<PR>.documentation.rst`
 
 **Interfaces:**
@@ -1818,9 +1820,73 @@ Replace lines 681-687 with:
   only one the docs spec §3.5 contract required an issue for.
 ```
 
-`<PR>` is filled in at Step 7, once the pull request exists.
+`<PR>` is filled in at Step 8, once the pull request exists.
 
-- [ ] **Step 5: Run the citation gates**
+- [ ] **Step 5: Sweep the domain specification for the drift this work caused**
+
+The domain spec is a living document (docs spec §3.4), so editing it means sweeping its
+enumerations for drift rather than only the section you came for. Three measurements taken
+during Tasks 2 and 3 are not in it. All three were measured against the current tree through
+the unguarded Python API, which reproduces the pre-change draw path exactly — nothing on
+this branch touches the draw, only the address the constants live at — so they belong in
+§1's "as of {pull}`125`" table without a caveat.
+
+In `docs/src/developer/specs/2026-08-12-config-domain-validation-design.md`, add to §1's
+table, each directly below the row it belongs with:
+
+```markdown
+| `isotherms: {linewidth: .inf}` | silent | **draws** |
+| `isobars: {interval: .inf}` | silent | `ValueError: 'isobars' interval must be a positive, finite number: inf` |
+| `diagram: {extent: [[.inf, -80.0], [300.0, 40.0]]}` | silent | `ValueError: extent corners must be physical (pressure > 0 hPa): ((inf, -80.0), (300.0, 40.0))` |
+```
+
+Then correct the two class counts the table feeds. "**Three values never produce a message
+at all.**" becomes **Four**, and its list gains `linewidth: .inf` — the same option as
+`linewidth: -1.0`, unchecked at the family level in either direction. "**Eight fail with
+tephpy's own message**" becomes **Ten**. The matplotlib count of four is unchanged.
+
+§4 gains the one case that fits none of §1's three classes. A style override holding a
+309-or-more-digit integer raises `OverflowError: int too large to convert to float` from
+`float()` — Python's message, naming neither tephpy nor the option. Task 2 added the guard;
+§4 currently cites the 401-digit number only as precedent for not echoing a value back.
+Record the refusal itself, after the compound-option paragraph:
+
+```markdown
+A number too large to convert is refused with the same frame rather than escaping as an
+`OverflowError`. The type stage already guards this for a plain number (configfile spec
+§5.2); an `emphasis` style value reaches the domain stage unconverted, so the guard has to
+be repeated where the conversion actually happens.
+```
+
+§5 is where the drift bites hardest, because its numbers are inherited from §1 and the gate
+does not measure §1 — it measures its own two tables, which are deliberately not the same
+set. Replace the paragraph beginning "The other direction is deliberately not symmetric"
+(lines 297-304) with:
+
+```markdown
+The other direction is deliberately not symmetric, because §1 measured that it is not. The
+gate's own table holds twenty refused values; sixteen raise at the draw and four do not.
+Those four — `linewidth: -1.0`, `linewidth: .inf`, `values: [.nan]` and `truncation: .nan` —
+are the rows §1 calls the worst outcome available, and they are the reason this work exists:
+a rule with no draw-time counterpart on the option that carries it (§3.3). So the gate
+asserts what each case actually does, and a further gate asserts that the two tables hold
+the same `(section, option)` pairs, because both are hand-written and would otherwise drift.
+Pinning the silence is the point. A later change that makes one of those four raise is a
+change to the diagram a user already has, and this gate is where it surfaces.
+
+The counts here are the gate's, not §1's. The two sets overlap without matching: the gate
+drops `color: 'b0b0b0'`, which has its own named test for the `#` hint, and adds cases §1
+does not tabulate.
+```
+
+and the §5 table's **Load/draw agreement** row, whose "bar the three §1 rows that do not" is
+the same stale claim:
+
+```markdown
+| **Load/draw agreement** | Every accepted value draws; every refused value raises at the draw bar the four that silently do not, and the two tables cover the same options |
+```
+
+- [ ] **Step 6: Run the citation gates**
 
 Run:
 ```bash
@@ -1832,14 +1898,14 @@ just its exit code — the gate counts a literal citation as legitimate, so a ba
 cross-document pointer passes silently while rendering as a dead code box. The linked count
 must rise by the number of citations added.
 
-- [ ] **Step 6: Commit the documentation**
+- [ ] **Step 7: Commit the documentation**
 
 ```bash
-git add docs/src/howtos/configuration.rst docs/src/developer/specs/2026-08-07-config-file-design.md
+git add docs/src/howtos/configuration.rst docs/src/developer/specs/2026-08-07-config-file-design.md docs/src/developer/specs/2026-08-12-config-domain-validation-design.md
 git commit -m "Document domain validation and resolve its deferred entry"
 ```
 
-- [ ] **Step 7: Push, open the pull request, then write the changelog**
+- [ ] **Step 8: Push, open the pull request, then write the changelog**
 
 The fragment is named for the pull request, and an issue filed between now and then steals
 the number — so the PR comes first.
@@ -1860,11 +1926,12 @@ can accept it (:issue:`116`). ``color: notacolour`` is a string and
 ``interval: 0`` is a number, so both passed the type check added in
 :issue:`105` and loaded in silence; matplotlib or tephpy then rejected them at
 the first draw, in a traceback naming neither the file nor the line you edited.
-Three did not even do that — ``linewidth: -1.0``, ``values: [.nan]`` and
-``truncation: .nan`` drew a diagram that was simply not the one the file asked
-for. Every one of these now warns as the file is read, naming the file, the
-option and what the option can accept, and skips just that option — the rest of
-the file still applies. Where the legal set is closed, the warning lists it.
+Some did not even do that — ``linewidth: -1.0``, ``linewidth: .inf``,
+``values: [.nan]`` and ``truncation: .nan`` drew a diagram that was simply not
+the one the file asked for. Every one of these now warns as the file is read,
+naming the file, the option and what the option can accept, and skips just that
+option — the rest of the file still applies. Where the legal set is closed, the
+warning lists it.
 ``color: b0b0b0`` is told it is probably missing a ``#``, the mirror image of
 the ``color: #b0b0b0`` trap that YAML reads as a comment. A compound option is
 skipped whole: one bad member of an ``emphasis`` mapping costs the whole
@@ -1891,12 +1958,12 @@ git commit -m "Add the changelog fragments"
 git push
 ```
 
-- [ ] **Step 8: Close out the issue's label**
+- [ ] **Step 9: Close out the issue's label**
 
 `design: open` is checked in both directions, so removing it from {issue}`116` is part of
 the work (domain spec §6). Do this after the PR merges, or note it for the merge.
 
-- [ ] **Step 9: Full verification**
+- [ ] **Step 10: Full verification**
 
 ```bash
 pixi run --frozen tests
@@ -1927,7 +1994,8 @@ same as no build.
 | §5 each gate proved by a mutation that fails it alone | Task 1 Step 7, Task 3 Step 5, Task 4 Step 5 |
 | §6 how-to paragraph | Task 5 Step 1 |
 | §6 reference page publishes the vocabularies | Task 4 |
-| §6 configfile spec §5.2 repoint, §9 → Resolved, `design: open` removal | Task 5 Steps 3, 4, 8 |
+| §6 configfile spec §5.2 repoint, §9 → Resolved, `design: open` removal | Task 5 Steps 3, 4, 9 |
+| docs spec §3.4 living-spec housekeeping: §1's table, §4's overflow case, §5's counts | Task 5 Step 5 |
 | §7 non-goals | nothing to implement; Task 2's `_DOMAIN_VALIDATORS` deliberately has no `__setattr__` counterpart, and the changelog says so |
 
 **Type consistency.** `_DomainError(expects, found)` is constructed in eight places and read
