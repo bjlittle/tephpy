@@ -1014,6 +1014,14 @@ def render_template() -> str:
 #: second, hand-maintained one (configfile spec §3.6, §9).
 _REFERENCE_METHODS: Final[tuple[str, ...]] = ("load", "save", "reset", "context")
 
+#: Those of ``_REFERENCE_METHODS`` the configuration how-to puts to work, which
+#: are the ones a configuration file involves. The methods section names them
+#: rather than sending the reader there for all four, and
+#: ``tests/test_configfile_reference.py`` checks the how-to still covers these
+#: and only these — a claim one page makes about another is otherwise nobody's
+#: to keep (configfile spec §3.6).
+_HOWTO_METHODS: Final[tuple[str, ...]] = ("load", "save")
+
 
 def _reference_signature(method: Callable[..., object]) -> str:
     """Spell a method's parameters as the reference page shows them.
@@ -1110,10 +1118,12 @@ def render_reference(config: Config) -> str:
     lines.append("Methods")
     lines.append("-------")
     lines.append("")
+    covered = " and ".join(f":meth:`tephpy.config.{name}`" for name in _HOWTO_METHODS)
     lines.append(
-        "These entries exist so that prose can cross-reference them; "
-        ":ref:`configure-from-a-file` is the how-to that explains when to reach "
-        "for each."
+        "These entries exist so that prose can cross-reference them. The "
+        f"how-to :ref:`configure-from-a-file` covers {covered}, the methods a "
+        "configuration file involves; the rest act on the configuration "
+        "already in memory."
     )
     lines.append("")
     for name in _REFERENCE_METHODS:

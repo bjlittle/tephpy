@@ -7,11 +7,19 @@
 from __future__ import annotations
 
 import builtins
+from pathlib import Path
 import re
 
 import tephpy
 from tephpy import _configfile
 from tephpy._constants import CONFIG_DEFAULTS
+
+#: The how-to the methods section sends the reader to. Read rather than built,
+#: because the claim being checked is about that page's contents.
+HOWTO = Path(__file__).parents[1] / "docs" / "src" / "howtos" / "configuration.rst"
+
+#: A method the methods section cross-references in its own prose.
+CROSS_REFERENCED = re.compile(r":meth:`tephpy\.config\.(\w+)`")
 
 #: Every option ``CONFIG_DETAILS`` is expected to carry. Written out rather than
 #: derived, so that both losing a detail and gaining an ungated one are failures
@@ -141,6 +149,33 @@ def test_every_method_is_given_a_target():
         ".. py:method:: tephpy.config.reset()",
         ".. py:method:: tephpy.config.context(**overrides)",
     ]
+
+
+def test_the_how_to_covers_the_methods_the_page_sends_readers_to():
+    """A page's promise about another page is otherwise nobody's to keep.
+
+    The methods section names the how-to and the methods it covers. Neither
+    file imports the other, so the claim can go stale from either end: a
+    method dropped from the how-to, or one added to it and not said here.
+    Equality catches both (configfile spec §3.6).
+    """
+    text = rendered()
+    preamble = text[text.index("Methods\n-------") : text.index(".. py:method:: ")]
+    named = set(CROSS_REFERENCED.findall(preamble))
+    assert named, (
+        "the methods section sends the reader to the how-to for no method, so "
+        "this gate reads a sentence that no longer makes the claim it checks"
+    )
+    howto = HOWTO.read_text(encoding="utf-8")
+    covered = {
+        name
+        for name in _configfile._REFERENCE_METHODS
+        if f"tephpy.config.{name}" in howto
+    }
+    assert named == covered, (
+        f"the methods section sends readers to {HOWTO.name} for {sorted(named)}, "
+        f"but that page names {sorted(covered)}"
+    )
 
 
 def test_a_default_is_rendered_by_its_kind():
