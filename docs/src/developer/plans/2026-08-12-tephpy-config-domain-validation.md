@@ -1071,7 +1071,8 @@ Run:
 ```bash
 pixi run --frozen python -m pytest tests/test_configfile_domain.py -q
 ```
-Expected: PASS, 21 tests.
+Expected: PASS, 20 tests — the 16 rows of `REFUSED` plus the four tests that
+follow it.
 
 Then the rest of the configuration suite, which must be untouched:
 ```bash
