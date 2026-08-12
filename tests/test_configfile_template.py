@@ -166,3 +166,16 @@ def test_save_reports_an_unwritable_path(tmp_path):
 def test_save_returns_the_path_written(tmp_path):
     path = tmp_path / "saved.yaml"
     assert tephpy.config.save(path) == path
+
+
+def test_no_generated_template_line_exceeds_the_source_width():
+    """The template is held to the width ruff holds the sources to.
+
+    88 is written here as a literal rather than imported from ``_configfile``,
+    so that raising the renderer's width cannot silently carry the gate up with
+    it (configfile spec §3.4).
+    """
+    over = [
+        line for line in _configfile.render_template().splitlines() if len(line) > 88
+    ]
+    assert over == []

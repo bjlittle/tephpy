@@ -17,6 +17,7 @@ import dataclasses
 import datetime
 import os
 from pathlib import Path
+import textwrap
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, get_type_hints
 import warnings
@@ -919,6 +920,13 @@ def _write(path: Path, text: str) -> None:
         raise TephpyConfigError(msg) from exc
 
 
+#: Width the generated template's comment lines are wrapped to, matching the
+#: line length ruff holds this repository's own sources to. Value lines are not
+#: wrapped: a wrapped YAML value would no longer be uncommentable, which is the
+#: whole point of the template (configfile spec §3.6).
+_TEMPLATE_WIDTH: Final[int] = 88
+
+
 def render_template() -> str:
     """Render the fully-commented configuration template.
 
@@ -945,7 +953,14 @@ def render_template() -> str:
         lines.append("")
         lines.append(f"{section}:")
         for option, default in options.items():
-            lines.append(f"  # {CONFIG_DESCRIPTIONS[section][option]}")
+            lines.extend(
+                textwrap.fill(
+                    CONFIG_DESCRIPTIONS[section][option],
+                    width=_TEMPLATE_WIDTH,
+                    initial_indent="  # ",
+                    subsequent_indent="  # ",
+                ).splitlines()
+            )
             lines.append(f"  # {option}: {_format_default(default)}".rstrip())
     return "\n".join(lines) + "\n"
 
