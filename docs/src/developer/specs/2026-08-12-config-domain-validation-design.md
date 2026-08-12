@@ -41,6 +41,7 @@ A configuration value can have exactly the right type and still be wrong. `color
 | `isotherms: {alpha: 5.0}` | silent | `ValueError: alpha (5.0) is outside 0-1 range` |
 | `isotherms: {emphasis: {0.0: {color: notacolour}}}` | silent | `ValueError: Invalid RGBA argument: 'notacolour'` |
 | `isotherms: {emphasis: {0.0: {linestyle: notaline}}}` | silent | `ValueError: Do not know how to convert ['solid', 'solid', 'solid', … ] to dashes` |
+| `isotherms: {emphasis: {0.0: {linestyle: ["--"]}}}` | silent | `ValueError: Do not know how to convert ['solid', 'solid', … ['--']] to dashes` |
 | `isotherms: {labels: [botom]}` | silent | `TypeError: unknown 'isotherms' label placement 'botom'; expected True, False, or edge name(s) from ['bottom', 'top', 'left', 'right']` |
 | `isobars: {interval: 0.0}` | silent | `ValueError: 'isobars' interval must be a positive, finite number: 0.0` |
 | `isobars: {interval: .inf}` | silent | `ValueError: 'isobars' interval must be a positive, finite number: inf` |
@@ -66,9 +67,13 @@ mistake surfaces at the first draw, in a traceback through tephpy rather than at
 the user edited. `cursor.fields` is worse again — its check lives in `format_coord`, so it
 fires on mouse motion and only ever reaches an interactive user.
 
-**Five fail with matplotlib's message**, which names neither the option nor the file. The
-`emphasis` `linestyle` case is the sharpest: the reader is shown a list of a dozen
-`'solid'` strings they never wrote.
+**Six fail with matplotlib's message**, which names neither the option nor the file. The two
+`emphasis` `linestyle` cases are the sharpest: the reader is shown a list of a dozen
+`'solid'` strings they never wrote. The second of them is also the subtlest row in this
+table, and §3.3 takes it separately: `["--"]` is a legal argument to
+`Collection.set_linestyle` on its own, because that method accepts a sequence of linestyles
+as readily as one, and an illegal one once the draw has nested it inside its own
+per-member list.
 
 {issue}`116` describes the third of these classes as unchecked. It is not: `_normalize_emphasis`
 validates the style values at draw. The gap is timing, plus the two style keys that
@@ -211,7 +216,22 @@ dropped in silence: the warning names the option and what it expects, which is t
 `emphasis` carries six rules, being the one option that nests a style mapping: each member
 value finite; each style key from `EMPHASIS_STYLE_KEYS`; a `linewidth` override > 0 and
 finite; an `alpha` override in [0, 1]; a `color` override `is_color_like`; and a
-`linestyle` override accepted by `LineCollection.set_linestyle`.
+`linestyle` override accepted by `LineCollection.set_linestyle` *in the shape the draw
+builds*.
+
+That last qualifier is load-bearing, and **measured**. `set_linestyle` accepts a sequence of
+linestyles as readily as a single one, so asking it about the bare value lets a
+collection-shaped override through: `emphasis: {0.0: {linestyle: ["--"]}}` loaded in
+silence. `IsoplethFamily.draw` then sets one style per member — the value arrives inside a
+list of them — and matplotlib refuses the nesting with `Do not know how to convert [...
+['--']] to dashes`, which is the row §1's table singles out and the whole failure this
+stage exists to stop. The rule therefore asks `set_linestyle([value])`, the shape the draw
+actually builds. Probed both ways, that oracle refuses the collection-shaped override and
+still accepts every linestyle spelling a file can carry — `'-'`, `'--'`, `'-.'`, `':'`,
+`solid`, `dashed`, `dashdot`, `dotted`, `none`, `None` and the empty string — so it buys
+the true negative without a false positive (§5). A dash *tuple* is not among them, but not
+because of this rule: YAML spells it as a list, and `[0, [1, 1]]` is refused bare and
+wrapped alike, which is where the bare oracle already left it.
 
 A style *value* is annotated `object` and so reaches this stage unconverted
 (configfile spec §5.2), where an option-level value has already been through its type
@@ -313,7 +333,7 @@ today drift apart silently otherwise, and the symptom is a configuration file th
 refused for a diagram that would have drawn.
 
 The other direction is deliberately not symmetric, because §1 measured that it is not. The
-gate's own table holds twenty-one refused values; sixteen raise at the draw and five do not.
+gate's own table holds twenty-two refused values; seventeen raise at the draw and five do not.
 Four of those five — `linewidth: -1.0`, `linewidth: .inf`, `values: [.nan]` and
 `truncation: .nan` — are the rows §1 calls the worst outcome available, and they are the
 reason this work exists: a rule with no draw-time counterpart on the option that carries it

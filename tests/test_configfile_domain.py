@@ -40,7 +40,7 @@ def _write(tmp_path, text):
 #: numeric path stops ``import tephpy`` outright (configfile spec §5.2).
 _HUGE_INT = "9" * 320
 
-#: Seventeen of the domain spec §1 table's eighteen rows -- the gate drops
+#: Eighteen of the domain spec §1 table's nineteen rows -- the gate drops
 #: ``color: 'b0b0b0'``, which has its own named test for the ``#`` hint --
 #: plus four cases that table does not tabulate: a ``diagram.extent``
 #: corner with a non-finite temperature rather than a non-finite pressure,
@@ -91,6 +91,12 @@ REFUSED = [
             "member 0 'linestyle' to be a linestyle matplotlib knows, "
             "not the string 'notaline'"
         ),
+    ),
+    (
+        "isotherms",
+        "emphasis",
+        '{0.0: {linestyle: ["--"]}}',
+        "member 0 'linestyle' to be a linestyle matplotlib knows, not ['--']",
     ),
     (
         "isotherms",
@@ -190,7 +196,7 @@ def test_the_refused_table_covers_every_rule():
     Pinning the count and the option set is what stops a rule being deleted
     from ``REFUSED`` along with the bug report that motivated it.
     """
-    assert len(REFUSED) == 21
+    assert len(REFUSED) == 22
     covered = {option for _, option, _, _ in REFUSED}
     assert covered == set(_configfile._DOMAIN_VALIDATORS)
 
@@ -339,6 +345,7 @@ ACCEPTED = [
     ("isotherms", "emphasis", "{850.0: {}}"),
     ("isotherms", "emphasis", "{850.0: {linestyle: '--'}}"),
     ("isotherms", "emphasis", "{850.0: {linestyle: dashed}}"),
+    ("isotherms", "emphasis", "{850.0: {linestyle: none}}"),
     ("isotherms", "emphasis", "{850.0: {linewidth: 2}}"),
     ("isotherms", "emphasis", "{850.0: {alpha: 1}}"),
     ("isotherms", "emphasis", "{850.0: {color: red, linewidth: 2.0, alpha: 1.0}}"),
@@ -372,7 +379,7 @@ def test_a_legitimate_value_is_not_refused(tmp_path, section, option, yaml):
 
 def test_the_accepted_table_reaches_every_rule():
     """An emptied table would pass the gate above having checked nothing."""
-    assert len(ACCEPTED) == 25
+    assert len(ACCEPTED) == 26
     assert {option for _, option, _ in ACCEPTED} == set(
         _configfile._DOMAIN_VALIDATORS
     ) | {"visible"}
@@ -411,13 +418,14 @@ DRAWS_IN_SILENCE = [
     ("moist_adiabats", "truncation", float("nan")),
 ]
 
-#: The sixteen the draw refuses loudly, in one of the three exception types
+#: The seventeen the draw refuses loudly, in one of the three exception types
 #: the gate below accepts.
 RAISES_AT_THE_DRAW = [
     ("isotherms", "color", "notacolour"),
     ("isotherms", "alpha", 5.0),
     ("isotherms", "emphasis", {0.0: {"color": "notacolour"}}),
     ("isotherms", "emphasis", {0.0: {"linestyle": "notaline"}}),
+    ("isotherms", "emphasis", {0.0: {"linestyle": ["--"]}}),
     ("isotherms", "labels", ("botom",)),
     ("isobars", "interval", 0.0),
     ("isobars", "interval", float("inf")),

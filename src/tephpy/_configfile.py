@@ -709,10 +709,18 @@ def _domain_linestyle(value: object) -> None:
         accept and reject the same ten probes and differ only in wording,
         and ``matplotlib.rcsetup._validate_linestyle`` is private
         (domain spec §3.3).
+
+        Asked in the *shape the draw builds*, not bare.
+        ``IsoplethFamily.draw`` sets one style per member, so the value
+        arrives inside a list of them. ``set_linestyle`` also accepts a
+        sequence of linestyles, so a bare ``['--']`` is a legal argument
+        on its own and an illegal one nested — it would load in silence
+        and then raise at the draw, which is the whole failure this stage
+        exists to stop (domain spec §3.3).
     """
     expects = "a linestyle matplotlib knows"
     try:
-        LineCollection([]).set_linestyle(cast("LineStyleType", value))
+        LineCollection([]).set_linestyle([cast("LineStyleType", value)])
     except (TypeError, ValueError):
         raise _DomainError(expects, _describe(value)) from None
 
