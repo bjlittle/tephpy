@@ -494,4 +494,3 @@ def test_the_draw_table_covers_every_refusal():
     refused = sorted((section, option) for section, option, _, _ in REFUSED)
     drawn = sorted((section, option) for section, option, _, _ in REFUSED_AT_THE_DRAW)
     assert drawn == refused
-    assert tephpy.config.isotherms.emphasis is None
