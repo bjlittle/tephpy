@@ -138,7 +138,16 @@ in the sidebar. A ``.. raw:: html`` block and an API signature — a parameter's
 default value included — are left alone deliberately, because the build rewrites
 neither raw output nor code. Name the section in the surrounding prose instead.
 
-A heading is worth avoiding for a second reason, which fails differently again. A
+A section heading is worth avoiding for a second reason, and it is the one the
+build names. The theme rebuilds its "On this page" navigation out of the headings,
+keeping the text and dropping the anchor, and wraps the copy in the navigation's
+own link — so the citation *is* a link, to the section it sits in rather than to
+the section it names, and the check on the built HTML cannot tell one anchor from
+another. The build therefore warns when it converts a citation inside a heading,
+naming the heading, and ``--fail-on-warning`` turns that into a failure. Cite the
+section in the prose below the heading instead.
+
+A heading is worth avoiding for a third reason, which fails differently again. A
 ``.. contents::`` directive links every heading it lists — in its own list and in
 the heading itself — and it does so after the citation has already become a link,
 so the page ends up with one anchor inside another. That is invalid HTML, which a

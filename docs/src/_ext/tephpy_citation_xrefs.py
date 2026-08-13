@@ -35,6 +35,7 @@ from sphinx import addnodes
 from sphinx.errors import ExtensionError
 from sphinx.ext.autosummary import autosummary_table
 from sphinx.transforms import SphinxTransform
+from sphinx.util import logging
 import tephpy_citations
 
 if TYPE_CHECKING:
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
 
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
+
+logger = logging.getLogger(__name__)
 
 #: Text inside any of these stays plain (docs spec §3.7). ``reference`` and
 #: ``pending_xref`` are on the list because a citation appearing in link text
@@ -86,7 +89,58 @@ class CitationTransform(SphinxTransform):
                 continue
             replacement = _convert(str(text), owner, self.env.docname)
             if replacement is not None:
+                heading = _heading(text)
+                if heading is not None:
+                    logger.warning(
+                        "citation in the section heading %r reaches the reader "
+                        "unlinked: the theme rebuilds the page navigation from "
+                        "the headings, keeping the text and dropping the anchor. "
+                        "Cite the specification in the prose below the heading "
+                        "instead (docs spec §3.7)",
+                        heading.astext(),
+                        location=text,
+                        type="tephpy",
+                        subtype="citation",
+                    )
                 text.parent.replace(text, replacement)
+
+
+def _heading(node: nodes.Node) -> nodes.title | None:
+    """Return the section heading ``node`` sits in, or ``None`` (:issue:`96`).
+
+    A citation here is converted like any other, so the page reads as it always
+    did; what it cannot be is a link the reader can follow. The theme rebuilds
+    its "On this page" navigation from the headings, copying the inline markup
+    but not the anchor, and wrapping the copy in the navigation's own link -- at
+    which point the rendered-citation gate of docs spec §3.7 counts an enclosing
+    ``<a>`` and scores it linked. That gate is written not to know one anchor from
+    another, so the build has to say so where the citation is written.
+
+    Only a section heading qualifies, and deliberately not every ``title``: the
+    caption of a table, an admonition or a topic is not copied into the
+    navigation, so a citation in one is a link like any other. Sphinx disables
+    the docutils title transforms, so a heading is always a ``title`` directly
+    under a ``section``.
+
+    Parameters
+    ----------
+    node : docutils.nodes.Node
+        The text node under consideration.
+
+    Returns
+    -------
+    docutils.nodes.title or None
+        The heading, whose text names the offender for a reader of the warning.
+        MyST gives a section title no usable line number, so the message cannot
+        rely on the location Sphinx prints beside it.
+
+    """
+    parent = node.parent
+    while parent is not None:
+        if isinstance(parent, nodes.title) and isinstance(parent.parent, nodes.section):
+            return parent
+        parent = parent.parent
+    return None
 
 
 def _skipped(node: nodes.Node) -> bool:
@@ -106,7 +160,8 @@ def _skipped(node: nodes.Node) -> bool:
     parent = node.parent
     while parent is not None:
         # ``autosummary_table`` subclasses ``comment`` but is a rendered table,
-        # and the autoapi module summary -- 17 citations -- lives inside one.
+        # and the autoapi module summary lives inside one, so skipping every
+        # comment would skip citations a reader does see (docs spec §3.7).
         if not isinstance(parent, autosummary_table) and isinstance(parent, SKIP):
             return True
         parent = parent.parent
