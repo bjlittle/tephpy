@@ -13,7 +13,7 @@ from pathlib import Path
 import threading
 from typing import Any
 
-from playwright.sync_api import ConsoleMessage, Error, Page, sync_playwright
+from playwright.sync_api import ConsoleMessage, Error, Frame, Page, sync_playwright
 
 REPOSITORY = Path(__file__).parents[2]
 HTML = REPOSITORY / "docs" / "_build" / "html"
@@ -52,6 +52,32 @@ def _record_page_error(errors: list[str], error: Error) -> None:
     errors.append(f"page: {error}")
 
 
+def _assert_toolbar(frame: Frame) -> None:
+    """Check toolbar tools and ensure hover prose cannot move them."""
+    toolbar = frame.locator(".mpl-toolbar")
+    assert toolbar.count() == 1
+    toolbar_labels = {
+        toolbar.locator("button img").nth(index).get_attribute("alt")
+        for index in range(toolbar.locator("button img").count())
+    }
+    assert "Reset original view" in toolbar_labels
+    assert "Download plot" in toolbar_labels
+    assert any(label is not None and "pans" in label for label in toolbar_labels)
+    assert any(
+        label is not None and "Zoom to rectangle" in label for label in toolbar_labels
+    )
+    pan = toolbar.locator('button img[alt*="Left button pans"]')
+    before = pan.bounding_box()
+    assert before is not None
+    pan.hover()
+    frame.wait_for_timeout(100)
+    message = toolbar.locator(".mpl-message").text_content() or ""
+    assert "Left button pans" not in message
+    after = pan.bounding_box()
+    assert after is not None
+    assert abs(after["x"] - before["x"]) < 0.5
+
+
 def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     """Launch the iframe and exercise initialization and both upload outcomes."""
     page.goto(f"{url}/tutorials/browser-demo.html", wait_until="domcontentloaded")
@@ -80,17 +106,7 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     )
 
     frame.locator("canvas.mpl-canvas").wait_for(state="visible", timeout=TIMEOUT)
-    assert frame.locator(".mpl-toolbar").count() == 1
-    toolbar_labels = {
-        frame.locator(".mpl-toolbar button img").nth(index).get_attribute("alt")
-        for index in range(frame.locator(".mpl-toolbar button img").count())
-    }
-    assert "Reset original view" in toolbar_labels
-    assert "Download plot" in toolbar_labels
-    assert any(label is not None and "pans" in label for label in toolbar_labels)
-    assert any(
-        label is not None and "Zoom to rectangle" in label for label in toolbar_labels
-    )
+    _assert_toolbar(frame)
 
     generation = int(root.get_attribute("data-plot-generation"))
     upload = frame.locator("#csv-file")

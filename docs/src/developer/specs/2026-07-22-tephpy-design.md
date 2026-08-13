@@ -663,6 +663,8 @@ The bundled example plots at startup. A local upload replaces it only after pars
 does not destroy a good plot. Before a successful replacement, the prior figure is closed,
 its WebAgg DOM is removed, and its Python callback proxies are destroyed. The resulting
 canvas retains matplotlib's pan, zoom, coordinate readout, home/reset, and download tools.
+WebAgg's prose hover hints are suppressed because inserting them into the toolbar moves its
+buttons; their accessible image labels and the backend-driven coordinate readout remain.
 The uploaded filename is both the plot label and title; wind data, when present, is passed
 to `plot_barbs`.
 

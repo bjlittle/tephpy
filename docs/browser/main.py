@@ -164,6 +164,14 @@ def _initialize_backend() -> None:
         "window.window.mpl.", "window.mpl."
     )
     set_toolbar_image = run_js(javascript)
+    # WebAgg writes a long tooltip into the toolbar on mouseover. Because that
+    # status span shares a flex row with the buttons, the new text moves the
+    # button out from under the pointer. Keep backend messages such as the
+    # coordinate readout, but suppress only these hover-generated tooltips.
+    run_js(
+        "window.mpl.figure.prototype.toolbar_button_onmouseover = "
+        "function (_tooltip) {};\nvoid 0;"
+    )
     toolbar_proxy = create_proxy(application.get_toolbar_image)
     _PROXIES.append(toolbar_proxy)
     set_toolbar_image(toolbar_proxy)
