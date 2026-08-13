@@ -665,8 +665,11 @@ its WebAgg DOM is removed, and its Python callback proxies are destroyed. The re
 canvas retains matplotlib's pan, zoom, coordinate readout, home/reset, and download tools.
 WebAgg's prose hover hints are suppressed because inserting them into the toolbar moves its
 buttons; their accessible image labels and the backend-driven coordinate readout remain.
-The uploaded filename is both the plot label and title; wind data, when present, is passed
-to `plot_barbs`.
+A collapsed, scrollable table below the canvas exposes the normalized quantities used by
+the plot with sticky unit-bearing headers; it retains its expanded state across successful
+replacements and remains paired with the prior plot after an invalid upload. The uploaded
+filename is both the plot label and title; wind data, when present, is passed to
+`plot_barbs`.
 
 The demo CSV contract is deliberately not a package-level reader:
 

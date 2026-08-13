@@ -74,7 +74,8 @@ including pressure ordering and dewpoint bounds.
 Use the matplotlib toolbar below the canvas to pan, zoom, inspect cursor
 coordinates, restore the original view, or download the figure. Uploading an
 invalid file leaves the previous plot in place so you can correct the data and
-try again.
+try again. Expand **Plotted data** beneath the canvas to inspect the normalized
+values and units used by the current plot.
 
 Experimental Scope
 ------------------

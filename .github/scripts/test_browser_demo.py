@@ -78,6 +78,31 @@ def _assert_toolbar(frame: Frame) -> None:
     assert abs(after["x"] - before["x"]) < 0.5
 
 
+def _assert_data_table(
+    frame: Frame,
+    *,
+    label: str,
+    levels: int,
+    columns: tuple[tuple[str, str], ...],
+    expanded: bool,
+) -> None:
+    """Check the normalized table paired with the current plot."""
+    panel = frame.locator("#data-panel")
+    assert panel.count() == 1
+    assert panel.evaluate("element => element.open") is expanded
+    summary = panel.locator("summary").inner_text()
+    assert summary == f"Plotted data — {label} — {levels} levels"
+    table = panel.locator("#data-table")
+    actual_headings = tuple(
+        text.split("(", maxsplit=1)[0].strip()
+        for text in table.locator("thead th").all_text_contents()
+    )
+    assert actual_headings == tuple(heading for heading, _value in columns)
+    assert table.locator("tbody tr").count() == levels
+    values = tuple(table.locator("tbody tr").first.locator("td").all_text_contents())
+    assert values == tuple(value for _heading, value in columns)
+
+
 def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     """Launch the iframe and exercise initialization and both upload outcomes."""
     page.goto(f"{url}/tutorials/browser-demo.html", wait_until="domcontentloaded")
@@ -107,6 +132,20 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
 
     frame.locator("canvas.mpl-canvas").wait_for(state="visible", timeout=TIMEOUT)
     _assert_toolbar(frame)
+    _assert_data_table(
+        frame,
+        label="Bundled example",
+        levels=19,
+        columns=(
+            ("Pressure", "1000"),
+            ("Temperature", "18"),
+            ("Dewpoint", "14"),
+            ("Wind speed", "5"),
+            ("Wind direction", "180"),
+        ),
+        expanded=False,
+    )
+    frame.locator("#data-panel summary").click()
 
     generation = int(root.get_attribute("data-plot-generation"))
     upload = frame.locator("#csv-file")
@@ -125,8 +164,16 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     assert root.get_attribute("data-plot-label") == "uploaded.csv"
     assert int(root.get_attribute("data-plot-generation")) == generation + 1
     assert frame.locator("canvas.mpl-canvas").count() == 1
+    _assert_data_table(
+        frame,
+        label="uploaded.csv",
+        levels=10,
+        columns=(("Pressure", "1000"), ("Temperature", "17"), ("Dewpoint", "12")),
+        expanded=True,
+    )
 
     good_generation = int(root.get_attribute("data-plot-generation"))
+    good_table = frame.locator("#data-panel").inner_text()
     upload_generation += 1
     upload.set_input_files(
         {"name": "invalid.csv", "mimeType": "text/csv", "buffer": INVALID_CSV}
@@ -142,6 +189,7 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     assert "previous plot is unchanged" in alert.inner_text().lower()
     assert int(root.get_attribute("data-plot-generation")) == good_generation
     assert frame.locator("canvas.mpl-canvas").count() == 1
+    assert frame.locator("#data-panel").inner_text() == good_table
 
 
 def main() -> None:

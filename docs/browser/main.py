@@ -10,6 +10,7 @@ import asyncio
 import importlib
 from importlib.metadata import version
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,14 @@ _CURRENT_PLOT: tuple[Any, Any] | None = None
 _EXAMPLE_TEXT = ""
 _PARSER: Any = None
 _PYPLOT: Any = None
+
+_TABLE_COLUMNS = (
+    ("pressure", "Pressure", "hPa", "hPa"),
+    ("temperature", "Temperature", "degC", "°C"),
+    ("dewpoint", "Dewpoint", "degC", "°C"),
+    ("wind_speed", "Wind speed", "m/s", "m/s"),
+    ("wind_direction", "Wind direction", "degree", "°"),
+)
 
 
 def _element(identifier: str) -> Any:
@@ -195,6 +204,76 @@ def _cleanup(record: tuple[Any, Any] | None) -> None:
     target.remove()
 
 
+def _data_columns(sounding: Any) -> list[tuple[str, str, tuple[float, ...]]]:
+    """Return canonical table columns from the validated sounding quantities."""
+    columns = []
+    for attribute, heading, unit, display_unit in _TABLE_COLUMNS:
+        quantity = getattr(sounding, attribute)
+        if quantity is not None:
+            values = tuple(float(value) for value in quantity.m_as(unit))
+            columns.append((heading, display_unit, values))
+    return columns
+
+
+def _new_data_panel(sounding: Any, *, label: str) -> Any:
+    """Build a detached, collapsed table of values used by the plot."""
+    columns = _data_columns(sounding)
+    level_count = len(columns[0][2])
+    level_word = "level" if level_count == 1 else "levels"
+
+    panel = document.createElement("details")
+    panel.id = "data-panel"
+    panel.classList.add("data-panel")
+
+    summary = document.createElement("summary")
+    summary.id = "data-summary"
+    summary.textContent = f"Plotted data — {label} — {level_count} {level_word}"
+    panel.appendChild(summary)
+
+    scroll = document.createElement("div")
+    scroll.classList.add("data-table-scroll")
+    scroll.setAttribute("role", "region")
+    scroll.setAttribute("aria-labelledby", summary.id)
+    scroll.setAttribute("tabindex", "0")
+    panel.appendChild(scroll)
+
+    table = document.createElement("table")
+    table.id = "data-table"
+    table.classList.add("data-table")
+    scroll.appendChild(table)
+
+    caption = document.createElement("caption")
+    caption.classList.add("visually-hidden")
+    caption.textContent = f"Normalized values plotted for {label}"
+    table.appendChild(caption)
+
+    header = document.createElement("tr")
+    table.createTHead().appendChild(header)
+    for heading, unit, _values in columns:
+        cell = document.createElement("th")
+        cell.setAttribute("scope", "col")
+        cell.textContent = heading
+        displayed_unit = document.createElement("span")
+        displayed_unit.classList.add("data-unit")
+        displayed_unit.textContent = f"({unit})"
+        cell.appendChild(displayed_unit)
+        header.appendChild(cell)
+
+    body = table.createTBody()
+    for index in range(level_count):
+        row = body.insertRow()
+        for _heading, _unit, values in columns:
+            value = values[index]
+            cell = row.insertCell()
+            if math.isnan(value):
+                cell.textContent = "—"
+                cell.classList.add("missing")
+                cell.setAttribute("aria-label", "missing")
+            else:
+                cell.textContent = f"{value:.6g}"
+    return panel
+
+
 def _new_figure(sounding: Any, *, label: str) -> tuple[Any, Any]:
     """Build and show a new WebAgg-derived canvas, preserving the old one on error."""
     figure = None
@@ -225,16 +304,25 @@ def _new_figure(sounding: Any, *, label: str) -> tuple[Any, Any]:
 
 
 def _replace_plot(sounding: Any, *, label: str) -> None:
-    """Replace the displayed plot only after its successor was created successfully."""
+    """Atomically replace the displayed plot and its normalized data table."""
     global _CURRENT_PLOT  # noqa: PLW0603 -- the browser owns one active canvas
 
+    current_panel = _element("data-panel")
+    replacement_panel = _new_data_panel(sounding, label=label)
+    replacement_panel.open = current_panel.open
     replacement = _new_figure(sounding, label=label)
+    try:
+        current_panel.replaceWith(replacement_panel)
+    except Exception:
+        _cleanup(replacement)
+        raise
     previous = _CURRENT_PLOT
     _CURRENT_PLOT = replacement
     _cleanup(previous)
     generation = int(document.documentElement.getAttribute("data-plot-generation") or 0)
     _state("plot-generation", str(generation + 1))
     _state("plot-label", label)
+    _state("data-levels", str(len(sounding.pressure)))
 
 
 async def _upload(file_input: Any) -> None:
