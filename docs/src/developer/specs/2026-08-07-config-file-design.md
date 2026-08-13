@@ -620,9 +620,9 @@ and only that test, fails.
 
 | Package | Tier | Floor | Note |
 |---|---|---|---|
-| `pyyaml` | core | `>=6.0.1` | Present in the pixi environment only via pre-commit and sphinx-autoapi — **absent** from a core install today. Floored one patch above `6.0`, whose sdist has no cp312 wheel and fails to build |
-| `click` | core | `>=8.1` | Present only via towncrier and jupyter-cache — **absent** from a core install today |
-| `platformdirs` | core | `>=4.0` | Reachable today only as a transitive of pint; declared rather than inherited |
+| `pyyaml` | core | `>=6.0.1` | Until declared here, in the pixi environment only via pre-commit and sphinx-autoapi, and **absent** from a core install. Floored one patch above `6.0`, whose sdist has no cp312 wheel and fails to build |
+| `click` | core | `>=8.1` | Until declared here, present only via towncrier and jupyter-cache, and **absent** from a core install |
+| `platformdirs` | core | `>=4.0` | Reachable only as a transitive of pint; declared rather than inherited |
 | `sphinx-click` | docs | `>=6.0` | Documents the CLI in the reference guide |
 
 The first two matter more than a dependency table usually does. Because both are already in
@@ -630,9 +630,25 @@ the development environment, omitting the declaration leaves `pixi run tests` gr
 green, while a user who runs `pip install tephpy` gets `ImportError: No module named 'yaml'`
 at import. The failure is invisible to every check the repository runs.
 
-The floors are chosen as "known to contain the APIs used", not verified — CI resolves
-`--frozen` everywhere and would test 8.4.2 against a declared floor of 8.1. The
-implementation plan carries an explicit one-off resolve of the declared minimums.
+A floor is chosen as "known to contain the APIs used", and nothing the repository runs tests
+that choice: every pixi task passes `--frozen`, so what CI resolves is the lockfile's pin —
+click 8.4.2 against a declared floor of `>=8.1`, when this was written — and a floor set too
+low fails for one person only, the user who happens to resolve that version. Each
+floor above is therefore resolved by hand instead, once: `pyyaml`, `click` and
+`platformdirs` as they were declared (PR {pull}`112`), `sphinx-click` afterwards
+(2026-08-13, {issue}`109`).
+
+`sphinx-click` was resolved as two scratch pixi environments carrying the rest of the
+documentation dependencies and differing in that one package alone — one pinned to
+`==6.0.0`, the other left to resolve. Both build the documentation under
+`--fail-on-warning`, with the gates of docs spec §3.6 and docs spec §3.7 green, and their
+output differs on a single page: from 6.2.0 each command's usage block carries a `Usage`
+rubric, which 6.0.0 and 6.1.0 omit. The floor stands at `>=6.0`. What the reference page
+asks of the directive — `:prog:` and `:nested: full` (§8) — is present there, the rubric is
+presentation added upstream rather than an API tephpy calls, and the published site is
+built from the lockfile rather than from the floor. The floor is declared twice — once for
+pixi and once for pip — so the second was checked too: 6.0.0 ships a wheel on PyPI
+declaring `requires-python >=3.8`, which covers every Python tephpy supports.
 
 (configfile-spec-8)=
 ## 8. Documentation
