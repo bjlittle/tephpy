@@ -636,7 +636,11 @@ click 8.4.2 against a declared floor of `>=8.1`, when this was written — and a
 low fails for one person only, the user who happens to resolve that version. Each
 floor above is therefore resolved by hand instead, once: `pyyaml`, `click` and
 `platformdirs` as they were declared (PR {pull}`112`), `sphinx-click` afterwards
-(2026-08-13, {issue}`109`).
+(2026-08-13, {issue}`109`). Standing rather than closed, then — a resolve by hand settles the
+floors in front of it and nothing after. What would close it is specified in the dependency
+floors specification, which takes this section's gap as its purpose (floors spec §1) and this
+section's `sphinx-click` result as the reason its verdicts are reported as evidence rather
+than as answers (floors spec §3.5).
 
 `sphinx-click` was resolved as two scratch pixi environments carrying the rest of the
 documentation dependencies and differing in that one package alone — one pinned to
