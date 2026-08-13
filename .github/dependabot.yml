@@ -12,6 +12,16 @@ updates:
     labels: ["bot", "skip-changelog"]
     commit-message:
       prefix: "chore: "
+  # Version updates are parked at zero, which leaves security updates running.
+  # These files are not a lockfile to keep fresh: their `>=` lines are the pip
+  # half of the two declaration sites in floors spec §3.1, and -- through
+  # `[tool.setuptools.dynamic]` in pyproject.toml -- they are also tephpy's
+  # published `dependencies` metadata. Dependabot lifts a `>=` lower bound to
+  # the newest release, so a run here narrows what a user may install tephpy
+  # beside, with no evidence that the old floor was broken; floors spec §2
+  # rejects exactly that, on the grounds that raising a floor is user-visible
+  # and wants a judgement a bot cannot make. Unpark once ci-floors can say
+  # which floors need to move and why.
   - package-ecosystem: pip
     directory: "/requirements"
     schedule:
@@ -22,3 +32,4 @@ updates:
       pip:
         patterns: ["*"]
     labels: ["bot", "skip-changelog"]
+    open-pull-requests-limit: 0

@@ -101,6 +101,18 @@ So each site is read on its own terms, and neither list is reconciled against th
 is either enumerated here: the manifest is the enumeration, and docs spec §4 rules out a copy
 that has to be re-measured to stay true.
 
+Both sites move by hand only. dependabot was pointed at `requirements/` and opened its first
+run against it while this job was being planned ({pull}`131`), lifting every `>=` there to the
+newest release — click `>=8.1` to `>=8.4.2`, xarray `>=2024.10` to `>=2026.7.0`. That is the
+automatic floor raise §2 rejects, made without evidence that any of those floors was broken,
+and on the site that `[tool.setuptools.dynamic]` publishes as tephpy's install requirements.
+It would also have left this job with nothing to find: `--resolution lowest-direct` reads
+those same lines (§3.3), so floors lifted to the newest release make the PyPI half a test of
+the ceiling, which §6 rules out. The ecosystem is therefore parked at
+`open-pull-requests-limit: 0` (spec §8.7), which stops version updates and leaves security
+updates running — an advisory being the one case where a floor should rise on evidence, with
+a person reading it.
+
 (floors-spec-3-2)=
 ### 3.2 The pin generator
 

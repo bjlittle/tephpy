@@ -1,0 +1,10 @@
+``dependabot``'s ``pip`` ecosystem is parked at ``open-pull-requests-limit: 0``,
+which stops version updates over ``requirements/`` and leaves security updates
+running. Those files are not a lockfile to keep fresh: their ``>=`` lines declare
+tephpy's dependency floors, and through ``[tool.setuptools.dynamic]`` they are also
+the published ``dependencies`` metadata. Its first run against them proposed lifting
+every floor to the newest release — ``xarray>=2024.10`` to ``>=2026.7.0`` among them
+— which narrows what a user may install tephpy beside without any evidence that the
+old floor was broken, and would have left the planned ``ci-floors`` job resolving a
+ceiling rather than a floor (:pull:`131`). An advisory remains the one case where a
+floor rises automatically, with a person reading it. (:user:`claude`)

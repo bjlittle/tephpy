@@ -936,7 +936,10 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   `ci-docs` (build + doctest), `ci-wheels` (build sdist/wheel, test in pixi envs, publish to
   Test PyPI on main and PyPI on `v*` tags via **Trusted Publishing OIDC**), `ci-changelog`,
   `ci-citation` (validate `CITATION.cff`), **CodeQL**, pre-commit.ci, dependabot
-  (github-actions + pip, grouped).
+  (github-actions grouped; the `pip` ecosystem is declared but parked at
+  `open-pull-requests-limit: 0`, so security updates run and version updates do not —
+  `requirements/*.txt` declare floors rather than pins, and a bot raising one is the
+  automatic floor raise floors spec §2 rejects).
 - **Fast-follow (documented, not built at v1):** `ci-locks` (weekly lockfile-update bot),
   `ci-floors` (weekly declared-minimum resolve, the other end of the same declaration —
   floors spec §1), `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily
