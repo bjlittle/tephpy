@@ -1,0 +1,11 @@
+The ``sphinx-click >=6.0`` floor declared for the documentation extras is now
+verified rather than assumed (:issue:`109`). It was taken from the package's
+changelog when the extras gained it, unlike the three core floors declared
+alongside it, which were each resolved by hand — and nothing tephpy runs
+resolves a declared minimum, since every pixi task passes ``--frozen``, so a
+floor set too low fails for one person only, the user who happens to resolve
+that version. Resolved now against the rest of the documentation
+dependencies, ``6.0.0`` builds the documentation clean, and the floor stands:
+the sole difference from the version the lockfile pins is that ``6.2.0``
+labels each command's usage block on the command-line reference page with a
+``Usage`` heading. (:user:`claude`)
