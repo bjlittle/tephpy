@@ -97,6 +97,12 @@ class Finding:
     failure: str
     package: str | None = None
     declared: str | None = None
+    #: Which table declares the culprit, which is not always the tier that
+    #: failed: the core table is resolved into every tier, so a `test` run can
+    #: attribute to a package declared in `[tool.pixi.dependencies]`. The issue
+    #: names the declaration sites to edit, and the tier would name the wrong
+    #: pair (floors spec §3.1, §3.6).
+    site: str | None = None
     lowest: str | None = None
     scanned: list[str] = dataclasses.field(default_factory=list)
 
@@ -405,6 +411,7 @@ def main() -> int:
         for tier in ("core", args.tier):
             if package in resolved.get(tier, {}):
                 finding.declared = resolved[tier][package][0]
+                finding.site = tier
     if package is not None and finding.declared is not None:
         finding.lowest, finding.scanned = scan(probe, package, finding.declared, upper)
     write_finding(args.out, finding)
