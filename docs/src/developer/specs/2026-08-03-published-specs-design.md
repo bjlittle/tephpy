@@ -13,10 +13,10 @@
 (docs-spec-1)=
 ## 1. Purpose
 
-`src/` and `tests/` carry `spec §…` citations in the hundreds — §3.2 counts them, and is the
-one place that does. Until now the documents they cite never entered the docs build, so a
-reader on Read the Docs met a reference to something that, from where they were standing,
-did not exist — on twelve published API reference pages.
+`src/` and `tests/` carry `spec §…` citations in the hundreds, and §3.2 says how to count
+them. Until now the documents they cite never entered the docs build, so a reader on Read
+the Docs met a reference to something that, from where they were standing, did not exist —
+on twelve published API reference pages.
 
 This specification closes that gap and states the conventions that keep it closed. It has
 two halves, and only the first is a migration:
@@ -834,14 +834,14 @@ Settled since:
   figures were wrong, and the count measured then was 95 across 54. Neither turned out to be
   the number that mattered, because the conversion happens in the doctree rather than in
   the sources: it reaches every citation the site renders and edits none.
-- **Resolved** (2026-08-13, PR {pull}`130`) — **the counts this document recorded drifted
+- **Resolved** (2026-08-13, PR {pull}`132`) — **the counts this document recorded drifted
   silently.** Every figure measured from content a pull request can change — the §3.2 table
   and the resolving counts beside it, the citations naming one section in §3.3, the section
   signs and the link totals in §3.7 and §6 — has been replaced by the invariant behind it
   and the way to obtain the number. What remains is stated in the past tense and anchored to
   the decision it was measured for. §4 carries the rule, so a figure added later is judged
   by it rather than by this entry.
-- **Resolved** (2026-08-13, PR {pull}`130`) — **a citation in a section heading reached the
+- **Resolved** (2026-08-13, PR {pull}`132`) — **a citation in a section heading reached the
   reader unlinked with every gate green** (§3.7). The theme copies the heading into its page
   navigation without the anchor, and the output gate counts the navigation's own link and
   scores it linked. The transform warns instead, which fails the build where the citation is
