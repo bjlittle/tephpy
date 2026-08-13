@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "pyscript": {
+    "version": "2026.7.3",
+    "core_css": "https://pyscript.net/releases/2026.7.3/core.css",
+    "core_js": "https://pyscript.net/releases/2026.7.3/core.js"
+  },
+  "pyodide": {
+    "version": "314.0.4",
+    "interpreter": "https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.mjs",
+    "lock": "https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide-lock.json"
+  },
+  "pyodide_packages": [
+    {
+      "name": "matplotlib",
+      "version": "3.10.8",
+      "sha256": "2867b2003ee66d0d2478423f783ec035d432c6560ae86d0e58d096ff98cab6a8"
+    },
+    {
+      "name": "numpy",
+      "version": "2.4.3",
+      "sha256": "0cad9c1b91f0082e4f959bc0e0bf5835a2efbba6ab3b1e9d1fe6e7e564cca98e"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.2",
+      "sha256": "51475a2026084c3b600566658fffc95efc5a71593472ab8a561d92a504a15a3e"
+    },
+    {
+      "name": "pyproj",
+      "version": "3.7.2",
+      "sha256": "5b2f39f2bece8d5b69035a099c844e9fc7969801b5045c1b6928e7ba43a5a2b3"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "sha256": "2d30008b0dac84ea05f1ba400837918826368bec76e856798f995f25c630086b"
+    },
+    {
+      "name": "scipy",
+      "version": "1.18.0",
+      "sha256": "4ef1569eac793bec84a92fa2eaf24eafb4529ff10c5ed87d1e335063f26142f3"
+    }
+  ],
+  "pure_python_packages": [
+    {
+      "name": "MetPy",
+      "version": "1.7.1",
+      "source": "pypi",
+      "url": "https://files.pythonhosted.org/packages/89/c3/6b05cc23afc9c466634ba815bfddf529677f8c7e03f5814ccd387dac0ade/metpy-1.7.1-py3-none-any.whl#sha256=b184a1786a730f7926ec5fa58618cd0935a21f8088a13b268dd7267f9e104efc",
+      "sha256": "b184a1786a730f7926ec5fa58618cd0935a21f8088a13b268dd7267f9e104efc"
+    },
+    {
+      "name": "Pint",
+      "version": "0.25.3",
+      "source": "pypi",
+      "url": "https://files.pythonhosted.org/packages/1b/dd/a9fe6a0a09512da23951c68bf36466aeecd89def3183dc095edbc807ddc5/pint-0.25.3-py3-none-any.whl#sha256=27eb25143bd5de9fcc4d5a4b484f16faf6b4615aa93ece6b3373a8c1a3c1b97d",
+      "sha256": "27eb25143bd5de9fcc4d5a4b484f16faf6b4615aa93ece6b3373a8c1a3c1b97d"
+    },
+    {
+      "name": "pooch",
+      "version": "1.8.2",
+      "source": "pypi",
+      "url": "https://files.pythonhosted.org/packages/a8/87/77cc11c7a9ea9fd05503def69e3d18605852cd0d4b0d3b8f15bbeb3ef1d1/pooch-1.8.2-py3-none-any.whl#sha256=3529a57096f7198778a5ceefd5ac3ef0e4d06a6ddaf9fc2d609b806f25302c47",
+      "sha256": "3529a57096f7198778a5ceefd5ac3ef0e4d06a6ddaf9fc2d609b806f25302c47"
+    },
+    {
+      "name": "flexcache",
+      "version": "0.3",
+      "source": "pypi",
+      "url": "https://files.pythonhosted.org/packages/27/cd/c883e1a7c447479d6e13985565080e3fea88ab5a107c21684c813dba1875/flexcache-0.3-py3-none-any.whl#sha256=d43c9fea82336af6e0115e308d9d33a185390b8346a017564611f1466dcd2e32",
+      "sha256": "d43c9fea82336af6e0115e308d9d33a185390b8346a017564611f1466dcd2e32"
+    },
+    {
+      "name": "flexparser",
+      "version": "0.4",
+      "source": "pypi",
+      "url": "https://files.pythonhosted.org/packages/fe/5e/3be305568fe5f34448807976dc82fc151d76c3e0e03958f34770286278c1/flexparser-0.4-py3-none-any.whl#sha256=3738b456192dcb3e15620f324c447721023c0293f6af9955b481e91d00179846",
+      "sha256": "3738b456192dcb3e15620f324c447721023c0293f6af9955b481e91d00179846"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.4.22",
+      "source": "pyodide"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.7",
+      "source": "pyodide"
+    },
+    {
+      "name": "click",
+      "version": "8.3.1",
+      "source": "pyodide"
+    },
+    {
+      "name": "idna",
+      "version": "3.11",
+      "source": "pyodide"
+    },
+    {
+      "name": "packaging",
+      "version": "26.1",
+      "source": "pyodide"
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.9.4",
+      "source": "pyodide"
+    },
+    {
+      "name": "requests",
+      "version": "2.33.1",
+      "source": "pyodide"
+    },
+    {
+      "name": "traitlets",
+      "version": "5.14.3",
+      "source": "pyodide"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.15.0",
+      "source": "pyodide"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.6.3",
+      "source": "pyodide"
+    },
+    {
+      "name": "xarray",
+      "version": "2026.2.0",
+      "source": "pyodide"
+    }
+  ]
+}

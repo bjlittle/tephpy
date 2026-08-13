@@ -640,6 +640,45 @@ restyle existing axes (matplotlib rcParams semantics). The cursor readout is the
 one exception: `config.cursor` is read live per mouse event (§3.2), so a context
 override applies to existing axes for its duration.
 
+(spec-3-6)=
+### 3.6 Browser documentation demo
+
+The documentation carries one experimental, entirely client-side tephigram demo. A
+reader explicitly launches a lazy-created iframe; only then does it download PyScript
+2026.7.3 and Pyodide 314.0.4, install the current checkout's wheel, and render through
+matplotlib's WebAgg-derived Pyodide backend. The docs build creates that wheel and stages
+it with the application under `docs/_build/browser/`; Sphinx publishes the staging root
+through `html_extra_path`. Generated wheels remain build artifacts and are never committed.
+
+The browser runtime has a checked-in lock manifest. MetPy 1.7.1 and Pint 0.25.3, their
+resolved pure-Python dependency chain, package hashes, and CDN URLs are exact; compiled
+dependencies come from the package lock belonging to the pinned Pyodide runtime. The UI
+reports progress throughout installation and exposes a readable, live-region error if any
+dependency fails. Chromium is the tested browser; Firefox and Safari are best-effort.
+
+The bundled example plots at startup. A local upload replaces it only after parsing,
+`Sounding` construction, and creation of the successor figure succeed, so an invalid file
+does not destroy a good plot. Before a successful replacement, the prior figure is closed,
+its WebAgg DOM is removed, and its Python callback proxies are destroyed. The resulting
+canvas retains matplotlib's pan, zoom, coordinate readout, home/reset, and download tools.
+The uploaded filename is both the plot label and title; wind data, when present, is passed
+to `plot_barbs`.
+
+The demo CSV contract is deliberately not a package-level reader:
+
+- `pressure_hPa` and `temperature_C` are required.
+- `dewpoint_C` is optional.
+- `wind_speed_m_s` and `wind_direction_degree` are optional as a pair.
+- Blank cells become NaN; an absent optional column becomes `None`.
+- Missing or duplicate headers, nonnumeric nonblank cells, empty data, and a one-sided wind
+  pair are structural errors. Physical validation remains `Sounding`'s responsibility.
+
+The experiment adds no public Python API. University of Wyoming `wyoming.fetch`, live
+archive access, persistent configuration, analysis controls, offline caching, and other
+live network data are out of scope. In particular, it does not reverse §9's supported-product
+decision against a tephpy GUI or dashboard: this is a documentation example with a small
+local-file boundary, not an application surface.
+
 (spec-4)=
 ## 4. Canonical usage
 
@@ -758,6 +797,12 @@ signature rather than per-signature positional conventions.
   −25 mb correction applies only when requested. One integration test
   against a published worked example with known CAPE/LCL.
 - **IO:** recorded-fixture tests (no live network in CI).
+- **Browser documentation demo:** CPython tests own the CSV boundary and wheel staging;
+  a Playwright Chromium test launches the built page, proves the checkout wheel imported
+  under the Pyodide backend, exercises the interactive canvas and toolbar, replaces the
+  example from a valid local CSV, and confirms an invalid upload reports an accessible
+  error without replacing the previous plot. DOM and application state are assertions;
+  rendering fidelity remains the responsibility of the existing pytest-mpl baselines.
 
 (spec-8)=
 ## 8. Engineering standards (geovista as the minimum bar)
@@ -874,6 +919,9 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   at release. A `ci-changelog` check enforces a fragment per PR (escape hatch: `skip-changelog`
   label).
 - **ReadTheDocs** versioned hosting, built through `pixi run --frozen --environment docs`.
+- The §3.6 browser demo is staged as extra HTML rather than a Sphinx source page. Its
+  tutorial launcher is lazy so an ordinary documentation visit downloads no Python
+  runtime, and it states both the client-side data boundary and experimental support.
 
 **Title style.** All hand-authored page and section titles follow Chicago Manual of Style
 headline style: capitalize the first and last words and all major words; lowercase articles
@@ -940,6 +988,9 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   `open-pull-requests-limit: 0`, so security updates run and version updates do not —
   `requirements/*.txt` declare floors rather than pins, and a bot raising one is the
   automatic floor raise floors spec §2 rejects).
+- `ci-docs` also installs Playwright's pinned Chromium, serves the completed build locally,
+  and runs the §7 browser smoke test. CDN or dependency-install failures fail the job; no
+  static-image fallback is published.
 - **Scheduled, not gating:** `ci-floors` (weekly) resolves every dependency minimum tephpy
   declares — at both declaration sites — exercises what it resolves, and files one issue per
   broken floor, attributed to a single package (floors spec §1). It is deliberately not a

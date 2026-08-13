@@ -31,3 +31,7 @@ jobs:
       - run: >
           pixi run --frozen --environment docs
           python .github/scripts/check_documentation_links.py docs/_build/html
+      - run: pixi run --frozen --environment docs playwright install --with-deps chromium
+      - run: >
+          pixi run --frozen --environment docs
+          python .github/scripts/test_browser_demo.py
