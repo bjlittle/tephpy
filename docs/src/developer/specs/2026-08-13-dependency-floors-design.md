@@ -7,13 +7,13 @@
 > corrected. Read it as current.
 
 - **Date:** 2026-08-13 (originated; maintained since)
-- **Status:** living design specification; specifies work not yet implemented
+- **Status:** living design specification
 - **Citation prefix:** `floors spec §…` — not `deps spec`, which would read as covering the
   whole dependency policy rather than its lower bound alone
 - **Scope:** a scheduled job that resolves tephpy's declared dependency minimums, exercises
   what it resolves, and reports what it finds; the declarations themselves stay where they are
 - **Parent spec:** [`2026-07-22-tephpy-design.md`](2026-07-22-tephpy-design.md) — adds a
-  workflow to spec §8.7's fast-follow list and inherits its pixi (spec §8.2) and SPEC 0
+  scheduled workflow to spec §8.7 and inherits its pixi (spec §8.2) and SPEC 0
   (spec §8.3) rules unchanged
 - **Sibling spec:** [`2026-08-07-config-file-design.md`](2026-08-07-config-file-design.md) —
   configfile spec §7 declares four floors and records the gap this closes, including which of

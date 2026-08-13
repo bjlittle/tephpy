@@ -1,0 +1,13 @@
+The ``ci-floors`` workflow resolves tephpy's declared dependency minimums each week,
+at both sites that declare them — the ``pixi`` tables in ``pyproject.toml`` and the
+``requirements/pypi-*.txt`` files — installs what resolves, and then exercises it:
+the ``test`` tier runs the suite, and the ``docs`` tier builds the documentation and
+checks its output. Every other job installs from ``pixi.lock``, so until now each
+``>=`` was a claim nothing had ever resolved (:issue:`78`). A failure is attributed
+to a single package by relaxing one declaration at a time and re-solving, scanned
+upward for the lowest version that both resolves and passes, and filed as one issue
+per broken floor naming both declaration sites to edit. It is scheduled rather than
+a pull-request gate: it solves fresh against a live channel, so it goes red for
+reasons no pull request caused. Four declared floors are already known broken, and
+its first run reports them rather than this change fixing them (:issue:`135`,
+:issue:`136`, :issue:`137`, :issue:`138`). (:user:`claude`)
