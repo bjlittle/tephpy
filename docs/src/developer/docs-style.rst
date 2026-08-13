@@ -143,9 +143,11 @@ build names. The theme rebuilds its "On this page" navigation out of the heading
 keeping the text and dropping the anchor, and wraps the copy in the navigation's
 own link — so the citation *is* a link, to the section it sits in rather than to
 the section it names, and the check on the built HTML cannot tell one anchor from
-another. The build therefore warns when it converts a citation inside a heading,
-naming the heading, and ``--fail-on-warning`` turns that into a failure. Cite the
-section in the prose below the heading instead.
+another. The build therefore warns about a citation inside a heading, naming the
+heading, and ``--fail-on-warning`` turns that into a failure. Writing the link
+yourself does not avoid it: the navigation strips an author's link the same way,
+so a heading citation is reported whether the build would link it or you already
+have. Cite the section in the prose below the heading instead.
 
 A heading is worth avoiding for a third reason, which fails differently again. A
 ``.. contents::`` directive links every heading it lists — in its own list and in
@@ -153,9 +155,10 @@ the heading itself — and it does so after the citation has already become a li
 so the page ends up with one anchor inside another. That is invalid HTML, which a
 browser restructures silently, and Sphinx reports nothing: only the check on the
 built HTML notices. Writing a citation inside a link yourself is the same
-collision from the other side and is *not* an error — the build leaves such a
-citation as plain text rather than nesting a link in a link, which is why it is
-reported as neither.
+collision from the other side, and in body prose it is *not* an error — the build
+leaves such a citation as plain text rather than nesting a link in a link, and
+your own link is the one the reader follows. In a heading it is reported, for the
+reason above.
 
 A pre-commit hook checks that every citation names an anchor that exists, and the
 documentation build checks that every rendered citation became a link. Both are

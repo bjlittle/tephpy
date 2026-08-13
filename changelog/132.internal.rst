@@ -6,7 +6,12 @@ offered a link to the section the citation sits in rather than to the one it nam
 one anchor from another. ``tephpy_citation_xrefs`` now warns as it converts such a
 citation, naming the heading, which ``--fail-on-warning`` turns into a failure. The
 citation is still converted, so nothing renders differently; a table, topic or
-admonition caption is unaffected, being copied into no navigation.
+admonition caption is unaffected, being copied into no navigation. What is reported
+is wider than what is converted: a citation the author wrapped in a link by hand is
+left alone, because nesting anchors is invalid HTML, but it is reported from a
+heading all the same — Sphinx builds that navigation with a filter that discards an
+author's link exactly as it discards the build's. A citation quoted as a literal
+survives into the navigation as one and stays silent.
 
 The notebook branch of the citation pre-commit gate is now exercised by a notebook
 ``nbformat`` wrote (:issue:`95`). It locates a source line by searching for the

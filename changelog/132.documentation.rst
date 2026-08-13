@@ -8,4 +8,5 @@ counting to the gates, which are current by construction; the figures that stay
 record what was measured when a decision was taken, and say so. docs spec §4
 states the rule, so a figure written later is judged by it rather than by this
 change. The documentation style guide now also warns against citing a section in a
-heading, which the build reports (:issue:`96`). (:user:`claude`)
+heading, which the build reports even where the author wrote the link themselves
+(:issue:`96`). (:user:`claude`)

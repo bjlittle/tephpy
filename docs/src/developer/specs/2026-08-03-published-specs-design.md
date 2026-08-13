@@ -356,10 +356,11 @@ other way: the hook, which only ever runs in a checkout, reads the module out of
 **What stays plain text.** Literals, code blocks, comments, raw blocks and API signatures
 are left alone, so the `` `spec §3.2` `` that the style guide quotes as an example stays an
 example, and viewcode's listings, which reproduce every docstring citation as verbatim
-Python, are not rewritten. Existing references are skipped too: a citation inside link text would otherwise
-nest one anchor inside another, which is invalid HTML that browsers silently restructure.
-No page does that today, but `[see spec §3.2](…)` is ordinary markdown and costs one entry
-in the skip set to rule out.
+Python, are not rewritten. Existing references are skipped too: a citation inside link text
+would otherwise nest one anchor inside another, which is invalid HTML that browsers silently
+restructure. `[see spec §3.2](…)` is ordinary markdown, and one entry in the skip set rules
+the nesting out whether or not a page is written that way. Skipping is not the same as
+having nothing to say, though, and the paragraph on headings below is where the two part.
 
 One exception is stated because it is not deducible: `autosummary_table` is a rendered
 table that subclasses docutils' `comment` node, and the autoapi module summary sits inside
@@ -442,10 +443,10 @@ citation text that links to the section it sits in rather than to the section it
 every gate is green. Only a page H1 escapes, by accident: it fails as unlinked through
 `<title>` and the breadcrumb, as above.
 
-So the transform reports it where the citation is written. Converting a citation inside a
-section heading logs a warning, which `--fail-on-warning` turns into a failed build
-({issue}`96`), and the citation is converted all the same — the page renders as it always
-did, and the only change is that the build stops. A heading here is a `title` under a
+So the transform reports it where the citation is written. A citation inside a section
+heading logs a warning, which `--fail-on-warning` turns into a failed build ({issue}`96`),
+and the citation is converted all the same — the page renders as it always did, and the
+only change is that the build stops. A heading here is a `title` under a
 `section` and nothing else: the caption of a table, a topic or an admonition is copied into
 no navigation, so a citation in one is a link like any other and warning about it would
 fail a build over a link that works. The message names the heading rather than relying on
@@ -453,6 +454,18 @@ the location printed beside it, because MyST gives a section title no usable lin
 a document title is located as `index.md::`, and a sub-heading was attributed four lines
 early. No citation has ever been written in a heading; this is the authoring rule stated
 above — cite a section in body prose — enforced before the first one is.
+
+**What is reported is wider than what is converted.** A citation the author has already
+wrapped in a link is not converted — nesting anchors is what that skip exists to prevent —
+and from a heading it is reported anyway. Sphinx assembles the navigation with docutils'
+`ContentsFilter`, which treats a `reference` and a `pending_xref` alike: both are dropped
+and their text kept. A hand-written link is therefore stripped exactly where the transform's
+is, and the reader meets the citation under the navigation's own anchor either way. Had the
+report followed the conversion, the skip set would have doubled as a way of writing a
+heading citation that no gate sees — the near miss made invisible instead of reported, which
+is the failure the wider grammar of the output gate above is written to avoid. A literal is
+the one skip that survives into the navigation intact, and `<code>` exempts it at both ends,
+so a heading quoting `` `spec §3.2` `` as an example is silent and stays so.
 
 (docs-spec-3-8)=
 ### 3.8 GitHub references
@@ -785,8 +798,12 @@ after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
   reading those pages too changes the count and not the verdict, every one of them already
   covered by `<pre>`.
 - No citation is written in a section heading, which the transform reports as a warning and
-  `--fail-on-warning` turns into a failed build (§3.7). It is the one placement the output
-  gate scores as linked while the reader meets it unlinked.
+  `--fail-on-warning` turns into a failed build (§3.7) — whether the build would link it or
+  the author linked it by hand, the second being reported without being converted. It is the
+  one placement the output gate scores as linked while the reader meets it unlinked.
+  Mutation shows the pair is load-bearing in both directions: taking the report back to only
+  what the transform converts fails the hand-linked case and no other, and widening it to
+  every skipped citation fails the literal case and no other.
 - No bare `#N` and no hand-written `bjlittle/tephpy` issue or pull-request URL survives in
   the corpus (§3.8), and every reference renders as a link on the built specification
   pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
@@ -837,7 +854,8 @@ Settled since:
 - **Resolved** (2026-08-13, PR {pull}`132`) — **the counts this document recorded drifted
   silently.** Every figure measured from content a pull request can change — the §3.2 table
   and the resolving counts beside it, the citations naming one section in §3.3, the section
-  signs and the link totals in §3.7 and §6 — has been replaced by the invariant behind it
+  signs and the link totals in §3.7 and §6, and the zero pages §3.7 counted as writing a
+  citation inside a link — has been replaced by the invariant behind it
   and the way to obtain the number. What remains is stated in the past tense and anchored to
   the decision it was measured for. §4 carries the rule, so a figure added later is judged
   by it rather than by this entry.
@@ -846,7 +864,10 @@ Settled since:
   navigation without the anchor, and the output gate counts the navigation's own link and
   scores it linked. The transform warns instead, which fails the build where the citation is
   written; teaching the gate to tell its own cross-references from any other link was
-  rejected as the coupling §3.7 exists to avoid.
+  rejected as the coupling §3.7 exists to avoid. The report covers a citation the author
+  linked by hand, which the transform skips rather than converts: the navigation strips that
+  link the same way, so following the conversion would have left the skip set as a way of
+  writing the defect unseen.
 
 (docs-spec-8)=
 ## 8. References
