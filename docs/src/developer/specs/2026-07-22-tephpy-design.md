@@ -938,9 +938,10 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   `ci-citation` (validate `CITATION.cff`), **CodeQL**, pre-commit.ci, dependabot
   (github-actions + pip, grouped).
 - **Fast-follow (documented, not built at v1):** `ci-locks` (weekly lockfile-update bot),
-  `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily pip-only install
-  canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS paper build. The
-  spec records these so the gap is a deliberate schedule, not an omission.
+  `ci-floors` (weekly declared-minimum resolve, the other end of the same declaration —
+  floors spec §1), `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily
+  pip-only install canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS
+  paper build. The spec records these so the gap is a deliberate schedule, not an omission.
 
 (spec-8-8)=
 ### 8.8 Repo hygiene and community files

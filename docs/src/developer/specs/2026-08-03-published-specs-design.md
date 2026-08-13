@@ -76,7 +76,9 @@ docs/src/developer/
     ├── 2026-07-22-tephpy-design.md
     ├── 2026-08-01-add-logo-design.md
     ├── 2026-08-03-published-specs-design.md
-    └── 2026-08-07-config-file-design.md
+    ├── 2026-08-07-config-file-design.md
+    ├── 2026-08-12-config-domain-validation-design.md
+    └── 2026-08-13-dependency-floors-design.md
 ```
 
 `docs/Makefile` sets `SOURCEDIR = src`, so both directories sit inside the source tree and
@@ -115,6 +117,8 @@ must state two things a reader cannot infer from any single document:
   | `logo spec §…` | `2026-08-01-add-logo-design.md` |
   | `docs spec §…` | this document |
   | `configfile spec §…` | `2026-08-07-config-file-design.md` |
+  | `domain spec §…` | `2026-08-12-config-domain-validation-design.md` |
+  | `floors spec §…` | `2026-08-13-dependency-floors-design.md` |
 
   The table names the members and counts nothing, per §4. How many citations name each
   document is a fact about the corpus on the day it is read, and there are two such facts
@@ -171,9 +175,9 @@ slugs collide silently: spec §7 *Testing* and spec §8.5
 anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
 derived from prose are unstable under exactly the edits a living document invites.
 
-The prefixes are `spec-`, `logo-spec-`, `docs-spec-` and `configfile-spec-`, matching the
-citation prefixes in §3.2 with spaces replaced by hyphens — one per document in the table
-there, and a new specification adds its own. Sphinx labels are global, so the prefix is what
+The prefixes are `spec-`, `logo-spec-`, `docs-spec-`, `configfile-spec-`, `domain-spec-` and
+`floors-spec-`, matching the citation prefixes in §3.2 with spaces replaced by hyphens — one
+per document in the table there, and a new specification adds its own. Sphinx labels are global, so the prefix is what
 keeps `spec-3-2` and `logo-spec-3-2` distinct.
 
 (docs-spec-3-4)=

@@ -28,6 +28,8 @@ counterpart in the parent specification.
       - :doc:`2026-08-07-config-file-design`
     * - ``domain spec §…``
       - :doc:`2026-08-12-config-domain-validation-design`
+    * - ``floors spec §…``
+      - :doc:`2026-08-13-dependency-floors-design`
 
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
@@ -46,3 +48,4 @@ before implementation and is not updated afterwards.
     2026-08-03-published-specs-design
     2026-08-07-config-file-design
     2026-08-12-config-domain-validation-design
+    2026-08-13-dependency-floors-design
