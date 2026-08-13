@@ -63,3 +63,53 @@ jobs:
         run: >
           pixi run --environment floors-docs
           python .github/scripts/check_documentation_links.py docs/_build/html
+
+  # The other declaration site of floors spec §3.1. It needs no generated pins:
+  # `--resolution lowest-direct` reads the floors straight from the requirements
+  # files. It is also a genuinely different test -- `lowest-direct` will lift a
+  # direct requirement above its floor to make the set resolve, where the conda
+  # half's `==` pins cannot -- so the two halves are expected to disagree, and
+  # both verdicts are correct about their own claim (floors spec §3.3).
+  pypi:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tier: "core-test"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-test.txt
+          - tier: "docs"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-docs.txt
+          - tier: "devs"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-devs.txt
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          run-install: false
+      - name: Create the interpreter
+        run: pixi exec --spec uv uv venv --python 3.12 .venv-floors
+      - name: Install at the floors
+        run: >
+          pixi exec --spec uv uv pip install --python .venv-floors
+          --resolution lowest-direct ${{ matrix.requirements }} .
+      - name: Record what resolved
+        run: >
+          pixi exec --spec uv uv pip freeze --python .venv-floors
+          >> "$GITHUB_STEP_SUMMARY"
+      # `docs` and `devs` are installed and not run, matching the conda half:
+      # the documentation build needs `make`, which the pip declaration
+      # deliberately does not carry (floors spec §3.1), and the linters report
+      # their own rule sets (floors spec §3.3).
+      - name: Run the test suite
+        if: matrix.tier == 'core-test'
+        run: .venv-floors/bin/python -m pytest
