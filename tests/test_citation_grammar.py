@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import sys
 
+import nbformat
 import pytest
 
 REPO = Path(__file__).parents[1]
@@ -258,45 +259,70 @@ def test_the_span_indexes_the_source():
     assert citation.number == "3.2"
 
 
-NOTEBOOK = {
-    "cells": [
-        {
-            "cell_type": "markdown",
-            "metadata": {},
-            "source": [
-                "Prose citing spec @3.2.\n",
-                "\n",
-                "```python\n",
-                "# spec @9999 inside a fence\n",
-                "```\n",
-            ],
-        },
-        {
-            "cell_type": "code",
-            "metadata": {},
-            "execution_count": None,
-            "outputs": [
-                {
-                    "name": "stdout",
-                    "output_type": "stream",
-                    "text": ["generated output naming spec @8888\n"],
-                }
-            ],
-            "source": ["# code comment citing spec @3.1\n", "print('hi')"],
-        },
-        {"cell_type": "raw", "metadata": {}, "source": ["raw cell spec @7777\n"]},
-    ],
-    "metadata": {},
-    "nbformat": 4,
-    "nbformat_minor": 5,
-}
+MARKDOWN = cite(
+    "Prose citing spec @3.2.\n\n```python\n# spec @9999 inside a fence\n```\n"
+)
+CODE = cite("# code comment citing spec @3.1\nprint('hi')")
+OUTPUT = cite("generated output naming spec @8888\n")
+RAW = cite("raw cell spec @7777\n")
 
 
 def notebook(tmp_path):
-    """Write the fixture notebook the way ``nbformat`` would, and return its path."""
+    """Write the fixture notebook with ``nbformat``, and return its path.
+
+    Written by the writer rather than in its likeness (:issue:`95`). The
+    line-location logic of ``notebook_lines`` finds each source line by searching
+    forward for its JSON-encoded form, "which ``nbformat`` writes one to a
+    physical line" -- an assumption about a package this repository does not
+    control, which a fixture built by hand can only restate.
+    """
+    nb = nbformat.v4.new_notebook(
+        cells=[
+            nbformat.v4.new_markdown_cell(MARKDOWN),
+            nbformat.v4.new_code_cell(
+                CODE,
+                outputs=[nbformat.v4.new_output("stream", name="stdout", text=OUTPUT)],
+            ),
+            nbformat.v4.new_raw_cell(RAW),
+        ]
+    )
     path = tmp_path / "probe.ipynb"
-    path.write_text(cite(json.dumps(NOTEBOOK, indent=1)), encoding="utf-8")
+    nbformat.write(nb, path)
     return path
+
+
+def test_a_line_is_reported_where_nbformat_wrote_it(tmp_path):
+    r"""The assumption the line numbers rest on, asked of ``nbformat`` itself.
+
+    Two properties of the writer, neither of them ours: each authored line is
+    JSON-encoded onto a physical line of its own, so searching forward finds it;
+    and the section sign is written literally, because ``nbformat`` serializes
+    with ``ensure_ascii=False``. Were it escaped as a ``\u00a7`` instead, no
+    citation-bearing line would ever be located, and every violation in a
+    notebook would be reported against the line before it -- a gate still
+    printing its violation, pointing an editor at the wrong place. A fixture
+    built by hand cannot fail either way, because it is the imitation being
+    checked (docs spec §3.6).
+    """
+    path = notebook(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    raw = text.splitlines()
+    located = list(citations.source_lines(path, text))
+
+    assert SECTION in text, "the writer escaped the section sign out of the fixture"
+    cited = [line for _number, line in located if SECTION in line]
+    assert cited, "no citation reaches the reader, so nothing above is exercised"
+    numbers = [number for number, _line in located]
+    assert numbers == sorted(numbers)  # the cursor only ever moves forward
+    # One authored line to a physical line, which containment alone does not say:
+    # a writer emitting each cell's `source` as one string on one line satisfies
+    # every assertion below -- every authored line is a substring of that line --
+    # while reporting a whole cell against its opening. `nbformat` writes one to
+    # a line today, and this is where a version that stopped would be caught.
+    assert len(set(numbers)) == len(numbers), "two lines share one line of the file"
+    for number, line in located:
+        encoded = json.dumps(line, ensure_ascii=False)[1:-1]
+        assert encoded in raw[number - 1], f"line {number} does not carry {line!r}"
 
 
 def read(path):

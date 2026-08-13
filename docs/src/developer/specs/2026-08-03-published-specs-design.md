@@ -13,10 +13,10 @@
 (docs-spec-1)=
 ## 1. Purpose
 
-`src/` and `tests/` carry `spec §…` citations in the hundreds — §3.2 counts them, and is the
-one place that does. Until now the documents they cite never entered the docs build, so a
-reader on Read the Docs met a reference to something that, from where they were standing,
-did not exist — on twelve published API reference pages.
+`src/` and `tests/` carry `spec §…` citations in the hundreds, and §3.2 says how to count
+them. Until now the documents they cite never entered the docs build, so a reader on Read
+the Docs met a reference to something that, from where they were standing, did not exist —
+on twelve published API reference pages.
 
 This specification closes that gap and states the conventions that keep it closed. It has
 two halves, and only the first is a migration:
@@ -92,8 +92,8 @@ introduced link to `../specs/` — every plan carries one — and the parent spe
 to the plans in the other direction. Any layout that published the specifications while
 leaving the plans elsewhere would break one direction and not the other, which is the
 confusing failure. Stating it as "every plan" rather than as a count is deliberate: the
-number was twelve when this was written and grows with the repository, and a figure that
-has to be re-measured to stay true is the defect {issue}`94` records.
+number was twelve when this was written and grows with the repository, and §4 rules out a
+figure that has to be re-measured to stay true.
 
 `docs/superpowers/` no longer exists. The superpowers skills default to writing
 specifications and plans there, and their own instructions state that a user preference
@@ -109,21 +109,20 @@ must state two things a reader cannot infer from any single document:
   current, and to report a divergence from the code as a specification defect.
 - **The citation namespace has more than one member.** The prefix identifies the document:
 
-  | citation | document | in `src/` and `tests/` |
-  |---|---|---|
-  | `spec §…` | `2026-07-22-tephpy-design.md` | 329 |
-  | `logo spec §…` | `2026-08-01-add-logo-design.md` | 24 |
-  | `docs spec §…` | this document | 58 |
-  | `configfile spec §…` | `2026-08-07-config-file-design.md` | 66 |
+  | citation | document |
+  |---|---|
+  | `spec §…` | `2026-07-22-tephpy-design.md` |
+  | `logo spec §…` | `2026-08-01-add-logo-design.md` |
+  | `docs spec §…` | this document |
+  | `configfile spec §…` | `2026-08-07-config-file-design.md` |
 
-  The column is named rather than left as a bare "count" so the figures can be reproduced
-  and seen to have drifted: they are occurrences of the literal prefixed form under
-  `src/` and `tests/`, which is not the same quantity as the citations *resolving* to each
-  document — 558, 40, 173 and 105 across the whole corpus, once the bare and compound forms
-  below are counted too. That second set is reproduced by tallying `citations.scan` over
-  `check_citations.corpus()`, keyed by the document each resolved anchor sits in; it is the
-  gate of §3.6 counting rather than reporting. Both sets have to be re-measured to stay true,
-  which is the defect {issue}`94` records against this document's other figures.
+  The table names the members and counts nothing, per §4. How many citations name each
+  document is a fact about the corpus on the day it is read, and there are two such facts
+  rather than one: occurrences of the literal prefixed form, and citations *resolving* to
+  the document once the bare and compound forms below are counted too. Either is obtained by
+  tallying `tephpy_citations.scan` over `check_citations.corpus()` — for the second, keyed by
+  the document each resolved anchor sits in — which is the gate of §3.6 counting rather than
+  reporting.
 
   The prefix is load-bearing, not decorative: `logo spec §3.6` names a section that has no
   counterpart in the parent specification, so a reader who ignores the prefix lands in the
@@ -142,7 +141,7 @@ means the *containing document's* §N:
 > **A bare `§N` means this document. A reference to any other document names it.**
 
 Inside a specification the bare form is the ordinary way to point at a neighbouring
-section, and the parent uses it 130 times. Outside the collection it is always an error:
+section, and the parent uses it throughout. Outside the collection it is always an error:
 `src/` and `tests/` own no sections, so a bare `§N` in a docstring has nothing to be
 relative to and is read as the parent's only by habit. Stating the rule this way is what
 makes the unqualified form *safe* — its meaning is fixed by where it is written rather
@@ -165,9 +164,9 @@ addresses spec §3.2 directly.
 
 Two reasons this is not optional. First, docutils derives its slug from the heading *text*
 and discards the number, so `### 3.2 \`plotting\`` would otherwise be addressable only as
-`#plotting` — and 160 citations point at that one section of a document that renders to
-180 KB of HTML. A citation that resolves to the top of a page that long has not really
-resolved. Second, prose-derived slugs collide silently: spec §7 *Testing* and spec §8.5
+`#plotting`. Each specification renders as one long page, so a citation landing at the top
+of it rather than at the section it names has not really resolved. Second, prose-derived
+slugs collide silently: spec §7 *Testing* and spec §8.5
 *Testing* produced the same slug, and docutils disambiguated the second to `id1` — an
 anchor that silently becomes `id2` the moment a heading is inserted above it. Anchors
 derived from prose are unstable under exactly the edits a living document invites.
@@ -287,6 +286,17 @@ read at all, being generated rather than authored — and left plain by §3.7 fo
 reason. Keying the rule to the `.md` suffix instead would reintroduce, for the first
 notebook that documents this convention, exactly the failure the paragraph above describes.
 
+What a notebook costs is the line number. The file on disk is JSON, so a violation is
+reported against the line the cell's source occupies there, located by searching forward
+for the JSON-encoded form of the authored line. That rests on two properties of nbformat's
+writer, neither of them this repository's to guarantee: one authored line is written to one
+physical line, and the section sign is written literally rather than escaped. A writer that
+stopped doing either would leave every citation-bearing line unlocatable and every violation
+in a notebook reported against the line before it — still printed, still failing, pointing
+an editor at the wrong place. So the fixture that exercises this path is written by nbformat
+rather than in its likeness ({issue}`95`); one built by hand is the imitation being checked,
+and cannot fail when the imitation stops being accurate.
+
 The corpus is derived as well: every text file the repository tracks, less the plans,
 which are point-in-time records (§3.4) whose citations are frozen with them, so a
 renumbering is not a defect in a plan. Naming the corpus by glob would fail exactly the way a declared
@@ -322,13 +332,14 @@ reason that follows directly from §3.6's closing paragraph. A hand-written
 `` :ref:`spec §3.2 <logo-spec-3-2>` `` has the right display text and the wrong target,
 and *both* halves are invisible: the citation checker reads the text and sees a
 well-formed `spec §3.2`, and Sphinx resolves the target and finds an anchor that exists,
-so the build stays clean. Hand-authoring 95 targets would therefore manufacture 95 fresh
-opportunities for exactly the wrong-but-resolving failure that §3.6 says it cannot catch
-and that the `design: open` issues already demonstrated. Deriving the target from the text
-removes the class outright: there is only one string, so the text and the target cannot
-disagree. The mechanical cost pointed the same way — a role adds eighteen characters, which
-pushes 30 of the 96 affected lines past the 88-column limit, and 13 of those are docstring
-summary lines where wrapping trips numpydoc's one-line-summary rule.
+so the build stays clean. Hand-authoring the targets would therefore manufacture one fresh
+opportunity per citation for exactly the wrong-but-resolving failure that §3.6 says it
+cannot catch and that the `design: open` issues already demonstrated. Deriving the target
+from the text removes the class outright: there is only one string, so the text and the
+target cannot disagree. The mechanical cost pointed the same way — a role adds eighteen
+characters, which when the decision was taken pushed 30 of the 96 affected lines past the
+88-column limit, 13 of them docstring summary lines where wrapping trips numpydoc's
+one-line-summary rule.
 
 **One definition of what a citation is.** The transform and the §3.6 hook share a single
 grammar module, rather than each carrying its own regular expression. Two definitions
@@ -344,15 +355,17 @@ other way: the hook, which only ever runs in a checkout, reads the module out of
 
 **What stays plain text.** Literals, code blocks, comments, raw blocks and API signatures
 are left alone, so the `` `spec §3.2` `` that the style guide quotes as an example stays an
-example, and viewcode's verbatim source listings — 203 section signs of Python — are not
-rewritten. Existing references are skipped too: a citation inside link text would otherwise
-nest one anchor inside another, which is invalid HTML that browsers silently restructure.
-No page does that today, but `[see spec §3.2](…)` is ordinary markdown and costs one entry
-in the skip set to rule out.
+example, and viewcode's listings, which reproduce every docstring citation as verbatim
+Python, are not rewritten. Existing references are skipped too: a citation inside link text
+would otherwise nest one anchor inside another, which is invalid HTML that browsers silently
+restructure. `[see spec §3.2](…)` is ordinary markdown, and one entry in the skip set rules
+the nesting out whether or not a page is written that way. Skipping is not the same as
+having nothing to say, though, and the paragraph on headings below is where the two part.
 
 One exception is stated because it is not deducible: `autosummary_table` is a rendered
 table that subclasses docutils' `comment` node, and the autoapi module summary sits inside
-one, so a transform that skips comments silently skips 17 citations that a reader does see.
+one, so a transform that skips comments silently skips every citation in it — and a reader
+does see them.
 
 **The source format does not matter.** The transform runs on the doctree, after parsing, so
 it never sees markdown, reStructuredText or a notebook — only nodes. Citations therefore
@@ -417,6 +430,42 @@ finds it, which is the case for the output gate that neither the transform nor �
 make. So it is reported as its own bucket, with its own advice, and the two directions are
 described the way the scanner sees them: two anchors is the failure, one anchor is the
 skipped case of the paragraph above, and that one passes.
+
+**A citation in a section heading fails the other way, with everything downstream reporting
+it as fine.** The theme rebuilds its "On this page" sidebar from the headings, keeping the
+inline markup and dropping the anchor, and wraps the copy in the sidebar's own link; an
+in-body toctree at `:maxdepth:` 2 or more does the same, as does an explicitly labelled
+`:ref:` to that heading, which collapses the whole heading into one span inside the
+reference's link. The output gate counts an enclosing `<a>`, finds one, and scores the
+citation linked — it is written not to know one anchor from another, and teaching it to
+recognise the transform's own is the coupling this section rejects. The reader is offered
+citation text that links to the section it sits in rather than to the section it names, and
+every gate is green. Only a page H1 escapes, by accident: it fails as unlinked through
+`<title>` and the breadcrumb, as above.
+
+So the transform reports it where the citation is written. A citation inside a section
+heading logs a warning, which `--fail-on-warning` turns into a failed build ({issue}`96`),
+and the citation is converted all the same — the page renders as it always did, and the
+only change is that the build stops. A heading here is a `title` under a
+`section` and nothing else: the caption of a table, a topic or an admonition is copied into
+no navigation, so a citation in one is a link like any other and warning about it would
+fail a build over a link that works. The message names the heading rather than relying on
+the location printed beside it, because MyST gives a section title no usable line number —
+a document title is located as `index.md::`, and a sub-heading was attributed four lines
+early. No citation has ever been written in a heading; this is the authoring rule stated
+above — cite a section in body prose — enforced before the first one is.
+
+**What is reported is wider than what is converted.** A citation the author has already
+wrapped in a link is not converted — nesting anchors is what that skip exists to prevent —
+and from a heading it is reported anyway. Sphinx assembles the navigation with docutils'
+`ContentsFilter`, which treats a `reference` and a `pending_xref` alike: both are dropped
+and their text kept. A hand-written link is therefore stripped exactly where the transform's
+is, and the reader meets the citation under the navigation's own anchor either way. Had the
+report followed the conversion, the skip set would have doubled as a way of writing a
+heading citation that no gate sees — the near miss made invisible instead of reported, which
+is the failure the wider grammar of the output gate above is written to avoid. A literal is
+the one skip that survives into the navigation intact, and `<code>` exempts it at both ends,
+so a heading quoting `` `spec §3.2` `` as an example is silent and stays so.
 
 (docs-spec-3-8)=
 ### 3.8 GitHub references
@@ -677,6 +726,17 @@ A contributor changing behaviour that a specification section describes updates 
 section in the same pull request. A contributor who finds the code and the specification
 disagreeing has found a specification defect, and reports it as one.
 
+A figure is held to that same contract, and most figures cannot keep it. A number measured
+from content a pull request can change — how many citations resolve to a document, how many
+links a build renders — is true when written and false soon afterwards, with nothing to
+report that it has turned: the gates of §3.6 and §3.7 assert properties, not totals, and a
+count nobody re-measures is a specification defect on a schedule nobody controls. So a
+figure of that kind is not written here. What is written is the invariant and how to obtain
+the number, leaving the counting to whichever gate is current by construction. The one
+figure that stays is the one recording what was measured when a decision was taken: it is
+stated in the past tense, anchored to that decision, and true permanently, because it is a
+fact about the decision rather than about tephpy ({issue}`94`).
+
 An item that cannot be settled now is written into the specification's open-item section —
 spec §10 or spec §11 in the parent, §Scope elsewhere — with a status tag, filed as an
 issue labelled `design: open`, and cited from the item.
@@ -729,14 +789,21 @@ after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds
   to an anchor that exists. This began as a one-off check at implementation time; §3.6
   makes it continuous.
-- No citation-shaped text survives outside a link in the built HTML (§3.7). At the time
-  §3.7 landed that was 312 links, 35 citations left as literals by design, and none
-  unlinked. The literals are fewer than a reader would count from §3.7 above, because the
-  gate does not read `_modules/`: viewcode renders the 203 section signs of Python source
-  verbatim, and they are code rather than prose. Reading those pages too gives 238 literals
-  and the same verdict, every one of them already covered by `<pre>`. Those counts are a
-  one-off record of what the gate found then; the property itself is not beyond the primary
-  gate but part of it, checked on every `pixi run docs`.
+- No citation-shaped text survives outside a link in the built HTML, and none is nested
+  inside a link the build itself made (§3.7). The gate prints what it counted on each run,
+  which is where those numbers belong (§4); the property is not beyond the primary gate but
+  part of it, checked on every `pixi run docs`. It passes more citations as literals than a
+  reader would count from §3.7 above, because it does not read `_modules/`, where viewcode
+  renders the same docstrings verbatim as Python: those are code rather than prose, and
+  reading those pages too changes the count and not the verdict, every one of them already
+  covered by `<pre>`.
+- No citation is written in a section heading, which the transform reports as a warning and
+  `--fail-on-warning` turns into a failed build (§3.7) — whether the build would link it or
+  the author linked it by hand, the second being reported without being converted. It is the
+  one placement the output gate scores as linked while the reader meets it unlinked.
+  Mutation shows the pair is load-bearing in both directions: taking the report back to only
+  what the transform converts fails the hand-linked case and no other, and widening it to
+  every skipped citation fails the literal case and no other.
 - No bare `#N` and no hand-written `bjlittle/tephpy` issue or pull-request URL survives in
   the corpus (§3.8), and every reference renders as a link on the built specification
   pages. At the time §3.8 landed that was 59 references converted — 40 that linked to
@@ -772,16 +839,6 @@ Not in this change:
   published as they stand. The §3.5 pass adds status tags and issue pointers; it does not
   rewrite the reasoning.
 
-Open:
-
-- **Open** ({issue}`94`) — **the counts this document records drift silently.** Every figure
-  here derived from content a pull request can change — the §3.2 table and the resolving
-  counts beside it, the citations naming one section in §3.3, the section signs in §3.7 —
-  is true when written and nothing checks it afterwards. §3.2 says so where the figures
-  are; this entry is the ledger record §3.5 requires, so the item is not visible only to a
-  reader who happens to reach that paragraph. The fix is to quote each gate's invariant and
-  leave the counting to the gate, not to re-measure on a schedule nobody controls.
-
 Settled since:
 
 - **Resolved** (2026-08-04, PR {pull}`89`) — **the citation-integrity hook of §3.6 is in place.**
@@ -791,9 +848,26 @@ Settled since:
   silently to the child's own.
 - **Resolved** (2026-08-04, PR {pull}`90`) — **citations render as cross-references** (§3.7).
   The item was deferred here as "101 rendered citations across 60 public objects"; both
-  figures were wrong, and the measured count is 95 across 54. Neither turned out to be
+  figures were wrong, and the count measured then was 95 across 54. Neither turned out to be
   the number that mattered, because the conversion happens in the doctree rather than in
-  the sources: it reaches every citation the site renders, 312 of them, and edits none.
+  the sources: it reaches every citation the site renders and edits none.
+- **Resolved** (2026-08-13, PR {pull}`132`) — **the counts this document recorded drifted
+  silently.** Every figure measured from content a pull request can change — the §3.2 table
+  and the resolving counts beside it, the citations naming one section in §3.3, the section
+  signs and the link totals in §3.7 and §6, and the zero pages §3.7 counted as writing a
+  citation inside a link — has been replaced by the invariant behind it
+  and the way to obtain the number. What remains is stated in the past tense and anchored to
+  the decision it was measured for. §4 carries the rule, so a figure added later is judged
+  by it rather than by this entry.
+- **Resolved** (2026-08-13, PR {pull}`132`) — **a citation in a section heading reached the
+  reader unlinked with every gate green** (§3.7). The theme copies the heading into its page
+  navigation without the anchor, and the output gate counts the navigation's own link and
+  scores it linked. The transform warns instead, which fails the build where the citation is
+  written; teaching the gate to tell its own cross-references from any other link was
+  rejected as the coupling §3.7 exists to avoid. The report covers a citation the author
+  linked by hand, which the transform skips rather than converts: the navigation strips that
+  link the same way, so following the conversion would have left the skip set as a way of
+  writing the defect unseen.
 
 (docs-spec-8)=
 ## 8. References
@@ -803,6 +877,8 @@ Settled since:
 - {issue}`85` — render citations as cross-references
 - {issue}`86` — the citation-integrity gate
 - {issue}`94` — the citation counts recorded in this document drift silently
+- {issue}`95` — the notebook citation path is verified only against hand-built fixtures
+- {issue}`96` — a citation in a section heading fails silently
 - {issue}`114` — nothing executes the code examples in the how-to guides
 - {issue}`116` — a configuration value of the right type is not checked for validity
 - [`bjlittle/geovista`](https://github.com/bjlittle/geovista) — the developer-section precedent

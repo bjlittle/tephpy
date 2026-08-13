@@ -413,6 +413,36 @@ def test_the_defaults_come_from_sources(tmp_path, monkeypatch, capsys):
     assert "nowhere/missing.md" in out
 
 
+def test_sources_resolve_against_the_repository_not_the_cwd(
+    tmp_path, monkeypatch, capsys
+):
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+    found = gate.links(text)
+    # Without a link in it the README is found and then read for nothing, and the
+    # run below would pass on having located the file alone.
+    assert found, "README.md carries no documentation link for this test to resolve"
+    pages = {page: set() for page, _ in found}
+    for page, anchor in found:
+        if anchor:
+            pages[page].add(anchor)
+    root = build(
+        tmp_path, {page: terms(*sorted(names)) for page, names in pages.items()}
+    )
+    monkeypatch.setattr(gate, "SOURCES", ("README.md",))
+    # Run from somewhere holding no README, which is what the anchoring is for: a
+    # SOURCES entry is documented as relative to the repository root, and nothing
+    # else here ever leaves it, since every other case names its source on the
+    # command line -- the branch that deliberately does not anchor.
+    monkeypatch.chdir(tmp_path)
+    code, out = run(monkeypatch, capsys, root)
+    # Resolved against the working directory instead, every entry becomes "no such
+    # file": an exit 1 that reads as a broken link and is a broken invocation, and
+    # a run from a pixi task, a hook or `docs/` would meet it rather than CI.
+    assert "no such file" not in out
+    assert code == 0
+    assert f"{len(found)} checked across 1 source" in out
+
+
 def test_every_listed_source_exists():
     # SOURCES names files by path. A rename that misses this list turns the check
     # into "no such file" on the next run -- a failure, but not the one anyone is

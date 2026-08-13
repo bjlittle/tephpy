@@ -1,0 +1,12 @@
+The published-specifications design no longer records counts that go stale
+(:issue:`94`). Every figure it measured from content a pull request can change —
+how many citations name each specification, how many links the build renders, how
+many the transform leaves plain — was true when written, and nothing reported that
+it had turned, in a document whose readers are invited to trust it. Each is
+replaced by the invariant behind it and the way to obtain the number, leaving the
+counting to the gates, which are current by construction; the figures that stay
+record what was measured when a decision was taken, and say so. docs spec §4
+states the rule, so a figure written later is judged by it rather than by this
+change. The documentation style guide now also warns against citing a section in a
+heading, which the build reports even where the author wrote the link themselves
+(:issue:`96`). (:user:`claude`)

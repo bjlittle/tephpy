@@ -35,6 +35,7 @@ from sphinx import addnodes
 from sphinx.errors import ExtensionError
 from sphinx.ext.autosummary import autosummary_table
 from sphinx.transforms import SphinxTransform
+from sphinx.util import logging
 import tephpy_citations
 
 if TYPE_CHECKING:
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
 
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
+
+logger = logging.getLogger(__name__)
 
 #: Text inside any of these stays plain (docs spec §3.7). ``reference`` and
 #: ``pending_xref`` are on the list because a citation appearing in link text
@@ -55,6 +58,12 @@ SKIP = (
     addnodes.desc_signature,
     addnodes.pending_xref,
 )
+
+#: The members of :data:`SKIP` that skip a citation because it is already a link.
+#: Not converting one is not the same as having nothing to say about it: in a
+#: section heading it loses that link exactly where the transform's own is lost
+#: (:func:`_heading`), so it is reported and still left alone (:issue:`96`).
+LINKS = (nodes.reference, addnodes.pending_xref)
 
 #: Derived once per build from the anchors on disk, and read by every transform.
 #: Populated by :func:`_build_registry` on ``builder-inited``, which runs before
@@ -82,15 +91,53 @@ class CitationTransform(SphinxTransform):
             return
         owner = OWNERS.get(self.env.docname)
         for text in list(self.document.findall(nodes.Text)):
-            if _skipped(text):
+            blocker = _blocker(text)
+            if blocker is not None and not isinstance(blocker, LINKS):
                 continue
             replacement = _convert(str(text), owner, self.env.docname)
-            if replacement is not None:
+            if replacement is None:
+                continue
+            heading = _heading(text)
+            if heading is not None:
+                logger.warning(
+                    "citation in the section heading %r does not reach the reader "
+                    "as a link to the section it names: the theme rebuilds the page "
+                    "navigation from the headings, keeping the citation's text and "
+                    "dropping its anchor, and the output gate counts the "
+                    "navigation's own link. Cite the specification in the prose "
+                    "below the heading instead (docs spec §3.7)",
+                    heading.astext(),
+                    location=text,
+                    type="tephpy",
+                    subtype="citation",
+                )
+            if blocker is None:
                 text.parent.replace(text, replacement)
 
 
-def _skipped(node: nodes.Node) -> bool:
-    """Report whether ``node`` sits inside something that must stay plain.
+def _heading(node: nodes.Node) -> nodes.title | None:
+    """Return the section heading ``node`` sits in, or ``None`` (:issue:`96`).
+
+    A citation here is converted like any other, so the page reads as it always
+    did; what it cannot be is a link to the section it names. The theme rebuilds
+    its "On this page" navigation from the headings, copying the inline markup
+    but not the anchor, and wrapping the copy in the navigation's own link -- at
+    which point the rendered-citation gate of docs spec §3.7 counts an enclosing
+    ``<a>`` and scores it linked. That gate is written not to know one anchor from
+    another, so the build has to say so where the citation is written.
+
+    Writing the link by hand does not escape it. Sphinx builds that navigation
+    with docutils' ``ContentsFilter``, which treats a ``reference`` and a
+    ``pending_xref`` alike -- both are dropped and their text kept -- so an
+    author's own link is stripped exactly where the transform's is. Such a
+    citation is reported and still not converted, since converting it would nest
+    one anchor inside another (:data:`LINKS`).
+
+    Only a section heading qualifies, and deliberately not every ``title``: the
+    caption of a table, an admonition or a topic is not copied into the
+    navigation, so a citation in one is a link like any other. Sphinx disables
+    the docutils title transforms, so a heading is always a ``title`` directly
+    under a ``section``.
 
     Parameters
     ----------
@@ -99,18 +146,50 @@ def _skipped(node: nodes.Node) -> bool:
 
     Returns
     -------
-    bool
-        Whether to leave the node alone.
+    docutils.nodes.title or None
+        The heading, whose text names the offender for a reader of the warning.
+        MyST gives a section title no usable line number, so the message cannot
+        rely on the location Sphinx prints beside it.
+
+    """
+    parent = node.parent
+    while parent is not None:
+        if isinstance(parent, nodes.title) and isinstance(parent.parent, nodes.section):
+            return parent
+        parent = parent.parent
+    return None
+
+
+def _blocker(node: nodes.Node) -> nodes.Node | None:
+    """Return the nearest ancestor that keeps ``node`` plain, or ``None``.
+
+    The ancestor is returned rather than a yes-or-no answer because the caller
+    treats one class of them differently: a citation left plain because it is
+    already a link is still worth reporting from a heading, and one left plain
+    because it is a literal is not (:data:`LINKS`).
+
+    Parameters
+    ----------
+    node : docutils.nodes.Node
+        The text node under consideration.
+
+    Returns
+    -------
+    docutils.nodes.Node or None
+        The innermost enclosing member of :data:`SKIP`, or ``None`` when the node
+        is ordinary prose. Innermost, so that a citation inside a literal inside a
+        link answers with the literal.
 
     """
     parent = node.parent
     while parent is not None:
         # ``autosummary_table`` subclasses ``comment`` but is a rendered table,
-        # and the autoapi module summary -- 17 citations -- lives inside one.
+        # and the autoapi module summary lives inside one, so skipping every
+        # comment would skip citations a reader does see (docs spec §3.7).
         if not isinstance(parent, autosummary_table) and isinstance(parent, SKIP):
-            return True
+            return parent
         parent = parent.parent
-    return False
+    return None
 
 
 def _convert(source: str, owner: str | None, docname: str) -> list[nodes.Node] | None:

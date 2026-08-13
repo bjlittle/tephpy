@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 from pathlib import Path
 import sys
 import types
@@ -23,6 +24,18 @@ EXT = SRC / "_ext"
 # is importable in the default environment, which is what `pixi run tests`
 # resolves to, so these run for anyone using the project's own test command.
 pytest.importorskip("sphinx", reason="the docs feature is not installed here")
+
+# The doctree the transform reads, from the same packages it reads it with. Neither
+# is importable at the top of this module, for the reason the line above is not:
+# both arrive with Sphinx.
+addnodes = pytest.importorskip("sphinx.addnodes")
+nodes = pytest.importorskip("docutils.nodes")
+new_document = pytest.importorskip("docutils.utils").new_document
+
+#: A citation that resolves, so that the transform converts it rather than passing
+#: over it, and the tests below are about where it sits and not what it says.
+CITED = "docs spec §3.7"
+TITLED = f"Rendering and {CITED}"
 
 # `_ext` is a `sys.path` entry at build time rather than a package, so the module
 # resolves its sibling `tephpy_citations` by top-level name and cannot be imported
@@ -63,6 +76,20 @@ def outdated(environment, added=frozenset(), changed=frozenset()):
     return cx._outdated(None, environment, added, changed, frozenset())
 
 
+def document(*children: nodes.Node):
+    """Return as much of a parsed document as the transform reads."""
+    doc = new_document("probe.md")
+    doc.settings.env = types.SimpleNamespace(docname="probe")
+    doc.extend(children)
+    return doc
+
+
+def rewrite(doc):
+    """Run the transform over ``doc``, and return the anchors it linked."""
+    cx.CitationTransform(doc).apply()
+    return [xref["reftarget"] for xref in doc.findall(addnodes.pending_xref)]
+
+
 class Registrar:
     """Record what ``setup`` asks of the application, which is all it does."""
 
@@ -88,6 +115,161 @@ def registry():
     cx.FINGERPRINT = fingerprint
     cx.OWNERS.clear()
     cx.OWNERS.update(owners)
+
+
+@pytest.fixture
+def warned():
+    """Collect what the transform reports, without standing up a build to do it.
+
+    Attached to the extension's own logger rather than read from ``caplog``, which
+    reaches records through the root: Sphinx stops its namespace propagating there
+    the moment any build in the process calls ``sphinx.util.logging.setup``.
+    """
+    reported = []
+
+    class Collect(logging.Handler):
+        """Keep the message, which is the whole of what the assertions read."""
+
+        def emit(self, record):
+            """Record one message."""
+            reported.append(record.getMessage())
+
+    logger = logging.getLogger(cx.logger.logger.name)
+    handler = Collect()
+    level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    yield reported
+    logger.setLevel(level)
+    logger.removeHandler(handler)
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_in_a_section_heading_is_reported(warned):
+    """The one place a converted citation is not a link the reader can follow.
+
+    The theme rebuilds its page navigation from the headings, keeping the text and
+    dropping the anchor, so the reader is offered the citation as a link to the
+    section it is written in. The rendered-citation gate of docs spec §3.7 counts
+    an enclosing ``<a>`` and scores that linked, by a limitation it declares, so a
+    heading citation reaches the reader unlinked with every gate green
+    (:issue:`96`). It is converted all the same: the page renders as it did, and
+    the build fails through ``--fail-on-warning`` where the citation is written.
+    """
+    cx._build_registry(app(SRC))
+    heading = nodes.title("", "", nodes.Text(TITLED))
+    doc = document(nodes.section("", heading, ids=["rendering"]))
+
+    linked = rewrite(doc)
+
+    assert linked == ["docs-spec-3-7"], "the heading stopped being converted"
+    (message,) = warned
+    # Naming the heading is not decoration. MyST gives a section title no usable
+    # line number -- a document title is located as `index.md::` and a sub-heading
+    # was mis-attributed four lines early -- so the location Sphinx prints beside
+    # this message is not what an author would find the citation by.
+    assert TITLED in message, "the warning does not say which heading it is about"
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_in_prose_is_not_reported(warned):
+    """Where citations belong, and where every one in the corpus is today.
+
+    A warning here would fail the whole docs build on the ordinary case, which is
+    the failure mode of the fix rather than of the defect.
+    """
+    cx._build_registry(app(SRC))
+    doc = document(nodes.paragraph("", "", nodes.Text(TITLED)))
+
+    linked = rewrite(doc)
+
+    assert linked == ["docs-spec-3-7"], "the fixture cites nothing this build links"
+    assert warned == []
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_linked_by_hand_in_a_section_heading_is_reported(warned):
+    """The same defect reached from the other side, where the skip set hides it.
+
+    A citation inside link text is left plain, so that converting it cannot nest
+    one anchor inside another. In a heading that skip used to take the warning
+    with it, and the failure is unchanged: Sphinx builds the page navigation with
+    docutils' ``ContentsFilter``, whose ``visit_reference`` and
+    ``visit_pending_xref`` are both ``ignore_node_but_process_children``, so an
+    author's own link is dropped there exactly as the transform's is. Reporting
+    it is not conversion -- the citation must still reach the page as written.
+    """
+    cx._build_registry(app(SRC))
+    linkage = nodes.reference("", CITED, refuri="https://example.com/spec")
+    heading = nodes.title("", "", nodes.Text("Rendering and "), linkage)
+    doc = document(nodes.section("", heading, ids=["rendering"]))
+
+    linked = rewrite(doc)
+
+    assert linked == [], "the citation was converted inside a link it already had"
+    (message,) = warned
+    assert "Rendering and " + CITED in message, "the warning names no heading"
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_quoted_as_a_literal_in_a_section_heading_is_not_reported(warned):
+    """The lookalike the widened check must not catch, and the reason it does not.
+
+    A literal is the one skip the page navigation keeps: ``ContentsFilter`` copies
+    it through, so the citation renders as ``<code>`` in the heading and in the
+    navigation alike, and the output gate exempts both as literal text. Nothing is
+    lost, because nothing was ever offered -- the style guide quotes citations this
+    way on purpose, and warning here would fail the build over an example.
+    """
+    cx._build_registry(app(SRC))
+    heading = nodes.title(
+        "", "", nodes.Text("Rendering and "), nodes.literal("", CITED)
+    )
+    doc = document(nodes.section("", heading, ids=["rendering"]))
+
+    linked = rewrite(doc)
+
+    assert linked == [], "a literal citation was converted"
+    assert warned == []
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_linked_by_hand_in_prose_is_left_alone(warned):
+    """Where the skip set earns its place, and where the widening must not reach.
+
+    In body prose an author's link works: the reader follows it to whatever it
+    names, and only the heading copy loses it. So this stays silent, and stays
+    unconverted -- an anchor inside an anchor is invalid HTML that browsers
+    restructure without saying so.
+    """
+    cx._build_registry(app(SRC))
+    linkage = nodes.reference("", CITED, refuri="https://example.com/spec")
+    doc = document(nodes.paragraph("", "", nodes.Text("Rendering and "), linkage))
+
+    linked = rewrite(doc)
+
+    assert linked == [], "the citation was converted inside a link it already had"
+    assert warned == []
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_citation_in_a_table_caption_is_not_reported(warned):
+    """A ``title`` the theme does not copy anywhere, which is the whole test.
+
+    The check is narrowed to a heading -- a ``title`` under a ``section`` -- and not
+    written against ``title`` alone, which is also the caption of a table, a topic
+    and an admonition. A citation in one of those is a link like any other, so
+    widening the check to every ``title`` would fail the build over a link that
+    works.
+    """
+    cx._build_registry(app(SRC))
+    caption = nodes.title("", "", nodes.Text(TITLED))
+    doc = document(nodes.table("", caption))
+
+    linked = rewrite(doc)
+
+    assert linked == ["docs-spec-3-7"], "the fixture cites nothing this build links"
+    assert warned == []
 
 
 @pytest.mark.usefixtures("registry")
