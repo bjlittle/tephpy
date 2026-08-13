@@ -66,6 +66,22 @@ def test_the_body_carries_the_caveat_and_both_declaration_sites():
     assert "https://example.invalid/run/1" in text
 
 
+def test_the_scan_line_is_one_sentence_in_both_outcomes():
+    # `outcome` is interpolated into a sentence here and into a list item under a
+    # two-half heading, so a phrase fitting one shape and not the other reaches
+    # the reader as a filed issue that does not parse. Both branches are asserted
+    # because only one of them was wrong: a clause where the other returns a noun
+    # phrase gave "The scan found no version at or above the floor passed".
+    module = _load()
+    found = module.body(FINDING, "url")
+    assert "The scan found **3.10.3**, the lowest that passes, of 3 tried." in found
+    none = module.body({**FINDING, "lowest": None}, "url")
+    assert (
+        "The scan found no version at or above the floor that passes, of 3 tried."
+        in none
+    )
+
+
 def test_an_unattributed_finding_says_so():
     module = _load()
     text = module.body({**FINDING, "package": None, "lowest": None}, "url")

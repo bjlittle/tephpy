@@ -141,15 +141,16 @@ def outcome(finding: dict) -> str:
     Returns
     -------
     str
-        A phrase, for a sentence or a list item.
+        A phrase that reads both after ``The scan found`` and after a list
+        item's label, so the two callers below need no wording of their own.
 
     """
     if finding["package"] is None:
         return "**no attribution was reached**"
     tried = len(finding["scanned"])
     if finding["lowest"] is None:
-        return f"no version at or above the floor passed, of {tried} tried"
-    return f"lowest passing **{finding['lowest']}**, of {tried} tried"
+        return f"no version at or above the floor that passes, of {tried} tried"
+    return f"**{finding['lowest']}**, the lowest that passes, of {tried} tried"
 
 
 def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
