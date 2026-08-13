@@ -1,3 +1,3 @@
 Added an experimental browser tutorial that lazily runs the current tephpy wheel
 entirely client-side, plots its bundled sounding on an interactive matplotlib
-canvas, and accepts local CSV uploads. (:user:`bjlittle`)
+canvas, and accepts local CSV uploads. (:user:`openai`)
