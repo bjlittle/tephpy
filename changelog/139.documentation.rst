@@ -1,0 +1,11 @@
+Added the design specification for a scheduled job that resolves tephpy's declared
+dependency floors, published in the developer guide under the ``floors spec §…``
+citation prefix. Because every task passes ``--frozen``, no check in continuous
+integration has ever resolved a declared minimum, so the floors in ``pyproject.toml``
+and ``requirements/`` are assertions nothing tests (:issue:`109`). The specification
+covers the two declaration sites, the generator that turns each declared floor into a
+pin, what each tier runs once pinned there, attributing a failure to a single package
+by relaxing it, the upward scan for the lowest version that passes, and the issue the
+job files. The specification is not yet implemented. Resolving the floors by hand while
+writing it found four defects the job will report on its first run (:issue:`135`,
+:issue:`136`, :issue:`137`, :issue:`138`). (:user:`claude`)
