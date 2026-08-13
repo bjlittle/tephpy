@@ -36,6 +36,11 @@ jobs:
       - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
         with:
           run-install: false
+      # The diagnosis re-generates the manifest from the declarations, so it has
+      # to read the checkout as committed -- and the resolve step below rewrites
+      # `pyproject.toml` in place before it ever runs.
+      - name: Keep a pristine copy of the manifest
+        run: cp pyproject.toml /tmp/pyproject.pristine.toml
       - name: Resolve the floors
         run: >
           pixi exec --spec python=3.12.* --spec packaging
@@ -63,6 +68,19 @@ jobs:
         run: >
           pixi run --environment floors-docs
           python .github/scripts/check_documentation_links.py docs/_build/html
+      - name: Diagnose the failure
+        if: failure()
+        run: |
+          cp /tmp/pyproject.pristine.toml pyproject.toml
+          pixi exec --spec python=3.12.* --spec packaging \
+            python .github/scripts/floors_diagnose.py \
+            --scratch /tmp/floors-scratch --tier ${{ matrix.tier }} \
+            --half conda --out finding-conda-${{ matrix.tier }}.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: failure()
+        with:
+          name: finding-conda-${{ matrix.tier }}
+          path: finding-conda-${{ matrix.tier }}.json
 
   # The other declaration site of floors spec §3.1. It needs no generated pins:
   # `--resolution lowest-direct` reads the floors straight from the requirements
