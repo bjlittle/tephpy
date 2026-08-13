@@ -191,6 +191,71 @@ def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
     assert seen["run"].get("SETUPTOOLS_SCM_PRETEND_VERSION")
 
 
+def test_the_forced_pin_is_written_after_the_generator_runs(monkeypatch, tmp_path):
+    # The generator rebuilds every declaration from its `>=` floor, so a pin
+    # written before it runs does not survive -- and worse, is refused, an exact
+    # pin not being a floor it can resolve. With `check=True` on that call, the
+    # refusal raises, and the scan dies on its first candidate having established
+    # nothing (floors spec §3.2, §3.5).
+    diagnose = _load_diagnose()
+    order = []
+
+    def _run(command, **_):
+        first = "generate" if command[1].endswith("floors.py") else command[1]
+        order.append(first)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(diagnose.subprocess, "run", _run)
+    monkeypatch.setattr(diagnose.floors, "tool", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(diagnose, "_pin_one", lambda *_: order.append("pin"))
+    probe = diagnose.Probe(
+        source=tmp_path, scratch=tmp_path, tier="test", python="3.12"
+    )
+    diagnose.solves(probe, tmp_path, None, pin=("matplotlib-base", "3.10.3"))
+    assert order == ["generate", "pin", "install"]
+
+
+LADDER = ["3.10.0", "3.10.1", "3.10.3", "3.11.0", "3.11.1"]
+
+
+def _rigged(monkeypatch, tmp_path, passes):
+    """Replace the solver and the channel; return the module, a probe and the log."""
+    diagnose = _load_diagnose()
+    tried = []
+
+    def _probe(_probe_arg, root, _package, _pin):
+        tried.append(root.name)
+        return passes(len(tried) - 1)
+
+    monkeypatch.setattr(diagnose, "_probe_pin", _probe)
+    monkeypatch.setattr(diagnose, "_copy", lambda _probe_arg, name: tmp_path / name)
+    monkeypatch.setattr(diagnose.floors, "candidates", lambda *_: LADDER)
+    probe = diagnose.Probe(
+        source=tmp_path, scratch=tmp_path, tier="test", python="3.12"
+    )
+    return diagnose, probe
+
+
+def test_the_scan_stops_at_the_first_version_that_passes(monkeypatch, tmp_path):
+    # Ascending and linear, so the first pass is by construction the lowest that
+    # works, with no assumption about the pass/fail boundary (floors spec §3.5).
+    diagnose, probe = _rigged(monkeypatch, tmp_path, lambda index: index == 2)
+    lowest, scanned = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.11.0")
+    assert lowest == "3.10.3"
+    assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
+
+
+def test_the_scan_never_goes_above_the_bound(monkeypatch, tmp_path):
+    # The bound is what makes the scan terminate. Without it a floor that nothing
+    # fixes walks the package's whole release history, and only a case where
+    # nothing passes tells the two apart -- a scan that finds an answer would
+    # return the same one either way.
+    diagnose, probe = _rigged(monkeypatch, tmp_path, lambda _index: False)
+    lowest, scanned = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.10.3")
+    assert lowest is None
+    assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
+
+
 def test_the_environment_table_is_replaced_not_appended():
     # pixi solves every environment a manifest declares, so a leftover `default`
     # would let one tier's conflict fail another tier's run (floors spec §3.3).

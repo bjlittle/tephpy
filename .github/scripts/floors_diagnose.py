@@ -101,8 +101,13 @@ class Finding:
     scanned: list[str] = dataclasses.field(default_factory=list)
 
 
-def solves(probe: Probe, root: Path, relax: str | None) -> tuple[bool, str]:
-    """Report whether the tier solves with one floor relaxed.
+def solves(
+    probe: Probe,
+    root: Path,
+    relax: str | None,
+    pin: tuple[str, str] | None = None,
+) -> tuple[bool, str]:
+    """Report whether the tier solves with one floor relaxed or forced.
 
     Parameters
     ----------
@@ -112,6 +117,13 @@ def solves(probe: Probe, root: Path, relax: str | None) -> tuple[bool, str]:
         A scratch copy of the repository.
     relax : str, optional
         The package to return to its declared floor.
+    pin : tuple of (str, str), optional
+        A package and the exact version to hold it at, applied *after* the
+        generator has written the tier's pins. This is how the scan of floors
+        spec §3.5 walks a package upward. Writing the pin into the manifest
+        beforehand would not survive: the generator rebuilds every declaration
+        from its ``>=`` floor, and would refuse the manifest first, an exact
+        pin not being a floor it can resolve (floors spec §3.2).
 
     Returns
     -------
@@ -135,6 +147,8 @@ def solves(probe: Probe, root: Path, relax: str | None) -> tuple[bool, str]:
     subprocess.run(  # noqa: S603 -- fixed argv, this interpreter
         command, check=True, capture_output=True, text=True
     )
+    if pin is not None:
+        _pin_one(root / "pyproject.toml", *pin)
     out = subprocess.run(  # noqa: S603 -- fixed argv, pixi resolved off PATH
         [floors.tool("pixi"), "install", "--environment", f"floors-{probe.tier}"],
         cwd=root,
@@ -273,6 +287,68 @@ def _copy(probe: Probe, name: str) -> Path:
     return root
 
 
+def _pin_one(manifest: Path, package: str, pin: str) -> None:
+    """Rewrite one declaration to an exact pin, leaving the rest alone."""
+    text = manifest.read_text(encoding="utf-8")
+    out = []
+    for line in text.splitlines(keepends=True):
+        match = floors.DECLARATION.match(line.strip())
+        if match is not None and match["name"] == package:
+            out.append(f'{package} = "=={pin}"\n')
+            continue
+        out.append(line)
+    manifest.write_text("".join(out), encoding="utf-8")
+
+
+def _probe_pin(probe: Probe, root: Path, package: str, pin: str) -> bool:
+    """Report whether the tier resolves and passes its exercise at one pin."""
+    solved, _ = solves(probe, root, None, pin=(package, pin))
+    if not solved:
+        return False
+    passed, _ = exercise(probe, root)
+    return passed
+
+
+def scan(
+    probe: Probe, package: str, specifier: str, upper: str | None
+) -> tuple[str | None, list[str]]:
+    """Find the lowest version of ``package`` that passes the tier's exercise.
+
+    Parameters
+    ----------
+    probe : Probe
+        The tier being exercised.
+    package : str
+        The culprit :func:`attribute` named.
+    specifier : str
+        Its declared floor, such as ``>=3.10``.
+    upper : str or None
+        The version the relaxed solve chose, which bounds the scan above
+        (floors spec §3.5); None scans the whole ladder.
+
+    Returns
+    -------
+    tuple of (str or None, list of str)
+        The lowest passing version, or None, and every version tried.
+
+    """
+    ladder = floors.candidates(package, specifier, Version(f"{probe.python}.0"))
+    if upper is not None:
+        ceiling = Version(upper)
+        ladder = [pin for pin in ladder if Version(pin) <= ceiling]
+    tried: list[str] = []
+    for pin in ladder:
+        root = _copy(probe, f"scan-{len(tried)}")
+        tried.append(pin)
+        if _probe_pin(probe, root, package, pin):
+            return pin, tried
+        # Every probe is a whole environment, so keeping them all would grow the
+        # scan's disk with the ladder on a runner that has little to spare, and
+        # nothing reads a probe once it has failed.
+        shutil.rmtree(root, ignore_errors=True)
+    return None, tried
+
+
 def write_finding(path: Path, finding: Finding) -> None:
     """Write one finding as JSON.
 
@@ -313,8 +389,7 @@ def main() -> int:
         tier=args.tier,
         python=args.python,
     )
-    # `_upper` bounds the upward scan of floors spec §3.5, which is not wired in yet.
-    package, _upper, failure = attribute(probe)
+    package, upper, failure = attribute(probe)
     finding = Finding(
         tier=args.tier,
         half=args.half,
@@ -330,6 +405,8 @@ def main() -> int:
         for tier in ("core", args.tier):
             if package in resolved.get(tier, {}):
                 finding.declared = resolved[tier][package][0]
+    if package is not None and finding.declared is not None:
+        finding.lowest, finding.scanned = scan(probe, package, finding.declared, upper)
     write_finding(args.out, finding)
     print(f"attributed: {package or 'nothing'}")
     return 0
