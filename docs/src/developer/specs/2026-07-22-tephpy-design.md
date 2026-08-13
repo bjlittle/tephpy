@@ -646,9 +646,11 @@ override applies to existing axes for its duration.
 The documentation carries one experimental, entirely client-side tephigram demo. A
 reader explicitly launches a lazy-created iframe; only then does it download PyScript
 2026.7.3 and Pyodide 314.0.4, install the current checkout's wheel, and render through
-matplotlib's WebAgg-derived Pyodide backend. The docs build creates that wheel and stages
-it with the application under `docs/_build/browser/`; Sphinx publishes the staging root
-through `html_extra_path`. Generated wheels remain build artifacts and are never committed.
+matplotlib's WebAgg-derived Pyodide backend. Every documentation build entry point,
+including the Read the Docs custom build, creates that wheel and stages it with the
+application under `docs/_build/browser/` before Sphinx runs; Sphinx publishes the staging
+root through `html_extra_path`. Generated wheels remain build artifacts and are never
+committed.
 
 The browser runtime has a checked-in lock manifest. MetPy 1.7.1 and Pint 0.25.3, their
 resolved pure-Python dependency chain, package hashes, and CDN URLs are exact; compiled

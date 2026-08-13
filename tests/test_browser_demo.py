@@ -22,6 +22,7 @@ from tephpy.exceptions import DewpointExceedsTemperatureError
 REPOSITORY = Path(__file__).parents[1]
 DEMO_SOURCE = REPOSITORY / "docs" / "browser" / "browser_demo.py"
 BUILD_SOURCE = REPOSITORY / "docs" / "build_browser.py"
+READ_THE_DOCS_CONFIG = REPOSITORY / ".readthedocs.yml"
 
 
 def _load(name, path):
@@ -35,6 +36,15 @@ def _load(name, path):
 
 demo = _load("tephpy_browser_demo", DEMO_SOURCE)
 builder = _load("tephpy_browser_builder", BUILD_SOURCE)
+
+
+def test_read_the_docs_stages_browser_app_before_sphinx():
+    config = READ_THE_DOCS_CONFIG.read_text(encoding="utf-8")
+    stage = "python docs/build_browser.py"
+    sphinx = "sphinx-build -T -b html"
+
+    assert stage in config
+    assert config.index(stage) < config.index(sphinx)
 
 
 def test_csv_parser_preserves_optional_columns_and_blank_cells():
