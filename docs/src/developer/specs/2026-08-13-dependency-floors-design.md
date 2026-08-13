@@ -133,8 +133,10 @@ is what makes the pin mean what the declaration means. (Measured 2026-08-13.)
 The query that resolves a floor also enumerates everything above it, which is the scan's
 candidate list (§3.5); the two ask the channel once for the same thing. Ordering those
 candidates is PEP 440 rather than string comparison, under which `10.0.5` sorts below `8`.
-That takes `packaging`, which is declared in the `devs` tier rather than inherited as a
-transitive of matplotlib — the same reasoning configfile spec §7 records for `platformdirs`.
+That takes `packaging`, which is declared rather than inherited as a transitive of matplotlib
+— the same reasoning configfile spec §7 records for `platformdirs`. It is declared in the
+`test` tier, because the test suite is what imports it and §3.3's generated `core + test`
+carries no `devs`; a declaration there would be one the tier that needs it cannot see.
 
 Candidates are then filtered by the `python` constraint each build declares, which is not an
 optimisation. click 8.1.0 exists on conda-forge and its builds stop at Python 3.10, so a pin
