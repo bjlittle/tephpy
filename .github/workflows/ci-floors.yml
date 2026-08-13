@@ -1,0 +1,65 @@
+name: ci-floors
+
+# Every other job installs from `pixi.lock`, so tephpy's declared dependency
+# minimums are claims nothing resolves (floors spec §1). This job resolves each
+# declared floor and exercises what it resolves. It is the lower end of the
+# declaration; the upper end belongs to the lockfile-update bot on spec §8.7's
+# fast-follow list, which is not built yet and would not close this if it were.
+#
+# Scheduled, never a pull-request gate -- it goes red for reasons no pull
+# request caused, and a required check like that is one people learn to ignore
+# (floors spec §2).
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  conda:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: ["test", "docs", "devs"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          run-install: false
+      - name: Resolve the floors
+        run: >
+          pixi exec --spec python=3.12.* --spec packaging
+          python .github/scripts/floors.py
+          --tier ${{ matrix.tier }} --write --summary "$GITHUB_STEP_SUMMARY"
+      - name: Solve and install at the floors
+        run: pixi install --environment floors-${{ matrix.tier }}
+      - name: Run the test suite
+        if: matrix.tier == 'test'
+        # Image comparison is excluded: pytest-mpl compares against baselines
+        # generated under the matplotlib the lockfile pins, so at a floor
+        # matplotlib it reports the version difference every time, whatever the
+        # state of the floor (floors spec §3.3).
+        run: pixi run --environment floors-test pytest
+      - name: Build the documentation
+        if: matrix.tier == 'docs'
+        run: pixi run --environment floors-docs make -C docs html
+      - name: Check the documentation output
+        if: matrix.tier == 'docs'
+        run: >
+          pixi run --environment floors-docs
+          python .github/scripts/check_rendered_citations.py docs/_build/html
+      - name: Check the documentation links
+        if: matrix.tier == 'docs'
+        run: >
+          pixi run --environment floors-docs
+          python .github/scripts/check_documentation_links.py docs/_build/html
