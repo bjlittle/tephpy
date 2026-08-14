@@ -1,0 +1,11 @@
+The declared floors for ``sphinx-design`` and ``sphinx-autoapi`` are raised to
+minimums that hold, from ``>=0.6`` and ``>=3.3`` to ``>=0.6.1`` and ``>=3.6.1``
+(:issue:`138`). ``sphinx-design 0.6.0`` requires ``sphinx >=5,<8``, which the
+``sphinx >=8.0`` declared beside it contradicts, so the documentation tier never
+resolved at its floors; and every ``sphinx-autoapi`` up to and including
+``3.6.0`` declares ``astroid >=3`` uncapped, so a resolution at the floors pairs
+it with astroid 4, which it cannot drive — it reports every module of the
+package unreadable, emits no API objects, and the build then fails under
+``--fail-on-warning`` on the cross-references to pages that were never written.
+Both were found by the weekly ``ci-floors`` job, the last of the three tiers it
+reported on its first live run. (:user:`claude`)

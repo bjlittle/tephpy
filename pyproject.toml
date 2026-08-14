@@ -74,7 +74,8 @@ testpaths = ["tests"]
 xfail_strict = true
 
 [tool.codespell]
-ignore-words-list = "accreting,PRES"
+# `astroid` is the parser sphinx-autoapi drives, not a misspelling of "asteroid".
+ignore-words-list = "accreting,astroid,PRES"
 
 [tool.coverage.run]
 branch = true
