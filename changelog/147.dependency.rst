@@ -1,0 +1,15 @@
+The declared floors for ``matplotlib``, ``metpy`` and ``pint`` are raised to
+minimums that hold, from ``>=3.10``, ``>=1.6`` and ``>=0.24`` to ``>=3.11``,
+``>=1.7`` and ``>=0.24.4``. Each was a version tephpy could not run at.
+:class:`~matplotlib.collections.LineCollection` only accepts a nested ``'none'``
+from ``set_linestyle`` — the oracle the configuration domain validation asks —
+from ``3.11.0`` (:issue:`135`), and
+:func:`~metpy.calc.saturation_mixing_ratio` only returns a non-finite value where
+the quantity is undefined, which the supersaturated cursor readout relies on to
+omit the field, from ``1.7.0`` (:issue:`137`). pint is raised further than the
+conda channel alone requires: every release before ``0.24.4`` declares
+``flexparser>=0.3`` uncapped on PyPI, so a lowest-direct resolution pairs it with
+a flexparser whose non-frozen dataclasses pint cannot inherit from, and the
+import chain dies before any test runs (:issue:`136`). All three were found by
+the weekly ``ci-floors`` job on its first live run — the first thing tephpy runs
+that resolves a declared minimum rather than the lockfile. (:user:`claude`)

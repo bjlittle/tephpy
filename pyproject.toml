@@ -244,11 +244,11 @@ tephpy = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 click = ">=8.1"
-matplotlib-base = ">=3.10"
-metpy = ">=1.6"
+matplotlib-base = ">=3.11"
+metpy = ">=1.7"
 numpy = ">=2.0"
 pandas = ">=2.3"
-pint = ">=0.24"
+pint = ">=0.24.4"
 platformdirs = ">=4.0"
 pyyaml = ">=6.0.1"
 setuptools = ">=77.0.3"
