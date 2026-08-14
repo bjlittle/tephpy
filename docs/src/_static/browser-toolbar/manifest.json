@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "matplotlib_version": "3.10.8",
+  "pyodide_version": "314.0.4",
+  "source_wheel": "matplotlib-3.10.8-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+  "source_wheel_sha256": "2867b2003ee66d0d2478423f783ec035d432c6560ae86d0e58d096ff98cab6a8",
+  "icons": {
+    "home.svg": "a6daeeb3c8793d94e2f5a8587e76b3fae67c3001c2afbd9a3de316e3c4c147d4",
+    "back.svg": "3a48ffadeb2c6647dee84c2ffe8ec6179b68739a9609e164436707436e417551",
+    "forward.svg": "90e88aab76b89a278c44b542c1005d38c4d1ad61b634e5ffe7eadb0051e97664",
+    "move.svg": "fee6a62e78d0db48b04ae29b77c26f4d7505691ab8db4e8cae9156bed12bafc2",
+    "zoom_to_rect.svg": "b8c99d1a43b8dd91e57b392989e477fcc8aa944739bd139f7d10ce858e2cc66e",
+    "filesave.svg": "74c197bcb48e1cfbb8e24896819c7e07f332fed2d668fe89e8683125f2f8156d"
+  }
+}

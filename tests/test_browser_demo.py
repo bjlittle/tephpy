@@ -23,6 +23,8 @@ REPOSITORY = Path(__file__).parents[1]
 DEMO_SOURCE = REPOSITORY / "docs" / "browser" / "browser_demo.py"
 BUILD_SOURCE = REPOSITORY / "docs" / "build_browser.py"
 READ_THE_DOCS_CONFIG = REPOSITORY / ".readthedocs.yml"
+RUNTIME_LOCK = REPOSITORY / "docs" / "browser" / "runtime-lock.json"
+TOOLBAR_ASSETS = REPOSITORY / "docs" / "src" / "_static" / "browser-toolbar"
 
 
 def _load(name, path):
@@ -45,6 +47,26 @@ def test_read_the_docs_stages_browser_app_before_sphinx():
 
     assert stage in config
     assert config.index(stage) < config.index(sphinx)
+
+
+def test_toolbar_icons_match_pinned_browser_runtime():
+    runtime = json.loads(RUNTIME_LOCK.read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (TOOLBAR_ASSETS / "manifest.json").read_text(encoding="utf-8")
+    )
+    matplotlib = next(
+        package
+        for package in runtime["pyodide_packages"]
+        if package["name"] == "matplotlib"
+    )
+
+    assert manifest["matplotlib_version"] == matplotlib["version"]
+    assert manifest["source_wheel_sha256"] == matplotlib["sha256"]
+    assert manifest["pyodide_version"] == runtime["pyodide"]["version"]
+    for name, digest in manifest["icons"].items():
+        assert (
+            hashlib.sha256((TOOLBAR_ASSETS / name).read_bytes()).hexdigest() == digest
+        )
 
 
 def test_csv_parser_preserves_optional_columns_and_blank_cells():

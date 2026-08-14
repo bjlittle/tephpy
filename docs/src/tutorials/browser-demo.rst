@@ -44,6 +44,65 @@ The runtime is loaded only after you choose **Launch browser demo**.
     })();
     </script>
 
+Navigate the Plot
+-----------------
+
+The navigation buttons change only the current view; they do not alter the
+loaded sounding. **Pan** and **Zoom** stay active until you select the same
+button again or choose another navigation mode.
+
+.. list-table:: Matplotlib navigation controls
+    :class: browser-toolbar-guide
+    :header-rows: 1
+    :widths: 10 18 72
+
+    * - Icon
+      - Control
+      - How to use it
+    * - .. image:: ../_static/browser-toolbar/home.svg
+            :alt: Home toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Home**
+      - Restore the original plot limits. This resets the view, not the loaded
+        CSV data.
+    * - .. image:: ../_static/browser-toolbar/back.svg
+            :alt: Back toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Back**
+      - Step backward through views created by panning or zooming. The button
+        becomes available after the view changes.
+    * - .. image:: ../_static/browser-toolbar/forward.svg
+            :alt: Forward toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Forward**
+      - Step forward again after using **Back**.
+    * - .. image:: ../_static/browser-toolbar/move.svg
+            :alt: Pan toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Pan**
+      - Select the button, then left-drag to pan or right-drag to zoom. Hold
+        :kbd:`x` or :kbd:`y` to constrain the movement to one axis, or
+        :kbd:`Ctrl` to preserve the aspect ratio.
+    * - .. image:: ../_static/browser-toolbar/zoom_to_rect.svg
+            :alt: Zoom toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Zoom**
+      - Select the button, then left-drag a rectangle to zoom in or right-drag
+        one to zoom out. Hold :kbd:`x` or :kbd:`y` to constrain the zoom to one
+        axis.
+    * - .. image:: ../_static/browser-toolbar/filesave.svg
+            :alt: Save toolbar icon
+            :class: browser-toolbar-icon
+            :width: 28px
+      - **Save**
+      - Choose an image format from the toolbar menu, then select this button
+        to download the current figure.
+
 Prepare a CSV File
 ------------------
 
