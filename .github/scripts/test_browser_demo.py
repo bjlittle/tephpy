@@ -77,13 +77,19 @@ def _assert_toolbar(frame: Frame) -> None:
     assert after is not None
     assert abs(after["x"] - before["x"]) < 0.5
 
-    frame.locator("canvas.mpl-canvas").hover()
+    interaction_layer = frame.locator("canvas.mpl-canvas").locator("..")
+    assert interaction_layer.get_attribute("tabindex") == "0"
+    interaction_layer.scroll_into_view_if_needed()
+    before_coordinates = pan.bounding_box()
+    assert before_coordinates is not None
+    interaction_layer.hover()
     frame.wait_for_function(
         "document.querySelector('.mpl-message').textContent.length > 0"
     )
     with_coordinates = pan.bounding_box()
     assert with_coordinates is not None
-    assert abs(with_coordinates["x"] - before["x"]) < 0.5
+    shift = abs(with_coordinates["x"] - before_coordinates["x"])
+    assert shift < 0.5, f"toolbar control shifted by {shift}px"
 
 
 def _assert_data_table(
