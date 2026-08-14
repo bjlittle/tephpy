@@ -1,0 +1,13 @@
+The ``test`` tier now declares a build backend that works at its floors, which
+the wheel the test suite builds needs and neither declaration site supplied
+(:issue:`152`). ``packaging`` is raised from ``>=24.0`` to ``>=24.2``, the first
+release carrying ``packaging.licenses``: without it the ``setuptools >=77.0.3``
+declared beside it raises ``ImportError`` instead of canonicalizing the SPDX
+``license`` expression of this project, and the build ends before it starts. On
+the PyPI half ``setuptools`` and ``setuptools_scm`` were never declared at all,
+so a resolution at the floors left no backend installed to build with; they join
+the ``test`` extra rather than the core requirements, because neither is a
+runtime requirement of the wheel. Both were found by the weekly ``ci-floors``
+job, which could not attribute either — the test that fails skips itself in the
+diagnosis probe, a blind spot now tracked separately (:issue:`154`).
+(:user:`claude`)
