@@ -362,6 +362,7 @@ make = ">=4.3"
 myst-nb = ">=1.1"
 numpydoc = ">=1.8"
 pydata-sphinx-theme = ">=0.16"
+python-build = ">=1.5"
 sphinx = ">=8.0"
 sphinx-autoapi = ">=3.6.1"
 sphinx-click = ">=6.0"
@@ -383,7 +384,7 @@ depends-on = ["docs-clean"]
 description = "Build the HTML documentation"
 
 [tool.pixi.feature.docs.tasks.docs-browser-test]
-cmd = "python .github/scripts/test_browser_demo.py"
+cmd = "python .github/scripts/check_browser_demo.py"
 depends-on = ["docs-html"]
 description = "Exercise the built PyScript demo in Chromium"
 

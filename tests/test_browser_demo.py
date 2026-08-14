@@ -13,6 +13,7 @@ import json
 import math
 from pathlib import Path
 import sys
+import tomllib
 from zipfile import ZipFile
 
 import pytest
@@ -25,6 +26,8 @@ BUILD_SOURCE = REPOSITORY / "docs" / "build_browser.py"
 READ_THE_DOCS_CONFIG = REPOSITORY / ".readthedocs.yml"
 RUNTIME_LOCK = REPOSITORY / "docs" / "browser" / "runtime-lock.json"
 TOOLBAR_ASSETS = REPOSITORY / "docs" / "src" / "_static" / "browser-toolbar"
+PYPROJECT = REPOSITORY / "pyproject.toml"
+DOCS_REQUIREMENTS = REPOSITORY / "requirements" / "pypi-optional-docs.txt"
 
 
 def _load(name, path):
@@ -47,6 +50,15 @@ def test_read_the_docs_stages_browser_app_before_sphinx():
 
     assert stage in config
     assert config.index(stage) < config.index(sphinx)
+
+
+def test_docs_dependency_tier_declares_wheel_builder():
+    config = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    dependencies = config["tool"]["pixi"]["feature"]["docs"]["dependencies"]
+    requirements = DOCS_REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+
+    assert dependencies["python-build"] == ">=1.5"
+    assert "build>=1.5" in requirements
 
 
 def test_toolbar_icons_match_pinned_browser_runtime():
@@ -121,6 +133,17 @@ def test_nonnumeric_nonblank_cell_names_its_location():
         demo.parse_sounding_csv(text)
 
 
+@pytest.mark.parametrize(("row", "cells"), [("1000", 1), ("1000,18,extra", 3)])
+def test_csv_row_cell_count_must_match_header_count(row, cells):
+    text = f"pressure_hPa,temperature_C\n{row}\n"
+
+    with pytest.raises(
+        demo.DemoCSVError,
+        match=rf"line 2: found {cells} cells for 2 headers",
+    ):
+        demo.parse_sounding_csv(text)
+
+
 @pytest.mark.parametrize("text", ["", "pressure_hPa,temperature_C\n\n"])
 def test_empty_csv_data_is_rejected(text):
     with pytest.raises(demo.DemoCSVError, match=r"empty|no data"):
@@ -156,9 +179,6 @@ def test_staged_app_contains_the_current_valid_wheel_and_manifest(tmp_path):
     wheel = app / manifest["tephpy"]["wheel"]
 
     assert wheel.is_file()
-    assert (
-        hashlib.sha256(wheel.read_bytes()).hexdigest() == manifest["tephpy"]["sha256"]
-    )
     with ZipFile(wheel) as archive:
         assert archive.testzip() is None
         metadata_name = next(

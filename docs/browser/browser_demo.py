@@ -150,17 +150,16 @@ def parse_sounding_csv(text: str) -> ParsedSounding:
         for row in reader:
             if not row or not any(cell.strip() for cell in row):
                 continue
-            if len(row) > len(headers):
+            if len(row) != len(headers):
                 msg = (
                     f"line {reader.line_num}: found {len(row)} cells for "
                     f"{len(headers)} headers"
                 )
                 raise DemoCSVError(msg)
-            padded = [*row, *([""] * (len(headers) - len(row)))]
             for column in present_columns:
                 columns[column].append(
                     _number(
-                        padded[indices[column]],
+                        row[indices[column]],
                         column=column,
                         line=reader.line_num,
                     )

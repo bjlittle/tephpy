@@ -654,9 +654,11 @@ committed.
 
 The browser runtime has a checked-in lock manifest. MetPy 1.7.1 and Pint 0.25.3, their
 resolved pure-Python dependency chain, package hashes, and CDN URLs are exact; compiled
-dependencies come from the package lock belonging to the pinned Pyodide runtime. The UI
-reports progress throughout installation and exposes a readable, live-region error if any
-dependency fails. Chromium is the tested browser; Firefox and Safari are best-effort.
+dependencies come from the package lock belonging to the pinned Pyodide runtime. The
+current checkout's generated wheel is installed with the SHA-256 fragment recorded in the
+generated runtime manifest. The UI reports progress throughout installation and exposes a
+readable, live-region error if any dependency fails. Chromium is the tested browser;
+Firefox and Safari are best-effort.
 
 The bundled example plots at startup. A local upload replaces it only after parsing,
 `Sounding` construction, and creation of the successor figure succeed, so an invalid file
@@ -684,8 +686,9 @@ The demo CSV contract is deliberately not a package-level reader:
 - `dewpoint_C` is optional.
 - `wind_speed_m_s` and `wind_direction_degree` are optional as a pair.
 - Blank cells become NaN; an absent optional column becomes `None`.
-- Missing or duplicate headers, nonnumeric nonblank cells, empty data, and a one-sided wind
-  pair are structural errors. Physical validation remains `Sounding`'s responsibility.
+- Missing or duplicate headers, rows whose cell count differs from the header count,
+  nonnumeric nonblank cells, empty data, and a one-sided wind pair are structural errors.
+  Physical validation remains `Sounding`'s responsibility.
 
 The experiment adds no public Python API. University of Wyoming `wyoming.fetch`, live
 archive access, persistent configuration, analysis controls, offline caching, and other
@@ -1003,8 +1006,9 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   `requirements/*.txt` declare floors rather than pins, and a bot raising one is the
   automatic floor raise floors spec §2 rejects).
 - `ci-docs` also installs Playwright's pinned Chromium, serves the completed build locally,
-  and runs the §7 browser smoke test. CDN or dependency-install failures fail the job; no
-  static-image fallback is published.
+  and runs the §7 browser smoke test. The external install and smoke steps each retry once
+  for transient CDN failures, the job has a 30-minute bound, and a persistent CDN or
+  dependency-install failure still fails it; no static-image fallback is published.
 - **Scheduled, not gating:** `ci-floors` (weekly) resolves every dependency minimum tephpy
   declares — at both declaration sites — exercises what it resolves, and files one issue per
   broken floor, attributed to a single package (floors spec §1). It is deliberately not a

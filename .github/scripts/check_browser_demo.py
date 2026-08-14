@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Exercise the built PyScript demo in Playwright Chromium."""
+"""Check the built PyScript demo in Playwright Chromium."""
 
 from __future__ import annotations
 

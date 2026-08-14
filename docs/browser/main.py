@@ -12,6 +12,7 @@ from importlib.metadata import version
 import json
 import math
 from pathlib import Path
+import re
 from typing import Any
 
 from js import document, window
@@ -113,9 +114,10 @@ async def _install(manifest: dict[str, Any]) -> None:
         completed += 1
 
     wheel = manifest["tephpy"]["wheel"]
+    digest = manifest["tephpy"]["sha256"]
     base = str(window.location.href).rsplit("/", maxsplit=1)[0]
     _status(f"Installing this checkout ({wheel})…", value=completed)
-    await micropip.install(f"{base}/{wheel}", deps=False)
+    await micropip.install(f"{base}/{wheel}#sha256={digest}", deps=False)
     completed += 1
 
     _status("Verifying installed package versions…", value=completed)
@@ -169,9 +171,16 @@ def _initialize_backend() -> None:
     document.head.appendChild(style)
 
     javascript = FigureManagerWebAgg.get_javascript(pyodide=True)
-    javascript = javascript.replace("mpl.", "window.mpl.").replace(
-        "window.window.mpl.", "window.mpl."
-    )
+    namespace_pattern = re.compile(r"(?<![\w.])mpl\.")
+    namespace_matches = len(namespace_pattern.findall(javascript))
+    namespace_candidates = javascript.count("mpl.")
+    if namespace_matches == 0 or namespace_matches != namespace_candidates:
+        msg = (
+            "expected every pinned WebAgg mpl reference to be unqualified; "
+            f"found {namespace_matches} of {namespace_candidates}"
+        )
+        raise RuntimeError(msg)
+    javascript = namespace_pattern.sub("window.mpl.", javascript)
     focus_replacements = {
         "canvas.focus();": "canvas.focus({ preventScroll: true });",
         "canvas_div.focus();": "canvas_div.focus({ preventScroll: true });",

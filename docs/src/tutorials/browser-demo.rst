@@ -123,7 +123,8 @@ page, not a package-level reader.
 
 Blank cells become ``NaN``. An absent optional column becomes ``None``. The
 demo reports missing or duplicate headers, a nonnumeric nonblank cell, empty
-data, and a one-sided wind pair before plotting. tephpy's
+data, a row whose cell count differs from its header count, and a one-sided
+wind pair before plotting. tephpy's
 :class:`~tephpy.sounding.Sounding` then performs the usual physical validation,
 including pressure ordering and dewpoint bounds.
 
