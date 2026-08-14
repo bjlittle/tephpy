@@ -667,6 +667,8 @@ WebAgg's prose hover hints are suppressed because inserting them into the toolba
 buttons; their accessible image labels and the backend-driven coordinate readout remain.
 The controls are left-aligned and the coordinate readout is right-aligned, so text appearing
 on the right does not shift the buttons beneath the pointer.
+WebAgg still focuses its canvas interaction layer for keyboard navigation, but does so with
+`preventScroll` so the first pointer press cannot snap either the iframe or its parent page.
 The tutorial replaces those hints with a compact guide to all six controls, using the
 corresponding icon artwork from the pinned Matplotlib runtime.
 A collapsed, scrollable table below the canvas exposes the normalized quantities used by

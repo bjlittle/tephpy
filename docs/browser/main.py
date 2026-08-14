@@ -172,6 +172,16 @@ def _initialize_backend() -> None:
     javascript = javascript.replace("mpl.", "window.mpl.").replace(
         "window.window.mpl.", "window.mpl."
     )
+    focus_replacements = {
+        "canvas.focus();": "canvas.focus({ preventScroll: true });",
+        "canvas_div.focus();": "canvas_div.focus({ preventScroll: true });",
+    }
+    for source, replacement in focus_replacements.items():
+        matches = javascript.count(source)
+        if matches != 2:
+            msg = f"expected two pinned WebAgg focus calls {source!r}, found {matches}"
+            raise RuntimeError(msg)
+        javascript = javascript.replace(source, replacement)
     set_toolbar_image = run_js(javascript)
     # WebAgg writes a long tooltip into the toolbar on mouseover. Because that
     # status span shares a flex row with the buttons, the new text moves the

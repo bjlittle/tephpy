@@ -103,6 +103,61 @@ def _assert_toolbar(frame: Frame) -> None:
     assert right_gap < 0.5, f"toolbar message right gap is {right_gap}px"
 
 
+def _assert_first_mousedown_does_not_scroll(page: Page, frame: Frame) -> None:
+    """Keep both documents still while the canvas takes focus on first press."""
+    zoom = frame.locator('button img[alt*="Zoom to rectangle"]').locator("..")
+    zoom.click()
+    iframe = page.locator("#tephpy-browser-demo-frame")
+    page.evaluate(
+        """() => {
+            const frame = document.querySelector('#tephpy-browser-demo-frame');
+            window.scrollTo({
+                top: window.scrollY + frame.getBoundingClientRect().top - 80,
+                behavior: 'instant',
+            });
+        }"""
+    )
+    frame.evaluate("window.scrollTo({top: 260, behavior: 'instant'})")
+    page.wait_for_timeout(100)
+
+    iframe_box = iframe.bounding_box()
+    interaction_layer = frame.locator("canvas.mpl-canvas").locator("..")
+    layer_box = interaction_layer.bounding_box()
+    assert iframe_box is not None
+    assert layer_box is not None
+    viewport = page.viewport_size
+    assert viewport is not None
+    visible_left = max(iframe_box["x"], layer_box["x"], 0.0)
+    visible_right = min(
+        iframe_box["x"] + iframe_box["width"],
+        layer_box["x"] + layer_box["width"],
+        float(viewport["width"]),
+    )
+    visible_top = max(iframe_box["y"], layer_box["y"], 0.0)
+    visible_bottom = min(
+        iframe_box["y"] + iframe_box["height"],
+        layer_box["y"] + layer_box["height"],
+        float(viewport["height"]),
+    )
+    point = (
+        (visible_left + visible_right) / 2.0,
+        (visible_top + visible_bottom) / 2.0,
+    )
+    before = page.evaluate("window.scrollY"), frame.evaluate("window.scrollY")
+
+    page.mouse.move(*point)
+    page.mouse.down(button="right")
+    page.wait_for_timeout(100)
+    after = page.evaluate("window.scrollY"), frame.evaluate("window.scrollY")
+    page.mouse.up(button="right")
+
+    assert after == before, f"first canvas mousedown scrolled {before} to {after}"
+    assert interaction_layer.evaluate(
+        "element => document.activeElement === element"
+    ), "canvas interaction layer did not retain focus"
+    zoom.click()
+
+
 def _assert_data_table(
     frame: Frame,
     *,
@@ -156,6 +211,7 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     )
 
     frame.locator("canvas.mpl-canvas").wait_for(state="visible", timeout=TIMEOUT)
+    _assert_first_mousedown_does_not_scroll(page, frame)
     _assert_toolbar(frame)
     _assert_data_table(
         frame,
