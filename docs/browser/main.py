@@ -23,7 +23,6 @@ _BACKEND = "module://matplotlib.backends.backend_pyodide"
 _PROXIES: list[Any] = []
 _EVENT_TASKS: set[Any] = set()
 _CURRENT_PLOT: tuple[Any, Any] | None = None
-_DRAW_GENERATION = 0
 _EXAMPLE_TEXT = ""
 _PARSER: Any = None
 _PYPLOT: Any = None
@@ -291,17 +290,6 @@ def _new_figure(sounding: Any, *, label: str) -> tuple[Any, Any]:
             axes.plot_barbs(sounding)
         axes.legend(loc="upper right")
         axes.set_title(label)
-
-        def record_axes_state(_event: Any) -> None:
-            """Expose completed-draw geometry for accessibility and browser tests."""
-            global _DRAW_GENERATION  # noqa: PLW0603 -- shared browser draw counter
-
-            _DRAW_GENERATION += 1
-            position = tuple(float(value) for value in axes.get_position().bounds)
-            _state("axes-position", json.dumps(position))
-            _state("draw-generation", str(_DRAW_GENERATION))
-
-        figure.canvas.mpl_connect("draw_event", record_axes_state)
         document.pyodideMplTarget = target
         manager = figure.canvas.manager
         manager.show()

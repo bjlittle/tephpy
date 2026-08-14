@@ -394,10 +394,6 @@ Differences from tephi:
   figures are directly comparable; disables autoscaling so overlays don't drift the
   window. (The cartopy idiom — the earlier `set_anchor` name collided with
   matplotlib's own `Axes.set_anchor`.)
-- Unconstrained rectangle and scroll zooms expand the requested bounds as needed to
-  preserve the current x/y span ratio. Equal aspect therefore keeps the axes box fixed
-  beneath the pointer instead of resizing and recentering it; explicit x-only and y-only
-  toolbar modes retain matplotlib's stock semantics.
 - `ax.format_coord(x, y)` — the interactive cursor readout (the navigation
   toolbar's coordinate text) reports diagram-meaningful values instead of the raw
   rotated data-space (x, y): the cursor position inverts through

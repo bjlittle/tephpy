@@ -103,46 +103,6 @@ def _assert_toolbar(frame: Frame) -> None:
     assert right_gap < 0.5, f"toolbar message right gap is {right_gap}px"
 
 
-def _assert_zoom_keeps_pointer_in_axes(page: Page, frame: Frame) -> None:
-    """Right-drag an unequal zoom box without moving the axes from the pointer."""
-    root = frame.locator("html")
-    draw_generation = int(root.get_attribute("data-draw-generation") or 0)
-    position_text = root.get_attribute("data-axes-position")
-    assert position_text is not None
-    position = tuple(json.loads(position_text))
-    toolbar = frame.locator(".mpl-toolbar")
-    zoom = toolbar.locator('button img[alt*="Zoom to rectangle"]').locator("..")
-    zoom.click()
-    interaction_layer = frame.locator("canvas.mpl-canvas").locator("..")
-    interaction_layer.scroll_into_view_if_needed()
-    box = interaction_layer.bounding_box()
-    assert box is not None
-    start = (box["x"] + 0.25 * box["width"], box["y"] + 0.36 * box["height"])
-    stop = (box["x"] + 0.58 * box["width"], box["y"] + 0.64 * box["height"])
-
-    page.mouse.move(*start)
-    page.mouse.down(button="right")
-    page.mouse.move(*stop, steps=10)
-    page.mouse.up(button="right")
-    back = toolbar.locator('button img[alt^="Back"]').locator("..")
-    back.click(trial=True, timeout=TIMEOUT)
-    frame.wait_for_function(
-        f"Number(document.documentElement.dataset.drawGeneration) > {draw_generation}",
-        timeout=TIMEOUT,
-    )
-    zoomed_position_text = root.get_attribute("data-axes-position")
-    assert zoomed_position_text is not None
-    zoomed_position = tuple(json.loads(zoomed_position_text))
-    movement = max(
-        abs(after - before)
-        for before, after in zip(position, zoomed_position, strict=True)
-    )
-    assert movement < 1e-9, f"right-drag zoom moved the axes by {movement}"
-
-    toolbar.locator('button img[alt="Reset original view"]').locator("..").click()
-    zoom.click()
-
-
 def _assert_data_table(
     frame: Frame,
     *,
@@ -197,7 +157,6 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
 
     frame.locator("canvas.mpl-canvas").wait_for(state="visible", timeout=TIMEOUT)
     _assert_toolbar(frame)
-    _assert_zoom_keeps_pointer_in_axes(page, frame)
     _assert_data_table(
         frame,
         label="Bundled example",
