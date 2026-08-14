@@ -1,0 +1,189 @@
+name: ci-floors
+
+# Every other job installs from `pixi.lock`, so tephpy's declared dependency
+# minimums are claims nothing resolves (floors spec §1). This job resolves each
+# declared floor and exercises what it resolves. It is the lower end of the
+# declaration; the upper end belongs to the lockfile-update bot on spec §8.7's
+# fast-follow list, which is not built yet and would not close this if it were.
+#
+# Scheduled, never a pull-request gate -- it goes red for reasons no pull
+# request caused, and a required check like that is one people learn to ignore
+# (floors spec §2).
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  conda:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: ["test", "docs", "devs"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          run-install: false
+      # The diagnosis re-generates the manifest from the declarations, so it has
+      # to read the checkout as committed -- and the resolve step below rewrites
+      # `pyproject.toml` in place before it ever runs.
+      - name: Keep a pristine copy of the manifest
+        run: cp pyproject.toml /tmp/pyproject.pristine.toml
+      - name: Resolve the floors
+        # Every declaration is a live `pixi search` here, so this step fails the
+        # same way the solve does and takes the same retry (floors spec §4). It
+        # is safe to repeat: the generator searches everything before it writes
+        # anything, so a failed attempt leaves the manifest and the summary
+        # untouched and the second starts from the same declarations.
+        run: >
+          pixi exec --spec python=3.12.* --spec packaging
+          python .github/scripts/floors.py
+          --tier ${{ matrix.tier }} --write --summary "$GITHUB_STEP_SUMMARY" ||
+          pixi exec --spec python=3.12.* --spec packaging
+          python .github/scripts/floors.py
+          --tier ${{ matrix.tier }} --write --summary "$GITHUB_STEP_SUMMARY"
+      - name: Solve and install at the floors
+        # This job solves fresh, so a mirror hiccup or a metadata timeout
+        # reads as a broken floor. One retry is the difference between weekly
+        # noise and an occasional one (floors spec §4).
+        run: >
+          pixi install --environment floors-${{ matrix.tier }} ||
+          pixi install --environment floors-${{ matrix.tier }}
+      - name: Run the test suite
+        if: matrix.tier == 'test'
+        # Image comparison is excluded: pytest-mpl compares against baselines
+        # generated under the matplotlib the lockfile pins, so at a floor
+        # matplotlib it reports the version difference every time, whatever the
+        # state of the floor (floors spec §3.3).
+        run: pixi run --environment floors-test pytest
+      - name: Build the documentation
+        if: matrix.tier == 'docs'
+        run: pixi run --environment floors-docs make -C docs html
+      - name: Check the documentation output
+        if: matrix.tier == 'docs'
+        run: >
+          pixi run --environment floors-docs
+          python .github/scripts/check_rendered_citations.py docs/_build/html
+      - name: Check the documentation links
+        if: matrix.tier == 'docs'
+        run: >
+          pixi run --environment floors-docs
+          python .github/scripts/check_documentation_links.py docs/_build/html
+      - name: Note the build-backend shape
+        if: failure()
+        run: >
+          echo "If every tier failed at once, suspect setuptools-scm at its
+          floor before reading the attribution (floors spec §4)."
+          >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnose the failure
+        if: failure()
+        run: |
+          cp /tmp/pyproject.pristine.toml pyproject.toml
+          pixi exec --spec python=3.12.* --spec packaging \
+            python .github/scripts/floors_diagnose.py \
+            --scratch /tmp/floors-scratch --tier ${{ matrix.tier }} \
+            --half conda --out finding-conda-${{ matrix.tier }}.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: failure()
+        with:
+          name: finding-conda-${{ matrix.tier }}
+          path: finding-conda-${{ matrix.tier }}.json
+
+  # The other declaration site of floors spec §3.1. It needs no generated pins:
+  # `--resolution lowest-direct` reads the floors straight from the requirements
+  # files. It is also a genuinely different test -- `lowest-direct` will lift a
+  # direct requirement above its floor to make the set resolve, where the conda
+  # half's `==` pins cannot -- so the two halves are expected to disagree, and
+  # both verdicts are correct about their own claim (floors spec §3.3).
+  pypi:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tier: "core-test"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-test.txt
+          - tier: "docs"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-docs.txt
+          - tier: "devs"
+            requirements: >-
+              -r requirements/pypi-core.txt
+              -r requirements/pypi-optional-devs.txt
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          run-install: false
+      - name: Create the interpreter
+        run: pixi exec --spec uv uv venv --python 3.12 .venv-floors
+      - name: Install at the floors
+        # The half's one live resolution, so it takes the retry the conda half's
+        # solve does (floors spec §4). `uv pip install` is idempotent into an
+        # environment it half-populated, so a second attempt needs no teardown.
+        run: >
+          pixi exec --spec uv uv pip install --python .venv-floors
+          --resolution lowest-direct ${{ matrix.requirements }} . ||
+          pixi exec --spec uv uv pip install --python .venv-floors
+          --resolution lowest-direct ${{ matrix.requirements }} .
+      - name: Record what resolved
+        run: >
+          pixi exec --spec uv uv pip freeze --python .venv-floors
+          >> "$GITHUB_STEP_SUMMARY"
+      # `docs` and `devs` are installed and not run, matching the conda half:
+      # the documentation build needs `make`, which the pip declaration
+      # deliberately does not carry (floors spec §3.1), and the linters report
+      # their own rule sets (floors spec §3.3).
+      - name: Run the test suite
+        if: matrix.tier == 'core-test'
+        run: .venv-floors/bin/python -m pytest
+
+  file:
+    runs-on: ubuntu-latest
+    needs: [conda, pypi]
+    # Gated on the conda half alone, because it is the only one that produces
+    # a finding: the attribution of floors spec §3.4 and the scan of floors
+    # spec §3.5 are written against pixi, and that section's PyPI equivalent
+    # -- reading candidates from the package index rather than the channel --
+    # is not built. A pypi failure is red in this run and says so in its own
+    # log; it does not reach here to file an artifact-less issue. `needs`
+    # keeps both, so the wiring is in place when that half gains a diagnosis.
+    if: always() && needs.conda.result == 'failure'
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          path: findings
+          pattern: finding-*
+          merge-multiple: true
+      - name: File or comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository
+            }}/actions/runs/${{ github.run_id }}
+        run: >
+          pixi exec --spec python=3.12.* python
+          .github/scripts/floors_issue.py findings/*.json --run-url "$RUN_URL"

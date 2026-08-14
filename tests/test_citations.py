@@ -17,12 +17,21 @@ REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_citations.py"
 
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
-# checker they exercise, and a source archive carries no index for the corpus to
-# be enumerated from. The gate is a contract about the repository, and neither of
-# those is the repository, so skip there rather than fail collection.
+# checker they exercise. The gate is a contract about the repository, and that is
+# not the repository, so skip there rather than fail collection.
 pytestmark = pytest.mark.skipif(
-    not (SCRIPT.is_file() and (REPO / ".git").exists()),
-    reason="not a git checkout of the repository",
+    not SCRIPT.is_file(), reason="not a checkout of the repository"
+)
+
+#: The corpus is derived with `git ls-files` (docs spec §3.6), so the two tests
+#: that read the live tree need an index. That is a narrower condition than the
+#: module's: `floors_diagnose._copy` exercises the `test` tier in a copy of the
+#: checkout with `.git` stripped, where every fixture-driven test below still
+#: holds. Guarding the module on the index instead would skip all seventeen in
+#: every floors probe, and a floor that failed the leg would come back
+#: unreproduced.
+tracked = pytest.mark.skipif(
+    not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )
 
 # This file sits inside the corpus the checker reads (docs spec §3.6), so the
@@ -212,6 +221,7 @@ def test_an_anchor_whose_heading_is_gone_is_reported(tmp_path):
     assert "names no heading" in violations[0].message
 
 
+@tracked
 def test_the_corpus_covers_every_tracked_text_file():
     """A glob by extension silently omits citation-bearing files (docs spec §3.6)."""
     paths = set(cc.corpus())
@@ -223,6 +233,7 @@ def test_the_corpus_covers_every_tracked_text_file():
     assert not any(path.suffix == ".png" for path in paths), "images are not text"
 
 
+@tracked
 def test_the_repository_satisfies_the_citation_contract(capsys):
     """The live tree passes all three assertions (docs spec §3.6).
 

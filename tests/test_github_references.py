@@ -17,12 +17,19 @@ REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_github_references.py"
 
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the checker
-# they exercise, and a source archive carries no index for the corpus to be
-# enumerated from. The gate is a contract about the repository, and neither of those
-# is the repository, so skip there rather than fail collection.
+# they exercise. The gate is a contract about the repository, and that is not the
+# repository, so skip there rather than fail collection.
 pytestmark = pytest.mark.skipif(
-    not (SCRIPT.is_file() and (REPO / ".git").exists()),
-    reason="not a git checkout of the repository",
+    not SCRIPT.is_file(), reason="not a checkout of the repository"
+)
+
+#: As in `test_citations.py`: the corpus this gate borrows is derived with
+#: `git ls-files`, so the two tests that read the live tree need an index, and
+#: the nineteen fixture-driven ones below do not. The floors probes exercise the
+#: `test` tier in a copy of the checkout with `.git` stripped, so a module-wide
+#: guard on the index would thin the suite exactly where it is diagnosing it.
+tracked = pytest.mark.skipif(
+    not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )
 
 # This file sits inside the corpus the gate reads (docs spec §3.8), so the number
@@ -241,6 +248,7 @@ def test_a_pair_of_apostrophes_does_not_hide_a_reference(tmp_path):
     assert "103" in violations[0].message
 
 
+@tracked
 def test_the_corpus_excludes_the_plans_and_covers_the_specifications():
     """The plans are frozen with their references (docs spec §3.4)."""
     paths = set(gr.corpus())
@@ -252,6 +260,7 @@ def test_the_corpus_excludes_the_plans_and_covers_the_specifications():
     assert not any("plans" in path.parts for path in paths), frozen
 
 
+@tracked
 def test_the_repository_satisfies_the_reference_contract(capsys):
     """The live tree passes both assertions (docs spec §3.8).
 

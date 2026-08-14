@@ -292,9 +292,24 @@ hypothesis = ">=6.100"
 # environments, which carry no docs feature, and a fixture the tests skip when the
 # package is absent would verify nothing where the matrix runs (:issue:`95`).
 nbformat = ">=5.10"
+# Orders candidate versions by PEP 440, under which `10.0.5` sorts below `8`
+# (floors spec §3.2). `tests/test_import.py` and `tests/test_floors.py` both import
+# it, and it arrives today only as a matplotlib transitive, which is not a
+# declaration -- the same reasoning configfile spec §7 records for `platformdirs`.
+# Declared here rather than under `devs` because the generated `core + test` tier
+# of floors spec §3.3 carries no `devs`, and that is where the suite runs.
+packaging = ">=24.0"
 pytest = ">=8.0"
 pytest-cov = ">=5.0"
 pytest-mpl = ">=0.17"
+# `test_masters_ship_in_the_wheel` shells out to `python -m build`. Every
+# committed environment pairs `test` with `devs`, where this used to be declared,
+# so the test suite's need for it never had to be stated -- but the generated
+# `core + test` of floors spec §3.3 carries no `devs`, and there the test fails on
+# every run with no package floor behind it to attribute. A package the test suite
+# runs is a test dependency wherever it happens to be declared today, exactly as
+# `nbformat` above (:issue:`95`).
+python-build = ">=1.5"
 
 [tool.pixi.feature.test.tasks.tests]
 cmd = "pytest --cov --cov-report=xml --mpl"
@@ -312,7 +327,6 @@ description = "Remove coverage, pytest, pytest-mpl, and hypothesis artifacts"
 check-manifest = ">=0.49"
 mypy = ">=1.13"
 pre-commit = ">=4.0"
-python-build = ">=1.5"
 ruff = ">=0.15"
 zizmor = ">=1.9.0"
 

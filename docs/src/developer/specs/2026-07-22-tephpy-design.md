@@ -940,11 +940,16 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   `open-pull-requests-limit: 0`, so security updates run and version updates do not —
   `requirements/*.txt` declare floors rather than pins, and a bot raising one is the
   automatic floor raise floors spec §2 rejects).
+- **Scheduled, not gating:** `ci-floors` (weekly) resolves every dependency minimum tephpy
+  declares — at both declaration sites — exercises what it resolves, and files one issue per
+  broken floor, attributed to a single package (floors spec §1). It is deliberately not a
+  required check: it solves fresh against a live channel, so it goes red for reasons no pull
+  request caused, and a required check like that is one people learn to ignore
+  (floors spec §2). It is the lower end of the declaration whose upper end `ci-locks` moves.
 - **Fast-follow (documented, not built at v1):** `ci-locks` (weekly lockfile-update bot),
-  `ci-floors` (weekly declared-minimum resolve, the other end of the same declaration —
-  floors spec §1), `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily
-  pip-only install canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS
-  paper build. The spec records these so the gap is a deliberate schedule, not an omission.
+  `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily pip-only install
+  canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS paper build. The
+  spec records these so the gap is a deliberate schedule, not an omission.
 
 (spec-8-8)=
 ### 8.8 Repo hygiene and community files
