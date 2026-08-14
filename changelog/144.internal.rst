@@ -1,0 +1,4 @@
+The ``ci-floors`` job that files an issue per broken dependency floor runs on the
+runner's interpreter. It called ``pixi exec`` while installing no pixi, so the first
+live run diagnosed both broken tiers and then filed nothing (:pull:`141`).
+(:user:`claude`)
