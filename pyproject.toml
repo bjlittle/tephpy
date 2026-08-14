@@ -252,6 +252,11 @@ pandas = ">=2.3"
 pint = ">=0.24.4"
 platformdirs = ">=4.0"
 pyyaml = ">=6.0.1"
+# The `[build-system] requires` of this file, which the `--no-isolation` build in
+# `test_masters_ship_in_the_wheel` takes from the environment rather than
+# provisioning. The PyPI counterpart is declared in the `test` extra, not in
+# `requirements/pypi-core.txt`: that file is `[project] dependencies`, and neither
+# package is a runtime requirement of the installed wheel (:issue:`152`).
 setuptools = ">=77.0.3"
 setuptools-scm = ">=8"
 xarray = ">=2024.10"
@@ -298,8 +303,13 @@ nbformat = ">=5.10"
 # it, and it arrives today only as a matplotlib transitive, which is not a
 # declaration -- the same reasoning configfile spec §7 records for `platformdirs`.
 # Declared here rather than under `devs` because the generated `core + test` tier
-# of floors spec §3.3 carries no `devs`, and that is where the suite runs.
-packaging = ">=24.0"
+# of floors spec §3.3 carries no `devs`, and that is where the suite runs. The
+# floor is `24.2` rather than the `24.0` that ordering alone needs: `setuptools
+# >=77` canonicalizes this project's PEP 639 `license` expression through
+# `packaging.licenses`, added in `24.2`, and raises `ImportError` below it --
+# which fails the wheel build `test_masters_ship_in_the_wheel` shells out to
+# (:issue:`152`).
+packaging = ">=24.2"
 pytest = ">=8.0"
 pytest-cov = ">=5.0"
 pytest-mpl = ">=0.17"
