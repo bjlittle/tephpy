@@ -32,12 +32,20 @@ if TYPE_CHECKING:
 
 SCRIPTS = Path(__file__).parent
 
-#: How each tier is exercised once it resolves (floors spec §3.3). `devs` has no
-#: entry to run: its packages are linters, and pre-commit at a floor `ruff`
-#: reports that version's rule set rather than anything about tephpy.
-EXERCISE: dict[str, list[str] | None] = {
-    "test": ["pytest"],
-    "docs": ["make", "-C", "docs", "html"],
+#: How each tier is exercised once it resolves (floors spec §3.3), step for step
+#: as `ci-floors.yml` runs it. The docs tier is a build *and* its two output
+#: gates, and a floor can pass the build and fail a gate -- `sphinx-click 6.0.0`
+#: did (:issue:`109`). A probe running the build alone would re-run that leg
+#: green and report it unreproduced, which reads as "the floor is fine". `devs`
+#: has no entry to run: its packages are linters, and pre-commit at a floor
+#: `ruff` reports that version's rule set rather than anything about tephpy.
+EXERCISE: dict[str, list[list[str]] | None] = {
+    "test": [["pytest"]],
+    "docs": [
+        ["make", "-C", "docs", "html"],
+        ["python", ".github/scripts/check_rendered_citations.py", "docs/_build/html"],
+        ["python", ".github/scripts/check_documentation_links.py", "docs/_build/html"],
+    ],
     "devs": None,
 }
 
@@ -179,28 +187,34 @@ def exercise(probe: Probe, root: Path) -> tuple[bool, str]:
     Returns
     -------
     tuple of (bool, str)
-        Whether it passed, and its combined output. A tier with no exercise
-        passes with no output.
+        Whether every step passed, and the output of the first that did not.
+        A tier with no exercise passes with no output.
 
     """
-    command = EXERCISE.get(probe.tier)
-    if command is None:
+    commands = EXERCISE.get(probe.tier)
+    if commands is None:
         return True, ""
-    out = subprocess.run(  # noqa: S603 -- fixed argv, pixi resolved off PATH
-        [
-            floors.tool("pixi"),
-            "run",
-            "--environment",
-            f"floors-{probe.tier}",
-            *command,
-        ],
-        cwd=root,
-        env=ENVIRONMENT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return out.returncode == 0, out.stdout + out.stderr
+    for command in commands:
+        out = subprocess.run(  # noqa: S603 -- fixed argv, pixi resolved off PATH
+            [
+                floors.tool("pixi"),
+                "run",
+                "--environment",
+                f"floors-{probe.tier}",
+                *command,
+            ],
+            cwd=root,
+            env=ENVIRONMENT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.returncode != 0:
+            # The steps run in the workflow's order and each needs the one
+            # before it -- both docs gates read what the build wrote -- so a
+            # failure stops here rather than reporting the cascade after it.
+            return False, out.stdout + out.stderr
+    return True, ""
 
 
 def chosen(probe: Probe, root: Path, package: str) -> str | None:
@@ -285,11 +299,33 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
 
 
 def _copy(probe: Probe, name: str) -> Path:
-    """Make a throwaway copy of the checkout."""
+    """Make a throwaway copy of the checkout.
+
+    A diagnosis makes one of these per relaxation and per scan candidate, so
+    `.git` is left behind: it is the largest thing in the tree and nothing the
+    probes run needs history. `.github` is copied, because the `test` tier's
+    exercise is the suite, and the suite reads those scripts -- which is also
+    why the tests guarding on a checkout key on `.github` and not on `.git`,
+    or the probe would run a thinner suite than the leg it is diagnosing.
+
+    What the failing leg left behind is dropped too. The diagnosis runs after
+    that leg ran in this same checkout, so `__pycache__` holds byte-code whose
+    code objects name the checkout and not the copy, and `docs/_build` makes
+    the probe's build an incremental one over pages it did not write. Both
+    make the exercise report the state of the run being diagnosed rather than
+    its own: a warning attributed to the checkout's path fails a test that
+    compares it to `__file__`, whatever the floors resolved to.
+    """
     root = probe.scratch / name
     if root.exists():
         shutil.rmtree(root)
-    shutil.copytree(probe.source, root, ignore=shutil.ignore_patterns(".pixi", ".git"))
+    shutil.copytree(
+        probe.source,
+        root,
+        ignore=shutil.ignore_patterns(
+            ".pixi", ".git", "__pycache__", ".pytest_cache", "_build"
+        ),
+    )
     return root
 
 

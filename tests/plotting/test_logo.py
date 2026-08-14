@@ -48,8 +48,19 @@ def test_master_matches_the_bundle(name):
     assert hashlib.sha256((STATIC / name).read_bytes()).hexdigest() == expected
 
 
+@pytest.mark.skipif(
+    not (REPO / ".git").exists(), reason="no index to export the committed tree from"
+)
 def test_masters_ship_in_the_wheel(tmp_path):
-    """A source-tree copy nobody packaged is the failure tests cannot see."""
+    """A source-tree copy nobody packaged is the failure tests cannot see.
+
+    Skipped without an index rather than left to raise. ``ci-floors``
+    exercises the ``test`` tier in a copy of the checkout with ``.git``
+    stripped, and ``check=True`` below turns its absence into an error --
+    so this one test would fail every probe whatever the floors resolved
+    to, and every ``test`` tier diagnosis would report it as the failure
+    (floors spec §3.4).
+    """
     # Export the committed tree; untracked files are invisible to git-archive,
     # so the test genuinely fails if a master was never committed (logo spec §2).
     src_tar = tmp_path / "src.tar"

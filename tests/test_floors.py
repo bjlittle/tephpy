@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 from pathlib import Path
+import re
 import subprocess
 import sys
 import textwrap
@@ -22,10 +24,13 @@ SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
 # generator they exercise. Guarding the module rather than the test is deliberate:
 # an unguarded import fails *collection* there, taking the rest of the suite with
-# it (floors spec §5).
+# it (floors spec §5). The script, not `.git`, is what the guard asks after: the
+# `test` tier is exercised in a copy of the checkout with `.git` stripped
+# (`floors_diagnose._copy`), and a guard keyed on that would skip this module --
+# `packaging`, which it imports, being one of the floors under diagnosis -- in
+# every probe, so a floor that fails the leg would be reported unreproduced.
 pytestmark = pytest.mark.skipif(
-    not (SCRIPT.is_file() and (REPO / ".git").exists()),
-    reason="not a git checkout of the repository",
+    not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
 
@@ -189,6 +194,145 @@ def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
     diagnose.exercise(probe, tmp_path)
     assert seen["install"].get("SETUPTOOLS_SCM_PRETEND_VERSION")
     assert seen["run"].get("SETUPTOOLS_SCM_PRETEND_VERSION")
+
+
+#: The modules that exercise the `.github` scripts, and so carry a guard for the
+#: sdist that ships them without it. The `test` tier's exercise is this suite, so
+#: what their guard skips is what a diagnosis cannot see.
+GUARDED = (
+    "test_floors.py",
+    "test_floors_issue.py",
+    "test_citations.py",
+    "test_github_references.py",
+)
+
+
+@pytest.mark.parametrize("name", GUARDED)
+def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
+    # `_copy` strips `.git`, so a module-level `skipif` keyed on it skips in
+    # every probe -- silently, a skip being not a failure. It is `.github` that
+    # an sdist lacks and a probe has, so that is what the guard asks after. The
+    # narrower condition still has a use: the two citation modules enumerate
+    # their corpus with `git ls-files`, and mark the tests that do.
+    source = (REPO / "tests" / name).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    guards = [
+        ast.get_source_segment(source, node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "pytestmark"
+            for target in node.targets
+        )
+    ]
+    assert len(guards) == 1, "the module must stay guarded for the sdist"
+    # `.github` starts with `.git`, so the index is matched as a whole word: a
+    # guard written out inline rather than through `SCRIPT` names the directory
+    # this test wants to see, and a substring test would read it as the index.
+    assert not re.search(r"\.git\b", guards[0])
+
+
+def _shells_out_to_git(source: str) -> list[ast.FunctionDef]:
+    """Return every test in one module whose argv starts with a literal ``git``."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("test_"):
+            continue
+        for call in ast.walk(node):
+            argv = call.args[0] if isinstance(call, ast.Call) and call.args else None
+            if isinstance(argv, ast.List) and argv.elts:
+                head = argv.elts[0]
+                if isinstance(head, ast.Constant) and head.value == "git":
+                    found.append(node)
+                    break
+    return found
+
+
+def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
+    # A probe runs this suite in a copy of the checkout with `.git` stripped, so
+    # a `git` call there does not skip -- it raises, and with `check=True` it
+    # fails the exercise whatever the floors resolved to. One such test is enough
+    # to make the `test` tier's exercise unpassable, which turns every diagnosis
+    # of that tier into a report of it (floors spec §3.4). The literal form is
+    # what is matched, so a call built some other way is caught by the probe
+    # going red rather than here.
+    unguarded = []
+    for path in sorted((REPO / "tests").rglob("test_*.py")):
+        source = path.read_text(encoding="utf-8")
+        for node in _shells_out_to_git(source):
+            marks = " ".join(
+                ast.get_source_segment(source, mark) or ""
+                for mark in node.decorator_list
+            )
+            if ".git" not in marks:
+                unguarded.append(f"{path.name}::{node.name}")
+    assert not unguarded
+
+
+def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
+    # The diagnosis runs after that leg ran in this same checkout, so a copied
+    # `__pycache__` gives the probe code objects naming the checkout rather than
+    # the copy -- which fails `test_a_warning_blames_the_caller_not_tephpy`, that
+    # test comparing a warning's filename to `__file__` -- and a copied
+    # `docs/_build` makes the probe's documentation build an incremental one over
+    # pages it did not write. Either way the exercise reports the state of the
+    # run being diagnosed instead of its own (floors spec §3.3).
+    diagnose = _load_diagnose()
+    source = tmp_path / "checkout"
+    (source / "tests" / "__pycache__").mkdir(parents=True)
+    (source / "tests" / "__pycache__" / "test_x.pyc").write_bytes(b"stale")
+    (source / "docs" / "_build" / "html").mkdir(parents=True)
+    (source / "docs" / "_build" / "html" / "index.html").write_text("stale")
+    (source / "tests" / "test_x.py").write_text("# kept\n")
+    probe = diagnose.Probe(
+        source=source, scratch=tmp_path / "scratch", tier="test", python="3.12"
+    )
+    (tmp_path / "scratch").mkdir()
+    root = diagnose._copy(probe, "baseline")
+    assert (root / "tests" / "test_x.py").is_file()
+    assert not (root / "tests" / "__pycache__").exists()
+    assert not (root / "docs" / "_build").exists()
+
+
+def test_the_docs_probe_runs_every_gate_the_workflow_does():
+    # The docs leg is a build and two output gates, and a floor can pass the
+    # build and fail a gate -- `sphinx-click 6.0.0` did (:issue:`109`). A probe
+    # that runs the build alone re-runs that leg green and reports it
+    # unreproduced, which reads as "the floor is fine" (floors spec §3.3). The
+    # workflow is the source of the list, so a gate added there and not here is
+    # a failure rather than a step nobody notices is missing.
+    diagnose = _load_diagnose()
+    workflow = (REPO / ".github" / "workflows" / "ci-floors.yml").read_text(
+        encoding="utf-8"
+    )
+    gates = set(re.findall(r"\.github/scripts/check_\w+\.py", workflow))
+    probed = {word for command in diagnose.EXERCISE["docs"] for word in command}
+    assert gates
+    assert gates <= probed
+    assert ["make", "-C", "docs", "html"] in diagnose.EXERCISE["docs"]
+
+
+def test_the_exercise_reports_the_step_that_failed_and_stops(monkeypatch, tmp_path):
+    # The gates read what the build wrote, so running on past a failure reports
+    # a cascade of missing-output errors in place of the failure that caused
+    # them -- and that text is what the issue quotes verbatim (floors spec §3.6).
+    diagnose = _load_diagnose()
+    ran = []
+
+    def _run(command, **_):
+        ran.append(command[-1])
+        code = 1 if command[-1] == "html" else 0
+        return subprocess.CompletedProcess(command, code, "build failed", "")
+
+    monkeypatch.setattr(diagnose.subprocess, "run", _run)
+    monkeypatch.setattr(diagnose.floors, "tool", lambda name: f"/usr/bin/{name}")
+    probe = diagnose.Probe(
+        source=tmp_path, scratch=tmp_path, tier="docs", python="3.12"
+    )
+    passed, output = diagnose.exercise(probe, tmp_path)
+    assert not passed
+    assert output.startswith("build failed")
+    assert ran == ["html"]
 
 
 def test_the_forced_pin_is_written_after_the_generator_runs(monkeypatch, tmp_path):

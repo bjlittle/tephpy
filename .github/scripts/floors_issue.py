@@ -174,10 +174,6 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         GitHub-flavoured Markdown.
 
     """
-    # The declaring table, not the tier that failed: core is resolved into every
-    # tier, so a `test` run can attribute to a package declared in the core
-    # table, whose two declaration sites are a different pair (floors spec §3.1).
-    table, requirements = SITES[finding.get("site") or finding["tier"]]
     group = [finding, *others]
     if others:
         named = " and ".join(item["half"] for item in group)
@@ -212,18 +208,39 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         ]
     else:
         lines += [f"The scan found {outcome(finding)}.", ""]
-    lines += [
-        (
-            "Both declaration sites need the same edit — a fix that changes "
-            "one and not the other leaves the two sides disagreeing:"
-        ),
-        "",
-        f"- `pyproject.toml`, `{table}`",
-        f"- `{requirements}`",
-        "",
-        CAVEAT,
-        "",
-    ]
+    if finding["package"] is None:
+        # No package means no declaration to name. The tier that failed is not
+        # it: core resolves into every tier (floors spec §3.1), so the tier's
+        # own pair is a guess, and one that reads as established -- it would
+        # send the reader to two files that need not declare anything to do
+        # with the failure. The `test` tier is expected to produce a finding of
+        # exactly this shape on the first run.
+        lines += [
+            (
+                "No declaration site is named, because nothing was attributed "
+                "and the tier that failed is not necessarily where the culprit "
+                "is declared — the core table resolves into every tier. Start "
+                "from the solver output below."
+            ),
+            "",
+        ]
+    else:
+        # The declaring table, not the tier that failed: core is resolved into
+        # every tier, so a `test` run can attribute to a package declared in the
+        # core table, whose two sites are a different pair (floors spec §3.1).
+        table, requirements = SITES[finding.get("site") or finding["tier"]]
+        lines += [
+            (
+                "Both declaration sites need the same edit — a fix that changes "
+                "one and not the other leaves the two sides disagreeing:"
+            ),
+            "",
+            f"- `pyproject.toml`, `{table}`",
+            f"- `{requirements}`",
+            "",
+            CAVEAT,
+            "",
+        ]
     for item in group:
         lines += [
             f"<details><summary>failure ({item['half']})</summary>",

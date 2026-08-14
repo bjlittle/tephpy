@@ -42,7 +42,15 @@ jobs:
       - name: Keep a pristine copy of the manifest
         run: cp pyproject.toml /tmp/pyproject.pristine.toml
       - name: Resolve the floors
+        # Every declaration is a live `pixi search` here, so this step fails the
+        # same way the solve does and takes the same retry (floors spec §4). It
+        # is safe to repeat: the generator searches everything before it writes
+        # anything, so a failed attempt leaves the manifest and the summary
+        # untouched and the second starts from the same declarations.
         run: >
+          pixi exec --spec python=3.12.* --spec packaging
+          python .github/scripts/floors.py
+          --tier ${{ matrix.tier }} --write --summary "$GITHUB_STEP_SUMMARY" ||
           pixi exec --spec python=3.12.* --spec packaging
           python .github/scripts/floors.py
           --tier ${{ matrix.tier }} --write --summary "$GITHUB_STEP_SUMMARY"
@@ -128,7 +136,12 @@ jobs:
       - name: Create the interpreter
         run: pixi exec --spec uv uv venv --python 3.12 .venv-floors
       - name: Install at the floors
+        # The half's one live resolution, so it takes the retry the conda half's
+        # solve does (floors spec §4). `uv pip install` is idempotent into an
+        # environment it half-populated, so a second attempt needs no teardown.
         run: >
+          pixi exec --spec uv uv pip install --python .venv-floors
+          --resolution lowest-direct ${{ matrix.requirements }} . ||
           pixi exec --spec uv uv pip install --python .venv-floors
           --resolution lowest-direct ${{ matrix.requirements }} .
       - name: Record what resolved

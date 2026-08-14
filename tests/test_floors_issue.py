@@ -21,10 +21,11 @@ SCRIPT = REPO / ".github" / "scripts" / "floors_issue.py"
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
 # script they exercise. Guarding the module rather than the test is deliberate:
 # an unguarded import fails *collection* there, taking the rest of the suite
-# with it (floors spec §5).
+# with it (floors spec §5). As in `test_floors.py`, the guard asks after the
+# script and not `.git`: the `test` tier is exercised in a copy of the checkout
+# with `.git` stripped, and this module must stay live there.
 pytestmark = pytest.mark.skipif(
-    not (SCRIPT.is_file() and (REPO / ".git").exists()),
-    reason="not a git checkout of the repository",
+    not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
 
@@ -82,10 +83,20 @@ def test_the_scan_line_is_one_sentence_in_both_outcomes():
     )
 
 
-def test_an_unattributed_finding_says_so():
+def test_an_unattributed_finding_says_so_and_names_no_declaration_site():
+    # The sites are read from the culprit's declaring table, so with no culprit
+    # there is nothing to read them from -- and falling back to the tier's own
+    # pair is a guess that reads as established, because the core table resolves
+    # into every tier (floors spec §3.1). The `test` tier is expected to produce
+    # a finding of exactly this shape on the first run, so this is the issue a
+    # reader meets before any other.
     module = _load()
-    text = module.body({**FINDING, "package": None, "lowest": None}, "url")
+    finding = {**FINDING, "tier": "test", "package": None, "lowest": None}
+    text = module.body(finding, "url")
     assert "no attribution was reached" in text
+    assert "Both declaration sites need the same edit" not in text
+    assert "pypi-optional-test.txt" not in text
+    assert "[tool.pixi.feature.test.dependencies]" not in text
 
 
 def test_the_declaration_sites_follow_the_declaring_table_not_the_tier():
