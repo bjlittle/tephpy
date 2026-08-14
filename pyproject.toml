@@ -74,7 +74,8 @@ testpaths = ["tests"]
 xfail_strict = true
 
 [tool.codespell]
-ignore-words-list = "accreting,PRES"
+# `astroid` is the parser sphinx-autoapi drives, not a misspelling of "asteroid".
+ignore-words-list = "accreting,astroid,PRES"
 
 [tool.coverage.run]
 branch = true
@@ -340,10 +341,10 @@ myst-nb = ">=1.1"
 numpydoc = ">=1.8"
 pydata-sphinx-theme = ">=0.16"
 sphinx = ">=8.0"
-sphinx-autoapi = ">=3.3"
+sphinx-autoapi = ">=3.6.1"
 sphinx-click = ">=6.0"
 sphinx-copybutton = ">=0.5"
-sphinx-design = ">=0.6"
+sphinx-design = ">=0.6.1"
 sphinx-gallery = ">=0.17"
 sphinx-togglebutton = ">=0.3"
 sphinx_changelog = ">=1.6"
