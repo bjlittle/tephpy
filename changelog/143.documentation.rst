@@ -3,4 +3,6 @@ entirely client-side, plots its bundled sounding on an interactive matplotlib
 canvas, accepts local CSV uploads, and exposes normalized plotted values in a
 collapsible table. The tutorial also explains each navigation control with its
 Matplotlib icon, and the demo anchors those controls to the left so the live
-cursor readout, anchored to the right, cannot move them. (:user:`openai`)
+cursor readout, anchored to the right, cannot move them. Rectangle zooming
+preserves the tephigram view ratio so the axes remain beneath the pointer.
+(:user:`openai`)

@@ -261,6 +261,28 @@ def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
     assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) == before
 
 
+@pytest.mark.parametrize("direction", ["in", "out"])
+def test_rectangle_zoom_keeps_equal_aspect_axes_stationary(tephigram_axes, direction):
+    """An unequal toolbar rectangle changes the view, not the axes box."""
+    figure = tephigram_axes.figure
+    figure.canvas.draw()
+    position = tephigram_axes.get_position().bounds
+    limits = tephigram_axes.get_xlim(), tephigram_axes.get_ylim()
+    x0, y0, width, height = tephigram_axes.bbox.bounds
+    selection = (
+        x0 + 0.40 * width,
+        y0 + 0.20 * height,
+        x0 + 0.50 * width,
+        y0 + 0.80 * height,
+    )
+
+    tephigram_axes._set_view_from_bbox(selection, direction=direction)
+    figure.canvas.draw()
+
+    assert (tephigram_axes.get_xlim(), tephigram_axes.get_ylim()) != limits
+    assert tephigram_axes.get_position().bounds == pytest.approx(position)
+
+
 def test_set_extent_rejects_unphysical_corners(tephigram_axes):
     with pytest.raises(ValueError, match="physical"):
         tephigram_axes.set_extent(((0.0, -40.0), (200.0, 40.0)))
