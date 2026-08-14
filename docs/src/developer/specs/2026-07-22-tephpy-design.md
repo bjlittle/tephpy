@@ -670,7 +670,8 @@ on the right does not shift the buttons beneath the pointer.
 WebAgg still focuses its canvas interaction layer for keyboard navigation, but does so with
 `preventScroll` so the first pointer press cannot snap either the iframe or its parent page.
 The tutorial replaces those hints with a compact guide to all six controls, using the
-corresponding icon artwork from the pinned Matplotlib runtime.
+corresponding icon artwork from the pinned Matplotlib runtime without links or decorative
+containers.
 A collapsed, scrollable table below the canvas exposes the normalized quantities used by
 the plot with sticky unit-bearing headers; it retains its expanded state across successful
 replacements and remains paired with the prior plot after an invalid upload. The uploaded

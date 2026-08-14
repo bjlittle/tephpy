@@ -7,9 +7,12 @@ local CSV file. Your file is not uploaded to tephpy or to a live-data service.
 
 .. note::
 
-    The first launch downloads PyScript, Pyodide, and the scientific Python
-    packages needed by tephpy. It can take a few minutes. Chromium is tested;
-    Firefox and Safari support are best-effort.
+    The first launch downloads `PyScript <https://pyscript.net/>`_,
+    `Pyodide <https://pyodide.org/en/stable/>`_, and the scientific Python
+    packages needed by tephpy. It can take a few minutes.
+    `Chromium <https://www.chromium.org/>`_ is tested;
+    `Firefox <https://www.mozilla.org/firefox/>`_ and
+    `Safari <https://www.apple.com/safari/>`_ support are best-effort.
 
 Launch the Demo
 ---------------
@@ -62,27 +65,23 @@ button again or choose another navigation mode.
     * - .. image:: ../_static/browser-toolbar/home.svg
             :alt: Home toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Home**
       - Restore the original plot limits. This resets the view, not the loaded
         CSV data.
     * - .. image:: ../_static/browser-toolbar/back.svg
             :alt: Back toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Back**
       - Step backward through views created by panning or zooming. The button
         becomes available after the view changes.
     * - .. image:: ../_static/browser-toolbar/forward.svg
             :alt: Forward toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Forward**
       - Step forward again after using **Back**.
     * - .. image:: ../_static/browser-toolbar/move.svg
             :alt: Pan toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Pan**
       - Select the button, then left-drag to pan or right-drag to zoom. Hold
         :kbd:`x` or :kbd:`y` to constrain the movement to one axis, or
@@ -90,7 +89,6 @@ button again or choose another navigation mode.
     * - .. image:: ../_static/browser-toolbar/zoom_to_rect.svg
             :alt: Zoom toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Zoom**
       - Select the button, then left-drag a rectangle to zoom in or right-drag
         one to zoom out. Hold :kbd:`x` or :kbd:`y` to constrain the zoom to one
@@ -98,7 +96,6 @@ button again or choose another navigation mode.
     * - .. image:: ../_static/browser-toolbar/filesave.svg
             :alt: Save toolbar icon
             :class: browser-toolbar-icon
-            :width: 28px
       - **Save**
       - Choose an image format from the toolbar menu, then select this button
         to download the current figure.

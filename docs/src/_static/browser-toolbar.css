@@ -15,9 +15,5 @@
 }
 
 .browser-toolbar-icon {
-  background: #fff;
-  border: 1px solid #d5d9e0;
-  border-radius: 0.25rem;
-  box-sizing: content-box;
-  padding: 0.2rem;
+  width: 28px;
 }

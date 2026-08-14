@@ -4,5 +4,7 @@ canvas, accepts local CSV uploads, and exposes normalized plotted values in a
 collapsible table. The tutorial also explains each navigation control with its
 Matplotlib icon, and the demo anchors those controls to the left so the live
 cursor readout, anchored to the right, cannot move them. Focusing the plot on
-the first pointer press also preserves the page and iframe scroll positions.
+the first pointer press also preserves the page and iframe scroll positions. The
+tutorial links to the browser-runtime projects and supported browsers, and shows
+the navigation icons without links or decorative containers.
 (:user:`openai`)
