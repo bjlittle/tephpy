@@ -90,6 +90,17 @@ def _assert_toolbar(frame: Frame) -> None:
     assert with_coordinates is not None
     shift = abs(with_coordinates["x"] - before_coordinates["x"])
     assert shift < 0.5, f"toolbar control shifted by {shift}px"
+    message_box = toolbar.locator(".mpl-message").bounding_box()
+    toolbar_box = toolbar.bounding_box()
+    assert message_box is not None
+    assert toolbar_box is not None
+    right_gap = abs(
+        message_box["x"]
+        + message_box["width"]
+        - toolbar_box["x"]
+        - toolbar_box["width"]
+    )
+    assert right_gap < 0.5, f"toolbar message right gap is {right_gap}px"
 
 
 def _assert_data_table(

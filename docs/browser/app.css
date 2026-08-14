@@ -103,8 +103,15 @@ input:disabled {
 }
 
 .mpl-toolbar {
+  align-items: center;
+  display: flex;
   justify-content: flex-start;
   text-align: left;
+}
+
+.mpl-toolbar .mpl-message {
+  margin-left: auto;
+  text-align: right;
 }
 
 .data-panel {

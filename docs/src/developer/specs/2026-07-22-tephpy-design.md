@@ -665,8 +665,8 @@ its WebAgg DOM is removed, and its Python callback proxies are destroyed. The re
 canvas retains matplotlib's pan, zoom, coordinate readout, home/reset, and download tools.
 WebAgg's prose hover hints are suppressed because inserting them into the toolbar moves its
 buttons; their accessible image labels and the backend-driven coordinate readout remain.
-The controls are left-aligned so that coordinate text appearing on the right does not shift
-the buttons beneath the pointer.
+The controls are left-aligned and the coordinate readout is right-aligned, so text appearing
+on the right does not shift the buttons beneath the pointer.
 The tutorial replaces those hints with a compact guide to all six controls, using the
 corresponding icon artwork from the pinned Matplotlib runtime.
 A collapsed, scrollable table below the canvas exposes the normalized quantities used by
