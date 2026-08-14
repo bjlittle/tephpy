@@ -17,6 +17,7 @@ import textwrap
 
 from packaging.version import Version
 import pytest
+import yaml
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "floors.py"
@@ -194,6 +195,26 @@ def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
     diagnose.exercise(probe, tmp_path)
     assert seen["install"].get("SETUPTOOLS_SCM_PRETEND_VERSION")
     assert seen["run"].get("SETUPTOOLS_SCM_PRETEND_VERSION")
+
+
+WORKFLOW = REPO / ".github" / "workflows" / "ci-floors.yml"
+
+
+def test_no_job_reaches_for_a_tool_it_does_not_install():
+    # This workflow runs weekly and on dispatch, never on a pull request, so a
+    # step calling something its job never installed is a failure nobody meets
+    # until the week it matters -- and the first live run met it: `file` called
+    # `pixi exec`, installs no pixi, and so filed nothing for two floors that
+    # had been diagnosed correctly. Every other gate this repository has would
+    # have run that job a hundred times before it mattered; this one would not.
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    for name, job in jobs.items():
+        steps = job["steps"]
+        if any("setup-pixi" in (step.get("uses") or "") for step in steps):
+            continue
+        for step in steps:
+            command = step.get("run") or ""
+            assert "pixi" not in command, f"{name}: {step.get('name')} needs pixi"
 
 
 #: The modules that exercise the `.github` scripts, and so carry a guard for the

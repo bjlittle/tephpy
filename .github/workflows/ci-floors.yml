@@ -184,6 +184,11 @@ jobs:
           RUN_URL: >-
             ${{ github.server_url }}/${{ github.repository
             }}/actions/runs/${{ github.run_id }}
+        # The runner's interpreter rather than a pinned one: this job installs
+        # no pixi, and it is the wrong place to start -- the composer imports
+        # nothing outside the standard library and shells out to `gh`, which is
+        # on the image, so a pinned interpreter would buy a live download in the
+        # one job that has to work when everything it reports on is red.
         run: >
-          pixi exec --spec python=3.12.* python
-          .github/scripts/floors_issue.py findings/*.json --run-url "$RUN_URL"
+          python3 .github/scripts/floors_issue.py findings/*.json
+          --run-url "$RUN_URL"
