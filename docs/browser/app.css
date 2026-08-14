@@ -1,0 +1,195 @@
+/*
+ * Copyright (c) 2026, tephpy Contributors.
+ *
+ * This file is part of tephpy and is distributed under the 3-Clause BSD license.
+ * See the LICENSE file in the package root directory for licensing details.
+ */
+
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  background: light-dark(#f6f7f9, #16181d);
+  color: light-dark(#20232a, #f1f3f5);
+}
+
+main {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 1rem;
+}
+
+header,
+.runtime,
+.controls,
+#plot {
+  border: 1px solid light-dark(#d5d9e0, rgb(65 70 80));
+  border-radius: 0.6rem;
+  background: light-dark(#fff, #22252b);
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 1rem;
+}
+
+.eyebrow {
+  color: #526b98;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+progress {
+  width: min(100%, 34rem);
+}
+
+.controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.controls h2,
+.controls .error {
+  flex-basis: 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+}
+
+button:disabled,
+input:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.error {
+  border-left: 0.3rem solid #b42318;
+  color: light-dark(#8b1a12, #ffb4ab);
+  margin-bottom: 0;
+  padding-left: 0.75rem;
+}
+
+#plot {
+  min-height: 18rem;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.plot-instance {
+  min-height: 18rem;
+}
+
+.mpl-toolbar {
+  align-items: center;
+  display: flex;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.mpl-toolbar .mpl-message {
+  margin-left: auto;
+  text-align: right;
+}
+
+.data-panel {
+  border: 1px solid light-dark(#d5d9e0, rgb(65 70 80));
+  border-radius: 0.6rem;
+  background: light-dark(#fff, #22252b);
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.data-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  padding: 0.75rem 1rem;
+}
+
+.data-panel[open] summary {
+  border-bottom: 1px solid light-dark(#d5d9e0, rgb(65 70 80));
+}
+
+.data-table-scroll {
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.data-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid light-dark(#e6e8ec, #373c44);
+  padding: 0.45rem 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table th {
+  background: light-dark(#eef1f5, #30343b);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: light-dark(#f7f8fa, #282c32);
+}
+
+.data-table tbody tr:hover {
+  background: light-dark(#edf3ff, #333b4a);
+}
+
+.data-unit {
+  color: light-dark(#5e6673, #b7bec9);
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.missing {
+  color: light-dark(#68707d, #aab2bf);
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 40rem) {
+  main {
+    padding: 0.5rem;
+  }
+}

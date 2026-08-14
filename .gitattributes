@@ -1,2 +1,5 @@
 .git_archival.txt  export-subst
 pixi.lock          merge=binary linguist-language=YAML linguist-generated=true
+
+# Preserve Matplotlib's pinned toolbar artwork byte-for-byte.
+docs/src/_static/browser-toolbar/*.svg -whitespace

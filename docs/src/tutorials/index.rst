@@ -1,4 +1,7 @@
 Tutorials
 =========
 
-Learning-oriented lessons will appear here as the package grows.
+.. toctree::
+    :maxdepth: 1
+
+    browser-demo

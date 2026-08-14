@@ -145,7 +145,19 @@ max-statements = 53
   # https://docs.astral.sh/ruff/rules/#flake8-boolean-trap-fbt
   "FBT001", # flake8-boolean-trap: Boolean-typed positional argument in function definition.
   # https://docs.astral.sh/ruff/rules/print/
-  "T201", # flake8-print: print found.
+  "T201",   # flake8-print: print found.
+  "INP001", # repository scripts are executed by path, not imported as a package
+]
+"docs/browser/*.py" = [
+  "ANN401",   # browser DOM and Pyodide proxy objects are dynamically typed
+  "ASYNC240", # Pyodide's virtual filesystem has no async pathlib alternative
+  "BLE001",   # surface any parser, Sounding, matplotlib, or runtime error in the UI
+  "INP001",   # staged scripts, not an importable package
+  "RUF006",   # PyScript's event loop retains the application startup task
+]
+"docs/build_browser.py" = [
+  "INP001", # documentation build script, executed by path
+  "T201",   # report the staged application path to the docs build log
 ]
 "docs/src/conf.py" = ["INP001", "A001"]
 # The Sphinx extension directory is a ``sys.path`` entry at build time, not a
@@ -350,6 +362,7 @@ make = ">=4.3"
 myst-nb = ">=1.1"
 numpydoc = ">=1.8"
 pydata-sphinx-theme = ">=0.16"
+python-build = ">=1.5"
 sphinx = ">=8.0"
 sphinx-autoapi = ">=3.6.1"
 sphinx-click = ">=6.0"
@@ -361,11 +374,19 @@ sphinx_changelog = ">=1.6"
 sphinxcontrib-bibtex = ">=2.6"
 towncrier = ">=24.8"
 
+[tool.pixi.feature.docs.pypi-dependencies]
+playwright = ">=1.55"
+
 [tool.pixi.feature.docs.tasks.docs-html]
 cmd = "make html"
 cwd = "docs"
 depends-on = ["docs-clean"]
 description = "Build the HTML documentation"
+
+[tool.pixi.feature.docs.tasks.docs-browser-test]
+cmd = "python .github/scripts/check_browser_demo.py"
+depends-on = ["docs-html"]
+description = "Exercise the built PyScript demo in Chromium"
 
 [tool.pixi.feature.docs.tasks.docs-check-citations]
 cmd = "python .github/scripts/check_rendered_citations.py docs/_build/html"

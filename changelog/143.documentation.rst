@@ -1,0 +1,6 @@
+Added an experimental browser tutorial that lazily runs the current tephpy wheel
+entirely client-side, plots its bundled sounding on an interactive matplotlib
+canvas, accepts local CSV uploads, and exposes the normalized plotted values in
+a collapsible table. The tutorial explains each matplotlib navigation control
+and links to the browser-runtime projects the demo depends on.
+(:user:`openai`)

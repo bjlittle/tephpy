@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2026, tephpy Contributors.
+ *
+ * This file is part of tephpy and is distributed under the 3-Clause BSD license.
+ * See the LICENSE file in the package root directory for licensing details.
+ */
+
+.browser-toolbar-guide td {
+  vertical-align: top;
+}
+
+.browser-toolbar-guide td:first-child {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.browser-toolbar-icon {
+  width: 28px;
+}

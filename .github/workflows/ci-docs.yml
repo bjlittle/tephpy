@@ -15,6 +15,7 @@ permissions: {}
 jobs:
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -31,3 +32,11 @@ jobs:
       - run: >
           pixi run --frozen --environment docs
           python .github/scripts/check_documentation_links.py docs/_build/html
+      - run: >
+          pixi run --frozen --environment docs playwright install --with-deps chromium ||
+          pixi run --frozen --environment docs playwright install --with-deps chromium
+      - run: >
+          pixi run --frozen --environment docs
+          python .github/scripts/check_browser_demo.py ||
+          pixi run --frozen --environment docs
+          python .github/scripts/check_browser_demo.py

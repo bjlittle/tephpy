@@ -23,8 +23,10 @@ repos:
       - id: no-commit-to-branch
       - id: trailing-whitespace
         # The io fixtures are byte-faithful archive captures (their records
-        # legitimately end with a trailing space).
-        exclude: '^tests/fixtures/io/'
+        # legitimately end with a trailing space). The browser toolbar SVGs
+        # are likewise preserved byte-for-byte from the pinned Matplotlib
+        # wheel.
+        exclude: '^tests/fixtures/io/|^docs/src/_static/browser-toolbar/.*\.svg$'
 
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.25

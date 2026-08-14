@@ -1,5 +1,7 @@
+build>=1.5
 myst-nb>=1.1
 numpydoc>=1.8
+playwright>=1.55
 pydata-sphinx-theme>=0.16
 sphinx>=8.0
 sphinx-autoapi>=3.6.1

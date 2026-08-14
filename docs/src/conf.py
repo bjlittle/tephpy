@@ -127,6 +127,12 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
+html_css_files = ["browser-toolbar.css"]
+# The docs Makefile builds the current checkout's wheel and stages the complete
+# browser application one directory above the Sphinx source tree. Sphinx copies
+# that staging root verbatim, making its ``browser`` child available at
+# ``/browser/`` without committing any generated wheel.
+html_extra_path = ["../_build/browser"]
 # The brand asset bundle and its README are repository files, not site content.
 # Sphinx already keeps ``html_static_path`` out of *document* discovery, so this
 # is purely to stop ``copy_html_static_files`` publishing a 270 KiB zip nothing
@@ -142,6 +148,10 @@ html_static_path = ["_static"]
 # site — the asymmetry, in the direction that leaks.
 exclude_patterns = ["brand/assets/*", "developer/plans/**"]
 html_favicon = "_static/brand/favicon-48x48.png"
+# pydata-sphinx-theme 0.20 reads ``default_mode`` as a template context value
+# (not a theme option). Without it the freshly loaded page logs an invalid empty
+# mode before a reader has chosen and persisted one.
+html_context = {"default_mode": "auto"}
 html_theme_options = {
     "github_url": "https://github.com/bjlittle/tephpy",
     "logo": {

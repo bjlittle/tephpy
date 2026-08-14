@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+Copyright (c) 2026, tephpy Contributors.
+
+This file is part of tephpy and is distributed under the 3-Clause BSD license.
+See the LICENSE file in the package root directory for licensing details.
+-->
+<html lang="en" data-ready="false">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>tephpy Browser Demo</title>
+    <link rel="stylesheet" href="__PYSCRIPT_CORE_CSS__">
+    <link rel="stylesheet" href="./app.css">
+    <script type="module" src="__PYSCRIPT_CORE_JS__"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Experimental browser demo</p>
+        <h1>Interactive tephigram</h1>
+        <p>
+          The Python runtime and your data stay in this browser tab. The first
+          plot can take a few minutes to download and prepare.
+        </p>
+      </header>
+
+      <section class="runtime" aria-labelledby="runtime-heading">
+        <h2 id="runtime-heading">Runtime</h2>
+        <p id="runtime-status" role="status" aria-live="polite">
+          Loading PyScript and Pyodide…
+        </p>
+        <progress id="runtime-progress" value="0" max="1">
+          Loading the Python runtime
+        </progress>
+        <p id="runtime-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section class="controls" aria-labelledby="controls-heading">
+        <h2 id="controls-heading">Sounding data</h2>
+        <label for="csv-file">Choose a local CSV file</label>
+        <input id="csv-file" type="file" accept=".csv,text/csv" disabled>
+        <button id="reset-example" type="button" disabled>
+          Reset to example
+        </button>
+        <p id="plot-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section id="plot" aria-label="Interactive tephigram plot"></section>
+
+      <details id="data-panel" class="data-panel" hidden>
+        <summary>Plotted data</summary>
+      </details>
+    </main>
+
+    <script>
+      // Matplotlib's Pyodide WebAgg bootstrap expects this classic global binding.
+      var mpl = {};
+      window.mpl = mpl;
+    </script>
+    <script type="py" src="./main.py" config="./pyscript.toml"></script>
+  </body>
+</html>
