@@ -103,7 +103,8 @@ input:disabled {
 }
 
 .mpl-toolbar {
-  justify-content: center;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .data-panel {

@@ -53,7 +53,7 @@ def _record_page_error(errors: list[str], error: Error) -> None:
 
 
 def _assert_toolbar(frame: Frame) -> None:
-    """Check toolbar tools and ensure hover prose cannot move them."""
+    """Check toolbar tools and ensure dynamic messages cannot move them."""
     toolbar = frame.locator(".mpl-toolbar")
     assert toolbar.count() == 1
     toolbar_labels = {
@@ -76,6 +76,14 @@ def _assert_toolbar(frame: Frame) -> None:
     after = pan.bounding_box()
     assert after is not None
     assert abs(after["x"] - before["x"]) < 0.5
+
+    frame.locator("canvas.mpl-canvas").hover()
+    frame.wait_for_function(
+        "document.querySelector('.mpl-message').textContent.length > 0"
+    )
+    with_coordinates = pan.bounding_box()
+    assert with_coordinates is not None
+    assert abs(with_coordinates["x"] - before["x"]) < 0.5
 
 
 def _assert_data_table(
