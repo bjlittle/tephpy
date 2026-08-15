@@ -1119,7 +1119,7 @@ def test_one_floor_keys_on_one_name_where_the_two_sites_spell_it_two_ways(tmp_pa
     )
 
 
-def test_every_package_the_two_sites_spell_differently_is_reconciled():
+def test_every_package_the_two_sites_spell_differently_is_reconciled(tmp_path):
     # The alias table is written by hand, and a package added under two names
     # would not announce itself: the halves would simply file two issues the week
     # that floor broke, months from now, and one fix would close one of them. So
@@ -1129,7 +1129,11 @@ def test_every_package_the_two_sites_spell_differently_is_reconciled():
     # (floors spec §3.1) -- and it is the direction that matters, a PyPI finding
     # needing a manifest name to be keyed on.
     diagnose = _load_diagnose()
-    manifest = diagnose.floors.declarations(REPO / "pyproject.toml")
+    # The committed manifest, not the working tree's: the conda half of
+    # `ci-floors` runs this suite in a checkout the generator has rewritten,
+    # where every feature but the tier's own is gone and half these
+    # declarations with it (:issue:`155`).
+    manifest = diagnose.floors.declarations(_manifest(tmp_path, _committed_manifest()))
     for tier, path in diagnose.REQUIREMENTS.items():
         names = {**manifest["core"], **manifest.get(tier, {})}
         unmatched = [
@@ -1321,3 +1325,156 @@ def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
     # writes `build` where the manifest writes `python-build`.
     for name in ("python-build", "build"):
         assert diagnose._pypi_site(probe, name) == "requirements/pypi-optional-test.txt"
+
+
+def _roots(tree):
+    """Return every name a module binds to the repository root.
+
+    Read from the module rather than assumed, because the name is a local
+    choice and a fixed list is a guess about other people's files:
+    `tests/test_browser_demo.py` calls its root `REPOSITORY`, so a detector
+    holding only `REPO` would have waved that module's manifest reads through
+    while reporting the identical line here. Anything derived from `__file__`
+    by walking up is a root, however the module spells it.
+    """
+    roots = {"REPO", "ROOT", "REPOSITORY"}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        parts = list(ast.walk(node.value))
+        if not any(
+            isinstance(part, ast.Name) and part.id == "__file__" for part in parts
+        ):
+            continue
+        if not any(
+            isinstance(part, ast.Attribute) and part.attr in {"parent", "parents"}
+            for part in parts
+        ):
+            continue
+        roots.update(
+            target.id for target in node.targets if isinstance(target, ast.Name)
+        )
+    return roots
+
+
+def _manifest_path(node, roots):
+    """Whether an expression builds a path to the repository's own manifest."""
+    if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Div):
+        return False
+    if not isinstance(node.right, ast.Constant) or node.right.value != "pyproject.toml":
+        return False
+    return any(
+        (isinstance(part, ast.Name) and part.id in roots)
+        or (isinstance(part, ast.Attribute) and part.attr in roots)
+        for part in ast.walk(node.left)
+    )
+
+
+def _reads_manifest(source):
+    """Report every line building a path to the repository's own manifest.
+
+    Building it is what is reported, rather than any particular use of it: a
+    path is passed to a call, but it is equally the receiver of one, bound to a
+    name three lines above the call, returned by a helper or closed over. An
+    argument-only detector waves all but the first of those through, and the
+    shape it misses is the ordinary one -- `(REPO / "pyproject.toml").read_text()`
+    (:pull:`164`). Reporting construction needs no dataflow to follow an alias,
+    because the line that makes the alias is itself the report.
+
+    The single exempt use is an operand of a comparison, which names the path
+    without opening it -- `test_citations` asserts the manifest is among the
+    files `git ls-files` tracks. The exemption is that operand and not the
+    comparison, so a genuine read inside one is still reported.
+    """
+    tree = ast.parse(source)
+    roots = _roots(tree)
+    named = {
+        id(operand)
+        for node in ast.walk(tree)
+        for operand in (
+            [node.left, *node.comparators] if isinstance(node, ast.Compare) else []
+        )
+    }
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if _manifest_path(node, roots) and id(node) not in named
+    ]
+
+
+def test_no_test_reads_the_manifest_the_floors_job_rewrites():
+    # The conda half of `ci-floors` runs this suite in a checkout whose
+    # `pyproject.toml` the generator has rewritten: one environment, every floor
+    # an `==` pin, and every feature the tier cannot reach dropped outright. A
+    # test reading it from the working tree passes everywhere but there, where
+    # it fails once a week, hours after the push that broke it, and takes the
+    # tier's whole verdict down with it -- the job then files an issue about a
+    # failure that is not a floor. That has now happened twice (:issue:`155`),
+    # the second time to the test that reconciles the two sites' names above.
+    # `_committed_manifest` reads it from the index instead.
+    scanned = sorted((REPO / "tests").rglob("*.py"))
+    offenders = [
+        f"{path.name}:{line}"
+        for path in scanned
+        for line in _reads_manifest(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+    # A gate whose corpus emptied would pass having read nothing, and this one
+    # globs for its own.
+    assert len(scanned) > 1
+
+
+@pytest.mark.parametrize(
+    ("source", "reads"),
+    [
+        ('floors.declarations(REPO / "pyproject.toml")', True),
+        ('floors.pins(cc.REPO / "pyproject.toml", version)', True),
+        ('read(text=REPO / "pyproject.toml")', True),
+        # The two shapes an argument-only detector missed: the manifest read as
+        # the receiver of the call rather than its argument, and the path bound
+        # to a name first, which is where most of this suite's file reads would
+        # naturally be written.
+        ('(REPO / "pyproject.toml").read_text()', True),
+        ('manifest = REPO / "pyproject.toml"', True),
+        ('tomllib.loads((cc.ROOT / "pyproject.toml").read_text())', True),
+        # Naming the path is not reading it: `test_citations` asserts the
+        # manifest is in the citation corpus, which is a list of what `git
+        # ls-files` tracks and so says nothing about the file's contents. A gate
+        # that flagged this would be one the next reader turns off.
+        ('assert cc.REPO / "pyproject.toml" in paths', False),
+        # A comparison exempts the operand, not everything under it, or the
+        # rule would be off wherever a read is asserted on -- which is most of
+        # the ways one would be written.
+        ('assert (REPO / "pyproject.toml").read_text() == expected', True),
+        # The two shapes that are already right, and have to stay unflagged or
+        # the fix for an offender is itself an offence.
+        ("floors.declarations(_manifest(tmp_path, _committed_manifest()))", False),
+        ('floors.declarations(tmp_path / "pyproject.toml")', False),
+        ('(tmp_path / "pyproject.toml").write_text(text)', False),
+        # And it is this file that is rewritten, not everything beside it.
+        ('read(REPO / "requirements" / "pypi-core.txt")', False),
+        # The root is whatever the module calls it. `test_browser_demo` says
+        # `REPOSITORY`, and a name this gate had not been told about would have
+        # made its manifest reads invisible rather than reported.
+        ('tomllib.loads((REPOSITORY / "pyproject.toml").read_text())', True),
+        (
+            (
+                "HERE = Path(__file__).parents[1]\n"
+                'floors.declarations(HERE / "pyproject.toml")'
+            ),
+            True,
+        ),
+        (
+            (
+                "HERE = Path(__file__).parent.parent\n"
+                'assert HERE / "pyproject.toml" in paths'
+            ),
+            False,
+        ),
+    ],
+)
+def test_the_manifest_gate_reads_a_build_and_not_a_mention(source, reads):
+    # Widening a detector invites false positives, and the legitimate lookalike
+    # here is already in the tree -- so both directions are probed, rather than
+    # the gate above being trusted because the corpus it reads happens to pass.
+    assert bool(_reads_manifest(source)) is reads

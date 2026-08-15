@@ -1,0 +1,7 @@
+The dependency floors test that reconciles the two declaration sites' package
+names now reads ``pyproject.toml`` from the index rather than the working tree,
+and a gate reports any other test that hands the manifest path to a call. The
+conda half of the floors workflow runs the test suite in a checkout whose
+manifest the generator has rewritten in place, so a test reading that file
+directly passes everywhere except the one job it exists to run in
+(:issue:`163`). (:user:`claude`)
