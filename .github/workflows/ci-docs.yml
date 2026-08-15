@@ -54,7 +54,7 @@ jobs:
       - name: Check the browser demo
         run: |
           for attempt in 1 2; do
-            if timeout -k 30 600 pixi run --frozen --environment docs \
+            if timeout -k 30 480 pixi run --frozen --environment docs \
                 python .github/scripts/check_browser_demo.py; then
               exit 0
             fi

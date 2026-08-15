@@ -23,7 +23,7 @@ HTML = REPOSITORY / "docs" / "_build" / "html"
 #: where this reports the wait that hung and the state the demo reached. The
 #: whole script takes about twenty seconds, so this is generous by design -- it
 #: is a stall bound, not a performance budget.
-TIMEOUT = 90_000
+TIMEOUT = 75_000
 
 VALID_CSV = b"""pressure_hPa,temperature_C,dewpoint_C
 1000,17,12
