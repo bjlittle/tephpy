@@ -727,7 +727,8 @@ def _rigged(monkeypatch, tmp_path, passes):
 
     def _probe(_probe_arg, root, _package, _pin):
         tried.append(root.name)
-        return passes(len(tried) - 1)
+        index = len(tried) - 1
+        return passes(index), f"{LADDER[index]} failed on sphinx-autoapi"
 
     monkeypatch.setattr(diagnose, "_probe_pin", _probe)
     monkeypatch.setattr(diagnose, "_copy", lambda _probe_arg, name: tmp_path / name)
@@ -742,9 +743,14 @@ def test_the_scan_stops_at_the_first_version_that_passes(monkeypatch, tmp_path):
     # Ascending and linear, so the first pass is by construction the lowest that
     # works, with no assumption about the pass/fail boundary (floors spec §3.5).
     diagnose, probe = _rigged(monkeypatch, tmp_path, lambda index: index == 2)
-    lowest, scanned = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.11.0")
+    lowest, scanned, blocked = diagnose.scan(
+        probe, "matplotlib-base", ">=3.10", "3.11.0"
+    )
     assert lowest == "3.10.3"
     assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
+    # And it carries no trace: every probe leaves one, so returning the last
+    # regardless would report the passing version as having failed on it.
+    assert blocked == ""
 
 
 def test_the_scan_never_goes_above_the_bound(monkeypatch, tmp_path):
@@ -753,9 +759,47 @@ def test_the_scan_never_goes_above_the_bound(monkeypatch, tmp_path):
     # nothing passes tells the two apart -- a scan that finds an answer would
     # return the same one either way.
     diagnose, probe = _rigged(monkeypatch, tmp_path, lambda _index: False)
-    lowest, scanned = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.10.3")
+    lowest, scanned, _ = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.10.3")
     assert lowest is None
     assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
+
+
+def test_the_scan_keeps_what_its_highest_candidate_failed_on(monkeypatch, tmp_path):
+    # A scan that finds nothing used to report only the baseline failure, which
+    # is the failure of the floors as declared -- what the reader came in
+    # knowing. What each candidate failed on went into the probe's `rmtree`,
+    # and with it the name of the second broken floor that was stopping them:
+    # `docs` reported no passing `sphinx-design`, of a package whose 0.6.1 is
+    # sound (:issue:`145`, :issue:`149`). The highest is the one kept: it is the
+    # candidate furthest from the floor already known to be broken.
+    diagnose, probe = _rigged(monkeypatch, tmp_path, lambda _index: False)
+    lowest, scanned, blocked = diagnose.scan(
+        probe, "matplotlib-base", ">=3.10", "3.10.3"
+    )
+    assert lowest is None
+    assert blocked == f"{scanned[-1]} failed on sphinx-autoapi"
+
+
+def test_a_candidate_reports_the_step_that_stopped_it(monkeypatch, tmp_path):
+    # Solve and exercise are two different failures and the reader needs to
+    # know which one they are reading: a candidate that never resolved says
+    # nothing about the exercise, and one that resolved and failed the exercise
+    # says the floors are solvable at that version (floors spec §3.5).
+    diagnose = _load_diagnose()
+    monkeypatch.setattr(diagnose, "exercise", lambda *_: (False, "the exercise"))
+    monkeypatch.setattr(diagnose, "solves", lambda *_, **__: (False, "the solver"))
+    probe = diagnose.Probe(
+        source=tmp_path, scratch=tmp_path, tier="docs", python="3.12"
+    )
+    assert diagnose._probe_pin(probe, tmp_path, "sphinx-design", "0.6.1") == (
+        False,
+        "the solver",
+    )
+    monkeypatch.setattr(diagnose, "solves", lambda *_, **__: (True, "solved"))
+    assert diagnose._probe_pin(probe, tmp_path, "sphinx-design", "0.6.1") == (
+        False,
+        "the exercise",
+    )
 
 
 def test_the_scan_climbs_the_index_the_declaring_table_names(monkeypatch, tmp_path):
@@ -767,7 +811,7 @@ def test_the_scan_climbs_the_index_the_declaring_table_names(monkeypatch, tmp_pa
     # being the one they stub.
     diagnose, probe = _rigged(monkeypatch, tmp_path, lambda index: index == 1)
     monkeypatch.setattr(diagnose.floors, "releases", lambda *_: ["1.55.0", "1.56.0"])
-    lowest, scanned = diagnose.scan(
+    lowest, scanned, _ = diagnose.scan(
         probe, "playwright", ">=1.55", None, "pypi-dependencies"
     )
     assert lowest == "1.56.0"

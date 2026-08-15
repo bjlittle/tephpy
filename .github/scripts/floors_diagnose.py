@@ -67,6 +67,12 @@ UNREPRODUCED = (
     "failure is in a step this script does not reproduce. See the run log."
 )
 
+#: How much of an output a finding keeps, counted from its end. A finding can
+#: carry two traces now (:issue:`149`), a whole docs build runs to more than the
+#: 65536 characters GitHub takes in an issue body, and what a build or a test run
+#: says about why it failed it says last.
+TAIL = 4000
+
 
 def _floors() -> ModuleType:
     """Import the generator beside this script."""
@@ -120,6 +126,16 @@ class Finding:
     table: str = "dependencies"
     lowest: str | None = None
     scanned: list[str] = dataclasses.field(default_factory=list)
+    #: What the highest version tried failed on, empty unless the scan ran out.
+    #: The `failure` above is the failure of the floors *as declared*, which is
+    #: why the tier is red and the one thing its reader already knows. Where no
+    #: candidate passes, what the candidates failed on is the new information,
+    #: and the usual reason is a second broken floor the relaxed resolve left in
+    #: place: `docs` reported no passing `sphinx-design` of three tried, when
+    #: 0.6.1 passes and every candidate was failing on `sphinx-autoapi` instead.
+    #: Finding that took a manual resolve-and-build cycle against a trace the
+    #: scan had already had in hand and thrown away (:issue:`145`, :issue:`149`).
+    blocked: str = ""
 
 
 def solves(
@@ -365,13 +381,21 @@ def _pin_one(manifest: Path, package: str, pin: str) -> None:
     manifest.write_text("".join(out), encoding="utf-8")
 
 
-def _probe_pin(probe: Probe, root: Path, package: str, pin: str) -> bool:
-    """Report whether the tier resolves and passes its exercise at one pin."""
-    solved, _ = solves(probe, root, None, pin=(package, pin))
+def _probe_pin(probe: Probe, root: Path, package: str, pin: str) -> tuple[bool, str]:
+    """Report whether the tier resolves and passes its exercise at one pin.
+
+    Returns
+    -------
+    tuple of (bool, str)
+        Whether the pin passed, and what it failed on: the solver's output
+        where it did not resolve, the exercise's where it resolved and the
+        exercise then failed. Empty when it passed.
+
+    """
+    solved, output = solves(probe, root, None, pin=(package, pin))
     if not solved:
-        return False
-    passed, _ = exercise(probe, root)
-    return passed
+        return False, output
+    return exercise(probe, root)
 
 
 def scan(
@@ -380,7 +404,7 @@ def scan(
     specifier: str,
     upper: str | None,
     table: str = "dependencies",
-) -> tuple[str | None, list[str]]:
+) -> tuple[str | None, list[str], str]:
     """Find the lowest version of ``package`` that passes the tier's exercise.
 
     Parameters
@@ -400,8 +424,11 @@ def scan(
 
     Returns
     -------
-    tuple of (str or None, list of str)
-        The lowest passing version, or None, and every version tried.
+    tuple of (str or None, list of str, str)
+        The lowest passing version, or None; every version tried; and what
+        the last of them failed on, which is the highest and so the one whose
+        failure is not already the tier's. Empty when a version passed
+        (floors spec §3.5).
 
     """
     rungs = floors.ladder(package, specifier, Version(f"{probe.python}.0"), table)
@@ -409,16 +436,19 @@ def scan(
         ceiling = Version(upper)
         rungs = [pin for pin in rungs if Version(pin) <= ceiling]
     tried: list[str] = []
+    blocked = ""
     for pin in rungs:
         root = _copy(probe, f"scan-{len(tried)}")
         tried.append(pin)
-        if _probe_pin(probe, root, package, pin):
-            return pin, tried
+        passed, blocked = _probe_pin(probe, root, package, pin)
+        if passed:
+            return pin, tried, ""
         # Every probe is a whole environment, so keeping them all would grow the
-        # scan's disk with the ladder on a runner that has little to spare, and
-        # nothing reads a probe once it has failed.
+        # scan's disk with the ladder on a runner that has little to spare. Its
+        # output is read out first: the probe is what nothing reads again, and
+        # the trace was thrown away with it before (:issue:`149`).
         shutil.rmtree(root, ignore_errors=True)
-    return None, tried
+    return None, tried, blocked
 
 
 def write_finding(path: Path, finding: Finding) -> None:
@@ -465,7 +495,7 @@ def main() -> int:
     finding = Finding(
         tier=args.tier,
         half=args.half,
-        failure=args.failure or failure[-4000:],
+        failure=args.failure or failure[-TAIL:],
         package=package,
     )
     if package is not None:
@@ -480,9 +510,13 @@ def main() -> int:
                 finding.site = tier
                 finding.table = resolved[tier][package][2]
     if package is not None and finding.declared is not None:
-        finding.lowest, finding.scanned = scan(
+        finding.lowest, finding.scanned, blocked = scan(
             probe, package, finding.declared, upper, finding.table
         )
+        # Trimmed as the baseline failure is, and from the same end: what a
+        # build or a test run says about why it failed is the last thing it
+        # says, and an issue body has a size the whole of a docs build exceeds.
+        finding.blocked = blocked[-TAIL:]
     write_finding(args.out, finding)
     print(f"attributed: {package or 'nothing'}")
     return 0

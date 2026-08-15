@@ -1,0 +1,8 @@
+A dependency floors issue now quotes what the highest version the scan tried
+failed on, beside the failure of the floors as declared. Where no candidate
+passes, the reason is usually a second broken floor, and the trace naming it
+was thrown away with the probe -- leaving a verdict that read as "this package
+has no good version" when the package was sound (:issue:`145`, :issue:`149`).
+The issue also says why the two are not a contradiction: a relaxation only has
+to resolve, where a scanned version has to resolve and pass the tier's
+exercise. (:user:`claude`)
