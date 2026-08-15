@@ -28,11 +28,10 @@ SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
 # generator they exercise. Guarding the module rather than the test is deliberate:
 # an unguarded import fails *collection* there, taking the rest of the suite with
-# it (floors spec §5). The script, not `.git`, is what the guard asks after: the
-# `test` tier is exercised in a copy of the checkout with `.git` stripped
-# (`floors_diagnose._copy`), and a guard keyed on that would skip this module --
-# `packaging`, which it imports, being one of the floors under diagnosis -- in
-# every probe, so a floor that fails the leg would be reported unreproduced.
+# it (floors spec §5). The script, not `.git`, is what the guard asks after,
+# because the script is what this module needs: it reads `.github` on every test
+# and history on three, and a guard naming the index would stand the module down
+# wherever history is absent and the generator is right there.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
@@ -92,7 +91,7 @@ def _committed_manifest():
     whose manifest this very generator has rewritten, where every floor is an
     `==` pin and every feature but one is gone (:issue:`155`). The guard is
     here rather than on each caller because this is where the index is needed
-    -- a probe strips `.git`, and there the tests that call this skip.
+    -- an unpacked sdist has none, and there the tests that call this skip.
     """
     if not (REPO / ".git").exists():
         pytest.skip("no index to read the committed manifest from")
@@ -399,11 +398,20 @@ RESOLVED = {
 }
 
 
+def _root(tmp_path, name):
+    """Stand in for a probe copy: a directory that exists until someone drops it."""
+    root = tmp_path / name
+    root.mkdir(exist_ok=True)
+    return root
+
+
 def _rig(monkeypatch, tmp_path, solves):
     """Replace the solver and the checkout copier; return the module and a probe."""
     diagnose = _load_diagnose()
     monkeypatch.setattr(diagnose.floors, "pins", lambda *_: RESOLVED)
-    monkeypatch.setattr(diagnose, "_copy", lambda _probe, name: tmp_path / name)
+    # The copier is replaced but still makes the directory, so what a caller
+    # does with a probe once it has answered is visible to a test.
+    monkeypatch.setattr(diagnose, "_copy", lambda _probe, name: _root(tmp_path, name))
     monkeypatch.setattr(diagnose, "solves", solves)
     monkeypatch.setattr(diagnose, "chosen", lambda *_: "8.1.8")
     probe = diagnose.Probe(
@@ -439,12 +447,29 @@ def test_a_solve_failure_is_still_attributed(monkeypatch, tmp_path):
     assert failure == "conflict"
 
 
+def test_a_probe_is_dropped_once_it_has_answered(monkeypatch, tmp_path):
+    # Attribution makes a probe per declared floor, each carrying an installed
+    # environment -- twenty-eight of them for `docs`, against the little disk a
+    # runner has. Only the relaxation that solves is read again, by `chosen`,
+    # so it is the one that must survive: dropping probes wholesale would take
+    # that resolve with it, and the diagnosis would report no bounding version
+    # for a scan that has a culprit (floors spec §3.4).
+    diagnose, probe = _rig(
+        monkeypatch, tmp_path, lambda *args: (args[2] == "pytest", "conflict")
+    )
+    assert diagnose.attribute(probe)[0] == "pytest"
+    assert not (tmp_path / "baseline").exists()
+    assert not (tmp_path / "relax-0").exists()
+    assert (tmp_path / "relax-1").is_dir()
+
+
 def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
-    # `_copy` strips `.git`, and tephpy installs editable into every environment,
-    # so a probe's build backend has nothing to version from. That fails the build
-    # rather than the solve, which turns the one relaxation that *does* resolve
-    # into another failure and every diagnosis into "nothing attributed" -- the
-    # same verdict an honestly unattributable failure gets (floors spec §3.4).
+    # tephpy installs editable into every environment, so every probe runs the
+    # build backend over a tree this job has rewritten, in a repository with no
+    # release tagged yet. A build that fails there fails the build rather
+    # than the solve, which turns the one relaxation that *does* resolve into
+    # another failure and every diagnosis into "nothing attributed" -- the same
+    # verdict an honestly unattributable failure gets (floors spec §3.4).
     diagnose = _load_diagnose()
     seen = {}
 
@@ -496,11 +521,14 @@ GUARDED = (
 
 @pytest.mark.parametrize("name", GUARDED)
 def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
-    # `_copy` strips `.git`, so a module-level `skipif` keyed on it skips in
-    # every probe -- silently, a skip being not a failure. It is `.github` that
-    # an sdist lacks and a probe has, so that is what the guard asks after. The
-    # narrower condition still has a use: the two citation modules enumerate
-    # their corpus with `git ls-files`, and mark the tests that do.
+    # A module-level `skipif` keyed on the index stands the whole module down
+    # wherever history is absent -- silently, a skip being not a failure -- and
+    # history is not what any of these modules is missing. It is `.github` that
+    # an sdist prunes, so that is what the guard asks after. The narrower
+    # condition still has a use: the two citation modules enumerate their corpus
+    # with `git ls-files`, and mark the tests that do.
+    # The floors probes carry an index now (:issue:`154`), so this no longer
+    # holds a module up in one; it holds each guard to naming what it needs.
     source = (REPO / "tests" / name).read_text(encoding="utf-8")
     tree = ast.parse(source)
     guards = [
@@ -559,12 +587,10 @@ def _guard(node: ast.FunctionDef) -> str:
 
 
 def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
-    # A probe runs this suite in a copy of the checkout with `.git` stripped, so
-    # a `git` call there does not skip -- it raises, and with `check=True` it
-    # fails the exercise whatever the floors resolved to. One such test is enough
-    # to make the `test` tier's exercise unpassable, which turns every diagnosis
-    # of that tier into a report of it (floors spec §3.4). The literal form is
-    # what is matched, so a call built some other way is caught by the probe
+    # An unpacked sdist ships this suite and no repository, so a `git` call
+    # there does not skip -- it raises, and with `check=True` it fails, on a
+    # condition that says nothing about the release under test. The literal form
+    # is what is matched, so a call built some other way is caught by that run
     # going red rather than here.
     # The guard may be a `skipif` on the test or a `pytest.skip` in the function
     # itself, a helper carrying its own being the only way one shared by several
@@ -603,6 +629,27 @@ def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
     assert (root / "tests" / "test_x.py").is_file()
     assert not (root / "tests" / "__pycache__").exists()
     assert not (root / "docs" / "_build").exists()
+
+
+def test_a_probe_copy_carries_the_index_the_exercise_reads(tmp_path):
+    # Thirteen of the `test` tier's tests guard on a repository being there,
+    # among them the one that builds a wheel from `git archive HEAD` -- and that
+    # is the test the `conda (test)` leg failed on in run 31848921992, on
+    # `packaging` at its floor. The probe skipped it, found nothing to reproduce,
+    # and filed :issue:`152` saying the failure was in a step it does not run.
+    # The step was a test it had (:issue:`154`).
+    diagnose = _load_diagnose()
+    source = tmp_path / "checkout"
+    (source / ".git" / "objects").mkdir(parents=True)
+    (source / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+    (source / "tests").mkdir()
+    (source / "tests" / "test_x.py").write_text("# kept\n")
+    probe = diagnose.Probe(
+        source=source, scratch=tmp_path / "scratch", tier="test", python="3.12"
+    )
+    (tmp_path / "scratch").mkdir()
+    root = diagnose._copy(probe, "baseline")
+    assert (root / ".git" / "HEAD").is_file()
 
 
 def test_the_docs_probe_runs_every_gate_the_workflow_does():

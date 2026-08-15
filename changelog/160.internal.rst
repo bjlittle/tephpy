@@ -1,0 +1,9 @@
+The dependency floors diagnosis now copies the index into each probe. It
+stripped ``.git``, so the thirteen tests of the ``test`` tier's exercise that
+need a repository skipped themselves there -- including the one that builds a
+wheel from ``git archive HEAD``, which is the test a leg had failed on. The
+probe re-ran the exercise green and reported the failure as a step it does not
+run, when the step was a test it had (:issue:`154`). Attribution also drops each
+probe as soon as it has answered, so a diagnosis holds one environment on the
+runner's disk rather than one for every floor the tier declares.
+(:user:`claude`)
