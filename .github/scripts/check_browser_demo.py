@@ -17,7 +17,13 @@ from playwright.sync_api import ConsoleMessage, Error, Frame, Page, sync_playwri
 
 REPOSITORY = Path(__file__).parents[2]
 HTML = REPOSITORY / "docs" / "_build" / "html"
-TIMEOUT = 600_000
+#: Milliseconds any single wait below may spend. Five sit on the critical path,
+#: and together they have to stay inside what one attempt is given in `ci-docs`:
+#: a wait outliving its attempt is killed by the shell, which reports a signal,
+#: where this reports the wait that hung and the state the demo reached. The
+#: whole script takes about twenty seconds, so this is generous by design -- it
+#: is a stall bound, not a performance budget.
+TIMEOUT = 75_000
 
 VALID_CSV = b"""pressure_hPa,temperature_C,dewpoint_C
 1000,17,12
