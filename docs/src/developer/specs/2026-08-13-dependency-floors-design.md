@@ -303,6 +303,11 @@ reproduce when the failing step is a test it skipped ({issue}`154`). What the le
 behind* is dropped, though: byte-code and built pages from the run under diagnosis make the
 exercise report that run's state rather than its own.
 
+What a probe costs is its environment, not its copy of the tree, so the job holds one at a
+time: a probe is dropped as soon as it has answered, here and in the scan of §3.5. The
+relaxation that solves is the exception, being the one whose resolve is read for the bound
+below.
+
 If relaxing each in turn resolves nothing, the job reports the solver's output verbatim and
 stops. An unattributed failure is a real result and is reported as one; a guess dressed as an
 attribution would send whoever reads the issue after the wrong package. That branch is not

@@ -398,11 +398,20 @@ RESOLVED = {
 }
 
 
+def _root(tmp_path, name):
+    """Stand in for a probe copy: a directory that exists until someone drops it."""
+    root = tmp_path / name
+    root.mkdir(exist_ok=True)
+    return root
+
+
 def _rig(monkeypatch, tmp_path, solves):
     """Replace the solver and the checkout copier; return the module and a probe."""
     diagnose = _load_diagnose()
     monkeypatch.setattr(diagnose.floors, "pins", lambda *_: RESOLVED)
-    monkeypatch.setattr(diagnose, "_copy", lambda _probe, name: tmp_path / name)
+    # The copier is replaced but still makes the directory, so what a caller
+    # does with a probe once it has answered is visible to a test.
+    monkeypatch.setattr(diagnose, "_copy", lambda _probe, name: _root(tmp_path, name))
     monkeypatch.setattr(diagnose, "solves", solves)
     monkeypatch.setattr(diagnose, "chosen", lambda *_: "8.1.8")
     probe = diagnose.Probe(
@@ -438,10 +447,26 @@ def test_a_solve_failure_is_still_attributed(monkeypatch, tmp_path):
     assert failure == "conflict"
 
 
+def test_a_probe_is_dropped_once_it_has_answered(monkeypatch, tmp_path):
+    # Attribution makes a probe per declared floor, each carrying an installed
+    # environment -- twenty-eight of them for `docs`, against the little disk a
+    # runner has. Only the relaxation that solves is read again, by `chosen`,
+    # so it is the one that must survive: dropping probes wholesale would take
+    # that resolve with it, and the diagnosis would report no bounding version
+    # for a scan that has a culprit (floors spec §3.4).
+    diagnose, probe = _rig(
+        monkeypatch, tmp_path, lambda *args: (args[2] == "pytest", "conflict")
+    )
+    assert diagnose.attribute(probe)[0] == "pytest"
+    assert not (tmp_path / "baseline").exists()
+    assert not (tmp_path / "relax-0").exists()
+    assert (tmp_path / "relax-1").is_dir()
+
+
 def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
     # tephpy installs editable into every environment, so every probe runs the
-    # build backend over a checkout one commit deep, carrying no tag, in a tree
-    # this job has rewritten. A build that fails there fails the build rather
+    # build backend over a tree this job has rewritten, in a repository with no
+    # release tagged yet. A build that fails there fails the build rather
     # than the solve, which turns the one relaxation that *does* resolve into
     # another failure and every diagnosis into "nothing attributed" -- the same
     # verdict an honestly unattributable failure gets (floors spec §3.4).

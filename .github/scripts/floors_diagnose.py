@@ -51,8 +51,8 @@ EXERCISE: dict[str, list[list[str]] | None] = {
 
 #: tephpy installs editable into every environment, so every probe runs the build
 #: backend, and what setuptools-scm makes of a probe is not a version anyone
-#: declared: the checkout `actions/checkout` leaves is one commit deep and carries
-#: no tag, and the tree is one this job has rewritten. A build that fails there
+#: declared: the tree is one this job has rewritten, and no release is tagged yet
+#: for the backend to describe from. A build that fails there
 #: fails the *build*, not the solve -- so the one relaxation that does resolve
 #: looks like another failure and the diagnosis reports nothing attributed, which
 #: is indistinguishable from the honest form of that verdict. What version tephpy
@@ -297,11 +297,19 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
         if passed:
             return None, None, f"{output}\n\n{UNREPRODUCED}"
         return None, None, trace
+    # Each probe carries an installed environment, and this loop makes one per
+    # declared floor -- twenty-eight for `docs`. Held to the end they would put
+    # the tier's whole package count on a runner's disk at once, so a probe is
+    # dropped as soon as it has answered, the scan below keeping the same rule.
+    # This one has answered: that it does not solve is why the loop runs.
+    shutil.rmtree(baseline, ignore_errors=True)
     for index, package in enumerate(packages):
         root = _copy(probe, f"relax-{index}")
         relaxed, _ = solves(probe, root, package)
         if relaxed:
+            # Kept, alone of them: `chosen` reads the resolve out of this one.
             return package, chosen(probe, root, package), output
+        shutil.rmtree(root, ignore_errors=True)
     return None, None, output
 
 
@@ -315,9 +323,13 @@ def _copy(probe: Probe, name: str) -> Path:
     suite than the leg it is diagnosing, then reports the leg's failure as a
     step it could not reproduce when the failing step is a test it skipped
     (:issue:`154`). `.git` was dropped here for its size, which does not
-    survive measuring: `actions/checkout` fetches one commit, whose `.git` is
-    2.4 MB against a 3.1 MB working tree and copies in milliseconds, beside a
-    probe that then installs a whole environment (measured 2026-08-15).
+    survive measuring the repository this job actually checks out: every
+    workflow in this repository sets `fetch-depth: 0`, and all of that history
+    is 3.2 MB of objects over 105 commits, against a working tree of 5.6 MB
+    that has always been copied. The whole copy takes 0.03 s where the tree
+    alone takes 0.02 s, beside a probe that then installs an environment
+    (measured 2026-08-15). What multiplies is the number of probes, not what
+    each one holds, and `attribute` below drops each as it answers.
 
     What the failing leg left behind is dropped, though. The diagnosis runs after
     that leg ran in this same checkout, so `__pycache__` holds byte-code whose
