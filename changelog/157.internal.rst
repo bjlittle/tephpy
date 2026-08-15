@@ -1,0 +1,7 @@
+The generated floors manifest no longer defines features its one environment
+cannot reach. Only that environment survives generation, so every other feature
+was left defined and used by nothing, and the block of pixi warnings that
+produced opened each issue the weekly ``ci-floors`` job files ahead of the
+failure the reader came for (:issue:`150`). Whole features are dropped rather
+than the warning suppressed, which the generated manifest wants kept for its own
+defects. (:user:`claude`)
