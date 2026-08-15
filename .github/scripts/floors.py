@@ -51,6 +51,11 @@ HEADERS: dict[str, str] = {
 
 ENVIRONMENTS = "[tool.pixi.environments]"
 
+#: Any table of one feature: its dependencies, its tasks, or anything added
+#: later. The name stops at the first `.` or `]`, so every table of a feature
+#: is matched by the feature it belongs to and not by its own kind.
+FEATURE = re.compile(r"^\[tool\.pixi\.feature\.(?P<name>[A-Za-z0-9_-]+)[.\]]")
+
 FLOOR = re.compile(r"^>=(?P<version>[0-9][0-9a-zA-Z.*+!-]*)$")
 DECLARATION = re.compile(r'^(?P<name>[A-Za-z0-9._-]+) = "(?P<specifier>[^"]+)"$')
 
@@ -314,6 +319,77 @@ def environments(text: str, tier: str, python: str) -> str:
     return "".join(out)
 
 
+def features(text: str, tier: str, python: str) -> str:
+    """Drop the feature tables the generated environment does not reference.
+
+    :func:`environments` leaves one environment behind, so every feature the
+    tier does not carry is defined and used by nothing, and pixi warns once for
+    each. That block runs ahead of the solver output in a log the diagnosis
+    quotes verbatim into the issue it files, where it is the first thing a
+    reader sees and none of it is about tephpy (:issue:`150`). The tables are
+    dropped rather than the warning suppressed: the generated manifest is a
+    throwaway, and silencing the warning would silence it for the manifest's
+    real defects too.
+
+    Every table of a dropped feature goes, not only its dependencies, so a
+    feature that gains a table this generator has never heard of still leaves
+    nothing behind. No task is left naming one that went with them: pixi
+    resolves ``depends-on`` over every task the environment carries, so a task
+    of one feature may name a task of another and that reference would dangle
+    here. Every one in this manifest names a task of its own feature, which
+    ``test_the_generated_manifest_leaves_no_task_naming_a_dropped_one`` holds.
+
+    Parameters
+    ----------
+    text : str
+        The manifest source.
+    tier : str
+        One of ``test``, ``docs``, ``devs``.
+    python : str
+        The interpreter minor version, such as ``3.12``.
+
+    Returns
+    -------
+    str
+        The rewritten manifest source.
+
+    """
+    keep = {tier, f"py{python.replace('.', '')}"}
+    out: list[str] = []
+    # A table's leading comments and blank line are held back until its header
+    # is judged, so a dropped table takes the comments written about it with it
+    # rather than leaving them above the table that follows.
+    pending: list[str] = []
+    dropping = False
+    dropped = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("["):
+            match = FEATURE.match(stripped)
+            dropping = match is not None and match["name"] not in keep
+            if dropping:
+                pending.clear()
+                dropped = True
+                continue
+            if dropped and out and out[-1].strip():
+                out.append("\n")
+            dropped = False
+            out.extend(pending)
+            pending.clear()
+            out.append(line)
+            continue
+        if dropping:
+            continue
+        if not stripped or stripped.startswith("#"):
+            pending.append(line)
+            continue
+        out.extend(pending)
+        pending.clear()
+        out.append(line)
+    out.extend(pending)
+    return "".join(out)
+
+
 def report(resolved: Resolved, tier: str) -> str:
     """Render one tier as a step-summary table.
 
@@ -378,6 +454,7 @@ def main() -> int:
         text = args.manifest.read_text(encoding="utf-8")
         text = rewrite(text, resolved, relax=args.relax)
         text = environments(text, args.tier, args.python)
+        text = features(text, args.tier, args.python)
         args.manifest.write_text(text, encoding="utf-8")
     return 0
 

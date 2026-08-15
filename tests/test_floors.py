@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import tomllib
 
 from packaging.version import Version
 import pytest
@@ -429,3 +430,112 @@ def test_the_environment_table_is_replaced_not_appended():
     out = floors.environments(text, "test", "3.12")
     assert "floors-test" in out
     assert "default = " not in out
+
+
+def test_a_feature_the_generated_environment_cannot_reach_is_dropped():
+    # One environment survives generation, so every other feature is defined and
+    # used by nothing, and pixi says so once per orphan -- ahead of the solver
+    # output, in text the diagnosis quotes into the issue it files (:issue:`150`).
+    floors = _load()
+    text = MANIFEST + '\n[tool.pixi.feature.py312.dependencies]\npython = "3.12.*"\n'
+    out = floors.features(text, "test", "3.12")
+    assert "[tool.pixi.dependencies]" in out
+    assert "[tool.pixi.feature.test.dependencies]" in out
+    assert "[tool.pixi.feature.py312.dependencies]" in out
+    assert "[tool.pixi.feature.docs.dependencies]" not in out
+    assert "[tool.pixi.feature.devs.dependencies]" not in out
+
+
+def test_a_dropped_feature_takes_every_table_and_comment_it_owns():
+    # A feature is more than its dependencies: dropping the one table this
+    # generator knows by name would leave the tasks behind, and pixi warns on the
+    # feature, not on the table. The comment above a table was written about that
+    # table, so leaving it behind would caption the next one instead.
+    floors = _load()
+    text = MANIFEST + textwrap.dedent(
+        """
+        [tool.pixi.feature.test.tasks.tests]
+        cmd = "pytest"
+
+        # Why the documentation is built this way.
+        [tool.pixi.feature.docs.tasks.docs-html]
+        cmd = "make html"
+
+        [tool.pixi.feature.docs.pypi-dependencies]
+        playwright = ">=1.55"
+        """
+    )
+    out = floors.features(text, "test", "3.12")
+    assert "[tool.pixi.feature.test.tasks.tests]" in out
+    assert "docs-html" not in out
+    assert "playwright" not in out
+    assert "Why the documentation is built this way." not in out
+    # The kept table follows a dropped one, so the blank line between the two is
+    # dropped with it and the header would otherwise butt against the table above.
+    assert "\n\n[tool.pixi.feature.test.tasks.tests]" in out
+    assert tomllib.loads(out)["tool"]["pixi"]["feature"]["test"]["tasks"]["tests"]
+
+
+def test_the_tier_keeps_the_tables_that_are_not_dependencies():
+    # The docs tier declares `playwright` in a `pypi-dependencies` table and
+    # builds through its own tasks. A prune keyed on the dependency table alone
+    # would take both, and the tier would install and then fail to run.
+    floors = _load()
+    text = MANIFEST + textwrap.dedent(
+        """
+        [tool.pixi.feature.docs.pypi-dependencies]
+        playwright = ">=1.55"
+
+        [tool.pixi.feature.docs.tasks.docs]
+        cmd = "make html"
+        """
+    )
+    out = floors.features(text, "docs", "3.12")
+    assert "playwright" in out
+    assert "[tool.pixi.feature.docs.tasks.docs]" in out
+
+
+@pytest.mark.parametrize("tier", ["test", "docs", "devs"])
+def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
+    # The property the warning block reports on, asserted against the real
+    # manifest rather than a fixture: a feature added to `pyproject.toml`
+    # tomorrow is dropped by the same rule, and one the generated environment
+    # does reference is never dropped by it.
+    floors = _load()
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
+    pixi = tomllib.loads(out)["tool"]["pixi"]
+    used = {
+        feature
+        for environment in pixi["environments"].values()
+        for feature in environment["features"]
+    }
+    assert set(pixi["feature"]) == used
+    assert tier in used
+
+
+@pytest.mark.parametrize("tier", ["test", "docs", "devs"])
+def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
+    # The prune takes whole features, and pixi resolves `depends-on` over every
+    # task an environment carries -- so a task naming one of another feature is
+    # allowed, and a manifest that grew one would generate a dangling reference.
+    # Every `depends-on` in `pyproject.toml` names a task of its own feature
+    # today; this is what notices the day one does not.
+    floors = _load()
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
+    pixi = tomllib.loads(out)["tool"]["pixi"]
+    tasks = dict(pixi.get("tasks", {}))
+    for feature in pixi["feature"].values():
+        tasks.update(feature.get("tasks", {}))
+    named = {
+        entry["task"] if isinstance(entry, dict) else entry
+        for task in tasks.values()
+        if isinstance(task, dict)
+        for entry in task.get("depends-on", [])
+    }
+    assert named <= set(tasks)
+    # The `docs` tier is the only one declaring a `depends-on` today, so the
+    # assertion above holds vacuously for the other two: fail here rather than
+    # let all three go quiet the day that table moves.
+    assert bool(named) is (tier == "docs")
