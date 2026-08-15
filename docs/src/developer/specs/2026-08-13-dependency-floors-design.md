@@ -201,9 +201,12 @@ The rewrite lands in the checkout the `test` tier's exercise then runs the suite
 the manifest that suite reads is not the one this repository declares. A test asserting a
 literal specifier from the working tree therefore fails that tier on every run — `python-build
 = "==1.5.0"` against a declared `>=1.5`, reported as a floor that would not hold ({issue}`155`)
-— and no floor is at fault. Such a test reads the manifest from the index, as the tests that
-enumerate the committed corpus already do (docs spec §3.6): the declaration is a property of
-the repository, not of the tree this job leaves behind.
+— and no floor is at fault. It is not only the specifiers: generation also replaces the
+environment table and drops every feature the surviving environment cannot reach (§3.3), so
+the tests of those two rules met the same end the week after they were written. Any test
+reading `pyproject.toml` for what this repository declares reads it from the index, as the
+tests that enumerate the committed corpus already do (docs spec §3.6): the declaration is a
+property of the repository, not of the tree this job leaves behind.
 
 (floors-spec-3-3)=
 ### 3.3 What runs at the floors

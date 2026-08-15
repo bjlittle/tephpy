@@ -82,6 +82,27 @@ def _manifest(tmp_path, text=MANIFEST):
     return path
 
 
+def _committed_manifest():
+    """Return the manifest this repository declares, not the one it was given.
+
+    A test that asserts against the real `pyproject.toml` has to read it from
+    the index: the conda half of `ci-floors` runs this suite in a checkout
+    whose manifest this very generator has rewritten, where every floor is an
+    `==` pin and every feature but one is gone (:issue:`155`). The guard is
+    here rather than on each caller because this is where the index is needed
+    -- a probe strips `.git`, and there the tests that call this skip.
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no index to read the committed manifest from")
+    return subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    ).stdout
+
+
 def _lookup(package, specifier, python):  # noqa: ARG001
     """Stand in for the channel: the floor plus two releases above it."""
     base = specifier.removeprefix(">=")
@@ -259,15 +280,16 @@ def test_a_package_declared_in_both_of_a_tiers_tables_is_refused(tmp_path):
         )
 
 
-def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved():
+def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved(tmp_path):
     # The property that was broken: the generator read the four conda tables and
     # no others, so `playwright` went unpinned and the docs tier ran its floors
     # job against whatever release the solver reached -- green, on a floor it had
     # never tested (:issue:`151`). Asserted against the real manifest, so a table
     # added to `pyproject.toml` tomorrow is covered by the same rule.
     floors = _load()
-    manifest = REPO / "pyproject.toml"
-    document = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    text = _committed_manifest()
+    document = tomllib.loads(text)
+    manifest = _manifest(tmp_path, text)
     resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
     declared = 0
     for tier, path in floors.PYPI_TABLES.items():
@@ -412,10 +434,15 @@ def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
 
 
 def _shells_out_to_git(source: str) -> list[ast.FunctionDef]:
-    """Return every test in one module whose argv starts with a literal ``git``."""
+    """Return every function in one module whose argv starts with a literal ``git``.
+
+    Every function, not every test: a call moved into a helper is the same call
+    from the probe's point of view, and a detector that only read tests would go
+    quiet on the refactor rather than on the guard being dropped.
+    """
     found = []
     for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("test_"):
+        if not isinstance(node, ast.FunctionDef):
             continue
         for call in ast.walk(node):
             argv = call.args[0] if isinstance(call, ast.Call) and call.args else None
@@ -427,6 +454,24 @@ def _shells_out_to_git(source: str) -> list[ast.FunctionDef]:
     return found
 
 
+def _guard(node: ast.FunctionDef) -> str:
+    """One function's decorators and statements, less its docstring and comments.
+
+    What a guard is asserted against has to be code: the source segment of this
+    very function mentions ``.git`` in prose, and matched raw it would report
+    itself guarded.
+    """
+    statements = node.body
+    first = statements[0] if statements else None
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    ):
+        statements = statements[1:]
+    return "\n".join(ast.unparse(part) for part in [*node.decorator_list, *statements])
+
+
 def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
     # A probe runs this suite in a copy of the checkout with `.git` stripped, so
     # a `git` call there does not skip -- it raises, and with `check=True` it
@@ -435,16 +480,17 @@ def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
     # of that tier into a report of it (floors spec §3.4). The literal form is
     # what is matched, so a call built some other way is caught by the probe
     # going red rather than here.
+    # The guard may be a `skipif` on the test or a `pytest.skip` in the function
+    # itself, a helper carrying its own being the only way one shared by several
+    # tests is guarded once.
     unguarded = []
     for path in sorted((REPO / "tests").rglob("test_*.py")):
         source = path.read_text(encoding="utf-8")
-        for node in _shells_out_to_git(source):
-            marks = " ".join(
-                ast.get_source_segment(source, mark) or ""
-                for mark in node.decorator_list
-            )
-            if ".git" not in marks:
-                unguarded.append(f"{path.name}::{node.name}")
+        unguarded += [
+            f"{path.name}::{node.name}"
+            for node in _shells_out_to_git(source)
+            if ".git" not in _guard(node)
+        ]
     assert not unguarded
 
 
@@ -675,7 +721,7 @@ def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
     # tomorrow is dropped by the same rule, and one the generated environment
     # does reference is never dropped by it.
     floors = _load()
-    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     used = {
@@ -695,7 +741,7 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
     # Every `depends-on` in `pyproject.toml` names a task of its own feature
     # today; this is what notices the day one does not.
     floors = _load()
-    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     tasks = dict(pixi.get("tasks", {}))
