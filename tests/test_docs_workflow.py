@@ -105,6 +105,30 @@ def test_every_retried_attempt_is_bounded():
         assert _attempts(script) > 1, f"{name}: does not retry"
 
 
+#: What a step runs to gain root. `sudo` is the literal escalation; the other
+#: two are Playwright's, which shell out to `sudo apt-get` without saying so --
+#: the shape has to be recognized by the spelling a caller actually uses.
+ESCALATES = re.compile(r"\bsudo\b|--with-deps\b|\binstall-deps\b")
+
+
+def test_no_retried_attempt_escalates_privilege():
+    # A retry is only worth having if the attempt before it can be made to end,
+    # and `timeout` can end only what the runner is allowed to signal. It does
+    # signal its whole process group -- but a process running as root is not
+    # the runner's to signal, so it survives its own bound. That is not
+    # academic: `playwright install --with-deps` stalled in `apt`, outlived the
+    # attempt that started it, held the dpkg lock, and failed the second
+    # attempt on the lock instead of retrying the stall, so neither attempt
+    # ever tested the network again (:pull:`166`).
+    steps = _network_steps()
+    assert steps, "no network-reaching step found in the documentation workflow"
+    for name, script in steps.items():
+        found = ESCALATES.findall(script)
+        assert not found, (
+            f"{name}: `{found[0]}` runs as root, which outlives the bound around it"
+        )
+
+
 def test_the_bounded_steps_fit_inside_the_job():
     # Every bound below is a worst case that nothing reaches -- the whole job
     # runs in about ninety seconds. They still have to sum to less than the
