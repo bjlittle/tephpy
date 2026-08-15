@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import io
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -278,6 +280,90 @@ def test_a_package_declared_in_both_of_a_tiers_tables_is_refused(tmp_path):
         floors.pins(
             _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
         )
+
+
+def test_a_second_declaration_naming_a_source_is_refused_as_well(tmp_path):
+    # The guard reads what is declared, not what resolved: a source entry is
+    # passed over, so a floor in one table and a source of the same name in the
+    # other met no guard at all and left the tier taking the package from the
+    # channel and the index both.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        "[tool.pixi.pypi-dependencies]\n",
+        '[tool.pixi.pypi-dependencies]\nclick = { path = ".", editable = true }\n',
+    )
+    with pytest.raises(floors.FloorError, match="core: click declared in both"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def _file(filename, *, kind="bdist_wheel", yanked=False, requires=None):
+    """One uploaded file, as the PyPI JSON API describes it."""
+    return {
+        "filename": filename,
+        "packagetype": kind,
+        "yanked": yanked,
+        "requires_python": requires,
+    }
+
+
+def _serve(monkeypatch, floors, document):
+    """Answer the release lookup from a canned index rather than from PyPI."""
+    # A `BytesIO` is its own context manager and reads as the file the opener
+    # hands back, so the stub stands in for the response without a class.
+    monkeypatch.setattr(
+        floors.urllib.request,
+        "urlopen",
+        lambda *_, **__: io.BytesIO(json.dumps(document).encode("utf-8")),
+    )
+
+
+def test_a_release_with_no_file_this_target_can_install_is_passed_over(monkeypatch):
+    # `requires_python` alone says nothing about where a wheel runs: pywin32 311
+    # publishes fifteen non-yanked wheels, all of them for Windows and none of
+    # them declaring a Python, and the Linux runner cannot install any of them.
+    # A pin there turns a floor the tier declares into a solve failure, and the
+    # upward scan climbs releases the tier can never reach.
+    floors = _load()
+    _serve(
+        monkeypatch,
+        floors,
+        {
+            "releases": {
+                "1.0": [_file("only-1.0-cp312-cp312-win_amd64.whl")],
+                "1.1": [_file("only-1.1-cp39-cp39-manylinux_2_17_x86_64.whl")],
+                "1.2": [_file("only-1.2.tar.gz", kind="sdist")],
+                "1.3": [_file("only-1.3-py3-none-any.whl")],
+            }
+        },
+    )
+    assert floors.releases("only", ">=1.0", Version("3.12.0")) == ["1.2", "1.3"]
+
+
+def test_a_yanked_release_and_one_this_python_is_shut_out_of_are_passed_over(
+    monkeypatch,
+):
+    # A yank is the index saying not to install the release, and
+    # `--resolution lowest-direct` on the other half of the job honours both this
+    # and `requires-python` -- so a generator that did not would pin the two
+    # halves to different releases and report a floor neither would install.
+    floors = _load()
+    _serve(
+        monkeypatch,
+        floors,
+        {
+            "releases": {
+                "1.0": [_file("only-1.0-py3-none-any.whl", yanked=True)],
+                "1.1": [_file("only-1.1-py3-none-any.whl", requires=">=3.13")],
+                "1.2": [
+                    _file("only-1.2-py3-none-any.whl", yanked=True),
+                    _file("only-1.2.tar.gz", kind="sdist", requires=">=3.10"),
+                ],
+            }
+        },
+    )
+    assert floors.releases("only", ">=1.0", Version("3.12.0")) == ["1.2"]
 
 
 def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved(tmp_path):

@@ -109,7 +109,9 @@ of where it can be found — conda-forge carries `playwright 1.62.1`, and the do
 declares `playwright >=1.55` from PyPI (measured 2026-08-15). The table is therefore read as
 the statement of which index that package is installed from, and its floor is resolved
 against that index and no other ({issue}`151`). A name declared in both tables of one tier
-fails the run rather than being resolved by the order the generator happens to read them in.
+fails the run rather than being resolved by the order the generator happens to read them in —
+judged on the names the two tables declare, not on what those declarations resolved to, since
+a source entry resolves to nothing and would otherwise carry a second provider past the guard.
 
 One entry shape in a `pypi-dependencies` table is not a floor at all: a source, such as the
 local editable path the manifest gives tephpy itself. There is no version there to resolve,
@@ -165,6 +167,14 @@ publishes, and yanked files are passed over there. A yank is the index saying th
 should not be installed, and `--resolution lowest-direct` on the other half of the job honours
 it — so a generator that did not would pin the two halves to different releases, and report a
 floor neither of them would install.
+
+`requires-python` is not on its own a statement of what a release runs on, and is often
+absent. A release counts only if it carries a file the target could install: an sdist, or a
+wheel whose tags the pinned Python and the runner's platform accept. pywin32 311 publishes
+fifteen non-yanked wheels and no sdist, every one of them for Windows and none declaring a
+Python at all — read on that metadata alone it is a floor the Linux runner would pin and then
+fail to install, and one the §3.5 scan would climb through releases it can never reach
+(measured 2026-08-15).
 
 Four guards, each of which fails the run rather than degrading it:
 
@@ -382,6 +392,12 @@ that succeeds. The routing of §3.1 is covered the same way and for the same rea
 declared in a `pypi-dependencies` table resolves and scans against the package index, and a
 lookup that asked the channel instead would answer, plausibly, out of a set the tier never
 installs from.
+
+The filters of §3.2 are covered against a canned index rather than against PyPI, since what
+they must be shown to reject is a release nobody publishes on purpose: one whose only files
+are yanked, one shut out by its `requires-python`, and one carrying nothing this platform and
+interpreter could install. Each is a release the lookup would otherwise return as a floor,
+where it reads exactly like a floor that resolved.
 
 The module lives under `.github/`, which `MANIFEST.in` prunes, so the test guards on the
 repository being a checkout and imports the script by path, as the gate tests there already

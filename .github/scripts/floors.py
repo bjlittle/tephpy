@@ -15,6 +15,7 @@ Notes
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 from pathlib import Path
 import re
@@ -27,10 +28,14 @@ import urllib.parse
 import urllib.request
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.tags import compatible_tags, cpython_tags, platform_tags
+from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 from packaging.version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from packaging.tags import Tag
 
     Lookup = Callable[[str, str, Version], list[str]]
     Resolved = dict[str, dict[str, tuple[str, str, str]]]
@@ -202,6 +207,45 @@ def candidates(package: str, specifier: str, python: Version) -> list[str]:
     return [text for text, _ in sorted(keep.items(), key=lambda item: item[1])]
 
 
+@functools.cache
+def _targets(major: int, minor: int) -> frozenset[Tag]:
+    """Every wheel tag an installer on this runner accepts for one interpreter.
+
+    The interpreter is a parameter and the platform is not: floors are resolved
+    for the Python of floors spec §3.3, which is not the one this generator runs
+    under, but for the machine it runs on -- the same runner that then solves the
+    generated environment.
+    """
+    platforms = list(platform_tags())
+    return frozenset(
+        set(cpython_tags(python_version=(major, minor), platforms=platforms))
+        | set(
+            compatible_tags(
+                python_version=(major, minor),
+                interpreter=f"cp{major}{minor}",
+                platforms=platforms,
+            )
+        )
+    )
+
+
+def _installable(entry: dict, targets: frozenset[Tag]) -> bool:
+    """Whether one uploaded file is something the target could install."""
+    kind = entry.get("packagetype")
+    if kind == "sdist":
+        return True
+    if kind != "bdist_wheel":
+        return False
+    try:
+        *_, tags = parse_wheel_filename(entry.get("filename", ""))
+    except InvalidWheelFilename:
+        # A name this parser cannot read carries no statement of what it is for,
+        # and the reading that keeps the two halves of the job together is the
+        # one that does not pin a release on a file it cannot place.
+        return False
+    return bool(tags & targets)
+
+
 def releases(package: str, specifier: str, python: Version) -> list[str]:
     """Every PyPI release satisfying ``specifier`` with a file for ``python``.
 
@@ -209,6 +253,12 @@ def releases(package: str, specifier: str, python: Version) -> list[str]:
     `pypi-dependencies` table. Yanked files are passed over, so a floor lands
     where `uv --resolution lowest-direct` on the other half of the job lands
     and the two halves do not disagree over a release neither would install.
+
+    A release counts only if it carries a file the target could install: an
+    sdist, or a wheel whose tags this interpreter and platform accept. pywin32
+    311 publishes fifteen non-yanked wheels and no sdist, every one of them for
+    Windows; taken on `requires_python` alone it would be pinned on the Linux
+    runner, where nothing can install it (measured 2026-08-15).
 
     Parameters
     ----------
@@ -245,6 +295,7 @@ def releases(package: str, specifier: str, python: Version) -> list[str]:
     except InvalidSpecifier as error:
         msg = f"{package} = {specifier!r} is not a PEP 440 specifier"
         raise FloorError(msg) from error
+    targets = _targets(python.major, python.minor)
     keep: dict[str, Version] = {}
     for text, files in document.get("releases", {}).items():
         try:
@@ -263,7 +314,7 @@ def releases(package: str, specifier: str, python: Version) -> list[str]:
                 )
             except InvalidSpecifier:
                 admitted = True
-            if admitted:
+            if admitted and _installable(entry, targets):
                 keep[text] = version
                 break
     return [text for text, _ in sorted(keep.items(), key=lambda item: item[1])]
@@ -335,6 +386,11 @@ def _resolve(
             raise FloorError(msg)
         found[package] = (specifier, versions[0], table)
     return found
+
+
+def _declared(node: object) -> set[str]:
+    """Every name one table declares, whatever shape its entry takes."""
+    return set(node) if isinstance(node, dict) else set()
 
 
 def _node(document: dict[str, object], path: tuple[str, ...]) -> object:
@@ -413,24 +469,28 @@ def pins(
     document = tomllib.loads(manifest.read_text(encoding="utf-8"))
     resolved: Resolved = {}
     for tier, path in TABLES.items():
-        conda = _resolve(tier, _node(document, path), "dependencies", python, lookup)
-        if not conda:
-            msg = f"{tier}: no floors converted; the table is empty or renamed"
-            raise FloorError(msg)
-        wheels = _resolve(
-            tier, _node(document, PYPI_TABLES[tier]), "pypi-dependencies", python, pypi
-        )
+        conda_table = _node(document, path)
+        wheel_table = _node(document, PYPI_TABLES[tier])
         # One name over two tables is one line in this mapping, and the pin
         # would land on whichever of the two the rewrite reached -- so it is
-        # refused rather than resolved by ordering.
-        both = sorted(set(conda) & set(wheels))
+        # refused rather than resolved by ordering. The guard reads the
+        # declarations rather than what they resolved to, because `_resolve`
+        # passes a source entry over: a package declared as a floor in one table
+        # and as a source in the other would otherwise meet no guard at all, and
+        # leave the tier taking it from the channel and the index both.
+        both = sorted(_declared(conda_table) & _declared(wheel_table))
         if both:
             msg = (
                 f"{tier}: {', '.join(both)} declared in both dependency tables; "
-                "the generator cannot tell which floor a pin belongs to "
-                "(floors spec §3.1)"
+                "the generator cannot tell which of the two the tier installs "
+                "from (floors spec §3.1)"
             )
             raise FloorError(msg)
+        conda = _resolve(tier, conda_table, "dependencies", python, lookup)
+        if not conda:
+            msg = f"{tier}: no floors converted; the table is empty or renamed"
+            raise FloorError(msg)
+        wheels = _resolve(tier, wheel_table, "pypi-dependencies", python, pypi)
         resolved[tier] = conda | wheels
     return resolved
 
