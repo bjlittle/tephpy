@@ -757,6 +757,27 @@ def _pixi_site(probe: Probe, package: str, fallback: str) -> tuple[str, str]:
     return found
 
 
+def _pypi_site(probe: Probe, package: str) -> str:
+    """Return the requirements file declaring one floor, empty where none does.
+
+    The mirror of `_pixi_site` above, and asked for the same reason: the tier a
+    package is floored in at one site need not be the tier it is floored in at
+    the other, so neither can be read off the other. Both halves ask, because
+    both file (:issue:`142`) and one issue names both lines.
+
+    Empty is a real answer and not a lookup that failed. The manifest declares
+    packages the pip requirements have no counterpart for -- `make`, which
+    drives the documentation build (floors spec §3.1) -- and an issue that named
+    a requirements file for one of those would send its reader to a file with no
+    such line, which reads exactly like a line they failed to find.
+    """
+    found = ""
+    for site in ("core", probe.tier):
+        if _match(package, _requirements(probe.source / REQUIREMENTS[site])):
+            found = REQUIREMENTS[site]
+    return found
+
+
 def _pin_one(manifest: Path, package: str, pin: str) -> None:
     """Rewrite one declaration to an exact pin, leaving the rest alone."""
     text = manifest.read_text(encoding="utf-8")
@@ -896,11 +917,14 @@ def main() -> int:
         floors_of = declared(probe)
         if package in floors_of:
             finding.declared, site, ladder = floors_of[package]
-            finding.site, finding.table = site, ladder
             finding.package, finding.alias = spellings(probe, package)
-            if args.half == "pypi":
-                finding.requirements = REQUIREMENTS[site]
-                finding.site, finding.table = _pixi_site(probe, finding.package, site)
+            # Each site is asked where it declares this floor, rather than one
+            # being read off the other: the two need not agree on the tier any
+            # more than on the name (floors spec §3.1), and the issue names both
+            # lines whichever half found it -- so a half that filled in only its
+            # own would send half its readers to a file with no such line.
+            finding.site, finding.table = _pixi_site(probe, finding.package, site)
+            finding.requirements = _pypi_site(probe, finding.package)
     if package is not None and finding.declared is not None:
         # `package` and not `finding.package`: the scan pins and installs, so it
         # wants the name the resolver knows, where the finding carries the name

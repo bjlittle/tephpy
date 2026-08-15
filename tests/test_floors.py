@@ -951,7 +951,12 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
 
 
 def _sites(tmp_path):
-    """Build a checkout whose two declaration sites disagree, as this one's do."""
+    """Build a checkout whose two declaration sites disagree, as this one's do.
+
+    Every divergence of floors spec §3.1 is here: a package under two names, a
+    package the two sites floor in different tiers, and one the manifest
+    declares that the pip requirements have no counterpart for.
+    """
     (tmp_path / "requirements").mkdir()
     (tmp_path / "requirements" / "pypi-core.txt").write_text(
         "# The core floors.\nmatplotlib>=3.11\n\nclick>=8.1\n", encoding="utf-8"
@@ -970,6 +975,7 @@ def _sites(tmp_path):
             [tool.pixi.feature.test.dependencies]
             pytest = ">=8.0"
             python-build = ">=1.5"
+            make = ">=4.4"
 
             [tool.pixi.feature.test.pypi-dependencies]
             playwright = ">=1.55"
@@ -1242,3 +1248,76 @@ def test_the_filing_job_runs_when_either_half_fails():
     for half in ("conda", "pypi"):
         assert f"needs.{half}.result == 'failure'" in gate
         assert half in jobs["file"]["needs"]
+
+
+def test_both_halves_record_the_same_two_lines_to_edit(monkeypatch, tmp_path):
+    # The issue names both declaration sites, and it names them off the one
+    # finding it was handed -- which for a floor broken in both halves is the
+    # conda one, `group` sorting that half first. So a half that filled in only
+    # its own site would leave the other's read off a fallback, and for
+    # `setuptools_scm` -- a `test` requirement and a core declaration -- the
+    # fallback is `requirements/pypi-core.txt`, which declares no such line.
+    # Neither site can be read off the other, so both are asked on both halves.
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    monkeypatch.setattr(
+        diagnose.floors,
+        "pins",
+        lambda *_: {"core": {"setuptools-scm": (">=8", "8.0.0", "dependencies")}},
+    )
+    monkeypatch.setattr(
+        diagnose,
+        "attribute",
+        lambda probe: (
+            "setuptools_scm" if probe.half == "pypi" else "setuptools-scm",
+            None,
+            "the failure",
+        ),
+    )
+    monkeypatch.setattr(diagnose, "scan", lambda *_: (None, [], ""))
+    found = {}
+    for half in ("conda", "pypi"):
+        out = tmp_path / f"{half}.json"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "floors_diagnose.py",
+                "--source",
+                str(source),
+                "--scratch",
+                str(tmp_path / "scratch"),
+                "--tier",
+                "test",
+                "--half",
+                half,
+                "--out",
+                str(out),
+            ],
+        )
+        assert diagnose.main() == 0
+        found[half] = json.loads(out.read_text(encoding="utf-8"))
+    for half, finding in found.items():
+        assert (finding["site"], finding["table"]) == ("core", "dependencies"), half
+        assert finding["requirements"] == "requirements/pypi-optional-test.txt", half
+        # And on one name, so the two arrive at the filing job under one key.
+        assert (finding["package"], finding["alias"]) == (
+            "setuptools-scm",
+            "setuptools_scm",
+        ), half
+
+
+def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
+    # `make` drives the documentation build and has no PyPI counterpart worth
+    # declaring (floors spec §3.1). Naming its tier's requirements file anyway
+    # would send the reader to a file with no such line, which reads exactly
+    # like a line they failed to find -- so the empty answer is kept, and the
+    # issue says the floor is declared once rather than naming a second site.
+    diagnose = _load_diagnose()
+    probe = _probe(diagnose, _sites(tmp_path), half="conda")
+    assert diagnose._pypi_site(probe, "make") == ""
+    assert diagnose._pypi_site(probe, "click") == "requirements/pypi-core.txt"
+    # Under either site's spelling, the requirements file being the half that
+    # writes `build` where the manifest writes `python-build`.
+    for name in ("python-build", "build"):
+        assert diagnose._pypi_site(probe, name) == "requirements/pypi-optional-test.txt"

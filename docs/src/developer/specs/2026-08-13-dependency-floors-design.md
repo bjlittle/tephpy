@@ -396,7 +396,11 @@ that makes the set findable. The body carries what a fix needs:
   version in the conda channel and the package index (§3.5)
 - both lines that declare the floor (§3.1) — a fix that changes one and not the other leaves
   the two sides disagreeing — each named as its own site spells it and in the tier that site
-  floors it in, neither of which the two are guaranteed to share
+  floors it in, neither of which the two are guaranteed to share. Both are asked of the site
+  itself, on whichever half produced the finding, because neither can be read off the other
+  and the reader is sent to both. Where a floor has no counterpart at all, `make` being
+  declared for pixi alone, the issue says so and names the one line rather than a second file
+  with nothing in it to edit
 - the caveat of §3.5 in as many words, with the `sphinx-click` case cited, so the version is
   read as a starting point rather than an answer
 - where no candidate passed, the highest one tried and what it failed on (§3.5), named as

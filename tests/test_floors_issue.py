@@ -268,3 +268,21 @@ def test_the_requirements_file_named_is_the_one_declaring_the_floor():
     assert "`pyproject.toml`, `[tool.pixi.dependencies]`" in text
     assert "requirements/pypi-optional-test.txt" in text
     assert "requirements/pypi-core.txt" not in text
+
+
+def test_a_floor_declared_for_pixi_alone_names_one_line():
+    # The manifest declares packages the pip requirements have no counterpart
+    # for -- `make`, which drives the documentation build. Telling that reader
+    # that "both declaration sites need the same edit" and naming a file with no
+    # such line reads as a line they failed to find, so the body says instead
+    # that this floor is declared once. An absent key is a finding from before
+    # the diagnosis answered this, and keeps the pairing it was read with.
+    module = _load()
+    finding = {**FINDING, "tier": "docs", "package": "make", "site": "docs"}
+    text = module.body({**finding, "requirements": ""}, "url")
+    assert "Declared for pixi alone" in text
+    assert "requirements/" not in text
+    # The caveat of floors spec §3.5 is about the scanned version, not about the
+    # declaration, so it is owed to this reader too.
+    assert module.CAVEAT in text
+    assert "requirements/pypi-optional-docs.txt" in module.body(finding, "url")
