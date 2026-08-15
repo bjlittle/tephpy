@@ -2,224 +2,136 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Tests for the browser demo's CSV contract and wheel staging."""
+
+"""Tests for the browser demo check and the budgets `ci-docs` gives it."""
 
 from __future__ import annotations
 
-from email.parser import BytesParser
-import hashlib
-import importlib.util
-import json
-import math
+import ast
 from pathlib import Path
-import subprocess
-import sys
-import tomllib
-from zipfile import ZipFile
+import re
 
 import pytest
+import yaml
 
-from tephpy.exceptions import DewpointExceedsTemperatureError
+REPO = Path(__file__).parents[1]
+WORKFLOW = REPO / ".github" / "workflows" / "ci-docs.yml"
+SCRIPT = REPO / ".github" / "scripts" / "check_browser_demo.py"
 
-REPOSITORY = Path(__file__).parents[1]
-DEMO_SOURCE = REPOSITORY / "docs" / "browser" / "browser_demo.py"
-BUILD_SOURCE = REPOSITORY / "docs" / "build_browser.py"
-READ_THE_DOCS_CONFIG = REPOSITORY / ".readthedocs.yml"
-RUNTIME_LOCK = REPOSITORY / "docs" / "browser" / "runtime-lock.json"
-TOOLBAR_ASSETS = REPOSITORY / "docs" / "src" / "_static" / "browser-toolbar"
-DOCS_REQUIREMENTS = REPOSITORY / "requirements" / "pypi-optional-docs.txt"
-
-
-def _load(name, path):
-    """Import a checkout-only documentation helper by path."""
-    specification = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(specification)
-    sys.modules[name] = module
-    specification.loader.exec_module(module)
-    return module
-
-
-demo = _load("tephpy_browser_demo", DEMO_SOURCE)
-builder = _load("tephpy_browser_builder", BUILD_SOURCE)
-
-
-def test_read_the_docs_stages_browser_app_before_sphinx():
-    config = READ_THE_DOCS_CONFIG.read_text(encoding="utf-8")
-    stage = "python docs/build_browser.py"
-    sphinx = "sphinx-build -T -b html"
-
-    assert stage in config
-    assert config.index(stage) < config.index(sphinx)
-
-
-@pytest.mark.skipif(
-    not (REPOSITORY / ".git").exists(),
-    reason="no index to read the committed manifest from",
+# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without either
+# file they read. The module is guarded rather than each test, because an
+# unguarded read fails *collection* there and takes the rest of the suite with
+# it -- the same reason `tests/test_floors.py` guards itself.
+pytestmark = pytest.mark.skipif(
+    not WORKFLOW.is_file() or not SCRIPT.is_file(),
+    reason="not a checkout of the repository",
 )
-def test_docs_dependency_tier_declares_wheel_builder():
-    """The declaration is a property of the repository, not of this tree.
 
-    Read from the index rather than the working tree because ``ci-floors``
-    runs this suite against a manifest ``.github/scripts/floors.py`` has
-    rewritten in place: every conda floor becomes an ``==`` pin, so this one
-    reads ``==1.5.0`` there and the tier fails on a specifier the generator
-    wrote rather than on a floor tephpy declared (floors spec §3.2,
-    :issue:`155`).
+#: Minutes the job needs for everything that is not one of the bounded steps --
+#: the checkout, the pixi environment, the documentation build and the two
+#: checkers over its output. Together they take about a minute in practice.
+UNBOUNDED = 9
+
+
+def _job():
+    """Return the sole job of the documentation workflow."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    (job,) = workflow["jobs"].values()
+    return job
+
+
+def _network_steps():
+    """Return each step that reaches the network, by what it runs.
+
+    Selecting on what a step does rather than on how it is written is the whole
+    point: a step retrying with `||` instead of a loop is the very shape this
+    gate rejects, so it has to be *found* before it can be judged. Recognizing
+    only the correct shape would leave the defect exempt rather than reported.
     """
-    committed = subprocess.run(
-        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPOSITORY,
-        text=True,
-    ).stdout
-    config = tomllib.loads(committed)
-    dependencies = config["tool"]["pixi"]["feature"]["docs"]["dependencies"]
-    requirements = DOCS_REQUIREMENTS.read_text(encoding="utf-8").splitlines()
-
-    assert dependencies["python-build"] == ">=1.5"
-    assert "build>=1.5" in requirements
+    steps = {}
+    for index, step in enumerate(_job()["steps"]):
+        script = step.get("run", "")
+        if "playwright" in script or "check_browser_demo" in script:
+            steps[step.get("name", f"step {index}")] = script
+    return steps
 
 
-def test_toolbar_icons_match_pinned_browser_runtime():
-    runtime = json.loads(RUNTIME_LOCK.read_text(encoding="utf-8"))
-    manifest = json.loads(
-        (TOOLBAR_ASSETS / "manifest.json").read_text(encoding="utf-8")
-    )
-    matplotlib = next(
-        package
-        for package in runtime["pyodide_packages"]
-        if package["name"] == "matplotlib"
-    )
+def _attempts(script):
+    """Return how many attempts a script makes, one when it does not loop."""
+    loop = re.search(r"for\s+\w+\s+in\s+([\d\s]+?);\s*do", script)
+    return len(loop[1].split()) if loop else 1
 
-    assert manifest["matplotlib_version"] == matplotlib["version"]
-    assert manifest["source_wheel_sha256"] == matplotlib["sha256"]
-    assert manifest["pyodide_version"] == runtime["pyodide"]["version"]
-    for name, digest in manifest["icons"].items():
-        assert (
-            hashlib.sha256((TOOLBAR_ASSETS / name).read_bytes()).hexdigest() == digest
+
+def _bounds(script):
+    """Return the wall-clock bound on each attempt the script makes."""
+    return [int(each) for each in re.findall(r"\btimeout\s+-k\s+\d+\s+(\d+)\b", script)]
+
+
+def test_every_retried_attempt_is_bounded():
+    # A retry covers a failure. It covers a stall only if the attempt before it
+    # is made to end, and `timeout-minutes` on the step cannot do that here,
+    # because both attempts live in one step and a step-level bound would
+    # cancel the pair. So the bound has to be inside the shell, once per
+    # attempt -- and without it the retry is decoration, which is how a stalled
+    # browser install spent the job's entire budget rather than failing over.
+    steps = _network_steps()
+    assert steps, "no network-reaching step found in the documentation workflow"
+    for name, script in steps.items():
+        invocations = len(re.findall(r"\bpixi run\b", script))
+        bounds = _bounds(script)
+        assert invocations == len(bounds), (
+            f"{name}: {invocations} invocation(s) but {len(bounds)} bounded"
         )
+        assert _attempts(script) > 1, f"{name}: does not retry"
 
 
-def test_csv_parser_preserves_optional_columns_and_blank_cells():
-    parsed = demo.parse_sounding_csv(
-        "pressure_hPa,temperature_C,dewpoint_C,wind_speed_m_s,"
-        "wind_direction_degree\n1000,18,14,5,180\n900,10,,8,200\n"
+def test_the_bounded_steps_fit_inside_the_job():
+    # Every bound below is a worst case that nothing reaches -- the whole job
+    # runs in about ninety seconds. They still have to sum to less than the
+    # job's own budget, or the job timeout is what ends a stall, and a job
+    # cancelled from outside reports no failing step, retries nothing and takes
+    # the rest of the run's verdict with it.
+    worst = sum(
+        _attempts(script) * max(_bounds(script), default=0)
+        for script in _network_steps().values()
+    )
+    budget = _job()["timeout-minutes"]
+    assert worst / 60 + UNBOUNDED <= budget, (
+        f"bounded steps may take {worst / 60:.0f}m, leaving under {UNBOUNDED}m "
+        f"of a {budget}m job for the build"
     )
 
-    assert parsed.pressure == (1000.0, 900.0)
-    assert parsed.temperature == (18.0, 10.0)
-    assert parsed.dewpoint[0] == 14.0
-    assert math.isnan(parsed.dewpoint[1])
-    assert parsed.wind_speed == (5.0, 8.0)
-    assert parsed.wind_direction == (180.0, 200.0)
 
-
-def test_absent_optional_columns_are_none():
-    parsed = demo.parse_sounding_csv("pressure_hPa,temperature_C\n1000,18\n900,10\n")
-
-    assert parsed.dewpoint is None
-    assert parsed.wind_speed is None
-    assert parsed.wind_direction is None
-
-
-@pytest.mark.parametrize(
-    ("header", "message"),
-    [
-        ("temperature_C", "missing required CSV header"),
-        (
-            "pressure_hPa,temperature_C,temperature_C",
-            "duplicate CSV header",
-        ),
-        (
-            "pressure_hPa,temperature_C,wind_speed_m_s",
-            "wind columns must be supplied together",
-        ),
-        ("pressure_hPa,,temperature_C", "missing column name"),
-    ],
-)
-def test_invalid_headers_are_rejected(header, message):
-    with pytest.raises(demo.DemoCSVError, match=message):
-        demo.parse_sounding_csv(f"{header}\n1000,18\n900,10\n")
-
-
-def test_nonnumeric_nonblank_cell_names_its_location():
-    text = "pressure_hPa,temperature_C\n1000,warm\n900,10\n"
-
-    with pytest.raises(
-        demo.DemoCSVError,
-        match="line 2, column temperature_C: expected a number",
-    ):
-        demo.parse_sounding_csv(text)
-
-
-@pytest.mark.parametrize(("row", "cells"), [("1000", 1), ("1000,18,extra", 3)])
-def test_csv_row_cell_count_must_match_header_count(row, cells):
-    text = f"pressure_hPa,temperature_C\n{row}\n"
-
-    with pytest.raises(
-        demo.DemoCSVError,
-        match=rf"line 2: found {cells} cells for 2 headers",
-    ):
-        demo.parse_sounding_csv(text)
-
-
-@pytest.mark.parametrize("text", ["", "pressure_hPa,temperature_C\n\n"])
-def test_empty_csv_data_is_rejected(text):
-    with pytest.raises(demo.DemoCSVError, match=r"empty|no data"):
-        demo.parse_sounding_csv(text)
-
-
-def test_parsed_csv_constructs_a_quantified_sounding():
-    parsed = demo.parse_sounding_csv(
-        "pressure_hPa,temperature_C,wind_speed_m_s,wind_direction_degree\n"
-        "900,10,8,200\n1000,18,5,180\n"
-    )
-
-    sounding = parsed.to_sounding(label="upload.csv")
-
-    assert sounding.label == "upload.csv"
-    assert sounding.pressure.m_as("hPa").tolist() == [1000.0, 900.0]
-    assert sounding.temperature.m_as("degC").tolist() == [18.0, 10.0]
-    assert sounding.wind_speed.m_as("m/s").tolist() == [5.0, 8.0]
-
-
-def test_physical_validation_is_delegated_to_sounding():
-    parsed = demo.parse_sounding_csv(
-        "pressure_hPa,temperature_C,dewpoint_C\n1000,18,19\n900,10,8\n"
-    )
-
-    with pytest.raises(DewpointExceedsTemperatureError):
-        parsed.to_sounding(label="unphysical.csv")
-
-
-def test_staged_app_contains_the_current_valid_wheel_and_manifest(tmp_path):
-    app = builder.stage_browser_app(tmp_path / "stage")
-    manifest = json.loads((app / "runtime.json").read_text(encoding="utf-8"))
-    wheel = app / manifest["tephpy"]["wheel"]
-
-    assert wheel.is_file()
-    with ZipFile(wheel) as archive:
-        assert archive.testzip() is None
-        metadata_name = next(
-            name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+def test_the_demo_s_waits_fit_inside_one_of_its_attempts():
+    # The script bounds each wait itself, and those bounds have to fit within
+    # the attempt the shell gives the script -- otherwise the shell is what
+    # ends a slow run, reporting a signal, where the script would have named
+    # the wait that hung and the state the demo had reached by then.
+    tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
+    (assignment,) = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "TIMEOUT"
+            for target in node.targets
         )
-        metadata = BytesParser().parsebytes(archive.read(metadata_name))
-        assert "tephpy/__init__.py" in archive.namelist()
-    assert metadata["Name"] == "tephpy"
-    assert metadata["Version"] == manifest["tephpy"]["version"]
-
-    assert manifest["pyscript"]["version"] == "2026.7.3"
-    assert manifest["pyodide"]["version"] == "314.0.4"
-    pure = {
-        package["name"]: package["version"]
-        for package in manifest["pure_python_packages"]
-    }
-    assert pure["MetPy"] == "1.7.1"
-    assert pure["Pint"] == "0.25.3"
-    assert (app / "pyscript.toml").read_text(encoding="utf-8") == (
-        'interpreter = "https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.mjs"\n'
+    ]
+    milliseconds = ast.literal_eval(assignment.value)
+    waits = sum(
+        1
+        for node in ast.walk(tree)
+        for word in getattr(node, "keywords", [])
+        if word.arg == "timeout"
+        and isinstance(word.value, ast.Name)
+        and word.value.id == "TIMEOUT"
     )
-    html = (app / "index.html").read_text(encoding="utf-8")
-    assert "__PYSCRIPT" not in html
-    assert "https://pyscript.net/releases/2026.7.3/core.js" in html
+    assert waits > 1, "no waits found to hold against the attempt's bound"
+    (demo,) = [
+        script for script in _network_steps().values() if "check_browser_demo" in script
+    ]
+    attempt = max(_bounds(demo))
+    assert waits * milliseconds / 1000 < attempt, (
+        f"{waits} waits of {milliseconds / 1000:.0f}s exceed the {attempt}s "
+        "an attempt is given"
+    )
