@@ -1,0 +1,5 @@
+The documentation workflow's browser steps now bound each attempt they make,
+so a stalled browser install or demo check fails over to its retry instead of
+consuming the whole job budget, and the timeouts inside
+``check_browser_demo.py`` are now small enough to fit within one such attempt.
+A test holds the two sets of budgets against each other. (:user:`claude`)
