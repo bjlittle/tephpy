@@ -1,0 +1,7 @@
+The dependency floors job now resolves the floors a pixi ``pypi-dependencies``
+table declares, against PyPI rather than against the conda channel. It read the
+four conda dependency tables and no others, so the ``docs`` tier's
+``playwright`` floor was never pinned and that tier ran green each week on a
+floor it had never tested (:issue:`151`). The declaring table is carried through
+to the diagnosis, so the upward scan climbs the index the tier installs from and
+the issue the job files names the table to edit. (:user:`claude`)
