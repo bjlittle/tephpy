@@ -199,6 +199,13 @@ test environment from ever being installed — and the tier that failed would no
 that reported it. Separate manifests make each tier's verdict its own, which is what §3.4
 then attributes and §3.6 files.
 
+Holding one environment leaves every other feature defined and used by nothing, and pixi
+warns once per orphan. That block runs ahead of the solver output the diagnosis quotes
+verbatim into the issue it files, where it is the first thing a reader sees and none of it is
+about tephpy ({issue}`150`). So the generator drops those features outright — every table of
+a dropped feature, not only the dependency table it knows by name — rather than suppressing
+the warning, which the generated manifest wants kept for its own real defects.
+
 `devs` is installed and not run. Its packages are linters, and pre-commit at a floor `ruff`
 reports that version's rule set rather than anything about tephpy's floors — a red run that
 is not a finding is worse than no run at all. The image comparisons come out of the test run

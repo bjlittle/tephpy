@@ -333,8 +333,11 @@ def features(text: str, tier: str, python: str) -> str:
 
     Every table of a dropped feature goes, not only its dependencies, so a
     feature that gains a table this generator has never heard of still leaves
-    nothing behind. Nothing a tier runs is lost with them: a pixi task may only
-    ``depends-on`` a task of its own feature or of the environment it runs in.
+    nothing behind. No task is left naming one that went with them: pixi
+    resolves ``depends-on`` over every task the environment carries, so a task
+    of one feature may name a task of another and that reference would dangle
+    here. Every one in this manifest names a task of its own feature, which
+    ``test_the_generated_manifest_leaves_no_task_naming_a_dropped_one`` holds.
 
     Parameters
     ----------

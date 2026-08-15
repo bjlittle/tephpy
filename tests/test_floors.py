@@ -512,3 +512,30 @@ def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
     }
     assert set(pixi["feature"]) == used
     assert tier in used
+
+
+@pytest.mark.parametrize("tier", ["test", "docs", "devs"])
+def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
+    # The prune takes whole features, and pixi resolves `depends-on` over every
+    # task an environment carries -- so a task naming one of another feature is
+    # allowed, and a manifest that grew one would generate a dangling reference.
+    # Every `depends-on` in `pyproject.toml` names a task of its own feature
+    # today; this is what notices the day one does not.
+    floors = _load()
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
+    pixi = tomllib.loads(out)["tool"]["pixi"]
+    tasks = dict(pixi.get("tasks", {}))
+    for feature in pixi["feature"].values():
+        tasks.update(feature.get("tasks", {}))
+    named = {
+        entry["task"] if isinstance(entry, dict) else entry
+        for task in tasks.values()
+        if isinstance(task, dict)
+        for entry in task.get("depends-on", [])
+    }
+    assert named <= set(tasks)
+    # The `docs` tier is the only one declaring a `depends-on` today, so the
+    # assertion above holds vacuously for the other two: fail here rather than
+    # let all three go quiet the day that table moves.
+    assert bool(named) is (tier == "docs")
