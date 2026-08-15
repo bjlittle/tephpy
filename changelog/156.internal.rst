@@ -1,0 +1,7 @@
+The test asserting that the ``docs`` tier declares the wheel builder now reads
+``pyproject.toml`` from the index rather than the working tree. The conda half
+of the weekly ``ci-floors`` job rewrites every declared floor in the checkout to
+an ``==`` pin before running the suite there, so a literal specifier read from
+the tree fails the ``test`` tier on every run and is reported as a floor that
+would not hold (:issue:`155`). The declaration is a property of the repository,
+not of the tree that job leaves behind. (:user:`claude`)
