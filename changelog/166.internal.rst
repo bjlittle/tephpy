@@ -1,0 +1,10 @@
+The ``docs`` job now installs the browser demo's Chromium without
+``--with-deps``, which escalated to ``sudo apt-get`` and stalled downloading a
+font package from the Ubuntu mirror. The retry beside it could not recover:
+``timeout`` signals its own process group, but the runner may not signal a root
+process, so the stalled ``apt`` outlived its bound, kept the ``dpkg`` lock and
+failed the next attempt on the lock rather than on the network. Nothing is lost
+by dropping the flag — every library it installed is already current on the
+runner, and the only additions were fonts the demo never renders. A gate now
+rejects every spelling of the escalation in a retried step, because an attempt
+that cannot be killed is not one a retry can rescue. (:user:`claude`)

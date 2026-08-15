@@ -32,19 +32,28 @@ jobs:
       - run: >
           pixi run --frozen --environment docs
           python .github/scripts/check_documentation_links.py docs/_build/html
-      # Both of the steps below reach the network -- one installs a browser and
-      # its system libraries, the other loads PyScript, Pyodide and the wheels
-      # from a CDN -- so both are retried. Each attempt is bounded from inside
-      # the shell rather than by the step's `timeout-minutes`, because both
-      # attempts share one step: a step-level bound cancels the pair, leaving
-      # the retry covering only a fast failure and never a stall. An unbounded
-      # first attempt is a retry that never happens, which is how a stalled
-      # browser install spent the job's whole budget instead of failing over.
+      # Both of the steps below reach the network -- one downloads a browser,
+      # the other loads PyScript, Pyodide and the wheels from a CDN -- so both
+      # are retried. Each attempt is bounded from inside the shell rather than
+      # by the step's `timeout-minutes`, because both attempts share one step:
+      # a step-level bound cancels the pair, leaving the retry covering only a
+      # fast failure and never a stall. An unbounded first attempt is a retry
+      # that never happens, which is how a stalled browser install spent the
+      # job's whole budget instead of failing over.
+      #
+      # Deliberately without `--with-deps`. That escalates to `sudo apt-get`,
+      # and an attempt that runs as root is not one the retry can rescue:
+      # `timeout` signals its own process group, but the runner may not signal
+      # a root process, so a stalled apt outlives the attempt that started it,
+      # keeps the dpkg lock, and fails the next attempt on the lock rather than
+      # on the stall. Nothing is lost by dropping it -- every library it would
+      # install is already newest on `ubuntu-latest`, and the only additions
+      # are CJK, emoji and X fonts this demo never renders.
       - name: Install the demo's browser
         run: |
           for attempt in 1 2; do
             if timeout -k 30 180 pixi run --frozen --environment docs \
-                playwright install --with-deps chromium; then
+                playwright install chromium; then
               exit 0
             fi
             echo "::warning::browser install attempt ${attempt} failed or stalled"
