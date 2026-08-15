@@ -83,7 +83,7 @@ both are broken, and nothing this repository runs today can see either.
 
 Every floor is declared twice, once for pixi and once for pip:
 
-| tier | conda | pip |
+| tier | pixi | pip |
 |---|---|---|
 | core | `[tool.pixi.dependencies]` | `requirements/pypi-core.txt` |
 | test | `[tool.pixi.feature.test.dependencies]` | `requirements/pypi-optional-test.txt` |
@@ -101,6 +101,24 @@ So each site is read on its own terms, and neither list is reconciled against th
 is either enumerated here: the manifest is the enumeration, and docs spec §4 rules out a copy
 that has to be re-measured to stay true.
 
+The pixi column is two tables, not one. Beside each `dependencies` table above sits a
+`pypi-dependencies` table, which pixi installs from PyPI rather than from conda-forge, and a
+floor in either is a declaration of the same kind: resolved, pinned, and paired with the one
+requirements file its row names. Which of the two a package is declared in is not a question
+of where it can be found — conda-forge carries `playwright 1.62.1`, and the docs tier still
+declares `playwright >=1.55` from PyPI (measured 2026-08-15). The table is therefore read as
+the statement of which index that package is installed from, and its floor is resolved
+against that index and no other ({issue}`151`). A name declared in both tables of one tier
+fails the run rather than being resolved by the order the generator happens to read them in —
+judged on the names the two tables declare, not on what those declarations resolved to, since
+a source entry resolves to nothing and would otherwise carry a second provider past the guard.
+
+One entry shape in a `pypi-dependencies` table is not a floor at all: a source, such as the
+local editable path the manifest gives tephpy itself. There is no version there to resolve,
+and writing a pin over it would install a release of tephpy over the checkout under test — so
+it is passed over, and named in the run summary. A job that exercises fewer declarations than
+the manifest makes should not read as one that exercised all of them.
+
 Both sites move by hand only. dependabot was pointed at `requirements/` and opened its first
 run against it while this job was being planned ({pull}`131`), lifting every `>=` there to the
 newest release — click `>=8.1` to `>=8.4.2`, xarray `>=2024.10` to `>=2026.7.0`. That is the
@@ -117,9 +135,9 @@ a person reading it.
 ### 3.2 The pin generator
 
 `.github/scripts/floors.py`, alongside the gate scripts already there. For each dependency
-table named in §3.1 it reads the declared `>=X`, asks the channel which versions satisfy it,
-and rewrites the specifier to `==` the lowest of them in the CI checkout; the job then solves
-without `--frozen`. This is the throwaway edit {pull}`133` made by hand, generated rather than
+table named in §3.1 it reads the declared `>=X`, asks that table's index which versions
+satisfy it, and rewrites the specifier to `==` the lowest of them in the CI checkout; the job
+then solves without `--frozen`. This is the throwaway edit {pull}`133` made by hand, generated rather than
 typed.
 
 Pinning the floor *string* would not do, and the manifest as it stands is the proof. A conda
@@ -131,7 +149,7 @@ generator wrote rather than on a floor tephpy declared. Resolving the floor to a
 is what makes the pin mean what the declaration means. (Measured 2026-08-13.)
 
 The query that resolves a floor also enumerates everything above it, which is the scan's
-candidate list (§3.5); the two ask the channel once for the same thing. Ordering those
+candidate list (§3.5); the two ask that index once for the same thing. Ordering those
 candidates is PEP 440 rather than string comparison, under which `10.0.5` sorts below `8`.
 That takes `packaging`, which is declared rather than inherited as a transitive of matplotlib
 — the same reasoning configfile spec §7 records for `platformdirs`. It is declared in the
@@ -144,14 +162,35 @@ written from the unfiltered list is unsolvable on the 3.12 of §3.3, and the run
 generator's arithmetic rather than on anything tephpy declared. Filtered, `>=8.1` resolves to
 click 8.1.3. (Measured 2026-08-13.)
 
-Two guards, both of which fail the run rather than degrade it:
+The PyPI side of §3.1 is filtered the same way, on the `requires-python` each release
+publishes, and yanked files are passed over there. A yank is the index saying the release
+should not be installed, and `--resolution lowest-direct` on the other half of the job honours
+it — so a generator that did not would pin the two halves to different releases, and report a
+floor neither of them would install.
+
+`requires-python` is not on its own a statement of what a release runs on, and is often
+absent. A release counts only if it carries a file the target could install: an sdist, or a
+wheel whose tags the pinned Python and the runner's platform accept. pywin32 311 publishes
+fifteen non-yanked wheels and no sdist, every one of them for Windows and none declaring a
+Python at all — read on that metadata alone it is a floor the Linux runner would pin and then
+fail to install, and one the §3.5 scan would climb through releases it can never reach
+(measured 2026-08-15).
+
+Four guards, each of which fails the run rather than degrading it:
 
 - **A specifier that is not a bare `>=X` is reported, never skipped.** A range, a wildcard, a
   build string: the generator cannot know which version such a specifier floors, and one that
   quietly converts most of a tier makes the run a weaker claim than it appears to be.
-- **A tier yielding no conversions fails.** A table emptied or renamed would otherwise exit 0
-  having pinned nothing, and a green run that checked nothing is indistinguishable from a
-  green run that checked everything.
+- **A tier whose conda table yields no conversions fails.** A table emptied or renamed would
+  otherwise exit 0 having pinned nothing, and a green run that checked nothing is
+  indistinguishable from a green run that checked everything. Its `pypi-dependencies` table is
+  not held to this, most tiers declaring nothing there.
+- **An entry that is neither a floor nor a source is reported.** pixi takes a table of options
+  in a `pypi-dependencies` entry — extras, an index, an environment marker. Passing one over
+  would leave a declared floor unexercised, and pinning the `version` key out of it would drop
+  the rest of the table on the way.
+- **A package declared in both of a tier's two tables fails** (§3.1), rather than taking the
+  pin the line-based rewrite happens to reach first and leaving the other declaration floating.
 
 One consequence of resolving rather than transcribing is left unclassified: **the generated
 pin routinely sits above the declared floor.** Sometimes the floor is not a release (`>=8.1`
@@ -163,17 +202,21 @@ Only the third is worth a reader's attention, and no rule separates it from the 
 threshold that flagged setuptools would flag click 8.1.3 just as loudly. So the job judges
 none of them.
 
-What it does instead is write every declared floor beside the version it pinned, to the
-workflow's step summary. That is what makes the third case legible without the job having to
-name it, and a silently narrowed run noticeable without reading logs.
+What it does instead is write every declared floor beside the version it pinned and the table
+it read that floor from, to the workflow's step summary, together with every entry it left
+alone (§3.1). That is what makes the third case legible without the job having to name it, and
+a silently narrowed run noticeable without reading logs.
 
 The rewrite lands in the checkout the `test` tier's exercise then runs the suite in (§3.3), so
 the manifest that suite reads is not the one this repository declares. A test asserting a
 literal specifier from the working tree therefore fails that tier on every run — `python-build
 = "==1.5.0"` against a declared `>=1.5`, reported as a floor that would not hold ({issue}`155`)
-— and no floor is at fault. Such a test reads the manifest from the index, as the tests that
-enumerate the committed corpus already do (docs spec §3.6): the declaration is a property of
-the repository, not of the tree this job leaves behind.
+— and no floor is at fault. It is not only the specifiers: generation also replaces the
+environment table and drops every feature the surviving environment cannot reach (§3.3), so
+the tests of those two rules met the same end the week after they were written. Any test
+reading `pyproject.toml` for what this repository declares reads it from the index, as the
+tests that enumerate the committed corpus already do (docs spec §3.6): the declaration is a
+property of the repository, not of the tree this job leaves behind.
 
 (floors-spec-3-3)=
 ### 3.3 What runs at the floors
@@ -276,9 +319,11 @@ Given a culprit, the job establishes what would work. It takes the candidates §
 enumerated, keeps those at or below the version the relaxed resolve of §3.4 chose and
 installable on the pinned Python, and tries them in ascending order — stopping at the first
 that both resolves and passes that tier's exercise from §3.3. The candidates are read from
-wherever that half of the job installs from: the conda channel for the pixi environments, the
-package index for the PyPI ones. A package can be at a different version in each, and the two
-halves are scanned separately for that reason.
+wherever that package is installed from, which is the table that declares it (§3.1): the conda
+channel for a `dependencies` table, the package index for a `pypi-dependencies` one and for
+the PyPI half throughout. A package can be at a different version in each, and the two halves
+are scanned separately for that reason — as is a package the pixi half itself takes from PyPI,
+which conda-forge may carry at a version the tier will never install.
 
 Ascending and linear, so the first pass is by construction the lowest version that works,
 with no assumption about the shape of the pass/fail boundary between the floor and it.
@@ -339,10 +384,20 @@ failure of this shape is recognised rather than diagnosed from scratch.
 ## 5. Testing
 
 The generator is ordinary Python and gets ordinary tests, in `tests/test_floors.py` per
-spec §8.5. What they must cover is the two guards of §3.2 — a non-`>=` specifier reported
-rather than skipped, and a tier yielding nothing failing rather than passing — because those
-are the paths on which the job's whole claim rests and neither is reached by a run that
-succeeds.
+spec §8.5. What they must cover is the four guards of §3.2 — a non-`>=` specifier reported
+rather than skipped, a tier yielding nothing failing rather than passing, an entry that is
+neither a floor nor a source refused, and one name over both of a tier's tables refused —
+because those are the paths on which the job's whole claim rests and none is reached by a run
+that succeeds. The routing of §3.1 is covered the same way and for the same reason: a floor
+declared in a `pypi-dependencies` table resolves and scans against the package index, and a
+lookup that asked the channel instead would answer, plausibly, out of a set the tier never
+installs from.
+
+The filters of §3.2 are covered against a canned index rather than against PyPI, since what
+they must be shown to reject is a release nobody publishes on purpose: one whose only files
+are yanked, one shut out by its `requires-python`, and one carrying nothing this platform and
+interpreter could install. Each is a release the lookup would otherwise return as a floor,
+where it reads exactly like a floor that resolved.
 
 The module lives under `.github/`, which `MANIFEST.in` prunes, so the test guards on the
 repository being a checkout and imports the script by path, as the gate tests there already

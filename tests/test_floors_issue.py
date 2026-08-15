@@ -111,6 +111,21 @@ def test_the_declaration_sites_follow_the_declaring_table_not_the_tier():
     assert "pypi-optional-test.txt" not in text
 
 
+def test_the_pixi_table_named_is_the_one_the_floor_is_declared_in():
+    # A tier declares floors in two pixi tables, and both pair with the one
+    # requirements file. Naming the dependency table by default would send the
+    # reader to a table the package is not in, where the fix is to add a second
+    # declaration of it -- the manifest then floors it twice (:issue:`151`).
+    module = _load()
+    finding = {**FINDING, "tier": "docs", "package": "playwright"}
+    text = module.body({**finding, "table": "pypi-dependencies"}, "url")
+    assert "[tool.pixi.feature.docs.pypi-dependencies]" in text
+    assert "requirements/pypi-optional-docs.txt" in text
+    conda = module.body(finding, "url")
+    assert "[tool.pixi.feature.docs.dependencies]" in conda
+    assert "pypi-dependencies" not in conda
+
+
 def _stub(monkeypatch, module, existing=None):
     """Stub out `gh`; return the list that records each argv `main` runs."""
     calls = []

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import io
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -82,6 +84,27 @@ def _manifest(tmp_path, text=MANIFEST):
     return path
 
 
+def _committed_manifest():
+    """Return the manifest this repository declares, not the one it was given.
+
+    A test that asserts against the real `pyproject.toml` has to read it from
+    the index: the conda half of `ci-floors` runs this suite in a checkout
+    whose manifest this very generator has rewritten, where every floor is an
+    `==` pin and every feature but one is gone (:issue:`155`). The guard is
+    here rather than on each caller because this is where the index is needed
+    -- a probe strips `.git`, and there the tests that call this skip.
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no index to read the committed manifest from")
+    return subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    ).stdout
+
+
 def _lookup(package, specifier, python):  # noqa: ARG001
     """Stand in for the channel: the floor plus two releases above it."""
     base = specifier.removeprefix(">=")
@@ -128,9 +151,251 @@ def test_relaxing_one_package_leaves_the_others_pinned(tmp_path):
     assert 'pytest = "==8.0.0"' in text
 
 
+#: The same manifest with the two shapes a `pypi-dependencies` table carries: a
+#: floor, and the project itself as a local editable source.
+PYPI_MANIFEST = MANIFEST + textwrap.dedent(
+    """
+    [tool.pixi.pypi-dependencies]
+    tephpy = { path = ".", editable = true }
+
+    [tool.pixi.feature.docs.pypi-dependencies]
+    playwright = ">=1.55"
+    """
+)
+
+
+def _pypi(package, specifier, python):  # noqa: ARG001
+    """Stand in for the package index, with a ladder above the declared floor."""
+    base = specifier.removeprefix(">=")
+    return [f"{base}.0", f"{base}.1"]
+
+
+def test_a_pypi_floor_is_resolved_from_the_index_and_not_the_channel(tmp_path):
+    # pixi installs a `pypi-dependencies` entry from PyPI, and conda-forge
+    # carries `playwright` too -- so a lookup that asked the channel would pin a
+    # release of a package the tier never installs, and the pin would either
+    # fail to solve or float the real one (:issue:`151`).
+    floors = _load()
+    asked = []
+
+    def _channel(package, specifier, python):
+        asked.append(("channel", package))
+        return _lookup(package, specifier, python)
+
+    def _index(package, specifier, python):
+        asked.append(("index", package))
+        return _pypi(package, specifier, python)
+
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_channel,
+        pypi=_index,
+    )
+    assert resolved["docs"]["playwright"] == (">=1.55", "1.55.0", "pypi-dependencies")
+    assert resolved["docs"]["sphinx"] == (">=8.0", "8.0.0", "dependencies")
+    assert ("index", "playwright") in asked
+    assert ("channel", "playwright") not in asked
+
+
+def test_a_pypi_floor_is_pinned_in_the_table_that_declares_it(tmp_path):
+    # The rewrite is line-based over the whole manifest, so a pin has to land in
+    # the table the floor was read from -- and the editable source beside it must
+    # come through untouched, a pin there installing a release of tephpy over the
+    # checkout the job is testing.
+    floors = _load()
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_lookup,
+        pypi=_pypi,
+    )
+    out = floors.rewrite(PYPI_MANIFEST, resolved)
+    assert 'playwright = "==1.55.0"' in out
+    assert 'tephpy = { path = ".", editable = true }' in out
+    docs = tomllib.loads(out)["tool"]["pixi"]["feature"]["docs"]
+    assert docs["pypi-dependencies"]["playwright"] == "==1.55.0"
+
+
+def test_the_project_itself_is_reported_rather_than_pinned(tmp_path):
+    # A source entry is the one declaration this generator leaves alone, so it is
+    # named in the summary: a job that exercises fewer declarations than the
+    # manifest makes reads green for a claim it never tested (:issue:`151`).
+    floors = _load()
+    manifest = _manifest(tmp_path, PYPI_MANIFEST)
+    resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
+    assert "tephpy" not in resolved["core"]
+    entry = '{ path = ".", editable = true }'
+    assert floors.unpinned(manifest) == {"core": {"tephpy": entry}}
+    assert f"Not a floor, left alone: `tephpy = {entry}`." in floors.report(
+        resolved, "core", floors.unpinned(manifest)["core"]
+    )
+
+
+def test_the_summary_names_the_table_each_floor_was_declared_in(tmp_path):
+    # Two tables per tier means the resolved version alone no longer says which
+    # declaration moved, and the fix is an edit to one named file and table.
+    floors = _load()
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_lookup,
+        pypi=_pypi,
+    )
+    text = floors.report(resolved, "docs")
+    assert (
+        "| `sphinx` | `>=8.0` | `8.0.0` | `[tool.pixi.feature.docs.dependencies]` |"
+    ) in text
+    assert (
+        "| `playwright` | `>=1.55` | `1.55.0` "
+        "| `[tool.pixi.feature.docs.pypi-dependencies]` |"
+    ) in text
+
+
+def test_an_entry_that_is_neither_a_floor_nor_a_source_is_refused(tmp_path):
+    # pixi takes a table of options there as well -- extras, a marker, an index.
+    # Passing one over silently would leave a declared floor unexercised, and
+    # pinning its `version` key would drop the rest of the table on the floor.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        'playwright = ">=1.55"',
+        'playwright = { version = ">=1.55", extras = ["driver"] }',
+    )
+    with pytest.raises(floors.FloorError, match="neither a floor"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def test_a_package_declared_in_both_of_a_tiers_tables_is_refused(tmp_path):
+    # One name over two tables is one line in the resolved mapping, so the pin
+    # would land in whichever table the line-based rewrite reached and the other
+    # declaration would keep floating -- a half-pinned tier that reads as pinned.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        "[tool.pixi.feature.docs.pypi-dependencies]\n",
+        '[tool.pixi.feature.docs.pypi-dependencies]\nsphinx = ">=8.0"\n',
+    )
+    with pytest.raises(floors.FloorError, match="docs: sphinx declared in both"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def test_a_second_declaration_naming_a_source_is_refused_as_well(tmp_path):
+    # The guard reads what is declared, not what resolved: a source entry is
+    # passed over, so a floor in one table and a source of the same name in the
+    # other met no guard at all and left the tier taking the package from the
+    # channel and the index both.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        "[tool.pixi.pypi-dependencies]\n",
+        '[tool.pixi.pypi-dependencies]\nclick = { path = ".", editable = true }\n',
+    )
+    with pytest.raises(floors.FloorError, match="core: click declared in both"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def _file(filename, *, kind="bdist_wheel", yanked=False, requires=None):
+    """One uploaded file, as the PyPI JSON API describes it."""
+    return {
+        "filename": filename,
+        "packagetype": kind,
+        "yanked": yanked,
+        "requires_python": requires,
+    }
+
+
+def _serve(monkeypatch, floors, document):
+    """Answer the release lookup from a canned index rather than from PyPI."""
+    # A `BytesIO` is its own context manager and reads as the file the opener
+    # hands back, so the stub stands in for the response without a class.
+    monkeypatch.setattr(
+        floors.urllib.request,
+        "urlopen",
+        lambda *_, **__: io.BytesIO(json.dumps(document).encode("utf-8")),
+    )
+
+
+def test_a_release_with_no_file_this_target_can_install_is_passed_over(monkeypatch):
+    # `requires_python` alone says nothing about where a wheel runs: pywin32 311
+    # publishes fifteen non-yanked wheels, all of them for Windows and none of
+    # them declaring a Python, and the Linux runner cannot install any of them.
+    # A pin there turns a floor the tier declares into a solve failure, and the
+    # upward scan climbs releases the tier can never reach.
+    floors = _load()
+    _serve(
+        monkeypatch,
+        floors,
+        {
+            "releases": {
+                "1.0": [_file("only-1.0-cp312-cp312-win_amd64.whl")],
+                "1.1": [_file("only-1.1-cp39-cp39-manylinux_2_17_x86_64.whl")],
+                "1.2": [_file("only-1.2.tar.gz", kind="sdist")],
+                "1.3": [_file("only-1.3-py3-none-any.whl")],
+            }
+        },
+    )
+    assert floors.releases("only", ">=1.0", Version("3.12.0")) == ["1.2", "1.3"]
+
+
+def test_a_yanked_release_and_one_this_python_is_shut_out_of_are_passed_over(
+    monkeypatch,
+):
+    # A yank is the index saying not to install the release, and
+    # `--resolution lowest-direct` on the other half of the job honours both this
+    # and `requires-python` -- so a generator that did not would pin the two
+    # halves to different releases and report a floor neither would install.
+    floors = _load()
+    _serve(
+        monkeypatch,
+        floors,
+        {
+            "releases": {
+                "1.0": [_file("only-1.0-py3-none-any.whl", yanked=True)],
+                "1.1": [_file("only-1.1-py3-none-any.whl", requires=">=3.13")],
+                "1.2": [
+                    _file("only-1.2-py3-none-any.whl", yanked=True),
+                    _file("only-1.2.tar.gz", kind="sdist", requires=">=3.10"),
+                ],
+            }
+        },
+    )
+    assert floors.releases("only", ">=1.0", Version("3.12.0")) == ["1.2"]
+
+
+def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved(tmp_path):
+    # The property that was broken: the generator read the four conda tables and
+    # no others, so `playwright` went unpinned and the docs tier ran its floors
+    # job against whatever release the solver reached -- green, on a floor it had
+    # never tested (:issue:`151`). Asserted against the real manifest, so a table
+    # added to `pyproject.toml` tomorrow is covered by the same rule.
+    floors = _load()
+    text = _committed_manifest()
+    document = tomllib.loads(text)
+    manifest = _manifest(tmp_path, text)
+    resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
+    declared = 0
+    for tier, path in floors.PYPI_TABLES.items():
+        node = document
+        for key in path:
+            node = node.get(key, {}) if isinstance(node, dict) else {}
+        for package, entry in node.items():
+            if not isinstance(entry, str):
+                continue
+            declared += 1
+            assert resolved[tier][package][0] == entry
+            assert resolved[tier][package][2] == "pypi-dependencies"
+    # Vacuous the day nothing is declared from PyPI, which is a state this
+    # repository has been in and could return to.
+    assert declared
+
+
 RESOLVED = {
-    "core": {"click": (">=8.1", "8.1.3")},
-    "test": {"pytest": (">=8.0", "8.0.0")},
+    "core": {"click": (">=8.1", "8.1.3", "dependencies")},
+    "test": {"pytest": (">=8.0", "8.0.0", "dependencies")},
 }
 
 
@@ -255,10 +520,15 @@ def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
 
 
 def _shells_out_to_git(source: str) -> list[ast.FunctionDef]:
-    """Return every test in one module whose argv starts with a literal ``git``."""
+    """Return every function in one module whose argv starts with a literal ``git``.
+
+    Every function, not every test: a call moved into a helper is the same call
+    from the probe's point of view, and a detector that only read tests would go
+    quiet on the refactor rather than on the guard being dropped.
+    """
     found = []
     for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("test_"):
+        if not isinstance(node, ast.FunctionDef):
             continue
         for call in ast.walk(node):
             argv = call.args[0] if isinstance(call, ast.Call) and call.args else None
@@ -270,6 +540,24 @@ def _shells_out_to_git(source: str) -> list[ast.FunctionDef]:
     return found
 
 
+def _guard(node: ast.FunctionDef) -> str:
+    """One function's decorators and statements, less its docstring and comments.
+
+    What a guard is asserted against has to be code: the source segment of this
+    very function mentions ``.git`` in prose, and matched raw it would report
+    itself guarded.
+    """
+    statements = node.body
+    first = statements[0] if statements else None
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    ):
+        statements = statements[1:]
+    return "\n".join(ast.unparse(part) for part in [*node.decorator_list, *statements])
+
+
 def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
     # A probe runs this suite in a copy of the checkout with `.git` stripped, so
     # a `git` call there does not skip -- it raises, and with `check=True` it
@@ -278,16 +566,17 @@ def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
     # of that tier into a report of it (floors spec §3.4). The literal form is
     # what is matched, so a call built some other way is caught by the probe
     # going red rather than here.
+    # The guard may be a `skipif` on the test or a `pytest.skip` in the function
+    # itself, a helper carrying its own being the only way one shared by several
+    # tests is guarded once.
     unguarded = []
     for path in sorted((REPO / "tests").rglob("test_*.py")):
         source = path.read_text(encoding="utf-8")
-        for node in _shells_out_to_git(source):
-            marks = " ".join(
-                ast.get_source_segment(source, mark) or ""
-                for mark in node.decorator_list
-            )
-            if ".git" not in marks:
-                unguarded.append(f"{path.name}::{node.name}")
+        unguarded += [
+            f"{path.name}::{node.name}"
+            for node in _shells_out_to_git(source)
+            if ".git" not in _guard(node)
+        ]
     assert not unguarded
 
 
@@ -422,6 +711,22 @@ def test_the_scan_never_goes_above_the_bound(monkeypatch, tmp_path):
     assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
 
 
+def test_the_scan_climbs_the_index_the_declaring_table_names(monkeypatch, tmp_path):
+    # The scan walks upwards from the declared floor, and where that ladder comes
+    # from is a property of the table, not of the package: conda-forge carries
+    # `playwright` as well, so a scan that always asked the channel would report
+    # a lowest-passing version out of a set the tier never installs from
+    # (:issue:`151`). The tests above hold the other direction, `candidates`
+    # being the one they stub.
+    diagnose, probe = _rigged(monkeypatch, tmp_path, lambda index: index == 1)
+    monkeypatch.setattr(diagnose.floors, "releases", lambda *_: ["1.55.0", "1.56.0"])
+    lowest, scanned = diagnose.scan(
+        probe, "playwright", ">=1.55", None, "pypi-dependencies"
+    )
+    assert lowest == "1.56.0"
+    assert scanned == ["1.55.0", "1.56.0"]
+
+
 def test_the_environment_table_is_replaced_not_appended():
     # pixi solves every environment a manifest declares, so a leftover `default`
     # would let one tier's conflict fail another tier's run (floors spec §3.3).
@@ -502,7 +807,7 @@ def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
     # tomorrow is dropped by the same rule, and one the generated environment
     # does reference is never dropped by it.
     floors = _load()
-    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     used = {
@@ -522,7 +827,7 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
     # Every `depends-on` in `pyproject.toml` names a task of its own feature
     # today; this is what notices the day one does not.
     floors = _load()
-    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     tasks = dict(pixi.get("tasks", {}))

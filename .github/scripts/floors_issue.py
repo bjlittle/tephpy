@@ -27,21 +27,31 @@ if TYPE_CHECKING:
 
 MARKER = "dependency-floors"
 
-#: The two declaration sites of floors spec §3.1, by tier.
+#: The two declaration sites of floors spec §3.1, by tier. pixi takes a floor
+#: from either of two manifest tables, and both pair with the one requirements
+#: file, so the pixi table named is the one the culprit is declared in and not
+#: the one its tier declares most of its floors in (:issue:`151`).
 SITES = {
-    "core": ("[tool.pixi.dependencies]", "requirements/pypi-core.txt"),
-    "test": (
-        "[tool.pixi.feature.test.dependencies]",
-        "requirements/pypi-optional-test.txt",
-    ),
-    "docs": (
-        "[tool.pixi.feature.docs.dependencies]",
-        "requirements/pypi-optional-docs.txt",
-    ),
-    "devs": (
-        "[tool.pixi.feature.devs.dependencies]",
-        "requirements/pypi-optional-devs.txt",
-    ),
+    "core": {
+        "dependencies": "[tool.pixi.dependencies]",
+        "pypi-dependencies": "[tool.pixi.pypi-dependencies]",
+        "requirements": "requirements/pypi-core.txt",
+    },
+    "test": {
+        "dependencies": "[tool.pixi.feature.test.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.test.pypi-dependencies]",
+        "requirements": "requirements/pypi-optional-test.txt",
+    },
+    "docs": {
+        "dependencies": "[tool.pixi.feature.docs.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.docs.pypi-dependencies]",
+        "requirements": "requirements/pypi-optional-docs.txt",
+    },
+    "devs": {
+        "dependencies": "[tool.pixi.feature.devs.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.devs.pypi-dependencies]",
+        "requirements": "requirements/pypi-optional-devs.txt",
+    },
 }
 
 #: The order halves are reported in, so a two-half issue reads the same each
@@ -228,7 +238,9 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         # The declaring table, not the tier that failed: core is resolved into
         # every tier, so a `test` run can attribute to a package declared in the
         # core table, whose two sites are a different pair (floors spec §3.1).
-        table, requirements = SITES[finding.get("site") or finding["tier"]]
+        site = SITES[finding.get("site") or finding["tier"]]
+        table = site[finding.get("table") or "dependencies"]
+        requirements = site["requirements"]
         lines += [
             (
                 "Both declaration sites need the same edit — a fix that changes "
