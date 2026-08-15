@@ -128,9 +128,166 @@ def test_relaxing_one_package_leaves_the_others_pinned(tmp_path):
     assert 'pytest = "==8.0.0"' in text
 
 
+#: The same manifest with the two shapes a `pypi-dependencies` table carries: a
+#: floor, and the project itself as a local editable source.
+PYPI_MANIFEST = MANIFEST + textwrap.dedent(
+    """
+    [tool.pixi.pypi-dependencies]
+    tephpy = { path = ".", editable = true }
+
+    [tool.pixi.feature.docs.pypi-dependencies]
+    playwright = ">=1.55"
+    """
+)
+
+
+def _pypi(package, specifier, python):  # noqa: ARG001
+    """Stand in for the package index, with a ladder above the declared floor."""
+    base = specifier.removeprefix(">=")
+    return [f"{base}.0", f"{base}.1"]
+
+
+def test_a_pypi_floor_is_resolved_from_the_index_and_not_the_channel(tmp_path):
+    # pixi installs a `pypi-dependencies` entry from PyPI, and conda-forge
+    # carries `playwright` too -- so a lookup that asked the channel would pin a
+    # release of a package the tier never installs, and the pin would either
+    # fail to solve or float the real one (:issue:`151`).
+    floors = _load()
+    asked = []
+
+    def _channel(package, specifier, python):
+        asked.append(("channel", package))
+        return _lookup(package, specifier, python)
+
+    def _index(package, specifier, python):
+        asked.append(("index", package))
+        return _pypi(package, specifier, python)
+
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_channel,
+        pypi=_index,
+    )
+    assert resolved["docs"]["playwright"] == (">=1.55", "1.55.0", "pypi-dependencies")
+    assert resolved["docs"]["sphinx"] == (">=8.0", "8.0.0", "dependencies")
+    assert ("index", "playwright") in asked
+    assert ("channel", "playwright") not in asked
+
+
+def test_a_pypi_floor_is_pinned_in_the_table_that_declares_it(tmp_path):
+    # The rewrite is line-based over the whole manifest, so a pin has to land in
+    # the table the floor was read from -- and the editable source beside it must
+    # come through untouched, a pin there installing a release of tephpy over the
+    # checkout the job is testing.
+    floors = _load()
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_lookup,
+        pypi=_pypi,
+    )
+    out = floors.rewrite(PYPI_MANIFEST, resolved)
+    assert 'playwright = "==1.55.0"' in out
+    assert 'tephpy = { path = ".", editable = true }' in out
+    docs = tomllib.loads(out)["tool"]["pixi"]["feature"]["docs"]
+    assert docs["pypi-dependencies"]["playwright"] == "==1.55.0"
+
+
+def test_the_project_itself_is_reported_rather_than_pinned(tmp_path):
+    # A source entry is the one declaration this generator leaves alone, so it is
+    # named in the summary: a job that exercises fewer declarations than the
+    # manifest makes reads green for a claim it never tested (:issue:`151`).
+    floors = _load()
+    manifest = _manifest(tmp_path, PYPI_MANIFEST)
+    resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
+    assert "tephpy" not in resolved["core"]
+    entry = '{ path = ".", editable = true }'
+    assert floors.unpinned(manifest) == {"core": {"tephpy": entry}}
+    assert f"Not a floor, left alone: `tephpy = {entry}`." in floors.report(
+        resolved, "core", floors.unpinned(manifest)["core"]
+    )
+
+
+def test_the_summary_names_the_table_each_floor_was_declared_in(tmp_path):
+    # Two tables per tier means the resolved version alone no longer says which
+    # declaration moved, and the fix is an edit to one named file and table.
+    floors = _load()
+    resolved = floors.pins(
+        _manifest(tmp_path, PYPI_MANIFEST),
+        Version("3.12.0"),
+        lookup=_lookup,
+        pypi=_pypi,
+    )
+    text = floors.report(resolved, "docs")
+    assert (
+        "| `sphinx` | `>=8.0` | `8.0.0` | `[tool.pixi.feature.docs.dependencies]` |"
+    ) in text
+    assert (
+        "| `playwright` | `>=1.55` | `1.55.0` "
+        "| `[tool.pixi.feature.docs.pypi-dependencies]` |"
+    ) in text
+
+
+def test_an_entry_that_is_neither_a_floor_nor_a_source_is_refused(tmp_path):
+    # pixi takes a table of options there as well -- extras, a marker, an index.
+    # Passing one over silently would leave a declared floor unexercised, and
+    # pinning its `version` key would drop the rest of the table on the floor.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        'playwright = ">=1.55"',
+        'playwright = { version = ">=1.55", extras = ["driver"] }',
+    )
+    with pytest.raises(floors.FloorError, match="neither a floor"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def test_a_package_declared_in_both_of_a_tiers_tables_is_refused(tmp_path):
+    # One name over two tables is one line in the resolved mapping, so the pin
+    # would land in whichever table the line-based rewrite reached and the other
+    # declaration would keep floating -- a half-pinned tier that reads as pinned.
+    floors = _load()
+    text = PYPI_MANIFEST.replace(
+        "[tool.pixi.feature.docs.pypi-dependencies]\n",
+        '[tool.pixi.feature.docs.pypi-dependencies]\nsphinx = ">=8.0"\n',
+    )
+    with pytest.raises(floors.FloorError, match="docs: sphinx declared in both"):
+        floors.pins(
+            _manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup, pypi=_pypi
+        )
+
+
+def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved():
+    # The property that was broken: the generator read the four conda tables and
+    # no others, so `playwright` went unpinned and the docs tier ran its floors
+    # job against whatever release the solver reached -- green, on a floor it had
+    # never tested (:issue:`151`). Asserted against the real manifest, so a table
+    # added to `pyproject.toml` tomorrow is covered by the same rule.
+    floors = _load()
+    manifest = REPO / "pyproject.toml"
+    document = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
+    declared = 0
+    for tier, path in floors.PYPI_TABLES.items():
+        node = document
+        for key in path:
+            node = node.get(key, {}) if isinstance(node, dict) else {}
+        for package, entry in node.items():
+            if not isinstance(entry, str):
+                continue
+            declared += 1
+            assert resolved[tier][package][0] == entry
+            assert resolved[tier][package][2] == "pypi-dependencies"
+    # Vacuous the day nothing is declared from PyPI, which is a state this
+    # repository has been in and could return to.
+    assert declared
+
+
 RESOLVED = {
-    "core": {"click": (">=8.1", "8.1.3")},
-    "test": {"pytest": (">=8.0", "8.0.0")},
+    "core": {"click": (">=8.1", "8.1.3", "dependencies")},
+    "test": {"pytest": (">=8.0", "8.0.0", "dependencies")},
 }
 
 
@@ -420,6 +577,22 @@ def test_the_scan_never_goes_above_the_bound(monkeypatch, tmp_path):
     lowest, scanned = diagnose.scan(probe, "matplotlib-base", ">=3.10", "3.10.3")
     assert lowest is None
     assert scanned == ["3.10.0", "3.10.1", "3.10.3"]
+
+
+def test_the_scan_climbs_the_index_the_declaring_table_names(monkeypatch, tmp_path):
+    # The scan walks upwards from the declared floor, and where that ladder comes
+    # from is a property of the table, not of the package: conda-forge carries
+    # `playwright` as well, so a scan that always asked the channel would report
+    # a lowest-passing version out of a set the tier never installs from
+    # (:issue:`151`). The tests above hold the other direction, `candidates`
+    # being the one they stub.
+    diagnose, probe = _rigged(monkeypatch, tmp_path, lambda index: index == 1)
+    monkeypatch.setattr(diagnose.floors, "releases", lambda *_: ["1.55.0", "1.56.0"])
+    lowest, scanned = diagnose.scan(
+        probe, "playwright", ">=1.55", None, "pypi-dependencies"
+    )
+    assert lowest == "1.56.0"
+    assert scanned == ["1.55.0", "1.56.0"]
 
 
 def test_the_environment_table_is_replaced_not_appended():

@@ -23,6 +23,8 @@ import subprocess
 import sys
 import tomllib
 from typing import TYPE_CHECKING
+import urllib.parse
+import urllib.request
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     Lookup = Callable[[str, str, Version], list[str]]
-    Resolved = dict[str, dict[str, tuple[str, str]]]
+    Resolved = dict[str, dict[str, tuple[str, str, str]]]
 
 #: The four dependency tables of floors spec §3.1, by tier.
 TABLES: dict[str, tuple[str, ...]] = {
@@ -41,12 +43,36 @@ TABLES: dict[str, tuple[str, ...]] = {
     "devs": ("tool", "pixi", "feature", "devs", "dependencies"),
 }
 
-#: The same four tables as they appear as manifest headers.
-HEADERS: dict[str, str] = {
-    "core": "[tool.pixi.dependencies]",
-    "test": "[tool.pixi.feature.test.dependencies]",
-    "docs": "[tool.pixi.feature.docs.dependencies]",
-    "devs": "[tool.pixi.feature.devs.dependencies]",
+#: The `pypi-dependencies` table each tier may declare beside the conda one. A
+#: pixi feature takes packages from PyPI as well as from the channel, and a
+#: floor declared there is one this job resolves like any other -- from PyPI,
+#: because that is the index pixi installs it from (:issue:`151`).
+PYPI_TABLES: dict[str, tuple[str, ...]] = {
+    "core": ("tool", "pixi", "pypi-dependencies"),
+    "test": ("tool", "pixi", "feature", "test", "pypi-dependencies"),
+    "docs": ("tool", "pixi", "feature", "docs", "pypi-dependencies"),
+    "devs": ("tool", "pixi", "feature", "devs", "pypi-dependencies"),
+}
+
+#: The same eight tables as they appear as manifest headers, by tier and by the
+#: last element of the table's own name.
+HEADERS: dict[str, dict[str, str]] = {
+    "core": {
+        "dependencies": "[tool.pixi.dependencies]",
+        "pypi-dependencies": "[tool.pixi.pypi-dependencies]",
+    },
+    "test": {
+        "dependencies": "[tool.pixi.feature.test.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.test.pypi-dependencies]",
+    },
+    "docs": {
+        "dependencies": "[tool.pixi.feature.docs.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.docs.pypi-dependencies]",
+    },
+    "devs": {
+        "dependencies": "[tool.pixi.feature.devs.dependencies]",
+        "pypi-dependencies": "[tool.pixi.feature.devs.pypi-dependencies]",
+    },
 }
 
 ENVIRONMENTS = "[tool.pixi.environments]"
@@ -176,8 +202,189 @@ def candidates(package: str, specifier: str, python: Version) -> list[str]:
     return [text for text, _ in sorted(keep.items(), key=lambda item: item[1])]
 
 
-def pins(manifest: Path, python: Version, lookup: Lookup = candidates) -> Resolved:
-    """Resolve every declared floor to a release the channel carries.
+def releases(package: str, specifier: str, python: Version) -> list[str]:
+    """Every PyPI release satisfying ``specifier`` with a file for ``python``.
+
+    The PyPI counterpart of :func:`candidates`, for the floors declared in a
+    `pypi-dependencies` table. Yanked files are passed over, so a floor lands
+    where `uv --resolution lowest-direct` on the other half of the job lands
+    and the two halves do not disagree over a release neither would install.
+
+    Parameters
+    ----------
+    package : str
+        The PyPI project name.
+    specifier : str
+        A PEP 440 specifier, such as ``>=1.55``.
+    python : Version
+        The interpreter the floors are being resolved against.
+
+    Returns
+    -------
+    list of str
+        Version strings in ascending PEP 440 order, lowest first.
+
+    Raises
+    ------
+    FloorError
+        If the index cannot be read.
+
+    """
+    url = f"https://pypi.org/pypi/{urllib.parse.quote(package)}/json"
+    try:
+        # The scheme is fixed above and the path is `quote`-escaped from a name
+        # this repository's own manifest declares, so nothing user-supplied
+        # reaches the opener.
+        with urllib.request.urlopen(url, timeout=30) as response:
+            document = json.load(response)
+    except (OSError, ValueError) as error:
+        msg = f"{package}: PyPI did not answer for {url} ({error})"
+        raise FloorError(msg) from error
+    try:
+        floor = SpecifierSet(specifier)
+    except InvalidSpecifier as error:
+        msg = f"{package} = {specifier!r} is not a PEP 440 specifier"
+        raise FloorError(msg) from error
+    keep: dict[str, Version] = {}
+    for text, files in document.get("releases", {}).items():
+        try:
+            version = Version(text)
+        except InvalidVersion:
+            continue
+        if not floor.contains(version):
+            continue
+        for entry in files:
+            if entry.get("yanked"):
+                continue
+            requires = entry.get("requires_python")
+            try:
+                admitted = requires is None or SpecifierSet(requires).contains(
+                    python, prereleases=True
+                )
+            except InvalidSpecifier:
+                admitted = True
+            if admitted:
+                keep[text] = version
+                break
+    return [text for text, _ in sorted(keep.items(), key=lambda item: item[1])]
+
+
+def ladder(package: str, specifier: str, python: Version, table: str) -> list[str]:
+    """Every release of one declaration, from the index that declaration names.
+
+    Parameters
+    ----------
+    package : str
+        The package name.
+    specifier : str
+        Its declared floor.
+    python : Version
+        The interpreter the floors are being resolved against.
+    table : str
+        ``dependencies`` or ``pypi-dependencies``, as :func:`pins` recorded it.
+
+    Returns
+    -------
+    list of str
+        Version strings in ascending PEP 440 order, lowest first.
+
+    """
+    source = releases if table == "pypi-dependencies" else candidates
+    return source(package, specifier, python)
+
+
+def _inline(value: dict) -> str:
+    """Render a table entry as the manifest writes it rather than as JSON."""
+    body = ", ".join(f"{key} = {json.dumps(item)}" for key, item in value.items())
+    return f"{{ {body} }}"
+
+
+def _resolve(
+    tier: str, node: object, table: str, python: Version, lookup: Lookup
+) -> dict[str, tuple[str, str, str]]:
+    """Resolve one table's floors, skipping the local paths pixi allows."""
+    found: dict[str, tuple[str, str, str]] = {}
+    entries = dict(node) if isinstance(node, dict) else {}
+    for package, specifier in sorted(entries.items()):
+        # A `pypi-dependencies` table also carries the project itself, as a
+        # local editable path. That is not a floor and pinning it would install
+        # a release of tephpy over the checkout under test.
+        if table == "pypi-dependencies" and isinstance(specifier, dict):
+            if set(specifier) <= {"path", "editable", "git", "branch", "rev", "tag"}:
+                continue
+            msg = (
+                f"{tier}: {package} = {_inline(specifier)} in {table} is "
+                "neither a floor this generator can pin nor a source it can "
+                "pass over (floors spec §3.2)"
+            )
+            raise FloorError(msg)
+        if not isinstance(specifier, str) or not FLOOR.match(specifier):
+            msg = (
+                f"{tier}: {package} = {specifier!r} is not a bare '>=' floor; "
+                "the generator cannot know which release it floors "
+                "(floors spec §3.2)"
+            )
+            raise FloorError(msg)
+        versions = lookup(package, specifier, python)
+        if not versions:
+            where = "on PyPI" if table == "pypi-dependencies" else "on linux-64"
+            msg = (
+                f"{tier}: {package}{specifier} has no build for Python "
+                f"{python} {where} (floors spec §3.2)"
+            )
+            raise FloorError(msg)
+        found[package] = (specifier, versions[0], table)
+    return found
+
+
+def _node(document: dict[str, object], path: tuple[str, ...]) -> object:
+    """Walk a dotted table path, yielding an empty table where it stops."""
+    node: object = document
+    for key in path:
+        node = node.get(key, {}) if isinstance(node, dict) else {}
+    return node
+
+
+def unpinned(manifest: Path) -> dict[str, dict[str, str]]:
+    """Every `pypi-dependencies` entry naming a source rather than a version.
+
+    Reported rather than left implicit: a floors job that exercises fewer
+    declarations than are declared reads green for a claim it never tested
+    (:issue:`151`).
+
+    Parameters
+    ----------
+    manifest : Path
+        The ``pyproject.toml`` to read.
+
+    Returns
+    -------
+    dict
+        Tier to package to the entry as the manifest writes it.
+
+    """
+    document = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    out: dict[str, dict[str, str]] = {}
+    for tier, path in PYPI_TABLES.items():
+        node = _node(document, path)
+        entries = dict(node) if isinstance(node, dict) else {}
+        skipped = {
+            package: _inline(value)
+            for package, value in sorted(entries.items())
+            if isinstance(value, dict)
+        }
+        if skipped:
+            out[tier] = skipped
+    return out
+
+
+def pins(
+    manifest: Path,
+    python: Version,
+    lookup: Lookup = candidates,
+    pypi: Lookup = releases,
+) -> Resolved:
+    """Resolve every declared floor to a release its index carries.
 
     Parameters
     ----------
@@ -186,47 +393,45 @@ def pins(manifest: Path, python: Version, lookup: Lookup = candidates) -> Resolv
     python : Version
         The interpreter the floors are being resolved against.
     lookup : callable, optional
-        The candidate source; defaults to :func:`candidates`.
+        The conda candidate source; defaults to :func:`candidates`.
+    pypi : callable, optional
+        The PyPI candidate source; defaults to :func:`releases`.
 
     Returns
     -------
     dict
-        Tier to package to ``(declared, resolved)``.
+        Tier to package to ``(declared, resolved, table)``.
 
     Raises
     ------
     FloorError
         If a specifier is not a bare ``>=``, if a floor has no build for
-        ``python``, or if a tier converts nothing.
+        ``python``, if a tier converts nothing, or if one package is declared
+        in both of a tier's tables.
 
     """
     document = tomllib.loads(manifest.read_text(encoding="utf-8"))
     resolved: Resolved = {}
     for tier, path in TABLES.items():
-        node: object = document
-        for key in path:
-            node = node.get(key, {}) if isinstance(node, dict) else {}
-        table: dict[str, tuple[str, str]] = {}
-        for package, specifier in sorted(dict(node).items()):  # type: ignore[arg-type]
-            if not isinstance(specifier, str) or not FLOOR.match(specifier):
-                msg = (
-                    f"{tier}: {package} = {specifier!r} is not a bare '>=' floor; "
-                    "the generator cannot know which release it floors "
-                    "(floors spec §3.2)"
-                )
-                raise FloorError(msg)
-            found = lookup(package, specifier, python)
-            if not found:
-                msg = (
-                    f"{tier}: {package}{specifier} has no build for Python "
-                    f"{python} on linux-64 (floors spec §3.2)"
-                )
-                raise FloorError(msg)
-            table[package] = (specifier, found[0])
-        if not table:
+        conda = _resolve(tier, _node(document, path), "dependencies", python, lookup)
+        if not conda:
             msg = f"{tier}: no floors converted; the table is empty or renamed"
             raise FloorError(msg)
-        resolved[tier] = table
+        wheels = _resolve(
+            tier, _node(document, PYPI_TABLES[tier]), "pypi-dependencies", python, pypi
+        )
+        # One name over two tables is one line in this mapping, and the pin
+        # would land on whichever of the two the rewrite reached -- so it is
+        # refused rather than resolved by ordering.
+        both = sorted(set(conda) & set(wheels))
+        if both:
+            msg = (
+                f"{tier}: {', '.join(both)} declared in both dependency tables; "
+                "the generator cannot tell which floor a pin belongs to "
+                "(floors spec §3.1)"
+            )
+            raise FloorError(msg)
+        resolved[tier] = conda | wheels
     return resolved
 
 
@@ -248,7 +453,12 @@ def rewrite(text: str, resolved: Resolved, relax: str | None = None) -> str:
         The rewritten manifest source.
 
     """
-    tiers = {header: tier for tier, header in HEADERS.items()}
+    # Both of a tier's tables, because both declare floors and one mapping holds
+    # them: :func:`pins` refuses a name declared in both, so the tier alone says
+    # which pin a matched line takes.
+    tiers = {
+        header: tier for tier, headers in HEADERS.items() for header in headers.values()
+    }
     out: list[str] = []
     tier: str | None = None
     for line in text.splitlines(keepends=True):
@@ -260,7 +470,7 @@ def rewrite(text: str, resolved: Resolved, relax: str | None = None) -> str:
             if match is not None and match["name"] in resolved[tier]:
                 package = match["name"]
                 if package != relax:
-                    _, pin = resolved[tier][package]
+                    _, pin, _ = resolved[tier][package]
                     out.append(f'{package} = "=={pin}"\n')
                     continue
         out.append(line)
@@ -390,7 +600,7 @@ def features(text: str, tier: str, python: str) -> str:
     return "".join(out)
 
 
-def report(resolved: Resolved, tier: str) -> str:
+def report(resolved: Resolved, tier: str, skipped: dict[str, str] | None = None) -> str:
     """Render one tier as a step-summary table.
 
     Parameters
@@ -399,6 +609,8 @@ def report(resolved: Resolved, tier: str) -> str:
         The mapping :func:`pins` returned.
     tier : str
         The tier to render.
+    skipped : dict, optional
+        The tier's entry in what :func:`unpinned` returned.
 
     Returns
     -------
@@ -409,12 +621,18 @@ def report(resolved: Resolved, tier: str) -> str:
     lines = [
         f"### Floors resolved — `{tier}`",
         "",
-        "| package | declared | resolved |",
-        "|---|---|---|",
+        "| package | declared | resolved | declared in |",
+        "|---|---|---|---|",
     ]
-    for package, (declared, pin) in resolved[tier].items():
-        lines.append(f"| `{package}` | `{declared}` | `{pin}` |")
+    for package, (declared, pin, table) in resolved[tier].items():
+        header = HEADERS[tier][table]
+        lines.append(f"| `{package}` | `{declared}` | `{pin}` | `{header}` |")
     lines.append("")
+    for package, entry in (skipped or {}).items():
+        # Named rather than passed over quietly: this is the one shape of
+        # declaration the generator leaves alone, and a reader of the summary
+        # should not have to infer which lines it did not pin (:issue:`151`).
+        lines += [f"Not a floor, left alone: `{package} = {entry}`.", ""]
     return "\n".join(lines)
 
 
@@ -439,16 +657,19 @@ def main() -> int:
     python = Version(f"{args.python}.0")
     try:
         resolved = pins(args.manifest, python)
+        skipped = unpinned(args.manifest)
     except FloorError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
-    print(report(resolved, "core"))
-    print(report(resolved, args.tier))
+    rendered = [
+        report(resolved, tier, skipped.get(tier)) for tier in ("core", args.tier)
+    ]
+    for text in rendered:
+        print(text)
     if args.summary is not None:
         with args.summary.open("a", encoding="utf-8") as handle:
-            handle.write(report(resolved, "core"))
-            handle.write(report(resolved, args.tier))
+            handle.writelines(rendered)
 
     if args.write:
         text = args.manifest.read_text(encoding="utf-8")

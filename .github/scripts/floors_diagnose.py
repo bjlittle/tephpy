@@ -111,6 +111,12 @@ class Finding:
     #: names the declaration sites to edit, and the tier would name the wrong
     #: pair (floors spec §3.1, §3.6).
     site: str | None = None
+    #: Which of that tier's two tables declares it, `dependencies` or
+    #: `pypi-dependencies`. The ladder this scan climbs comes from the index
+    #: that table names, and the issue names the table to edit; a package with
+    #: releases on both would otherwise be scanned and reported against the
+    #: wrong one (:issue:`151`).
+    table: str = "dependencies"
     lowest: str | None = None
     scanned: list[str] = dataclasses.field(default_factory=list)
 
@@ -352,7 +358,11 @@ def _probe_pin(probe: Probe, root: Path, package: str, pin: str) -> bool:
 
 
 def scan(
-    probe: Probe, package: str, specifier: str, upper: str | None
+    probe: Probe,
+    package: str,
+    specifier: str,
+    upper: str | None,
+    table: str = "dependencies",
 ) -> tuple[str | None, list[str]]:
     """Find the lowest version of ``package`` that passes the tier's exercise.
 
@@ -367,6 +377,9 @@ def scan(
     upper : str or None
         The version the relaxed solve chose, which bounds the scan above
         (floors spec §3.5); None scans the whole ladder.
+    table : str, optional
+        The table declaring ``package``, which is the index its ladder comes
+        from; defaults to the conda ``dependencies`` table.
 
     Returns
     -------
@@ -374,12 +387,12 @@ def scan(
         The lowest passing version, or None, and every version tried.
 
     """
-    ladder = floors.candidates(package, specifier, Version(f"{probe.python}.0"))
+    rungs = floors.ladder(package, specifier, Version(f"{probe.python}.0"), table)
     if upper is not None:
         ceiling = Version(upper)
-        ladder = [pin for pin in ladder if Version(pin) <= ceiling]
+        rungs = [pin for pin in rungs if Version(pin) <= ceiling]
     tried: list[str] = []
-    for pin in ladder:
+    for pin in rungs:
         root = _copy(probe, f"scan-{len(tried)}")
         tried.append(pin)
         if _probe_pin(probe, root, package, pin):
@@ -448,8 +461,11 @@ def main() -> int:
             if package in resolved.get(tier, {}):
                 finding.declared = resolved[tier][package][0]
                 finding.site = tier
+                finding.table = resolved[tier][package][2]
     if package is not None and finding.declared is not None:
-        finding.lowest, finding.scanned = scan(probe, package, finding.declared, upper)
+        finding.lowest, finding.scanned = scan(
+            probe, package, finding.declared, upper, finding.table
+        )
     write_finding(args.out, finding)
     print(f"attributed: {package or 'nothing'}")
     return 0
