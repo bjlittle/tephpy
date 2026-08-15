@@ -1119,7 +1119,7 @@ def test_one_floor_keys_on_one_name_where_the_two_sites_spell_it_two_ways(tmp_pa
     )
 
 
-def test_every_package_the_two_sites_spell_differently_is_reconciled():
+def test_every_package_the_two_sites_spell_differently_is_reconciled(tmp_path):
     # The alias table is written by hand, and a package added under two names
     # would not announce itself: the halves would simply file two issues the week
     # that floor broke, months from now, and one fix would close one of them. So
@@ -1129,7 +1129,11 @@ def test_every_package_the_two_sites_spell_differently_is_reconciled():
     # (floors spec §3.1) -- and it is the direction that matters, a PyPI finding
     # needing a manifest name to be keyed on.
     diagnose = _load_diagnose()
-    manifest = diagnose.floors.declarations(REPO / "pyproject.toml")
+    # The committed manifest, not the working tree's: the conda half of
+    # `ci-floors` runs this suite in a checkout the generator has rewritten,
+    # where every feature but the tier's own is gone and half these
+    # declarations with it (:issue:`155`).
+    manifest = diagnose.floors.declarations(_manifest(tmp_path, _committed_manifest()))
     for tier, path in diagnose.REQUIREMENTS.items():
         names = {**manifest["core"], **manifest.get(tier, {})}
         unmatched = [
@@ -1321,3 +1325,77 @@ def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
     # writes `build` where the manifest writes `python-build`.
     for name in ("python-build", "build"):
         assert diagnose._pypi_site(probe, name) == "requirements/pypi-optional-test.txt"
+
+
+def _manifest_path(node):
+    """Whether an expression builds a path to the repository's own manifest."""
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        right = node.right
+        if isinstance(right, ast.Constant) and right.value == "pyproject.toml":
+            return any(
+                (isinstance(part, ast.Name) and part.id in {"REPO", "ROOT"})
+                or (isinstance(part, ast.Attribute) and part.attr in {"REPO", "ROOT"})
+                for part in ast.walk(node.left)
+            )
+        node = node.left
+    return False
+
+
+def _reads_manifest(source):
+    """Report every line handing the repository's manifest to a call."""
+    return [
+        argument.lineno
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        for argument in [*node.args, *(word.value for word in node.keywords)]
+        if _manifest_path(argument)
+    ]
+
+
+def test_no_test_reads_the_manifest_the_floors_job_rewrites():
+    # The conda half of `ci-floors` runs this suite in a checkout whose
+    # `pyproject.toml` the generator has rewritten: one environment, every floor
+    # an `==` pin, and every feature the tier cannot reach dropped outright. A
+    # test reading it from the working tree passes everywhere but there, where
+    # it fails once a week, hours after the push that broke it, and takes the
+    # tier's whole verdict down with it -- the job then files an issue about a
+    # failure that is not a floor. That has now happened twice (:issue:`155`),
+    # the second time to the test that reconciles the two sites' names above.
+    # `_committed_manifest` reads it from the index instead.
+    scanned = sorted((REPO / "tests").rglob("*.py"))
+    offenders = [
+        f"{path.name}:{line}"
+        for path in scanned
+        for line in _reads_manifest(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+    # A gate whose corpus emptied would pass having read nothing, and this one
+    # globs for its own.
+    assert len(scanned) > 1
+
+
+@pytest.mark.parametrize(
+    ("source", "reads"),
+    [
+        ('floors.declarations(REPO / "pyproject.toml")', True),
+        ('floors.pins(cc.REPO / "pyproject.toml", version)', True),
+        ('read(text=REPO / "pyproject.toml")', True),
+        # Naming the path is not reading it: `test_citations` asserts the
+        # manifest is in the citation corpus, which is a list of what `git
+        # ls-files` tracks and so says nothing about the file's contents. A gate
+        # that flagged this would be one the next reader turns off.
+        ('assert cc.REPO / "pyproject.toml" in paths', False),
+        # The two shapes that are already right, and have to stay unflagged or
+        # the fix for an offender is itself an offence.
+        ("floors.declarations(_manifest(tmp_path, _committed_manifest()))", False),
+        ('floors.declarations(tmp_path / "pyproject.toml")', False),
+        ('(tmp_path / "pyproject.toml").write_text(text)', False),
+        # And it is this file that is rewritten, not everything beside it.
+        ('read(REPO / "requirements" / "pypi-core.txt")', False),
+    ],
+)
+def test_the_manifest_gate_reads_a_call_and_not_a_mention(source, reads):
+    # Widening a detector invites false positives, and the legitimate lookalike
+    # here is already in the tree -- so both directions are probed, rather than
+    # the gate above being trusted because the corpus it reads happens to pass.
+    assert bool(_reads_manifest(source)) is reads
