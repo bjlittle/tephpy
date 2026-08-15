@@ -1,0 +1,11 @@
+The PyPI half of the weekly dependency floors job now diagnoses its own
+failures. Attribution and the upward scan ran for the conda half alone, and the
+filing job's gate named only that half, so a PyPI-only failure went red in its
+own log and filed nothing. The two are one implementation over two resolvers
+now, pixi against the channel and ``uv`` against the package index -- with the
+three things the two declaration sites do not share reconciled: a relaxation
+pins what the default resolution chose, since ``--resolution lowest-direct``
+has no per-package escape; the packages the two sites spell differently key on
+one name, so one broken floor raises one issue; and the requirements file named
+is the one that declares the floor, which need not be the tier the pixi table
+sits in (:issue:`142`). (:user:`claude`)
