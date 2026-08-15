@@ -111,6 +111,39 @@ def test_the_declaration_sites_follow_the_declaring_table_not_the_tier():
     assert "pypi-optional-test.txt" not in text
 
 
+def test_the_issue_quotes_what_the_highest_version_tried_failed_on():
+    # The baseline failure is the failure of the floors as declared, which the
+    # reader knows before opening the issue -- it is why the tier is red. Where
+    # nothing passed, what the candidates failed on is the finding, and
+    # :issue:`145` threw it away: it reported no passing `sphinx-design`,
+    # when 0.6.1 passes and every candidate had been stopped by a second broken
+    # floor. Naming the version the trace belongs to matters as much as the
+    # trace: a reader who cannot see how far the scan got cannot tell an
+    # unsolvable package from one blocked by something else (:issue:`149`).
+    module = _load()
+    finding = {**FINDING, "lowest": None, "blocked": "Unable to read file"}
+    text = module.body(finding, "url")
+    assert "3.10.3, the highest version tried, and what it failed on" in text
+    assert "Unable to read file" in text
+    assert "failure at the declared floors (conda)" in text
+
+
+def test_the_issue_says_why_no_passing_version_is_not_a_contradiction():
+    # "Attributed X, and no version of X passes" reads as "X has no good
+    # version", which is how :issue:`145` was read. The two steps ask different
+    # questions -- relaxation asks whether the tier resolves, the scan asks for
+    # resolve *and* exercise -- and the gap is where the second broken floor
+    # sits. Tied to a quoted trace, since the sentence ends by pointing at one.
+    module = _load()
+    stalled = module.body({**FINDING, "lowest": None, "blocked": "trace"}, "url")
+    assert "ask different questions" in stalled
+    found = module.body({**FINDING, "blocked": "trace"}, "url")
+    assert "ask different questions" not in found
+    dry = module.body({**FINDING, "lowest": None, "scanned": [], "blocked": ""}, "url")
+    assert "ask different questions" not in dry
+    assert "highest version tried" not in dry
+
+
 def test_the_pixi_table_named_is_the_one_the_floor_is_declared_in():
     # A tier declares floors in two pixi tables, and both pair with the one
     # requirements file. Naming the dependency table by default would send the

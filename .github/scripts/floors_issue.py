@@ -72,6 +72,21 @@ UNATTRIBUTED = "unattributed"
 #: it. `changelog.py` composes its pull-request links the same way.
 SPHINX_CLICK = 109
 
+#: The other precedent, cited the same bare way as `SPHINX_CLICK` above.
+#: :issue:`145` reported no passing `sphinx-design` of three tried, of a package whose
+#: 0.6.1 is sound: every candidate was failing on `sphinx-autoapi`, which the
+#: relaxed resolve had left at a version that cannot drive `astroid 4`.
+SECOND_FLOOR = 145
+
+ASYMMETRY = (
+    "Attribution and the scan ask different questions, so *attributed a "
+    "package, and no version of it passes* is a verdict rather than a "
+    "contradiction. A relaxation is asked only whether the tier **resolves**; "
+    "a scanned version has to resolve **and** pass that tier's exercise. Where "
+    "the scan runs out, the reason is usually a second floor the relaxed "
+    f"resolve left broken, and the trace below is where it is named (#{SECOND_FLOOR})."
+)
+
 CAVEAT = (
     "What the scan reports is the *lowest version that passes what tephpy "
     "runs*, which is a weaker claim than the lowest version that is correct. "
@@ -218,6 +233,16 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         ]
     else:
         lines += [f"The scan found {outcome(finding)}.", ""]
+    if any(item["lowest"] is None and item.get("blocked") for item in group):
+        # Under the verdict it explains, ahead of what to do about it. Read
+        # without this, "attributed X, and no version of X passes" says X has
+        # no good version, and :issue:`145` was read that way about a package
+        # whose 0.6.1 is fine. The two steps ask different questions, and the
+        # gap between them is where a second broken floor hides. Said only
+        # where a trace is quoted below, the text ending in a pointer to one:
+        # a scan with no candidate to try ran out for another reason and has
+        # nothing to show.
+        lines += [ASYMMETRY, ""]
     if finding["package"] is None:
         # No package means no declaration to name. The tier that failed is not
         # it: core resolves into every tier (floors spec §3.1), so the tier's
@@ -255,7 +280,10 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         ]
     for item in group:
         lines += [
-            f"<details><summary>failure ({item['half']})</summary>",
+            (
+                "<details><summary>failure at the declared floors "
+                f"({item['half']})</summary>"
+            ),
             "",
             "```text",
             item["failure"],
@@ -264,6 +292,21 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
             "</details>",
             "",
         ]
+        if item.get("blocked"):
+            lines += [
+                (
+                    f"<details><summary>{item['scanned'][-1]}, the highest "
+                    "version tried, and what it failed on "
+                    f"({item['half']})</summary>"
+                ),
+                "",
+                "```text",
+                item["blocked"],
+                "```",
+                "",
+                "</details>",
+                "",
+            ]
     return "\n".join(lines).rstrip() + "\n"
 
 

@@ -341,6 +341,17 @@ which conda-forge may carry at a version the tier will never install.
 Ascending and linear, so the first pass is by construction the lowest version that works,
 with no assumption about the shape of the pass/fail boundary between the floor and it.
 
+Where nothing passes, the scan keeps what its highest candidate failed on. The failure it
+already reports is the failure of the floors *as declared*, which is why the tier is red and
+so the one thing its reader knows before opening the issue; what stopped the candidates is
+the new information, and it is usually a second floor that relaxing the first left broken.
+Attribution and the scan ask different questions — a relaxation only has to resolve (§3.4),
+a candidate has to resolve *and* pass the exercise (§3.3) — and everything in that gap
+reaches the reader through this trace or not at all. It reached them not at all in
+{issue}`145`: `docs` reported no passing `sphinx-design` of three tried, of a package whose
+0.6.1 is sound, and the `sphinx-autoapi` that was actually stopping every candidate took a
+manual resolve-and-build cycle to find ({issue}`148`, {issue}`149`).
+
 What the scan yields is *the lowest version that passes what tephpy runs*, which is a weaker
 claim than the lowest version that is correct, and the issue says so (§3.6). The case is in
 this repository's own history: `sphinx-click 6.0.0` resolved and built the documentation
@@ -364,6 +375,10 @@ that makes the set findable. The body carries what a fix needs:
   the two sides disagreeing
 - the caveat of §3.5 in as many words, with the `sphinx-click` case cited, so the version is
   read as a starting point rather than an answer
+- where no candidate passed, the highest one tried and what it failed on (§3.5), named as
+  that version's failure and quoted beside the declared floors' own; and with it the
+  solve-against-exercise asymmetry, without which *attributed a package, and no version of
+  it passes* reads as a statement that the package has no good version
 
 Deduplication keys on tier and package against the open marker-labelled issues: an existing
 one is commented on, not filed again. A floor that stays broken would otherwise raise an
