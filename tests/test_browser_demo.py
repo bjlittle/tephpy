@@ -12,6 +12,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
 import tomllib
 from zipfile import ZipFile
@@ -26,7 +27,6 @@ BUILD_SOURCE = REPOSITORY / "docs" / "build_browser.py"
 READ_THE_DOCS_CONFIG = REPOSITORY / ".readthedocs.yml"
 RUNTIME_LOCK = REPOSITORY / "docs" / "browser" / "runtime-lock.json"
 TOOLBAR_ASSETS = REPOSITORY / "docs" / "src" / "_static" / "browser-toolbar"
-PYPROJECT = REPOSITORY / "pyproject.toml"
 DOCS_REQUIREMENTS = REPOSITORY / "requirements" / "pypi-optional-docs.txt"
 
 
@@ -52,8 +52,28 @@ def test_read_the_docs_stages_browser_app_before_sphinx():
     assert config.index(stage) < config.index(sphinx)
 
 
+@pytest.mark.skipif(
+    not (REPOSITORY / ".git").exists(),
+    reason="no index to read the committed manifest from",
+)
 def test_docs_dependency_tier_declares_wheel_builder():
-    config = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    """The declaration is a property of the repository, not of this tree.
+
+    Read from the index rather than the working tree because ``ci-floors``
+    runs this suite against a manifest ``.github/scripts/floors.py`` has
+    rewritten in place: every conda floor becomes an ``==`` pin, so this one
+    reads ``==1.5.0`` there and the tier fails on a specifier the generator
+    wrote rather than on a floor tephpy declared (floors spec §3.2,
+    :issue:`155`).
+    """
+    committed = subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPOSITORY,
+        text=True,
+    ).stdout
+    config = tomllib.loads(committed)
     dependencies = config["tool"]["pixi"]["feature"]["docs"]["dependencies"]
     requirements = DOCS_REQUIREMENTS.read_text(encoding="utf-8").splitlines()
 
