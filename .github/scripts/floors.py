@@ -401,6 +401,43 @@ def _node(document: dict[str, object], path: tuple[str, ...]) -> object:
     return node
 
 
+def declarations(manifest: Path) -> dict[str, dict[str, str]]:
+    """Which of a tier's two tables declares each of its packages.
+
+    This reads the manifest and stops. :func:`pins` answers the same question
+    on its way past, but only by resolving every floor it meets against a live
+    index, and the PyPI half of floors spec §3.1 needs the pixi table a package
+    is declared in for one reason alone: to say which line to edit. Paying a
+    channel search per floor of the manifest to read a table header back would
+    put a network between that half and its own issue body.
+
+    Source entries are reported like any other. What table a package is
+    declared in is a fact about the manifest, and a reader sent to edit a floor
+    that turns out to be a source entry has been sent to the right table.
+
+    Parameters
+    ----------
+    manifest : Path
+        The ``pyproject.toml`` to read.
+
+    Returns
+    -------
+    dict
+        Tier to package to ``dependencies`` or ``pypi-dependencies``.
+
+    """
+    document = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    found: dict[str, dict[str, str]] = {}
+    for tier, path in TABLES.items():
+        tables = (("dependencies", path), ("pypi-dependencies", PYPI_TABLES[tier]))
+        found[tier] = {
+            package: table
+            for table, node in tables
+            for package in sorted(_declared(_node(document, node)))
+        }
+    return found
+
+
 def unpinned(manifest: Path) -> dict[str, dict[str, str]]:
     """Every `pypi-dependencies` entry naming a source rather than a version.
 
