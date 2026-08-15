@@ -1329,26 +1329,45 @@ def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
 
 def _manifest_path(node):
     """Whether an expression builds a path to the repository's own manifest."""
-    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        right = node.right
-        if isinstance(right, ast.Constant) and right.value == "pyproject.toml":
-            return any(
-                (isinstance(part, ast.Name) and part.id in {"REPO", "ROOT"})
-                or (isinstance(part, ast.Attribute) and part.attr in {"REPO", "ROOT"})
-                for part in ast.walk(node.left)
-            )
-        node = node.left
-    return False
+    if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Div):
+        return False
+    if not isinstance(node.right, ast.Constant) or node.right.value != "pyproject.toml":
+        return False
+    return any(
+        (isinstance(part, ast.Name) and part.id in {"REPO", "ROOT"})
+        or (isinstance(part, ast.Attribute) and part.attr in {"REPO", "ROOT"})
+        for part in ast.walk(node.left)
+    )
 
 
 def _reads_manifest(source):
-    """Report every line handing the repository's manifest to a call."""
+    """Report every line building a path to the repository's own manifest.
+
+    Building it is what is reported, rather than any particular use of it: a
+    path is passed to a call, but it is equally the receiver of one, bound to a
+    name three lines above the call, returned by a helper or closed over. An
+    argument-only detector waves all but the first of those through, and the
+    shape it misses is the ordinary one -- `(REPO / "pyproject.toml").read_text()`
+    (:pull:`164`). Reporting construction needs no dataflow to follow an alias,
+    because the line that makes the alias is itself the report.
+
+    The single exempt use is an operand of a comparison, which names the path
+    without opening it -- `test_citations` asserts the manifest is among the
+    files `git ls-files` tracks. The exemption is that operand and not the
+    comparison, so a genuine read inside one is still reported.
+    """
+    tree = ast.parse(source)
+    named = {
+        id(operand)
+        for node in ast.walk(tree)
+        for operand in (
+            [node.left, *node.comparators] if isinstance(node, ast.Compare) else []
+        )
+    }
     return [
-        argument.lineno
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Call)
-        for argument in [*node.args, *(word.value for word in node.keywords)]
-        if _manifest_path(argument)
+        node.lineno
+        for node in ast.walk(tree)
+        if _manifest_path(node) and id(node) not in named
     ]
 
 
@@ -1380,11 +1399,22 @@ def test_no_test_reads_the_manifest_the_floors_job_rewrites():
         ('floors.declarations(REPO / "pyproject.toml")', True),
         ('floors.pins(cc.REPO / "pyproject.toml", version)', True),
         ('read(text=REPO / "pyproject.toml")', True),
+        # The two shapes an argument-only detector missed: the manifest read as
+        # the receiver of the call rather than its argument, and the path bound
+        # to a name first, which is where most of this suite's file reads would
+        # naturally be written.
+        ('(REPO / "pyproject.toml").read_text()', True),
+        ('manifest = REPO / "pyproject.toml"', True),
+        ('tomllib.loads((cc.ROOT / "pyproject.toml").read_text())', True),
         # Naming the path is not reading it: `test_citations` asserts the
         # manifest is in the citation corpus, which is a list of what `git
         # ls-files` tracks and so says nothing about the file's contents. A gate
         # that flagged this would be one the next reader turns off.
         ('assert cc.REPO / "pyproject.toml" in paths', False),
+        # A comparison exempts the operand, not everything under it, or the
+        # rule would be off wherever a read is asserted on -- which is most of
+        # the ways one would be written.
+        ('assert (REPO / "pyproject.toml").read_text() == expected', True),
         # The two shapes that are already right, and have to stay unflagged or
         # the fix for an offender is itself an offence.
         ("floors.declarations(_manifest(tmp_path, _committed_manifest()))", False),
@@ -1394,7 +1424,7 @@ def test_no_test_reads_the_manifest_the_floors_job_rewrites():
         ('read(REPO / "requirements" / "pypi-core.txt")', False),
     ],
 )
-def test_the_manifest_gate_reads_a_call_and_not_a_mention(source, reads):
+def test_the_manifest_gate_reads_a_build_and_not_a_mention(source, reads):
     # Widening a detector invites false positives, and the legitimate lookalike
     # here is already in the tree -- so both directions are probed, rather than
     # the gate above being trusted because the corpus it reads happens to pass.
