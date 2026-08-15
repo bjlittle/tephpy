@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import ast
+import fnmatch
 import importlib.util
 import io
 import json
@@ -56,6 +57,18 @@ def _load_diagnose():
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules["floors_diagnose"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_issue():
+    """Import the issue composer by path, to hold it against the diagnosis."""
+    path = REPO / ".github" / "scripts" / "floors_issue.py"
+    spec = importlib.util.spec_from_file_location("floors_issue", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["floors_issue"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -935,3 +948,376 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
     # assertion above holds vacuously for the other two: fail here rather than
     # let all three go quiet the day that table moves.
     assert bool(named) is (tier == "docs")
+
+
+def _sites(tmp_path):
+    """Build a checkout whose two declaration sites disagree, as this one's do.
+
+    Every divergence of floors spec §3.1 is here: a package under two names, a
+    package the two sites floor in different tiers, and one the manifest
+    declares that the pip requirements have no counterpart for.
+    """
+    (tmp_path / "requirements").mkdir()
+    (tmp_path / "requirements" / "pypi-core.txt").write_text(
+        "# The core floors.\nmatplotlib>=3.11\n\nclick>=8.1\n", encoding="utf-8"
+    )
+    (tmp_path / "requirements" / "pypi-optional-test.txt").write_text(
+        "pytest>=8.0\nsetuptools_scm>=8\nbuild>=1.5\n", encoding="utf-8"
+    )
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """\
+            [tool.pixi.dependencies]
+            matplotlib-base = ">=3.11"
+            click = ">=8.1"
+            setuptools-scm = ">=8"
+
+            [tool.pixi.feature.test.dependencies]
+            pytest = ">=8.0"
+            python-build = ">=1.5"
+            make = ">=4.4"
+
+            [tool.pixi.feature.test.pypi-dependencies]
+            playwright = ">=1.55"
+            """
+        ),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def _probe(diagnose, source, tier="test", half="pypi"):
+    """Build a probe reading one checkout, for the half under test."""
+    return diagnose.Probe(
+        source=source, scratch=source, tier=tier, python="3.12", half=half
+    )
+
+
+def test_each_half_reads_its_floors_from_the_site_it_installs_from(
+    monkeypatch, tmp_path
+):
+    # One relax-and-re-solve loop over two resolvers (floors spec §3.4), so the
+    # floors it walks have to come from the site that half installs from: the
+    # manifest for conda, the requirements files for PyPI (:issue:`142`). A PyPI
+    # diagnosis reading the manifest would relax `matplotlib-base` -- a name the
+    # package index has never heard of -- and attribute nothing, every week.
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    assert diagnose.declared(_probe(diagnose, source)) == {
+        "matplotlib": (">=3.11", "core", "pypi-dependencies"),
+        "click": (">=8.1", "core", "pypi-dependencies"),
+        "pytest": (">=8.0", "test", "pypi-dependencies"),
+        "setuptools_scm": (">=8", "test", "pypi-dependencies"),
+        "build": (">=1.5", "test", "pypi-dependencies"),
+    }
+    monkeypatch.setattr(diagnose.floors, "pins", lambda *_: RESOLVED)
+    assert diagnose.declared(_probe(diagnose, source, half="conda")) == {
+        "click": (">=8.1", "core", "dependencies"),
+        "pytest": (">=8.0", "test", "dependencies"),
+    }
+
+
+def test_a_pypi_relaxation_pins_the_version_the_default_resolution_chose(
+    monkeypatch, tmp_path
+):
+    # `--resolution lowest-direct` is a flag over the whole resolution with no
+    # per-package escape, so there is no pin here to return to a `>=` the way the
+    # conda half does. Dropping the lower bound instead would not relax the
+    # requirement at all: unconstrained under `lowest-direct` it resolves
+    # *lower*, to the oldest release the index carries, and the loop would then
+    # report every floor as unattributable (floors spec §3.4).
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    monkeypatch.setattr(diagnose, "defaults", lambda _probe: {"click": "8.4.2"})
+    monkeypatch.setattr(
+        diagnose.subprocess,
+        "run",
+        lambda command, **_: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+    assert diagnose.solves(_probe(diagnose, source), source, "click") == (True, "")
+    text = (source / "requirements" / "pypi-core.txt").read_text(encoding="utf-8")
+    assert "click==8.4.2\n" in text
+    # And only that line: a relaxation says nothing about the other floors, and
+    # rewriting them too would attribute the failure to whichever was relaxed
+    # last (floors spec §3.4).
+    assert "matplotlib>=3.11\n" in text
+
+
+def test_a_package_the_default_resolution_skips_is_not_pinned_to_a_guess(
+    monkeypatch, tmp_path
+):
+    # The version to relax to is read off the default resolution, so a package
+    # that resolution does not install -- an extra that this Python or this
+    # platform excludes -- has no version to be relaxed to. That is reported as a
+    # probe that did not solve, and the loop moves on: pinning it to whatever the
+    # index carries latest would attribute the failure to a resolve nobody makes.
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    monkeypatch.setattr(diagnose, "defaults", lambda _probe: {})
+    ran = []
+    monkeypatch.setattr(diagnose.subprocess, "run", lambda *_, **__: ran.append(1))
+    assert diagnose.solves(_probe(diagnose, source), source, "click") == (False, "")
+    assert ran == []
+    assert "click>=8.1\n" in (source / "requirements" / "pypi-core.txt").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_the_pypi_exercise_runs_the_interpreter_the_probe_installed_into(
+    monkeypatch, tmp_path
+):
+    # The tier is installed into a virtual environment inside the probe, so the
+    # exercise has to run *that* interpreter: the one this script runs under has
+    # the versions the diagnosis job resolved, not the floors under test, and a
+    # suite green there is green about the wrong environment (floors spec §3.3).
+    diagnose = _load_diagnose()
+    seen = []
+
+    def _run(command, **_):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(diagnose.subprocess, "run", _run)
+    assert diagnose.exercise(_probe(diagnose, tmp_path), tmp_path) == (True, "")
+    assert seen == [[str(tmp_path / diagnose.VENV / "bin" / "python"), "-m", "pytest"]]
+    # `docs` and `devs` run nothing on this half. The documentation build needs
+    # `make`, which the pip declaration does not carry (floors spec §3.1), and
+    # the linters report their own rule sets -- so attribution is the whole of
+    # their diagnosis, and the exercise passes with nothing to say.
+    for tier in ("docs", "devs"):
+        assert diagnose.exercise(_probe(diagnose, tmp_path, tier=tier), tmp_path) == (
+            True,
+            "",
+        )
+    assert len(seen) == 1
+
+
+def test_one_floor_keys_on_one_name_where_the_two_sites_spell_it_two_ways(tmp_path):
+    # One floor is one issue: the dedupe key is tier and package and it omits
+    # the half (floors spec §3.6), so a floor broken in both halves raises one
+    # issue for one edit to two lines. Two packages here are spelled
+    # differently at the two sites, so
+    # the halves reach that key from `matplotlib` and from `matplotlib-base` --
+    # without this they file two issues, each sending its reader to the other's
+    # file as well.
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    for half, package in (("pypi", "matplotlib"), ("conda", "matplotlib-base")):
+        probe = _probe(diagnose, source, half=half)
+        assert diagnose.spellings(probe, package) == ("matplotlib-base", "matplotlib")
+    probe = _probe(diagnose, source)
+    assert diagnose.spellings(probe, "build") == ("python-build", "build")
+    # A name the two sites agree on carries no alias, and the issue then says
+    # nothing about how the second file spells it.
+    assert diagnose.spellings(probe, "pytest") == ("pytest", "")
+    # Nor is a name differing only by PEP 503 normalization a second package:
+    # `setuptools_scm` is `setuptools-scm`, and the alias exists to send a reader
+    # to a line they can find, not to declare a divergence.
+    assert diagnose.spellings(probe, "setuptools_scm") == (
+        "setuptools-scm",
+        "setuptools_scm",
+    )
+
+
+def test_every_package_the_two_sites_spell_differently_is_reconciled():
+    # The alias table is written by hand, and a package added under two names
+    # would not announce itself: the halves would simply file two issues the week
+    # that floor broke, months from now, and one fix would close one of them. So
+    # the divergence is computed from the declarations themselves. Only this
+    # direction is a gate -- a manifest declaration with no requirements line is
+    # legitimate, `make` being a build tool the pip declaration does not carry
+    # (floors spec §3.1) -- and it is the direction that matters, a PyPI finding
+    # needing a manifest name to be keyed on.
+    diagnose = _load_diagnose()
+    manifest = diagnose.floors.declarations(REPO / "pyproject.toml")
+    for tier, path in diagnose.REQUIREMENTS.items():
+        names = {**manifest["core"], **manifest.get(tier, {})}
+        unmatched = [
+            package
+            for package in diagnose._requirements(REPO / path)
+            if diagnose._match(package, names) is None
+        ]
+        assert unmatched == [], f"{path}: no manifest declaration"
+
+
+def test_the_pixi_table_named_is_the_manifest_s_not_the_requirement_s_tier(tmp_path):
+    # The two sites need not floor a package in the same tier: `setuptools_scm`
+    # is a `test` requirement on the PyPI side and a core declaration in the
+    # manifest. Carrying the requirements file's tier over would send the reader
+    # to `[tool.pixi.feature.test.dependencies]`, where the edit is to add a
+    # second declaration -- and the manifest would then floor it twice.
+    diagnose = _load_diagnose()
+    probe = _probe(diagnose, _sites(tmp_path))
+    assert diagnose._pixi_site(probe, "setuptools-scm", "test") == (
+        "core",
+        "dependencies",
+    )
+    assert diagnose._pixi_site(probe, "pytest", "test") == ("test", "dependencies")
+    # And the table, which the manifest also answers: a tier declares from the
+    # channel and from the package index both, and the issue names the one that
+    # carries the floor.
+    assert diagnose._pixi_site(probe, "playwright", "test") == (
+        "test",
+        "pypi-dependencies",
+    )
+
+
+def test_a_probe_copy_leaves_the_leg_s_virtual_environment_behind(tmp_path):
+    # A virtual environment records the path it was made at, so a copied one
+    # would have the probe reading, and `uv` installing into, the checkout under
+    # diagnosis rather than its own copy -- and every probe would then report on
+    # the same environment, whatever it had just pinned. Each makes its own, and
+    # dropping the copy drops it.
+    diagnose = _load_diagnose()
+    source = tmp_path / "checkout"
+    (source / diagnose.VENV / "bin").mkdir(parents=True)
+    (source / diagnose.VENV / "bin" / "python").write_text("#!/bin/sh\n")
+    (source / "requirements").mkdir()
+    (source / "requirements" / "pypi-core.txt").write_text("click>=8.1\n")
+    (tmp_path / "scratch").mkdir()
+    probe = diagnose.Probe(
+        source=source, scratch=tmp_path / "scratch", tier="test", python="3.12"
+    )
+    root = diagnose._copy(probe, "baseline")
+    assert (root / "requirements" / "pypi-core.txt").is_file()
+    assert not (root / diagnose.VENV).exists()
+
+
+def test_both_scripts_name_the_same_requirements_files():
+    # The diagnosis reads the floors from these files and the issue tells its
+    # reader to edit them, and the two lists are written out separately -- the
+    # composer imports nothing, running as it does on a runner interpreter in the
+    # one job that has to work when everything it reports on is red. A rename
+    # reaching one and not the other sends the reader to a file the diagnosis was
+    # never looking at.
+    diagnose, issue = _load_diagnose(), _load_issue()
+    assert {
+        tier: site["requirements"] for tier, site in issue.SITES.items()
+    } == diagnose.REQUIREMENTS
+    for name in diagnose.REQUIREMENTS.values():
+        assert (REPO / name).is_file()
+
+
+def test_the_two_halves_run_the_same_tier_names():
+    # The dedupe key is tier and package (floors spec §3.6), so a half naming the
+    # same tier something else -- `core-test` against `test`, as this workflow
+    # did -- files a second issue for one broken floor and one fix. The name is
+    # the whole of what joins the halves there, neither carrying the other's
+    # spelling of anything.
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    conda = set(jobs["conda"]["strategy"]["matrix"]["tier"])
+    pypi = {entry["tier"] for entry in jobs["pypi"]["strategy"]["matrix"]["include"]}
+    assert conda == pypi
+    diagnose = _load_diagnose()
+    assert conda == set(diagnose.EXERCISE) == set(diagnose.PYPI_EXERCISE)
+
+
+def test_each_half_diagnoses_the_tier_it_ran_and_uploads_what_it_diagnosed():
+    # The filing job reads artifacts, so a half that diagnoses and does not
+    # upload reaches it with nothing, and one uploading under a name the download
+    # pattern misses does the same. Both are silent: the leg is red in its own
+    # log, and the issue explaining it never appears (floors spec §3.6).
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    download = next(
+        step
+        for step in jobs["file"]["steps"]
+        if "download-artifact" in (step.get("uses") or "")
+    )
+    pattern = download["with"]["pattern"]
+    for half in ("conda", "pypi"):
+        steps = jobs[half]["steps"]
+        diagnosed = [s for s in steps if "floors_diagnose.py" in (s.get("run") or "")]
+        uploads = [s for s in steps if "upload-artifact" in (s.get("uses") or "")]
+        assert len(diagnosed) == 1, f"{half}: diagnoses {len(diagnosed)} times"
+        assert f"--half {half}" in diagnosed[0]["run"]
+        assert len(uploads) == 1, f"{half}: uploads {len(uploads)} artifacts"
+        name = uploads[0]["with"]["name"]
+        assert fnmatch.fnmatch(name.replace("${{ matrix.tier }}", "test"), pattern)
+        assert half in name
+
+
+def test_the_filing_job_runs_when_either_half_fails():
+    # Both halves produce a finding now (:issue:`142`), and this gate is what
+    # decides whether either is read: under a gate naming one half, a PyPI-only
+    # failure went red in its own log and filed nothing, having diagnosed
+    # nothing. The `always()` is what lets a job needing two failed ones run at
+    # all, `needs` being a success condition otherwise.
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    gate = " ".join(jobs["file"]["if"].split())
+    assert "always()" in gate
+    for half in ("conda", "pypi"):
+        assert f"needs.{half}.result == 'failure'" in gate
+        assert half in jobs["file"]["needs"]
+
+
+def test_both_halves_record_the_same_two_lines_to_edit(monkeypatch, tmp_path):
+    # The issue names both declaration sites, and it names them off the one
+    # finding it was handed -- which for a floor broken in both halves is the
+    # conda one, `group` sorting that half first. So a half that filled in only
+    # its own site would leave the other's read off a fallback, and for
+    # `setuptools_scm` -- a `test` requirement and a core declaration -- the
+    # fallback is `requirements/pypi-core.txt`, which declares no such line.
+    # Neither site can be read off the other, so both are asked on both halves.
+    diagnose = _load_diagnose()
+    source = _sites(tmp_path)
+    monkeypatch.setattr(
+        diagnose.floors,
+        "pins",
+        lambda *_: {"core": {"setuptools-scm": (">=8", "8.0.0", "dependencies")}},
+    )
+    monkeypatch.setattr(
+        diagnose,
+        "attribute",
+        lambda probe: (
+            "setuptools_scm" if probe.half == "pypi" else "setuptools-scm",
+            None,
+            "the failure",
+        ),
+    )
+    monkeypatch.setattr(diagnose, "scan", lambda *_: (None, [], ""))
+    found = {}
+    for half in ("conda", "pypi"):
+        out = tmp_path / f"{half}.json"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "floors_diagnose.py",
+                "--source",
+                str(source),
+                "--scratch",
+                str(tmp_path / "scratch"),
+                "--tier",
+                "test",
+                "--half",
+                half,
+                "--out",
+                str(out),
+            ],
+        )
+        assert diagnose.main() == 0
+        found[half] = json.loads(out.read_text(encoding="utf-8"))
+    for half, finding in found.items():
+        assert (finding["site"], finding["table"]) == ("core", "dependencies"), half
+        assert finding["requirements"] == "requirements/pypi-optional-test.txt", half
+        # And on one name, so the two arrive at the filing job under one key.
+        assert (finding["package"], finding["alias"]) == (
+            "setuptools-scm",
+            "setuptools_scm",
+        ), half
+
+
+def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
+    # `make` drives the documentation build and has no PyPI counterpart worth
+    # declaring (floors spec §3.1). Naming its tier's requirements file anyway
+    # would send the reader to a file with no such line, which reads exactly
+    # like a line they failed to find -- so the empty answer is kept, and the
+    # issue says the floor is declared once rather than naming a second site.
+    diagnose = _load_diagnose()
+    probe = _probe(diagnose, _sites(tmp_path), half="conda")
+    assert diagnose._pypi_site(probe, "make") == ""
+    assert diagnose._pypi_site(probe, "click") == "requirements/pypi-core.txt"
+    # Under either site's spelling, the requirements file being the half that
+    # writes `build` where the manifest writes `python-build`.
+    for name in ("python-build", "build"):
+        assert diagnose._pypi_site(probe, name) == "requirements/pypi-optional-test.txt"

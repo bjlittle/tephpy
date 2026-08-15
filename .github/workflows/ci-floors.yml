@@ -113,7 +113,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - tier: "core-test"
+          # Named for the tier and not for the environment, `core + test`, as
+          # this once was: the issue of floors spec §3.6 is keyed on tier and
+          # package, so a half that calls the same tier something else files a
+          # second issue for what is one broken floor and one fix.
+          - tier: "test"
             requirements: >-
               -r requirements/pypi-core.txt
               -r requirements/pypi-optional-test.txt
@@ -153,20 +157,36 @@ jobs:
       # deliberately does not carry (floors spec §3.1), and the linters report
       # their own rule sets (floors spec §3.3).
       - name: Run the test suite
-        if: matrix.tier == 'core-test'
+        if: matrix.tier == 'test'
         run: .venv-floors/bin/python -m pytest
+      - name: Diagnose the failure
+        if: failure()
+        # No pristine manifest to restore, unlike the conda half: nothing this
+        # job runs rewrites the checkout, the floors being read from the
+        # requirements files as committed.
+        run: |
+          pixi exec --spec python=3.12.* --spec packaging \
+            python .github/scripts/floors_diagnose.py \
+            --scratch /tmp/floors-scratch --tier ${{ matrix.tier }} \
+            --half pypi --out finding-pypi-${{ matrix.tier }}.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: failure()
+        with:
+          name: finding-pypi-${{ matrix.tier }}
+          path: finding-pypi-${{ matrix.tier }}.json
 
   file:
     runs-on: ubuntu-latest
     needs: [conda, pypi]
-    # Gated on the conda half alone, because it is the only one that produces
-    # a finding: the attribution of floors spec §3.4 and the scan of floors
-    # spec §3.5 are written against pixi, and that section's PyPI equivalent
-    # -- reading candidates from the package index rather than the channel --
-    # is not built. A pypi failure is red in this run and says so in its own
-    # log; it does not reach here to file an artifact-less issue. `needs`
-    # keeps both, so the wiring is in place when that half gains a diagnosis.
-    if: always() && needs.conda.result == 'failure'
+    # Either half, both of them now producing findings: the attribution of
+    # floors spec §3.4 and the scan of floors spec §3.5 are one implementation
+    # over two resolvers, pixi against the channel and `uv` against the package
+    # index (:issue:`142`). A floor broken in both arrives here as two artifacts
+    # and leaves as one issue, which is what the dedupe key of floors spec §3.6
+    # omitting the half is for.
+    if: >-
+      always() && (needs.conda.result == 'failure' ||
+      needs.pypi.result == 'failure')
     permissions:
       issues: write
     steps:

@@ -265,19 +265,41 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         # core table, whose two sites are a different pair (floors spec §3.1).
         site = SITES[finding.get("site") or finding["tier"]]
         table = site[finding.get("table") or "dependencies"]
-        requirements = site["requirements"]
-        lines += [
-            (
-                "Both declaration sites need the same edit — a fix that changes "
-                "one and not the other leaves the two sides disagreeing:"
-            ),
-            "",
-            f"- `pyproject.toml`, `{table}`",
-            f"- `{requirements}`",
-            "",
-            CAVEAT,
-            "",
-        ]
+        # The requirements file the floor is declared in, which is not always
+        # the one the pixi table's tier pairs with: `setuptools_scm` is a `test`
+        # requirement and a core declaration in the manifest. The diagnosis
+        # answers this for both halves, so a missing key is a finding from
+        # before it did; an empty one is an answer, and says there is no such
+        # line -- `make` is declared for pixi alone.
+        requirements = finding.get("requirements", site["requirements"])
+        # And the name, which is not always the same at the two sites either.
+        # The issue is keyed and titled on the manifest's spelling, so a reader
+        # sent to the requirements file with only that would find no such line:
+        # `matplotlib-base` is `matplotlib` there, `python-build` is `build`.
+        alias = finding.get("alias")
+        named = f" — declared there as `{alias}`" if alias else ""
+        if requirements:
+            lines += [
+                (
+                    "Both declaration sites need the same edit — a fix that "
+                    "changes one and not the other leaves the two sides "
+                    "disagreeing:"
+                ),
+                "",
+                f"- `pyproject.toml`, `{table}`",
+                f"- `{requirements}`{named}",
+                "",
+            ]
+        else:
+            lines += [
+                (
+                    f"Declared for pixi alone, in `pyproject.toml`, `{table}`. "
+                    "The pip requirements carry no counterpart to edit, so this "
+                    "is one line and not the usual two."
+                ),
+                "",
+            ]
+        lines += [CAVEAT, ""]
     for item in group:
         lines += [
             (

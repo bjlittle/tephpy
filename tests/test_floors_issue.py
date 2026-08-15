@@ -232,3 +232,57 @@ def test_no_artifacts_is_refused_rather_than_reported_as_nothing_wrong(
     monkeypatch.setattr(sys, "argv", ["floors_issue.py", missing, "--run-url", "u"])
     assert module.main() == 1
     assert calls == []
+
+
+def test_the_issue_names_the_package_as_the_file_it_sends_you_to_spells_it():
+    # The issue is keyed and titled on the manifest's spelling, so that one floor
+    # is one issue whichever half found it (floors spec §3.6) -- and a reader
+    # sent to the requirements file with only that name finds no such line, the
+    # package being `matplotlib` there. The body sends them to both files to make
+    # the same edit, so it has to name both lines.
+    module = _load()
+    text = module.body({**FINDING, "alias": "matplotlib"}, "url")
+    assert "`requirements/pypi-core.txt` — declared there as `matplotlib`" in text
+    # And says nothing where the two sites agree, which is most of them: an
+    # "also known as" reading back the name above it is noise on every issue.
+    assert "declared there as" not in module.body(FINDING, "url")
+
+
+def test_the_requirements_file_named_is_the_one_declaring_the_floor():
+    # The two sites need not floor a package in the same tier: `setuptools_scm`
+    # is a `test` requirement and a core declaration in the manifest, so reading
+    # both files off one key names one of them wrongly -- and names it as a file
+    # to make the same edit in, where there is no such line to edit.
+    module = _load()
+    text = module.body(
+        {
+            **FINDING,
+            "tier": "test",
+            "package": "setuptools-scm",
+            "site": "core",
+            "requirements": "requirements/pypi-optional-test.txt",
+            "alias": "setuptools_scm",
+        },
+        "url",
+    )
+    assert "`pyproject.toml`, `[tool.pixi.dependencies]`" in text
+    assert "requirements/pypi-optional-test.txt" in text
+    assert "requirements/pypi-core.txt" not in text
+
+
+def test_a_floor_declared_for_pixi_alone_names_one_line():
+    # The manifest declares packages the pip requirements have no counterpart
+    # for -- `make`, which drives the documentation build. Telling that reader
+    # that "both declaration sites need the same edit" and naming a file with no
+    # such line reads as a line they failed to find, so the body says instead
+    # that this floor is declared once. An absent key is a finding from before
+    # the diagnosis answered this, and keeps the pairing it was read with.
+    module = _load()
+    finding = {**FINDING, "tier": "docs", "package": "make", "site": "docs"}
+    text = module.body({**finding, "requirements": ""}, "url")
+    assert "Declared for pixi alone" in text
+    assert "requirements/" not in text
+    # The caveat of floors spec §3.5 is about the scanned version, not about the
+    # declaration, so it is owed to this reader too.
+    assert module.CAVEAT in text
+    assert "requirements/pypi-optional-docs.txt" in module.body(finding, "url")

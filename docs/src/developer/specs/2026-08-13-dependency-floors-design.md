@@ -91,15 +91,20 @@ Every floor is declared twice, once for pixi and once for pip:
 | devs | `[tool.pixi.feature.devs.dependencies]` | `requirements/pypi-optional-devs.txt` |
 
 The two sides are not a mirror of each other, and a job that assumed they were would test a
-set neither of them declares. Three divergences stood when this was written: conda takes
-`matplotlib-base` where pip takes `matplotlib`; conda's core tier carries `setuptools` and
-`setuptools-scm`, the build backend, which the pip requirements leave to the build system;
-and conda's docs tier carries `make`, which drives the documentation build and has no PyPI
-counterpart worth declaring.
+set neither of them declares. Four divergences stand. Two are one package under two names:
+conda takes `matplotlib-base`, conda-forge's matplotlib without the GUI toolkits, where pip
+takes `matplotlib`; and `python-build` where pip takes `build`, conda-forge naming a package
+around one the channel already uses. One is a package the two sites floor in different tiers:
+`setuptools` and `setuptools-scm`, the build backend, are a core declaration for pixi and a
+`test` requirement for pip ({pull}`153`). The fourth has no counterpart at all — conda's docs
+tier carries `make`, which drives the documentation build and has nothing on PyPI worth
+declaring.
 
 So each site is read on its own terms, and neither list is reconciled against the other. Nor
 is either enumerated here: the manifest is the enumeration, and docs spec §4 rules out a copy
-that has to be re-measured to stay true.
+that has to be re-measured to stay true. The one place the two are held together is the issue
+of §3.6, which is one issue per floor whichever half found it, and so has to know that each of
+those pairs is a single package.
 
 The pixi column is two tables, not one. Beside each `dependencies` table above sits a
 `pypi-dependencies` table, which pixi installs from PyPI rather than from conda-forge, and a
@@ -224,15 +229,20 @@ property of the repository, not of the tree this job leaves behind.
 All four tiers are resolved at their floors. Only where exercising means something is
 anything run:
 
-| environment | exercise |
-|---|---|
-| core + test | the test suite, without image comparison |
-| core + docs | `pixi run docs` — the build, plus the gates of docs spec §3.6 and docs spec §3.7 |
-| devs | installed only |
-| core + test, from PyPI | `uv pip install --resolution lowest-direct`, then the test suite |
-| docs and devs extras, from PyPI | installed only |
+| tier | half | exercise |
+|---|---|---|
+| `test` | conda | the test suite, without image comparison |
+| `docs` | conda | `pixi run docs` — the build, plus the gates of docs spec §3.6 and docs spec §3.7 |
+| `devs` | conda | installed only |
+| `test` | PyPI | the test suite, under the interpreter the install went into |
+| `docs`, `devs` | PyPI | installed only |
 
-The pixi environments the rows name are generated with the pins (§3.2), because none of the
+A tier is its own floors and core's, on both halves. The names are shared deliberately: the
+issue of §3.6 is keyed on tier and package, so a half calling the same tier something else —
+`core-test` against `test`, as this workflow first did — files a second issue for what is one
+broken floor and one fix.
+
+The pixi environments the conda rows run in are generated with the pins (§3.2), because none of the
 declared ones is this shape: the committed environments pair each tier with `devs` and
 resolve against the newest supported Python. Each tier is generated into a manifest of its
 own, holding that one environment and no other, and the tiers run as separate jobs. This is
@@ -267,7 +277,14 @@ exactly as `nbformat` is declared there for the matrix environments that carry n
 
 The PyPI half needs no generated pins. `--resolution lowest-direct` reads the floors straight
 from the requirements files and installs the lowest version each one allows, which is exactly
-the claim the pip declaration makes: that `pip install tephpy` works at what it says.
+the claim the pip declaration makes: that `pip install tephpy` works at what it says. What it
+installs into is a virtual environment of its own, and the exercise runs *that* interpreter:
+the one the job started with carries whatever resolved for the job, not the floors under
+test, and a suite green there is green about the wrong environment. Its `docs` and `devs`
+tiers are installed and not run for the reason `devs` is on the conda side, plus one of their
+own — the documentation build needs `make`, which the pip declaration deliberately does not
+carry (§3.1). So a failure on either is a failure to install, and attribution (§3.4) is the
+whole of its diagnosis.
 
 The two halves are not the same test and are not expected to agree. The conda side writes
 hard `==` pins, so a pair of floors that cannot hold together fails; `lowest-direct` will
@@ -316,14 +333,20 @@ else, so a tier broken by a transitive the solve chose — one no table names, a
 probe can return — has nothing to relax and lands here by construction.
 
 What relaxation *means* differs between the two sites, though what it establishes does not:
-exactly one package is not at its floor. On the conda side the generated pin is returned to
+exactly one package is not at its floor. Which floors are walked differs too — each half reads
+them from the site it installs from (§3.1), so a PyPI diagnosis walking the manifest would
+relax `matplotlib-base`, a name the package index has never heard of, and attribute nothing.
+On the conda side the generated pin is returned to
 the declaration's own `>=X` and the solver takes what it likes. On the PyPI side there is nothing
 to return, because `--resolution lowest-direct` puts every direct requirement at its floor
 without a pin being written (§3.3) — and it is a flag over the whole resolution, with no
 per-package escape. So relaxation there rewrites that one requirement to pin the version the
 default resolution would have chosen. Dropping its lower bound instead would not relax it at
 all: unconstrained under `lowest-direct` it resolves *lower*, to the oldest release the index
-carries.
+carries. A package that default resolution does not install — an extra some Python or some
+platform excludes — has no version to be relaxed to, and is reported as a probe that did not
+solve, which is what it is: nothing was tried, so nothing is attributed to it, where a guessed
+pin would report an attribution against a resolve the resolver never made.
 
 (floors-spec-3-5)=
 ### 3.5 The upward scan
@@ -372,7 +395,12 @@ that makes the set findable. The body carries what a fix needs:
   and, where both halves failed, the result of each, since a package can be at a different
   version in the conda channel and the package index (§3.5)
 - both lines that declare the floor (§3.1) — a fix that changes one and not the other leaves
-  the two sides disagreeing
+  the two sides disagreeing — each named as its own site spells it and in the tier that site
+  floors it in, neither of which the two are guaranteed to share. Both are asked of the site
+  itself, on whichever half produced the finding, because neither can be read off the other
+  and the reader is sent to both. Where a floor has no counterpart at all, `make` being
+  declared for pixi alone, the issue says so and names the one line rather than a second file
+  with nothing in it to edit
 - the caveat of §3.5 in as many words, with the `sphinx-click` case cited, so the version is
   read as a starting point rather than an answer
 - where no candidate passed, the highest one tried and what it failed on (§3.5), named as
@@ -386,6 +414,14 @@ issue every week. Two broken floors raise two issues, because they are two fixes
 floor failing in both halves raises one, because it is one fix. The key deliberately omits
 the half for that reason: the two declaration sites are edited together (§3.1), so splitting
 them across two issues would invite a fix that closes one and leaves the pair disagreeing.
+
+Which means the key needs one spelling of a package that has two (§3.1). It takes the
+manifest's, for no reason beyond its being the half that has been filing, and the other rides
+along beside it — `matplotlib` and `matplotlib-base` are one floor and one fix, and a key that
+took each half's own word for the name would file exactly the two issues it exists to prevent.
+That table of pairs is written by hand, and a package added under two names would announce
+itself only by filing twice, the week that floor broke and not before, so the divergence is
+computed from the declarations themselves and gated (§5).
 
 `issues: write` is granted on the filing step alone. Everything else runs under the
 repository's default `permissions: {}` (spec §8.7).
@@ -420,6 +456,16 @@ that succeeds. The routing of §3.1 is covered the same way and for the same rea
 declared in a `pypi-dependencies` table resolves and scans against the package index, and a
 lookup that asked the channel instead would answer, plausibly, out of a set the tier never
 installs from.
+
+Three things about the two halves are covered because nothing else would notice them go
+wrong. That each half reads its floors from the site it installs from (§3.4), since a half
+walking the other's list attributes nothing rather than failing. That a PyPI relaxation pins
+what the default resolution chose rather than dropping a bound, the second of which resolves
+*lower* and so relaxes nothing. And that the two sites' diverging names and tiers (§3.1) are
+reconciled — the name table by a gate computed from the declarations themselves, so that a
+package added under two names is caught when it is added rather than the week it breaks. The
+failure mode all three share is a quiet one: a wrong issue, or none, on a job that runs weekly
+and is read once a quarter.
 
 The filters of §3.2 are covered against a canned index rather than against PyPI, since what
 they must be shown to reject is a release nobody publishes on purpose: one whose only files
