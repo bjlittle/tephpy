@@ -49,13 +49,14 @@ EXERCISE: dict[str, list[list[str]] | None] = {
     "devs": None,
 }
 
-#: `_copy` strips `.git`, and tephpy installs editable into every environment, so
-#: a probe's build backend has no repository to version from and setuptools-scm
-#: raises. That fails the *build*, not the solve -- so the one relaxation that
-#: does resolve looks like another failure and the diagnosis reports nothing
-#: attributed, which is indistinguishable from the honest form of that verdict.
-#: What version tephpy claims cannot bear on whether a dependency floor resolves,
-#: so the probes pin it.
+#: tephpy installs editable into every environment, so every probe runs the build
+#: backend, and what setuptools-scm makes of a probe is not a version anyone
+#: declared: the checkout `actions/checkout` leaves is one commit deep and carries
+#: no tag, and the tree is one this job has rewritten. A build that fails there
+#: fails the *build*, not the solve -- so the one relaxation that does resolve
+#: looks like another failure and the diagnosis reports nothing attributed, which
+#: is indistinguishable from the honest form of that verdict. What version tephpy
+#: claims cannot bear on whether a dependency floor resolves, so the probes pin it.
 ENVIRONMENT = {**os.environ, "SETUPTOOLS_SCM_PRETEND_VERSION": "0.0.0"}
 
 #: Said when the tier solves and its exercise then passes on re-run, so the
@@ -307,14 +308,18 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
 def _copy(probe: Probe, name: str) -> Path:
     """Make a throwaway copy of the checkout.
 
-    A diagnosis makes one of these per relaxation and per scan candidate, so
-    `.git` is left behind: it is the largest thing in the tree and nothing the
-    probes run needs history. `.github` is copied, because the `test` tier's
-    exercise is the suite, and the suite reads those scripts -- which is also
-    why the tests guarding on a checkout key on `.github` and not on `.git`,
-    or the probe would run a thinner suite than the leg it is diagnosing.
+    A probe is the failing leg run again, so what the leg had it has: the tree
+    is copied whole, index included. Thirteen of the `test` tier's tests guard
+    on a repository being there -- the one that builds a wheel from
+    `git archive HEAD` among them -- and a probe without one runs a thinner
+    suite than the leg it is diagnosing, then reports the leg's failure as a
+    step it could not reproduce when the failing step is a test it skipped
+    (:issue:`154`). `.git` was dropped here for its size, which does not
+    survive measuring: `actions/checkout` fetches one commit, whose `.git` is
+    2.4 MB against a 3.1 MB working tree and copies in milliseconds, beside a
+    probe that then installs a whole environment (measured 2026-08-15).
 
-    What the failing leg left behind is dropped too. The diagnosis runs after
+    What the failing leg left behind is dropped, though. The diagnosis runs after
     that leg ran in this same checkout, so `__pycache__` holds byte-code whose
     code objects name the checkout and not the copy, and `docs/_build` makes
     the probe's build an incremental one over pages it did not write. Both
@@ -329,7 +334,7 @@ def _copy(probe: Probe, name: str) -> Path:
         probe.source,
         root,
         ignore=shutil.ignore_patterns(
-            ".pixi", ".git", "__pycache__", ".pytest_cache", "_build"
+            ".pixi", "__pycache__", ".pytest_cache", "_build"
         ),
     )
     return root

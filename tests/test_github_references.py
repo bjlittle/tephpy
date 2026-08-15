@@ -25,9 +25,9 @@ pytestmark = pytest.mark.skipif(
 
 #: As in `test_citations.py`: the corpus this gate borrows is derived with
 #: `git ls-files`, so the two tests that read the live tree need an index, and
-#: the nineteen fixture-driven ones below do not. The floors probes exercise the
-#: `test` tier in a copy of the checkout with `.git` stripped, so a module-wide
-#: guard on the index would thin the suite exactly where it is diagnosing it.
+#: the nineteen fixture-driven ones below do not. An unpacked sdist ships all
+#: twenty-one and no repository, so a module-wide guard on the index would take
+#: the nineteen down with the two.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )

@@ -25,11 +25,10 @@ pytestmark = pytest.mark.skipif(
 
 #: The corpus is derived with `git ls-files` (docs spec §3.6), so the two tests
 #: that read the live tree need an index. That is a narrower condition than the
-#: module's: `floors_diagnose._copy` exercises the `test` tier in a copy of the
-#: checkout with `.git` stripped, where every fixture-driven test below still
-#: holds. Guarding the module on the index instead would skip all seventeen in
-#: every floors probe, and a floor that failed the leg would come back
-#: unreproduced.
+#: module's: an unpacked sdist ships these tests and no repository, and every
+#: fixture-driven test below still holds there. Guarding the module on the index
+#: instead would skip all seventeen wherever history is absent, for a reason
+#: fifteen of them do not have.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )

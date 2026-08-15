@@ -295,6 +295,14 @@ that one specifier returned to the declaration's own `>=X`, leaving the rest pin
 floor whose relaxation lets the tier solve is the culprit. These are solve-only probes and
 cost minutes.
 
+A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
+index included. Thirteen of the `test` tier's tests guard on a repository being there —
+the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
+a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
+reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
+behind* is dropped, though: byte-code and built pages from the run under diagnosis make the
+exercise report that run's state rather than its own.
+
 If relaxing each in turn resolves nothing, the job reports the solver's output verbatim and
 stops. An unattributed failure is a real result and is reported as one; a guess dressed as an
 attribution would send whoever reads the issue after the wrong package. That branch is not

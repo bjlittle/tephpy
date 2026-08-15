@@ -54,12 +54,12 @@ def test_master_matches_the_bundle(name):
 def test_masters_ship_in_the_wheel(tmp_path):
     """A source-tree copy nobody packaged is the failure tests cannot see.
 
-    Skipped without an index rather than left to raise. ``ci-floors``
-    exercises the ``test`` tier in a copy of the checkout with ``.git``
-    stripped, and ``check=True`` below turns its absence into an error --
-    so this one test would fail every probe whatever the floors resolved
-    to, and every ``test`` tier diagnosis would report it as the failure
-    (floors spec §3.4).
+    Skipped without an index rather than left to raise. An unpacked sdist
+    ships these tests and no repository, and ``check=True`` below turns its
+    absence into an error rather than a skip -- one failure there for a
+    reason that says nothing about the release being tested. The floors
+    probes do carry an index, so this runs in them as it does in the leg
+    (floors spec §3.4, :issue:`154`).
     """
     # Export the committed tree; untracked files are invisible to git-archive,
     # so the test genuinely fails if a master was never committed (logo spec §2).
