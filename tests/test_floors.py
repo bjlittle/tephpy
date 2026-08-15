@@ -1327,15 +1327,45 @@ def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
         assert diagnose._pypi_site(probe, name) == "requirements/pypi-optional-test.txt"
 
 
-def _manifest_path(node):
+def _roots(tree):
+    """Return every name a module binds to the repository root.
+
+    Read from the module rather than assumed, because the name is a local
+    choice and a fixed list is a guess about other people's files:
+    `tests/test_browser_demo.py` calls its root `REPOSITORY`, so a detector
+    holding only `REPO` would have waved that module's manifest reads through
+    while reporting the identical line here. Anything derived from `__file__`
+    by walking up is a root, however the module spells it.
+    """
+    roots = {"REPO", "ROOT", "REPOSITORY"}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        parts = list(ast.walk(node.value))
+        if not any(
+            isinstance(part, ast.Name) and part.id == "__file__" for part in parts
+        ):
+            continue
+        if not any(
+            isinstance(part, ast.Attribute) and part.attr in {"parent", "parents"}
+            for part in parts
+        ):
+            continue
+        roots.update(
+            target.id for target in node.targets if isinstance(target, ast.Name)
+        )
+    return roots
+
+
+def _manifest_path(node, roots):
     """Whether an expression builds a path to the repository's own manifest."""
     if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Div):
         return False
     if not isinstance(node.right, ast.Constant) or node.right.value != "pyproject.toml":
         return False
     return any(
-        (isinstance(part, ast.Name) and part.id in {"REPO", "ROOT"})
-        or (isinstance(part, ast.Attribute) and part.attr in {"REPO", "ROOT"})
+        (isinstance(part, ast.Name) and part.id in roots)
+        or (isinstance(part, ast.Attribute) and part.attr in roots)
         for part in ast.walk(node.left)
     )
 
@@ -1357,6 +1387,7 @@ def _reads_manifest(source):
     comparison, so a genuine read inside one is still reported.
     """
     tree = ast.parse(source)
+    roots = _roots(tree)
     named = {
         id(operand)
         for node in ast.walk(tree)
@@ -1367,7 +1398,7 @@ def _reads_manifest(source):
     return [
         node.lineno
         for node in ast.walk(tree)
-        if _manifest_path(node) and id(node) not in named
+        if _manifest_path(node, roots) and id(node) not in named
     ]
 
 
@@ -1422,6 +1453,24 @@ def test_no_test_reads_the_manifest_the_floors_job_rewrites():
         ('(tmp_path / "pyproject.toml").write_text(text)', False),
         # And it is this file that is rewritten, not everything beside it.
         ('read(REPO / "requirements" / "pypi-core.txt")', False),
+        # The root is whatever the module calls it. `test_browser_demo` says
+        # `REPOSITORY`, and a name this gate had not been told about would have
+        # made its manifest reads invisible rather than reported.
+        ('tomllib.loads((REPOSITORY / "pyproject.toml").read_text())', True),
+        (
+            (
+                "HERE = Path(__file__).parents[1]\n"
+                'floors.declarations(HERE / "pyproject.toml")'
+            ),
+            True,
+        ),
+        (
+            (
+                "HERE = Path(__file__).parent.parent\n"
+                'assert HERE / "pyproject.toml" in paths'
+            ),
+            False,
+        ),
     ],
 )
 def test_the_manifest_gate_reads_a_build_and_not_a_mention(source, reads):
