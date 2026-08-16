@@ -1,0 +1,5 @@
+The draw-time refusal tests now pin how the refusals split between those that
+raise and those that draw in silence, rather than only their total. A docstring
+had claimed sixteen and four of a table holding seventeen and five since
+:pull:`126` introduced both, because adding a row to each table and bumping the
+total leaves every other gate in the file green. (:user:`claude`)

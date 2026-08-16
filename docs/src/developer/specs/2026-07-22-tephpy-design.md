@@ -1007,8 +1007,11 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   automatic floor raise floors spec §2 rejects).
 - `ci-docs` also installs Playwright's pinned Chromium, serves the completed build locally,
   and runs the §7 browser smoke test. The external install and smoke steps each retry once
-  for transient CDN failures, the job has a 30-minute bound, and a persistent CDN or
-  dependency-install failure still fails it; no static-image fallback is published.
+  for transient CDN failures, each attempt bounded from inside the shell and neither
+  escalating privilege — a root-owned child outlives the bound meant to end it and fails the
+  *next* attempt on the lock it is still holding, so a retry around one rescues nothing
+  ({pull}`166`). The job has a 35-minute bound, and a persistent CDN or dependency-install
+  failure still fails it; no static-image fallback is published.
 - **Scheduled, not gating:** `ci-floors` (weekly) resolves every dependency minimum tephpy
   declares — at both declaration sites — exercises what it resolves, and files one issue per
   broken floor, attributed to a single package (floors spec §1). It is deliberately not a

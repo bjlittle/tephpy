@@ -486,8 +486,8 @@ def test_what_the_load_refuses_the_draw_refuses_too(section, option, value, outc
     """Makes "lifted, not invented" a checked property (domain spec §5).
 
     The Python API is unguarded by design (domain spec §2), so setting the
-    value there and drawing asks the draw-time rule directly. Sixteen of these
-    raise; the four in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
+    value there and drawing asks the draw-time rule directly. Seventeen of these
+    raise; the five in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
     is the point — a later change that makes one of them raise is a change to
     a diagram a user already has, and this is where it surfaces.
 
@@ -537,3 +537,10 @@ def test_the_draw_table_covers_every_refusal():
     refused = sorted((section, option) for section, option, _, _ in REFUSED)
     drawn = sorted((section, option) for section, option, _, _ in REFUSED_AT_THE_DRAW)
     assert drawn == refused
+    # The split, not just the total. Both halves are quoted as words — in the
+    # docstring above and in domain spec §5 — and a row moved from one table to
+    # the other keeps the total that the assertion above checks. That is how the
+    # docstring came to say sixteen and four of a table that had held seventeen
+    # and five since the pull request introducing both (:pull:`126`).
+    assert len(RAISES_AT_THE_DRAW) == 17
+    assert len(DRAWS_IN_SILENCE) == 5
