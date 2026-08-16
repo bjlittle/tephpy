@@ -31,7 +31,7 @@ SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 # an unguarded import fails *collection* there, taking the rest of the suite with
 # it (floors spec §5). The script, not `.git`, is what the guard asks after,
 # because the script is what this module needs: it reads `.github` on every test
-# and history on three, and a guard naming the index would stand the module down
+# and history on four, and a guard naming the index would stand the module down
 # wherever history is absent and the generator is right there.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
@@ -617,6 +617,160 @@ def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
             if ".git" not in _guard(node)
         ]
     assert not unguarded
+
+
+#: Enough of the spelling the specifications use to read a figure back out of
+#: prose. A word outside this map fails the gate rather than passing it: a
+#: figure the gate cannot read is the state it exists to catch, not a reason to
+#: wave it through.
+_UNITS = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+]
+_TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50}
+
+
+def _spelled(word: str) -> int:
+    """Return the integer a specification spelled out, ``twenty-five`` included."""
+    tens, _, units = word.lower().partition("-")
+    if tens in _TENS:
+        return _TENS[tens] + (_UNITS.index(units) if units else 0)
+    return _UNITS.index(tens)
+
+
+def _names_the_index(node: ast.AST) -> bool:
+    """Whether anything under ``node`` builds the path to the index.
+
+    The constant is compared rather than searched for. This very module holds
+    ``.git`` inside a regular expression and ``pytest.skip`` inside a string,
+    and a detector matching either as text reads itself as guarded -- the same
+    distinction between building a path and mentioning one that the manifest
+    gate above draws, and for the same reason.
+    """
+    return any(
+        isinstance(each, ast.Constant) and each.value == ".git"
+        for each in ast.walk(node)
+    )
+
+
+def _skips(node: ast.AST) -> bool:
+    """Whether anything under ``node`` calls ``pytest.skip``, rather than naming it."""
+    return any(
+        isinstance(each, ast.Call) and ast.unparse(each.func) == "pytest.skip"
+        for each in ast.walk(node)
+    )
+
+
+def _needs_the_index(path: Path) -> set[str]:
+    """Return the tests in one module that stand down without a repository.
+
+    Three spellings, because the guard is written wherever it reads best: a
+    ``skipif`` naming the index on the test, the same through a module-level
+    alias -- which unparses to the alias, not to what it holds, so the
+    assignment is what has to be read -- and a call to a helper that skips on
+    its own, that being how a condition shared by several tests is written once.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    aliases: set[str] = set()
+    skippers: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            if "skipif" in ast.unparse(node.value) and _names_the_index(node.value):
+                aliases |= {
+                    target.id for target in node.targets if isinstance(target, ast.Name)
+                }
+        elif (
+            isinstance(node, ast.FunctionDef)
+            and _skips(node)
+            and _names_the_index(node)
+        ):
+            skippers.add(node.name)
+    found = set()
+    for node in tree.body:
+        if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
+            continue
+        called = {
+            call.func.id
+            for call in ast.walk(node)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        }
+        worn = {each.id for each in node.decorator_list if isinstance(each, ast.Name)}
+        if (
+            any(_names_the_index(each) for each in node.decorator_list)
+            or worn & aliases
+            or called & skippers
+        ):
+            found.add(node.name)
+    return found
+
+
+def test_the_specification_quotes_the_number_of_index_guarded_tests():
+    # Spec §3.3 says how many of this tier's tests stand down without an index,
+    # to say what a probe copied without one stops running. The number is prose
+    # in one directory about test bodies in another, and it went stale the day
+    # :pull:`164` routed one more test through `_committed_manifest` -- reported
+    # by nothing, a skip not being a failure (:pull:`167`).
+    #
+    # Counted as *tests*, which is what the sentence says and not what the
+    # source shows: four of the ten functions below are parametrised, and
+    # reading the count off the definitions would say ten. So the count comes
+    # from pytest, the only thing that knows what a module collects.
+    guarded = {
+        path: names
+        for path in sorted((REPO / "tests").rglob("test_*.py"))
+        if (names := _needs_the_index(path))
+    }
+    assert guarded, "no test in the suite guards on the index"
+    listing = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:randomly",
+            "-p",
+            "no:cacheprovider",
+            *(str(path) for path in guarded),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        check=True,
+    ).stdout
+    collected = 0
+    for line in listing.splitlines():
+        item = re.match(r"(\S+\.py)::(\w+)", line)
+        if item and item[2] in guarded.get(REPO / item[1], ()):
+            collected += 1
+    assert collected, "pytest collected none of the guarded tests"
+    prose = (
+        REPO / "docs" / "src" / "developer" / "specs"
+    ) / "2026-08-13-dependency-floors-design.md"
+    (quoted,) = re.findall(
+        r"(\w+) of the `test` tier's tests guard on a repository",
+        prose.read_text(encoding="utf-8"),
+    )
+    assert _spelled(quoted) == collected
 
 
 def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):

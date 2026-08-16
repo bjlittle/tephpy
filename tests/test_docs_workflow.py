@@ -17,6 +17,7 @@ import yaml
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-docs.yml"
 SCRIPT = REPO / ".github" / "scripts" / "check_browser_demo.py"
+SPEC = REPO / "docs" / "src" / "developer" / "specs" / "2026-07-22-tephpy-design.md"
 
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without either
 # file they read. The module is guarded rather than each test, because an
@@ -141,6 +142,28 @@ def test_the_bounded_steps_fit_inside_the_job():
         f"bounded steps may take {worst / 60:.0f}m, leaving under {UNBOUNDED}m "
         f"of a {budget}m job for the build"
     )
+
+
+def test_the_specification_quotes_the_budget_the_job_actually_has():
+    # `UNBOUNDED` above is held against the job's budget by the test before
+    # this one, so the number is checked where it is used. It is also *quoted*,
+    # in prose, in spec §8.7 -- and prose is where it went stale: the sentence
+    # said thirty minutes for the three weeks after :pull:`165` raised the job
+    # to thirty-five, because raising a workflow value is not an edit anything
+    # made the author connect to a paragraph in another directory (:pull:`167`).
+    #
+    # Matched loosely on purpose. A pattern anchored to the whole sentence
+    # would stop matching the moment that sentence is rewritten and pass by
+    # finding nothing, which is the failure mode a gate over prose has; the
+    # assertion that a figure was found at all is what closes it.
+    quoted = {
+        int(minutes)
+        for minutes in re.findall(
+            r"(\d+)-minute bound", SPEC.read_text(encoding="utf-8")
+        )
+    }
+    assert quoted, "spec §8.7 no longer quotes a bound for the documentation job"
+    assert quoted == {_job()["timeout-minutes"]}
 
 
 def test_the_demo_s_waits_fit_inside_one_of_its_attempts():
