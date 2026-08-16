@@ -1,0 +1,9 @@
+Three counted claims in the published design specifications were corrected
+against the code they describe. The dependency floors specification said
+thirteen of the ``test`` tier's tests guard on a repository being there, which
+became fourteen in :pull:`164`; the parent specification gave the ``docs`` job a
+30-minute bound, which :pull:`165` raised to 35. That passage now also records
+why neither retried attempt may escalate privilege, the constraint :pull:`166`
+settled. The floors specification additionally stated the rule that no test
+reads the manifest the job rewrites without recording that :pull:`164` gates it,
+leaving a checked property reading as a convention. (:user:`claude`)
