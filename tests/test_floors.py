@@ -645,7 +645,7 @@ def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
 
 
 def test_a_probe_copy_carries_the_index_the_exercise_reads(tmp_path):
-    # Thirteen of the `test` tier's tests guard on a repository being there,
+    # Fourteen of the `test` tier's tests guard on a repository being there,
     # among them the one that builds a wheel from `git archive HEAD` -- and that
     # is the test the `conda (test)` leg failed on in run 31848921992, on
     # `packaging` at its floor. The probe skipped it, found nothing to reproduce,

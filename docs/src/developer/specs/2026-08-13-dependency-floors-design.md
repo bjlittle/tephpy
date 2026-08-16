@@ -313,7 +313,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Thirteen of the `test` tier's tests guard on a repository being there —
+index included. Fourteen of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
@@ -466,6 +466,15 @@ reconciled — the name table by a gate computed from the declarations themselve
 package added under two names is caught when it is added rather than the week it breaks. The
 failure mode all three share is a quiet one: a wrong issue, or none, on a job that runs weekly
 and is read once a quarter.
+
+The §3.2 rule that no test reads the rewritten manifest is gated rather than left to be
+remembered, because it is a rule a test breaks by being written the obvious way: reading
+`pyproject.toml` from the working tree is how one asks what this repository declares, and it
+passes everywhere except the weekly job that rewrote the file underneath it. The gate reads
+the test sources rather than running them, so it names the reader that would fail instead of
+waiting a week for the tier to ({pull}`164`). It separates a build of the path from a mention
+of it — a test naming `pyproject.toml` in a message or a comment is not reading it — since a
+gate that cannot tell those apart earns a relaxation the first time it is wrong.
 
 The filters of §3.2 are covered against a canned index rather than against PyPI, since what
 they must be shown to reject is a release nobody publishes on purpose: one whose only files
