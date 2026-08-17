@@ -8,10 +8,12 @@
 from __future__ import annotations
 
 import ast
+from itertools import pairwise
 from pathlib import Path
 import re
 import subprocess
 import tomllib
+from typing import NamedTuple
 
 import pytest
 import yaml
@@ -89,8 +91,22 @@ FLAGS = {
 }
 
 
+class Invocation(NamedTuple):
+    """One `pixi run` in a step's script.
+
+    `conditional` is what separates what a step *may* run from what it is
+    certain to: a caller asking whether a step reaches the network wants both,
+    and a caller asking what an earlier step has already run may count only the
+    second.
+    """
+
+    target: str
+    skipped: bool
+    conditional: bool
+
+
 def _invocations(script):
-    """Return each `pixi run` in a script, as its target and whether it skips.
+    """Return each `pixi run` in a script, as its target, flag and certainty.
 
     The target is the first token that is not a flag: the name of a task where
     the step names one, and a bare command where it spells one out. Both come
@@ -101,9 +117,17 @@ def _invocations(script):
     retried steps end theirs with `; then` and the shape this workflow used to
     have chained two with `||`, so reading to the end of the line would take
     `docs-browser-test;` for a task name and miss the second invocation whole.
+
+    An invocation is conditional when `||` is what precedes it, because then it
+    runs only if what came before it failed. `&&` is not conditional here, and
+    the asymmetry is the point: after `&&` an invocation runs only once its
+    left-hand side has succeeded, so by the time it runs everything before it
+    has run -- and a chain that never gets there fails its step, which takes
+    every later step with it. After `||`, nothing of the sort is promised.
     """
+    parts = re.split(r"\bpixi run\b", script.replace("\\\n", " "))
     invocations = []
-    for tail in re.split(r"\bpixi run\b", script.replace("\\\n", " "))[1:]:
+    for preceding, tail in pairwise(parts):
         tokens = re.split(r"[;&|\n]", tail, maxsplit=1)[0].split()
         skipped = False
         while tokens and tokens[0].startswith("-"):
@@ -112,11 +136,13 @@ def _invocations(script):
             skipped = skipped or flag == "--skip-deps"
             tokens = tokens[2:] if FLAGS[flag] else tokens[1:]
         assert tokens, "`pixi run` with nothing after it to run"
-        invocations.append((tokens[0], skipped))
+        invocations.append(
+            Invocation(tokens[0], skipped, preceding.rstrip().endswith("||"))
+        )
     return invocations
 
 
-def _closure(names):
+def _closure(names, tasks):
     """Return every task that running these ones runs, dependencies included.
 
     A name with no task of that name behind it comes back all the same. It is
@@ -125,7 +151,6 @@ def _closure(names):
     gate below, asking what an earlier step has left unrun, would then answer
     "nothing" for the one case where the honest answer is "all of it".
     """
-    tasks = _tasks()
     reached = set()
     pending = list(names)
     while pending:
@@ -146,6 +171,29 @@ def _steps():
     }
 
 
+def _commands(script, tasks):
+    """Return everything a script runs: itself, and each task command it reaches.
+
+    A step naming `docs-browser-test` runs the demo without containing a word
+    of it, so a caller judging the script alone judges half of what the step
+    does.
+
+    Reaching is transitive, because running a task runs its dependencies too: a
+    build step that names only `docs-html` runs whatever `docs-html` comes to
+    depend on, and a dependency that fetched an inventory over the network
+    would otherwise be work no caller here could see. Unless the invocation
+    skips them -- then the task really does run alone, and charging it with its
+    closure would credit the step with the work the flag exists to avoid.
+    """
+    commands = [script]
+    for target, skipped, _conditional in _invocations(script):
+        reached = {target} if skipped else _closure([target], tasks)
+        commands.extend(
+            tasks[name].get("cmd", "") for name in sorted(reached) if name in tasks
+        )
+    return commands
+
+
 def _network_steps():
     """Return each step that reaches the network, by everything it runs.
 
@@ -154,22 +202,15 @@ def _network_steps():
     gate rejects, so it has to be *found* before it can be judged. Recognising
     only the correct shape would leave the defect exempt rather than reported.
 
-    Which is why the value is the step's script *and* the command of every task
-    it names, joined. A step naming `docs-browser-test` runs the demo without
-    containing a word of it, so matching the script alone would stop finding
-    this step the moment it stopped spelling its command out -- and the three
-    tests below would narrow to the one step left, each still passing, each
-    still asserting it had found something.
+    Which is why the value is everything the step runs, joined, and not the
+    script alone -- a step that stopped spelling its command out would stop
+    being found, and the three tests below would narrow to the one step left,
+    each still passing, each still asserting it had found something.
     """
     tasks = _tasks()
     steps = {}
     for name, script in _steps().items():
-        runs = [script] + [
-            tasks[target].get("cmd", "")
-            for target, _skipped in _invocations(script)
-            if target in tasks
-        ]
-        run = "\n".join(runs)
+        run = "\n".join(_commands(script, tasks))
         if "playwright" in run or "check_browser_demo" in run:
             steps[name] = run
     return steps
@@ -293,12 +334,36 @@ def test_the_workflow_runs_the_documentation_gates_by_task_name():
     # second copy left to drift from.
     tasks = _tasks()
     named = {
-        target
+        invocation.target
         for script in _steps().values()
-        for target, _skipped in _invocations(script)
-        if target in tasks
+        for invocation in _invocations(script)
+        if invocation.target in tasks
     }
     assert named == GATES
+
+
+def _unsatisfied(steps, tasks):
+    """Return each skipped dependency no earlier step ran, as step, task, missing.
+
+    What an invocation is asked for is checked whether or not it is certain to
+    run -- if it runs, it needs what it skipped -- but only what is certain to
+    run is credited with having run, since a task reached down an alternative
+    branch may never be reached at all.
+    """
+    complaints = []
+    ran = set()
+    for name, script in steps.items():
+        for target, skipped, conditional in _invocations(script):
+            if target not in tasks:
+                continue
+            if skipped:
+                missing = _closure(tasks[target].get("depends-on", []), tasks) - ran
+                if missing:
+                    complaints.append((name, target, sorted(missing)))
+            if conditional:
+                continue
+            ran |= {target} if skipped else _closure([target], tasks)
+    return complaints
 
 
 def test_no_step_skips_a_dependency_no_earlier_step_ran():
@@ -315,21 +380,71 @@ def test_no_step_skips_a_dependency_no_earlier_step_ran():
     # earlier step has already run what it skips, dependencies of those
     # dependencies included: `docs-clean` is never invoked by any step, and is
     # covered only because the step that runs `docs-html` runs it in passing.
-    tasks = _tasks()
-    ran = set()
-    for name, script in _steps().items():
-        for target, skipped in _invocations(script):
-            if target not in tasks:
-                continue
-            if skipped:
-                missing = _closure(tasks[target].get("depends-on", [])) - ran
-                assert not missing, (
-                    f"{name}: `{target}` skips {sorted(missing)}, which no "
-                    "earlier step has run"
-                )
-                ran.add(target)
-            else:
-                ran |= _closure([target])
+    complaints = _unsatisfied(_steps(), _tasks())
+    assert not complaints, "\n".join(
+        f"{step}: `{target}` skips {missing}, which no earlier step has run"
+        for step, target, missing in complaints
+    )
+
+
+#: A task graph this workflow does not have, for the readers above to be held
+#: to on shapes it could grow into. The gates they feed are about the shapes
+#: themselves, and today's four tasks reach none of them: nothing here depends
+#: on anything that touches the network, and no step chains two invocations.
+GRAPH = {
+    "clean": {"cmd": "make clean"},
+    "fetch": {"cmd": "playwright install chromium"},
+    "html": {"cmd": "make html", "depends-on": ["clean", "fetch"]},
+    "check": {"cmd": "python check_links.py", "depends-on": ["html"]},
+}
+
+
+@pytest.mark.parametrize(
+    ("script", "reached"),
+    [
+        # Running a task runs its dependencies, so a step naming one runs every
+        # command in its closure. `fetch` is where the network is here, and no
+        # step names it: a reader that resolved the named task alone would
+        # report this step as reaching nothing, and the three gates above would
+        # then judge a step that downloads a browser without knowing it does.
+        ("pixi run html", ["make clean", "playwright install chromium", "make html"]),
+        # `--skip-deps` runs the task by itself, so the closure is *not* what it
+        # reaches -- resolving it the same way would credit this step with work
+        # the flag exists to prevent it doing.
+        ("pixi run --skip-deps html", ["make html"]),
+        # A command spelled out belongs to no task and resolves to nothing.
+        ("make -C docs html", []),
+    ],
+)
+def test_the_command_reader_follows_what_a_task_depends_on(script, reached):
+    assert _commands(script, GRAPH)[1:] == reached
+
+
+@pytest.mark.parametrize(
+    ("scripts", "complaints"),
+    [
+        # The shape the workflow has: one step runs the build, the next skips it.
+        (["pixi run html", "pixi run --skip-deps check"], []),
+        # Retried with `||`, the shape :pull:`166` replaced. The first attempt
+        # runs whatever happens, so the task is run either way.
+        (["pixi run html || pixi run html", "pixi run --skip-deps check"], []),
+        # `&&` is not conditional for this accounting: the right-hand side runs
+        # only once the left has succeeded, and a step whose chain never gets
+        # there fails, taking every later step with it. So anything reached
+        # after `&&` was reached by everything before it.
+        (["pixi run clean && pixi run html", "pixi run --skip-deps check"], []),
+        # `||` is. `html` runs only if `clean` *fails*, so a later step skipping
+        # its dependencies is reading a build that need never have happened --
+        # and the gate has to say so rather than count the alternative as done.
+        (
+            ["pixi run clean || pixi run html", "pixi run --skip-deps check"],
+            [("step 2", "check", ["fetch", "html"])],
+        ),
+    ],
+)
+def test_the_gate_credits_only_what_a_step_is_certain_to_have_run(scripts, complaints):
+    steps = {f"step {number}": script for number, script in enumerate(scripts, 1)}
+    assert _unsatisfied(steps, GRAPH) == complaints
 
 
 @pytest.mark.parametrize(
@@ -338,33 +453,54 @@ def test_no_step_skips_a_dependency_no_earlier_step_ran():
         # The shapes this workflow is written in, and the two it is not: a
         # reader with no row it fails on is a reader nothing holds to its
         # docstring, and every branch below is one the workflow depends on.
-        ("pixi run --frozen --environment docs docs-html", [("docs-html", False)]),
+        (
+            "pixi run --frozen --environment docs docs-html",
+            [Invocation("docs-html", skipped=False, conditional=False)],
+        ),
         (
             "pixi run --frozen --environment docs --skip-deps docs-check-links",
-            [("docs-check-links", True)],
+            [Invocation("docs-check-links", skipped=True, conditional=False)],
         ),
         # A flag's value is not its target. Read as a boolean flag, `-e` would
         # leave `docs` as the first bare token and name a task that exists.
-        ("pixi run -e docs docs-html", [("docs-html", False)]),
+        (
+            "pixi run -e docs docs-html",
+            [Invocation("docs-html", skipped=False, conditional=False)],
+        ),
         # Spelled out rather than named -- what this workflow did before
         # :issue:`120`, and what the gate above has to be able to see.
         (
             "pixi run --frozen --environment docs make -C docs html",
-            [("make", False)],
+            [Invocation("make", skipped=False, conditional=False)],
         ),
-        # Inside a retry: continued across a line, and closed by `; then`.
+        # Inside a retry: continued across a line, and closed by `; then`. The
+        # condition of an `if` is evaluated whatever happens, so this is not one
+        # of the conditional shapes -- the retry is in the loop around it.
         (
             (
                 "for a in 1 2; do\n  if timeout -k 30 480 pixi run --frozen \\\n"
                 "      --skip-deps docs-browser-test; then\n    exit 0\n  fi\ndone"
             ),
-            [("docs-browser-test", True)],
+            [Invocation("docs-browser-test", skipped=True, conditional=False)],
         ),
         # Chained with `||`, the shape :pull:`166` replaced. Both attempts are
-        # invocations; reading to the end of the line would find one.
+        # invocations; reading to the end of the line would find one. Only the
+        # second is conditional -- the first runs before anything can fail.
         (
             "pixi run --frozen docs-html || pixi run --frozen docs-html",
-            [("docs-html", False), ("docs-html", False)],
+            [
+                Invocation("docs-html", skipped=False, conditional=False),
+                Invocation("docs-html", skipped=False, conditional=True),
+            ],
+        ),
+        # Chained with `&&`, and across a line break, so that the certainty is
+        # read from the separator rather than from what happens to be adjacent.
+        (
+            "pixi run --frozen clean &&\n  pixi run --frozen docs-html",
+            [
+                Invocation("clean", skipped=False, conditional=False),
+                Invocation("docs-html", skipped=False, conditional=False),
+            ],
         ),
         # Nothing to find is a legitimate answer, not a failure to look.
         ("playwright install chromium", []),

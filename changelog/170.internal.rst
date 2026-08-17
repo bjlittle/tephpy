@@ -7,7 +7,9 @@ so without the flag each step would clean and rebuild the documentation in full
 — the saving the issue assumed was already being made. ``--skip-deps`` skips
 every dependency though, not only the one an earlier step supplied, so a gate
 given a new dependency later would quietly be run without it. A gate now holds
-each use of the flag to a dependency an earlier step has already run, and the
-test that finds the job's network-facing steps resolves a task name to the
-task's command, having until now recognised those steps by a script path the
-workflow no longer spells out. (:user:`claude`)
+each use of the flag to a dependency an earlier step has already run — counting
+only what a step is certain to have run, since a task reached down the far side
+of a ``||`` need never be reached at all. The test that finds the job's
+network-facing steps resolves a task name to every command running it runs,
+dependencies included, having until now recognised those steps by a script path
+the workflow no longer spells out. (:user:`claude`)
