@@ -688,20 +688,44 @@ def _calls(node: ast.AST) -> set[str]:
     }
 
 
+def _guards_itself(node: ast.FunctionDef) -> bool:
+    """Whether a test's own body skips on the index, no helper between them.
+
+    Read over the body and not the whole function, a ``skipif`` naming the
+    index being a different spelling recognized already -- and over the whole of
+    the body rather than statement by statement, because the condition and the
+    skip it leads to are as readily written apart as together.
+    """
+    return any(_skips(each) for each in node.body) and any(
+        _names_the_index(each) for each in node.body
+    )
+
+
 def _needs_the_index(path: Path) -> set[str]:
     """Return the tests in one module that stand down without a repository.
 
-    Three spellings, because the guard is written wherever it reads best: a
+    Four spellings, because the guard is written wherever it reads best: a
     ``skipif`` naming the index on the test, the same through a module-level
     alias -- which unparses to the alias, not to what it holds, so the
-    assignment is what has to be read -- and a call to a helper that skips on
-    its own, that being how a condition shared by several tests is written once.
+    assignment is what has to be read -- a call to a helper that skips on its
+    own, that being how a condition shared by several tests is written once,
+    and the same condition inline in the test that needs it.
 
     That third spelling is followed as far as it goes. A helper calling a
     helper that skips skips too, so the set of them is closed under calling
     before the tests are read against it: stopping at the direct callers would
     fail *open*, pytest skipping a test one wrapper away from the guard while
     the count here omits it and the prose it holds stays believed.
+
+    Two spellings are *not* recognized, neither of them written in this suite:
+    a helper imported from another module, and a fixture that skips, which
+    arrives as a parameter name rather than as a call and lives in a
+    ``conftest`` this reads nothing of. Both fail open the same silent way, so
+    the appearance of either is the signal to stop widening this and ask the
+    only oracle that cannot miss a spelling -- the five guarded modules run in
+    a copy with no index, counting what pytest reports skipped. That costs
+    about nine seconds against a suite of seventy, and retires this function
+    whole rather than growing a fifth branch onto it.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     aliases: set[str] = set()
@@ -735,6 +759,7 @@ def _needs_the_index(path: Path) -> set[str]:
             any(_names_the_index(each) for each in node.decorator_list)
             or worn & aliases
             or called & skippers
+            or _guards_itself(node)
         ):
             found.add(node.name)
     return found
@@ -789,6 +814,125 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests():
         prose.read_text(encoding="utf-8"),
     )
     assert _spelled(quoted) == collected
+
+
+@pytest.mark.parametrize(
+    ("source", "guarded"),
+    [
+        # The three spellings the suite actually uses, which the count above
+        # exercises end to end -- it reaches fourteen only if all three are read.
+        (
+            """
+            @pytest.mark.skipif(not (REPO / ".git").exists(), reason="no index")
+            def test_x():
+                pass
+            """,
+            True,
+        ),
+        (
+            """
+            needs = pytest.mark.skipif(not (REPO / ".git").exists(), reason="no")
+
+            @needs
+            def test_x():
+                pass
+            """,
+            True,
+        ),
+        (
+            """
+            def _read():
+                if not (REPO / ".git").exists():
+                    pytest.skip("no index")
+
+            def test_x():
+                _read()
+            """,
+            True,
+        ),
+        # The two the count cannot exercise, nothing in the suite being written
+        # either way -- so this table is the only thing holding them up. A
+        # wrapper between the test and the helper that skips, which the count
+        # read as unguarded until the closure went in, and the condition inline
+        # in the test, which it read as unguarded until `_guards_itself` did.
+        (
+            """
+            def _read():
+                if not (REPO / ".git").exists():
+                    pytest.skip("no index")
+
+            def _wrapped():
+                return _read()
+
+            def test_x():
+                _wrapped()
+            """,
+            True,
+        ),
+        (
+            """
+            def test_x():
+                if not (REPO / ".git").exists():
+                    pytest.skip("no index")
+            """,
+            True,
+        ),
+        # Inline, but with the condition bound first. Read statement by
+        # statement the skip and the index it turns on are in different ones,
+        # and the guard would go unseen for being written the way most of this
+        # suite's conditions are.
+        (
+            """
+            def test_x():
+                index = REPO / ".git"
+                if not index.exists():
+                    pytest.skip("no index")
+            """,
+            True,
+        ),
+        # A test that guards on nothing, without which every case above passes
+        # for a detector that simply says yes.
+        (
+            """
+            def test_x():
+                assert True
+            """,
+            False,
+        ),
+        # Naming the index is not standing down on it. This is the shape of
+        # `test_a_probe_copy_carries_the_index_the_exercise_reads`, which builds
+        # a `.git` in a copy it makes: counted here, the number would exceed the
+        # prose and the gate would go red over a test that never skips.
+        (
+            """
+            def test_x(tmp_path):
+                (tmp_path / ".git").mkdir()
+                assert (tmp_path / ".git").is_dir()
+            """,
+            False,
+        ),
+        # Standing down is not standing down on the *index*, and the sentence
+        # this count holds up is about a probe copied without one.
+        (
+            """
+            def test_x():
+                if not shutil.which("pixi"):
+                    pytest.skip("no pixi")
+            """,
+            False,
+        ),
+    ],
+)
+def test_the_detector_reads_a_guard_however_it_is_spelled(tmp_path, source, guarded):
+    # `_needs_the_index` is read by one caller, which turns what it finds into a
+    # single number. A spelling it cannot see therefore lowers that number in
+    # silence -- the guarded test still skips, the prose still says fourteen,
+    # and the two agree about a suite neither of them describes. Only the three
+    # spellings in use are exercised by that caller, so the two added since are
+    # held up here or nowhere.
+    path = tmp_path / "test_probe.py"
+    path.write_text(textwrap.dedent(source), encoding="utf-8")
+    assert _needs_the_index(path) == ({"test_x"} if guarded else set())
 
 
 def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
