@@ -17,6 +17,7 @@ import yaml
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-docs.yml"
 SCRIPT = REPO / ".github" / "scripts" / "check_browser_demo.py"
+SPEC = REPO / "docs" / "src" / "developer" / "specs" / "2026-07-22-tephpy-design.md"
 
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without either
 # file they read. The module is guarded rather than each test, because an
@@ -87,6 +88,22 @@ def _worst_case(script):
     return attempts * (longest + pause)
 
 
+def _section(number):
+    """Return one numbered section of the specification, its heading to the next.
+
+    Empty when the number names no section, which is a renumbering rather than
+    a stale figure -- the caller says so, because a gate handed nothing to read
+    reports what it lost, not what it failed to find in it.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    heading = re.search(rf"^#+ {re.escape(number)} .*$", text, flags=re.MULTILINE)
+    if heading is None:
+        return ""
+    rest = text[heading.end() :]
+    following = re.search(r"^#+ ", rest, flags=re.MULTILINE)
+    return rest[: following.start()] if following else rest
+
+
 def test_every_retried_attempt_is_bounded():
     # A retry covers a failure. It covers a stall only if the attempt before it
     # is made to end, and `timeout-minutes` on the step cannot do that here,
@@ -107,7 +124,7 @@ def test_every_retried_attempt_is_bounded():
 
 #: What a step runs to gain root. `sudo` is the literal escalation; the other
 #: two are Playwright's, which shell out to `sudo apt-get` without saying so --
-#: the shape has to be recognized by the spelling a caller actually uses.
+#: the shape has to be recognised by the spelling a caller actually uses.
 ESCALATES = re.compile(r"\bsudo\b|--with-deps\b|\binstall-deps\b")
 
 
@@ -141,6 +158,31 @@ def test_the_bounded_steps_fit_inside_the_job():
         f"bounded steps may take {worst / 60:.0f}m, leaving under {UNBOUNDED}m "
         f"of a {budget}m job for the build"
     )
+
+
+def test_the_specification_quotes_the_budget_the_job_actually_has():
+    # `UNBOUNDED` above is held against the job's budget by the test before
+    # this one, so the number is checked where it is used. It is also *quoted*,
+    # in prose, in spec §8.7 -- and prose is where it went stale: the sentence
+    # said thirty minutes for the three weeks after :pull:`165` raised the job
+    # to thirty-five, because raising a workflow value is not an edit anything
+    # made the author connect to a paragraph in another directory (:pull:`167`).
+    #
+    # Matched loosely on purpose. A pattern anchored to the whole sentence
+    # would stop matching the moment that sentence is rewritten and pass by
+    # finding nothing, which is the failure mode a gate over prose has; the
+    # assertion that a figure was found at all is what closes it.
+    #
+    # Loose in what it matches, then, but not in where: read over the whole
+    # document, a `35-minute bound` anywhere else in it -- another job's, a
+    # later section's -- would stand in for this one after it is deleted, and
+    # both assertions below would pass while the sentence they are about is
+    # gone. The section is the scope, so finding nothing means what it says.
+    section = _section("8.7")
+    assert section, "spec §8.7 not found -- renumbered?"
+    quoted = {int(minutes) for minutes in re.findall(r"(\d+)-minute bound", section)}
+    assert quoted, "spec §8.7 no longer quotes a bound for the documentation job"
+    assert quoted == {_job()["timeout-minutes"]}
 
 
 def test_the_demo_s_waits_fit_inside_one_of_its_attempts():

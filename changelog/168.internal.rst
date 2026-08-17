@@ -1,0 +1,6 @@
+Two figures the design specifications quote from the code are now gated against
+it. The documentation job's budget is read out of its workflow and held against
+the figure the parent specification quotes, and the count of tests that stand
+down without a repository is counted by collecting them, four of the ten
+functions involved being parametrised. Both had gone stale in the pull requests
+that moved the value they quote, reported by nothing. (:user:`claude`)
