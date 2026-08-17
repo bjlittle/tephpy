@@ -679,6 +679,15 @@ def _skips(node: ast.AST) -> bool:
     )
 
 
+def _calls(node: ast.AST) -> set[str]:
+    """Return the name of everything under ``node`` that is called by plain name."""
+    return {
+        call.func.id
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    }
+
+
 def _needs_the_index(path: Path) -> set[str]:
     """Return the tests in one module that stand down without a repository.
 
@@ -687,31 +696,40 @@ def _needs_the_index(path: Path) -> set[str]:
     alias -- which unparses to the alias, not to what it holds, so the
     assignment is what has to be read -- and a call to a helper that skips on
     its own, that being how a condition shared by several tests is written once.
+
+    That third spelling is followed as far as it goes. A helper calling a
+    helper that skips skips too, so the set of them is closed under calling
+    before the tests are read against it: stopping at the direct callers would
+    fail *open*, pytest skipping a test one wrapper away from the guard while
+    the count here omits it and the prose it holds stays believed.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     aliases: set[str] = set()
-    skippers: set[str] = set()
+    helpers: dict[str, ast.FunctionDef] = {}
     for node in tree.body:
         if isinstance(node, ast.Assign):
             if "skipif" in ast.unparse(node.value) and _names_the_index(node.value):
                 aliases |= {
                     target.id for target in node.targets if isinstance(target, ast.Name)
                 }
-        elif (
-            isinstance(node, ast.FunctionDef)
-            and _skips(node)
-            and _names_the_index(node)
-        ):
-            skippers.add(node.name)
+        elif isinstance(node, ast.FunctionDef) and not node.name.startswith("test_"):
+            helpers[node.name] = node
+    skippers = {
+        name
+        for name, node in helpers.items()
+        if _skips(node) and _names_the_index(node)
+    }
+    while reached := {
+        name
+        for name, node in helpers.items()
+        if name not in skippers and _calls(node) & skippers
+    }:
+        skippers |= reached
     found = set()
     for node in tree.body:
         if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
             continue
-        called = {
-            call.func.id
-            for call in ast.walk(node)
-            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-        }
+        called = _calls(node)
         worn = {each.id for each in node.decorator_list if isinstance(each, ast.Name)}
         if (
             any(_names_the_index(each) for each in node.decorator_list)

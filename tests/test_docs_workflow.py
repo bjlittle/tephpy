@@ -88,6 +88,22 @@ def _worst_case(script):
     return attempts * (longest + pause)
 
 
+def _section(number):
+    """Return one numbered section of the specification, its heading to the next.
+
+    Empty when the number names no section, which is a renumbering rather than
+    a stale figure -- the caller says so, because a gate handed nothing to read
+    reports what it lost, not what it failed to find in it.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    heading = re.search(rf"^#+ {re.escape(number)} .*$", text, flags=re.MULTILINE)
+    if heading is None:
+        return ""
+    rest = text[heading.end() :]
+    following = re.search(r"^#+ ", rest, flags=re.MULTILINE)
+    return rest[: following.start()] if following else rest
+
+
 def test_every_retried_attempt_is_bounded():
     # A retry covers a failure. It covers a stall only if the attempt before it
     # is made to end, and `timeout-minutes` on the step cannot do that here,
@@ -156,12 +172,15 @@ def test_the_specification_quotes_the_budget_the_job_actually_has():
     # would stop matching the moment that sentence is rewritten and pass by
     # finding nothing, which is the failure mode a gate over prose has; the
     # assertion that a figure was found at all is what closes it.
-    quoted = {
-        int(minutes)
-        for minutes in re.findall(
-            r"(\d+)-minute bound", SPEC.read_text(encoding="utf-8")
-        )
-    }
+    #
+    # Loose in what it matches, then, but not in where: read over the whole
+    # document, a `35-minute bound` anywhere else in it -- another job's, a
+    # later section's -- would stand in for this one after it is deleted, and
+    # both assertions below would pass while the sentence they are about is
+    # gone. The section is the scope, so finding nothing means what it says.
+    section = _section("8.7")
+    assert section, "spec §8.7 not found -- renumbered?"
+    quoted = {int(minutes) for minutes in re.findall(r"(\d+)-minute bound", section)}
     assert quoted, "spec §8.7 no longer quotes a bound for the documentation job"
     assert quoted == {_job()["timeout-minutes"]}
 
