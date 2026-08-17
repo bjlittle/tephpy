@@ -1,0 +1,13 @@
+The ``docs`` job now names the pixi task that owns each documentation gate
+rather than spelling its command out, so a contributor reproducing a failure
+runs what the job runs and there is no second copy of the command left to drift
+(:issue:`120`). Every gate but the first skips its dependencies: pixi
+deduplicates a shared dependency within one invocation and not across several,
+so without the flag each step would clean and rebuild the documentation in full
+— the saving the issue assumed was already being made. ``--skip-deps`` skips
+every dependency though, not only the one an earlier step supplied, so a gate
+given a new dependency later would quietly be run without it. A gate now holds
+each use of the flag to a dependency an earlier step has already run, and the
+test that finds the job's network-facing steps resolves a task name to the
+task's command, having until now recognised those steps by a script path the
+workflow no longer spells out. (:user:`claude`)
