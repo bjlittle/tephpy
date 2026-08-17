@@ -10,6 +10,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 import re
+import subprocess
+import tomllib
 
 import pytest
 import yaml
@@ -41,19 +43,135 @@ def _job():
     return job
 
 
+def _committed_manifest():
+    """Return the manifest this repository declares, not the one it was given.
+
+    Read from the index for the reason `tests/test_floors.py` reads it there:
+    the conda half of `ci-floors` runs this suite in a checkout whose
+    `pyproject.toml` the floors generator has rewritten, down to one
+    environment with every feature that tier cannot reach dropped outright
+    (:issue:`155`). `docs` is one of the dropped ones, so a working-tree read
+    would find no task table here at all -- failing weekly, hours after the
+    push, in a job that would then file an issue about a floor.
+
+    Guarded here rather than on the module, because a module-level `skipif`
+    naming the index stands all of it down wherever history is absent, and
+    history is not what the rest of this module needs: `ci-docs.yml` and the
+    demo script are, and both are on disk or the module has already skipped.
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no index to read the committed manifest from")
+    return subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    ).stdout
+
+
+def _tasks():
+    """Return the `docs` feature's pixi tasks, by name."""
+    manifest = tomllib.loads(_committed_manifest())
+    return manifest["tool"]["pixi"]["feature"]["docs"]["tasks"]
+
+
+#: The `pixi run` flags this workflow uses, and whether each takes the token
+#: after it as its value. An unrecognised flag is refused rather than guessed
+#: at, because guessing wrong shifts which token is read as the task: a flag
+#: that takes a value, mistaken for one that does not, makes the *value* the
+#: task, and every assertion below then reports on something no job runs.
+FLAGS = {
+    "--frozen": False,
+    "--environment": True,
+    "-e": True,
+    "--skip-deps": False,
+}
+
+
+def _invocations(script):
+    """Return each `pixi run` in a script, as its target and whether it skips.
+
+    The target is the first token that is not a flag: the name of a task where
+    the step names one, and a bare command where it spells one out. Both come
+    back, undistinguished -- telling them apart is what the callers are for,
+    and a reader that returned only the tasks could not report the commands.
+
+    Each invocation ends at the first shell separator, not at the newline: the
+    retried steps end theirs with `; then` and the shape this workflow used to
+    have chained two with `||`, so reading to the end of the line would take
+    `docs-browser-test;` for a task name and miss the second invocation whole.
+    """
+    invocations = []
+    for tail in re.split(r"\bpixi run\b", script.replace("\\\n", " "))[1:]:
+        tokens = re.split(r"[;&|\n]", tail, maxsplit=1)[0].split()
+        skipped = False
+        while tokens and tokens[0].startswith("-"):
+            flag = tokens[0]
+            assert flag in FLAGS, f"unrecognised `pixi run` flag `{flag}`"
+            skipped = skipped or flag == "--skip-deps"
+            tokens = tokens[2:] if FLAGS[flag] else tokens[1:]
+        assert tokens, "`pixi run` with nothing after it to run"
+        invocations.append((tokens[0], skipped))
+    return invocations
+
+
+def _closure(names):
+    """Return every task that running these ones runs, dependencies included.
+
+    A name with no task of that name behind it comes back all the same. It is
+    reported by pixi, not here, but dropping it would make a `depends-on`
+    pointing at nothing indistinguishable from one already satisfied -- and the
+    gate below, asking what an earlier step has left unrun, would then answer
+    "nothing" for the one case where the honest answer is "all of it".
+    """
+    tasks = _tasks()
+    reached = set()
+    pending = list(names)
+    while pending:
+        name = pending.pop()
+        if name in reached:
+            continue
+        reached.add(name)
+        pending.extend(tasks.get(name, {}).get("depends-on", []))
+    return reached
+
+
+def _steps():
+    """Return every step that runs a shell script, by the name it reports under."""
+    return {
+        step.get("name", f"step {index}"): step["run"]
+        for index, step in enumerate(_job()["steps"])
+        if "run" in step
+    }
+
+
 def _network_steps():
-    """Return each step that reaches the network, by what it runs.
+    """Return each step that reaches the network, by everything it runs.
 
     Selecting on what a step does rather than on how it is written is the whole
     point: a step retrying with `||` instead of a loop is the very shape this
-    gate rejects, so it has to be *found* before it can be judged. Recognizing
+    gate rejects, so it has to be *found* before it can be judged. Recognising
     only the correct shape would leave the defect exempt rather than reported.
+
+    Which is why the value is the step's script *and* the command of every task
+    it names, joined. A step naming `docs-browser-test` runs the demo without
+    containing a word of it, so matching the script alone would stop finding
+    this step the moment it stopped spelling its command out -- and the three
+    tests below would narrow to the one step left, each still passing, each
+    still asserting it had found something.
     """
+    tasks = _tasks()
     steps = {}
-    for index, step in enumerate(_job()["steps"]):
-        script = step.get("run", "")
-        if "playwright" in script or "check_browser_demo" in script:
-            steps[step.get("name", f"step {index}")] = script
+    for name, script in _steps().items():
+        runs = [script] + [
+            tasks[target].get("cmd", "")
+            for target, _skipped in _invocations(script)
+            if target in tasks
+        ]
+        run = "\n".join(runs)
+        if "playwright" in run or "check_browser_demo" in run:
+            steps[name] = run
     return steps
 
 
@@ -158,6 +276,120 @@ def test_the_bounded_steps_fit_inside_the_job():
         f"bounded steps may take {worst / 60:.0f}m, leaving under {UNBOUNDED}m "
         f"of a {budget}m job for the build"
     )
+
+
+#: The tasks `ci-docs` exists to run. Held by membership rather than by count
+#: or by "at least one": the failure this gate is for is a gate that stops
+#: being run, and a job that dropped `docs-check-links` would still be running
+#: three tasks, still non-empty, still passing anything looser than this.
+GATES = {"docs-html", "docs-check-citations", "docs-check-links", "docs-browser-test"}
+
+
+def test_the_workflow_runs_the_documentation_gates_by_task_name():
+    # The commands these tasks own were spelled out here as well as in
+    # `pyproject.toml` for as long as both existed, so the same check was
+    # written twice and could be changed once (:issue:`120`). Naming the task
+    # is what makes that impossible rather than merely unlikely -- there is no
+    # second copy left to drift from.
+    tasks = _tasks()
+    named = {
+        target
+        for script in _steps().values()
+        for target, _skipped in _invocations(script)
+        if target in tasks
+    }
+    assert named == GATES
+
+
+def test_no_step_skips_a_dependency_no_earlier_step_ran():
+    # `--skip-deps` is here because pixi deduplicates a shared dependency
+    # within one invocation and not across several: three steps each invoking
+    # their own task would run `docs-clean` and the Sphinx build three times
+    # over, once per step, since `docs-html` is a dependency of each gate.
+    #
+    # What the flag actually skips, though, is *every* dependency, not the one
+    # the preceding step happens to have supplied. A second dependency added
+    # to a gate later -- an inventory fetch, a translation build -- is dropped
+    # here with nothing in the diff to say so, and the gate then reads a build
+    # that never had it and passes. So the flag is allowed only where an
+    # earlier step has already run what it skips, dependencies of those
+    # dependencies included: `docs-clean` is never invoked by any step, and is
+    # covered only because the step that runs `docs-html` runs it in passing.
+    tasks = _tasks()
+    ran = set()
+    for name, script in _steps().items():
+        for target, skipped in _invocations(script):
+            if target not in tasks:
+                continue
+            if skipped:
+                missing = _closure(tasks[target].get("depends-on", [])) - ran
+                assert not missing, (
+                    f"{name}: `{target}` skips {sorted(missing)}, which no "
+                    "earlier step has run"
+                )
+                ran.add(target)
+            else:
+                ran |= _closure([target])
+
+
+@pytest.mark.parametrize(
+    ("script", "invocations"),
+    [
+        # The shapes this workflow is written in, and the two it is not: a
+        # reader with no row it fails on is a reader nothing holds to its
+        # docstring, and every branch below is one the workflow depends on.
+        ("pixi run --frozen --environment docs docs-html", [("docs-html", False)]),
+        (
+            "pixi run --frozen --environment docs --skip-deps docs-check-links",
+            [("docs-check-links", True)],
+        ),
+        # A flag's value is not its target. Read as a boolean flag, `-e` would
+        # leave `docs` as the first bare token and name a task that exists.
+        ("pixi run -e docs docs-html", [("docs-html", False)]),
+        # Spelled out rather than named -- what this workflow did before
+        # :issue:`120`, and what the gate above has to be able to see.
+        (
+            "pixi run --frozen --environment docs make -C docs html",
+            [("make", False)],
+        ),
+        # Inside a retry: continued across a line, and closed by `; then`.
+        (
+            (
+                "for a in 1 2; do\n  if timeout -k 30 480 pixi run --frozen \\\n"
+                "      --skip-deps docs-browser-test; then\n    exit 0\n  fi\ndone"
+            ),
+            [("docs-browser-test", True)],
+        ),
+        # Chained with `||`, the shape :pull:`166` replaced. Both attempts are
+        # invocations; reading to the end of the line would find one.
+        (
+            "pixi run --frozen docs-html || pixi run --frozen docs-html",
+            [("docs-html", False), ("docs-html", False)],
+        ),
+        # Nothing to find is a legitimate answer, not a failure to look.
+        ("playwright install chromium", []),
+    ],
+)
+def test_the_invocation_reader_finds_the_target_however_it_is_written(
+    script, invocations
+):
+    assert _invocations(script) == invocations
+
+
+@pytest.mark.parametrize(
+    ("script", "complaint"),
+    [
+        ("pixi run --frozen --offline docs-html", "unrecognised"),
+        ("pixi run --frozen", "nothing after it"),
+    ],
+)
+def test_the_invocation_reader_refuses_what_it_cannot_read(script, complaint):
+    # Failing closed matters more here than anywhere else in this module: a
+    # reader that shrugged at a flag it did not know would go on to name some
+    # other token as the task, and the two gates above would then report,
+    # confidently, on a task the job does not run.
+    with pytest.raises(AssertionError, match=complaint):
+        _invocations(script)
 
 
 def test_the_specification_quotes_the_budget_the_job_actually_has():

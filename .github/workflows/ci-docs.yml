@@ -25,13 +25,23 @@ jobs:
         with:
           environments: docs
           frozen: true
-      - run: pixi run --frozen --environment docs make -C docs html
-      - run: >
-          pixi run --frozen --environment docs
-          python .github/scripts/check_rendered_citations.py docs/_build/html
-      - run: >
-          pixi run --frozen --environment docs
-          python .github/scripts/check_documentation_links.py docs/_build/html
+      # Each step names the pixi task that owns its command rather than
+      # spelling the command out, so a contributor reproducing a failure runs
+      # what this job runs and there is no second copy to drift (:issue:`120`).
+      #
+      # `--skip-deps` because pixi deduplicates a shared dependency within one
+      # invocation and not across several: every gate below depends on
+      # `docs-html`, which depends on `docs-clean`, so without the flag these
+      # three steps would each clean and rebuild the documentation in full.
+      # The flag skips *every* dependency though, not just the one the step
+      # above supplied, so `tests/test_docs_workflow.py` holds each use of it
+      # to a dependency an earlier step has already run.
+      - name: Build the documentation
+        run: pixi run --frozen --environment docs docs-html
+      - name: Check the rendered citations
+        run: pixi run --frozen --environment docs --skip-deps docs-check-citations
+      - name: Check the documentation links
+        run: pixi run --frozen --environment docs --skip-deps docs-check-links
       # Both of the steps below reach the network -- one downloads a browser,
       # the other loads PyScript, Pyodide and the wheels from a CDN -- so both
       # are retried. Each attempt is bounded from inside the shell rather than
@@ -64,7 +74,7 @@ jobs:
         run: |
           for attempt in 1 2; do
             if timeout -k 30 480 pixi run --frozen --environment docs \
-                python .github/scripts/check_browser_demo.py; then
+                --skip-deps docs-browser-test; then
               exit 0
             fi
             echo "::warning::browser demo attempt ${attempt} failed or stalled"
