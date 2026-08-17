@@ -124,7 +124,7 @@ def test_every_retried_attempt_is_bounded():
 
 #: What a step runs to gain root. `sudo` is the literal escalation; the other
 #: two are Playwright's, which shell out to `sudo apt-get` without saying so --
-#: the shape has to be recognized by the spelling a caller actually uses.
+#: the shape has to be recognised by the spelling a caller actually uses.
 ESCALATES = re.compile(r"\bsudo\b|--with-deps\b|\binstall-deps\b")
 
 

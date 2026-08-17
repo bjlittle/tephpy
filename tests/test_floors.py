@@ -692,7 +692,7 @@ def _guards_itself(node: ast.FunctionDef) -> bool:
     """Whether a test's own body skips on the index, no helper between them.
 
     Read over the body and not the whole function, a ``skipif`` naming the
-    index being a different spelling recognized already -- and over the whole of
+    index being a different spelling recognised already -- and over the whole of
     the body rather than statement by statement, because the condition and the
     skip it leads to are as readily written apart as together.
     """
@@ -717,7 +717,7 @@ def _needs_the_index(path: Path) -> set[str]:
     fail *open*, pytest skipping a test one wrapper away from the guard while
     the count here omits it and the prose it holds stays believed.
 
-    Two spellings are *not* recognized, neither of them written in this suite:
+    Two spellings are *not* recognised, neither of them written in this suite:
     a helper imported from another module, and a fixture that skips, which
     arrives as a parameter name rather than as a call and lives in a
     ``conftest`` this reads nothing of. Both fail open the same silent way, so
