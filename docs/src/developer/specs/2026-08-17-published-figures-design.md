@@ -24,18 +24,18 @@
 (plots-spec-1)=
 ## 1. Purpose
 
-The two how-to guides that teach a *visual* API show no picture. "Emphasise a Reference
+The two how-to guides that teach a *visual* API showed no picture. "Emphasise a Reference
 Isopleth" describes a member drawn in the same ink at a heavier weight, and "Add the tephpy
-Logo" describes three forms at two themes in nine placements, and a reader of either has to
-build the diagram themselves to find out what the page is talking about. These are the shop
+Logo" describes three forms at two themes in nine placements, and a reader of either had to
+build the diagram themselves to find out what the page was talking about. These are the shop
 window for a plotting package.
 
-Nothing in the project renders a figure from source today. `matplotlib.sphinxext.plot_directive`
-is not among the extensions and `sphinx_gallery_conf` names no example directory, both
+Nothing in the project rendered a figure from source. `matplotlib.sphinxext.plot_directive`
+was not among the extensions and `sphinx_gallery_conf` named no example directory, both
 deliberately: the plan that wrote the emphasis how-to
 ([`2026-07-30-tephpy-member-emphasis.md`](https://github.com/bjlittle/tephpy/blob/main/docs/src/developer/plans/2026-07-30-tephpy-member-emphasis.md),
 Step 5) recorded "do not add a Sphinx extension as part of this work", correctly, because
-adding one is a documentation-wide decision and not a step in a feature. This document is
+adding one is a documentation-wide decision and not a step in a feature. This document was
 that decision.
 
 What is *not* the problem here is the code going stale. docs spec §3.9 already executes every
@@ -50,10 +50,11 @@ its prose claims — and §3.5 is the answer to that one.
 - **The page's own snippet is the figure's source.** One block, shown and executed, is what
   the reader copies and what the picture came from. A figure built by a script beside the page
   is a second construction that agrees with the prose until someone edits one of them.
-- **One figure per section, not per block.** These pages are sessions in which a later block
-  supersedes an earlier one — docs spec §3.9 cites two blocks of the emphasis how-to calling
+- **One figure per point, not per block.** These pages are sessions in which a later block
+  supersedes an earlier one — docs spec §3.9 cites three blocks of the emphasis how-to calling
   `ax.isotherms(...)` on the same axes — so a picture after every block would sometimes show
-  a state the surrounding prose has stopped describing (§3.2).
+  a state the surrounding prose has stopped describing. A section making two distinct points
+  publishes two (§3.2).
 - **A page publishes figures or it does not; the two forms never mix.** A `code-block:: python`
   between two `.. plot::` blocks runs in the test gate and not in the build, so the build's
   namespace silently loses whatever it bound (§3.2). The rule is per page because the page is
@@ -80,7 +81,7 @@ for this purpose: myst-nb executes notebooks and the user quadrants are reStruct
 (docs spec §3.9 scopes itself to `.rst` for the same reason), and sphinx-gallery renders a
 catalogue of standalone examples, which is spec §8.6's Plan 7 and not a how-to (§5).
 
-Five settings, each of which changes a default that is wrong here:
+Six settings, each of which changes a default that is wrong here:
 
 | Setting | Value | Why the default is wrong |
 |---|---|---|
@@ -88,7 +89,8 @@ Five settings, each of which changes a default that is wrong here:
 | `plot_html_show_source_link` | `False` | A download link to a `.py` extracted from the page, beside the page |
 | `plot_html_show_formats` | `False` | Format links, of which there is one |
 | `plot_formats` | `[("png", 100)]` | Defaults to also building `hires.png` and `pdf`, neither of which is linked once the two settings above are off |
-| `plot_rcparams` | `{"figure.figsize": (8.0, 4.0), "savefig.bbox": "tight"}` | §4 |
+| `plot_rcparams` | `{"figure.figsize": (8.0, 4.0)}` | §4 |
+| `plot_working_directory` | a scratch directory under the git-ignored build tree | Defaults to the page's own source directory, so `howtos/logo.rst`'s `fig.savefig("sounding.png", ...)` would write into the checked-out documentation tree, where the next build finds it as a source file |
 
 `plot_apply_rcparams` stays `True`, which is what restores those rcParams between blocks; a
 page that sets a matplotlib style therefore cannot leak it into the next one. It is only
@@ -111,9 +113,11 @@ by these rules:
    it has nothing to brand. `close-figs` is what opens a section that starts its own figure.
    The two values do not combine: `plot_directive` accepts exactly one of nothing, `reset` or
    `close-figs`, so the page's first block resets and its sections close figures.
-3. **A block whose picture would add nothing carries `:nofigs:`.** It still runs, so the
-   chain is unbroken. This is the reason plain `code-block:: python` is not the answer for
-   such a block.
+3. **A block whose picture would add nothing, or should not be published, carries
+   `:nofigs:`.** It still runs, so the chain is unbroken. This is the reason plain
+   `code-block:: python` is not the answer for such a block — the logo how-to's
+   `dark_background` block is the second case: its picture would add plenty, and it is
+   suppressed because the figure around it is defective, not because it teaches nothing.
 4. **Every figure-producing block carries a `:filename-prefix:`.** Unnamed, the image takes a
    per-document counter, so inserting a section renumbers every image after it and every
    baseline with them. Named, `check_output_base_name` also rejects a collision project-wide.
@@ -162,11 +166,11 @@ page that publishes no figures.
 (plots-spec-3-4)=
 ### 3.4 The snippet gate learns the directive
 
-`tests/test_docs_snippets.py` recognises `code-block`, `code` and `sourcecode`. The moment a
-page converts, its blocks stop being found — and `test_the_documented_pages_yield_blocks`
-fails, by name, saying the extractor has stopped recognising a directive. That is the gate
-working, and it is the reason the extractor is extended in the same change rather than after
-it.
+`tests/test_docs_snippets.py` recognised `code-block`, `code` and `sourcecode`, and nothing
+else. The moment a page converted, its blocks stopped being found — and
+`test_the_documented_pages_yield_blocks` failed, by name, saying the extractor had stopped
+recognising a directive. That was the gate working, and it is why the extractor was extended
+in the same change rather than after it.
 
 The extension is not a widened `DIRECTIVE`. That pattern reads the directive's argument as a
 language, and `.. plot::` either takes none or takes a filename; folding it in would classify
@@ -179,7 +183,11 @@ Rules 1–5 of §3.2, and the choice between the two page forms, each become an 
 rather than a line in the style guide. This is the gate that can see them: it already reads
 every user page as text, and it runs in the test matrix, where Sphinx is absent. The existing
 refusals — the quadrant directories exist, the corpus is non-empty, the `DOCUMENTED` pages
-yield blocks — carry over unchanged and keep governing both page forms.
+yield blocks — carry over unchanged and keep governing both page forms. A fourth joins them:
+`test_the_figure_pages_are_recognised` asserts that every page named in `PUBLISHES_FIGURES`
+still yields a `.. plot::`, on the same principle as `DOCUMENTED` above it — every page-shape
+check below iterates this set, so a page that dropped out of it would be asked nothing rather
+than failed.
 
 (plots-spec-3-5)=
 ### 3.5 The figure gate
@@ -193,7 +201,7 @@ there from the browser demo's toolbar icons, and a glob cannot tell a plot from 
 adding one non-plot image would turn the gate red for a file it was never meant to judge, and
 a plot silently *not* built is the failure it exists to catch. The expected set comes instead
 from the `:filename-prefix:` values parsed out of the user pages, which makes the declaration
-on the page the registry, and both of these checkable:
+on the page the registry, and all three of these checkable:
 
 - every figure a page declares was built;
 - every baseline is claimed by a declaration, so a renamed section leaves no orphan behind;
@@ -205,6 +213,15 @@ on the page the registry, and both of these checkable:
 An empty declared set fails. A gate that finds nothing to check and exits `0` reports a green
 tick over nothing, which is the failure docs spec §3.9's own corpus refusals were written
 against.
+
+Two more refusals guard this gate the same way. `PUBLISHES` names the pages this gate expects
+to declare a figure — `howtos/emphasis.rst` and `howtos/logo.rst` today — and a page listed
+there that declares none is reported by name rather than passing every check below in
+silence, each of which reads only what pages *do* declare. And `CANDIDATE` is `DECLARATION`,
+widened rather than narrowed: any indentation character and a value read whole rather than
+restricted to word characters, dots and dashes. What it catches that `DECLARATION` does not
+is reported as a near miss instead of a declaration nothing here ever saw — the same
+detection-wider-than-validation shape docs spec §3.9's own near-miss detector uses.
 
 What this gate does *not* do is judge whether the figure is a good illustration. It pins what
 was published against what was approved; a diagram that draws correctly and teaches nothing is
@@ -253,15 +270,27 @@ canvas at a comparable density.
 (plots-spec-4)=
 ## 4. The figure recipe
 
-`figure.figsize` of `(8.0, 4.0)` with `savefig.bbox` of `"tight"`, on the full five-family
-diagram, at the default extent, with nothing hidden.
+`figure.figsize` of `(8.0, 4.0)`, on the full five-family diagram, at the default extent,
+with nothing hidden.
 
-Each half of that was measured against the alternative when the decision was taken
-(2026-08-17). At matplotlib's default figure size the tephigram's axes — a wide, short
-parallelogram — sits in a square canvas with most of the height empty, and `"tight"` is what
-crops the canvas to the diagram. At the resulting size an emphasised member reads immediately:
-the emphasis width against the ordinary isopleth is a large enough ratio to survive the
-five-family grid, which it does not at the `(3.5, 3.5)` the image baselines use.
+That was measured against the alternative when the decision was taken (2026-08-17). At
+matplotlib's default figure size the tephigram's axes — a wide, short parallelogram — sits
+in a square canvas with most of the height empty. At `(8.0, 4.0)` an emphasised member reads
+immediately: the emphasis width against the ordinary isopleth is a large enough ratio to
+survive the five-family grid, which it does not at the `(3.5, 3.5)` the image baselines use.
+
+`savefig.bbox` of `"tight"` was part of the original recipe and is withdrawn (2026-08-18).
+Its rationale was measured against matplotlib's *default*, square figure size, where the same
+empty height above was what `"tight"` cropped away — and once `figure.figsize` is
+`(8.0, 4.0)` that empty height is already gone, so the setting was answering a problem the
+other one had already solved. What it costs instead was measured directly: a tephigram
+rendered at `(8.0, 4.0)` with `add_logo(ax, loc="lower right")` and
+`add_logo(fig, loc="upper left")`, saved once plain and once with `bbox_inches="tight"` — the
+figure-anchored logo is present in the first image and absent from the second, while the
+axes-anchored one survives both. `"tight"` crops the canvas to the drawn axes, and the margin
+it removes is exactly where `howtos/logo.rst`'s first section puts a logo. The trade it
+settles is a cosmetic white margin against a how-to whose picture does not show what its
+prose describes, and `plot_rcparams` stays at matplotlib's default `savefig.bbox`.
 
 Hiding the other four families was tried and rejected. It is clearer, and it costs more than
 the clarity is worth: the diagram stops being a tephigram, the snippet teaches a gesture the
@@ -291,18 +320,20 @@ them, or amend this document.
 (plots-spec-6)=
 ## 6. Companion changes
 
-Four documents state today what this one changes, and each is wrong the moment the first page
-converts:
+Four documents stated what this one changed, and each became wrong the moment the first page
+converted:
 
-- **docs spec §3.9** describes the corpus it executes as `code-block` and its near-miss set as
-  the languages around python. It gains the directive, and the "deliberately out of scope"
-  paragraph gains the pointer to §3.5 — the reasoning there stays as it is, because §3.5 does
+- **docs spec §3.9** described the corpus it executed as `code-block` and its near-miss set as
+  the languages around python. It gained the directive, and the "deliberately out of scope"
+  paragraph gained the pointer to §3.5 — the reasoning there stays as it is, because §3.5 does
   not contradict it.
-- **`docs/src/developer/docs-style.rst`**, "Code Examples", carries the authoring rule: which
-  form a page uses, and the five options of §3.2. The gate in §3.4 enforces them; the style
-  guide is where an author reads them before writing.
-- **spec §8.6** lists the documentation extensions. `plot_directive` joins the list, and the
-  sentence recording that nothing renders a figure from source stops being true.
+- **`docs/src/developer/docs-style.rst`** gained "Published Figures", between "Code
+  Examples" and "Attribute Documentation": the two page forms, the one-picture-per-point
+  cadence, the five options of §3.2, the module-state rule of §3.3, and how to re-bless a
+  changed figure. The gate in §3.4 enforces them; the style guide is where an author reads
+  them before writing.
+- **spec §8.6** lists the documentation extensions. `plot_directive` joined the list, and the
+  sentence recording that nothing rendered a figure from source stopped being true.
 - **`docs/src/developer/plans/2026-07-30-tephpy-member-emphasis.md`** is *not* corrected. Its
   "do not add a Sphinx extension as part of this work" was right when written, and a plan is a
   point-in-time record (docs spec §3.4). This document supersedes it; it does not edit it.
@@ -327,5 +358,7 @@ them does, without amendment here.
   white in it. The alternatives both cost more than the mismatch: a second render per figure
   doubles the images, the baselines and the gate's work, and a CSS inversion would invert a
   diagram whose colours carry meaning. What the reader sees is what their own `plt.show()`
-  gives them. The logo how-to's `dark_background` section publishes a genuinely dark figure,
-  which is that section's subject rather than an inconsistency.
+  gives them. The logo how-to's `dark_background` block is not a counterexample: it carries
+  `:nofigs:` and publishes no figure at all, for a reason of its own that has nothing to do
+  with dark-theme variants — the inline isopleth labels are unreadable on a dark canvas
+  today, which `howtos/logo.rst` records in prose beside the block.

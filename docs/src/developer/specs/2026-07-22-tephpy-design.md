@@ -931,6 +931,9 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
   scraped from `src/tephpy/examples`), `sphinx-design`, `sphinx-copybutton`,
   `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references), `sphinx-tags`.
+  Plus `matplotlib.sphinxext.plot_directive`, which renders a user page's own snippets as
+  figures — not from geovista, and not the gallery above: a gallery entry is a standalone
+  worked example and a how-to figure is subordinate to a paragraph (plots spec §5).
 - **Changelog:** **towncrier** news fragments in `changelog/<PR>.<type>.rst` (same type
   taxonomy as geovista), rendered live via `sphinx_changelog`; assembled into `CHANGELOG.rst`
   at release. A `ci-changelog` check enforces a fragment per PR (escape hatch: `skip-changelog`

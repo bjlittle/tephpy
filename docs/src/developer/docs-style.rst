@@ -279,6 +279,67 @@ snippet ran perfectly and whose prose was wrong, and the gate would have passed 
 Name the test in the pull request that adds the prose, so the connection is on the
 record.
 
+Published Figures
+-----------------
+
+A user page either publishes figures or it does not, and the two forms never mix.
+On a page that does, every python block is a ``.. plot::``, which renders the block
+and shows its source. Leaving one plain ``code-block:: python`` behind is the defect
+the rule exists to stop: that block runs in the snippet gate and not in the
+documentation build, so the build's namespace silently loses whatever it bound. The
+rules below are specified in plots spec §3.2 and asserted by
+``tests/test_docs_snippets.py``; the images themselves are pinned against
+``docs/baseline`` by ``.github/scripts/check_docs_figures.py`` (plots spec §3.5).
+
+One picture per point the prose makes, not one per block. A page is a session in
+which a later block supersedes an earlier one — three blocks of :ref:`howto-emphasis`
+call ``ax.isotherms(...)`` on the same axes — so a picture after every block would
+sometimes show a state the surrounding prose has stopped describing. A section making
+two distinct points publishes two: :ref:`howto-emphasis`'s "Configure It Once" section
+shows the context-manager idiom and then a diagram opting out of it, and
+:ref:`howto-logo`'s "On the Plot or Around It" section shows the axes-and-figure
+targeting and then the no-argument call that brands whichever figure is current.
+
+Each block carries its options by five rules:
+
+- The first block on the page carries ``:context: reset``. Without it the page opens
+  with whatever the previously built page left behind, and build order is not a
+  property any page controls.
+- Every later block carries ``:context:`` or ``:context: close-figs``. A block with
+  no ``:context:`` at all runs in a fresh namespace, where the page's imports never
+  happened; ``close-figs`` is what opens a section that starts its own figure. The
+  two values do not combine — the directive takes exactly one of nothing, ``reset``
+  or ``close-figs``.
+- A block whose picture would add nothing, or should not be published, carries
+  ``:nofigs:``. It still runs, so the session is unbroken and the snippet gate still
+  covers it. That is why a plain ``code-block:: python`` is not the answer for such a
+  block.
+- Every figure-producing block carries a ``:filename-prefix:``, unique across the
+  documentation. Unnamed, the image takes a per-document counter, so inserting a
+  section renumbers every image after it and every baseline with them. A name and a
+  ``:nofigs:`` on the same block is a figure declared and never built, which the
+  figure gate reports.
+- No file-argument form. ``.. plot:: script.py`` renders the figure from a file, and
+  the code a reader is invited to copy has to be on the page.
+
+Nothing a published block does may outlive it. Every block on every page executes in
+the Sphinx process, with ``sys.modules`` shared across the whole build, and
+``:context: reset`` clears the namespace the blocks run in without touching module
+state. So demonstrate configuration with :meth:`tephpy.config.context` rather than by
+assigning to ``tephpy.config``: a bare assignment applies to every axes created
+afterwards, on that page and on every page built after it. A page whose subject *is*
+global, persistent configuration publishes no figures — :ref:`configure-from-a-file`
+is that page (plots spec §3.3).
+
+When a figure is meant to change, re-bless it in the same change that caused it:
+
+.. code-block:: console
+
+    $ pixi run docs-figures
+
+Read the diff before committing. That command approves whatever was rendered,
+a regression as readily as a correction.
+
 Attribute Documentation
 -----------------------
 

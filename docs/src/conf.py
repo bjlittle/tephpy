@@ -122,17 +122,17 @@ plot_html_show_formats = False
 # One format, because the two settings above leave `hires.png` and `pdf`
 # unlinked. The trailing dpi is the figure's, matching `tests/baseline`.
 plot_formats = [("png", 100)]
-# The figure size half of the recipe in plots spec §4. A tephigram's axes is a
+# The figure size in the recipe of plots spec §4. A tephigram's axes is a
 # wide, short parallelogram, so at matplotlib's square default most of the
 # canvas is empty and an emphasised member is lost in the five-family grid.
-# Deliberately *not* `savefig.bbox: "tight"`, which plots spec §4 also names:
-# an `add_logo(fig, ...)` logo is a figure-anchored `AnnotationBbox`, outside
-# the axes it measures, and is invisible to matplotlib's tight-bbox
-# calculation -- rendering the logo how-to's figure-anchored section both
-# ways shows that logo cropped away entirely under `"tight"`, while an
-# axes-anchored logo survives. The logo how-to's first section teaches
-# exactly that figure placement, so `plot_rcparams` carries the figure size
-# only.
+# Deliberately *not* `savefig.bbox: "tight"`; plots spec §4 records why it
+# was withdrawn: an `add_logo(fig, ...)` logo is a figure-anchored
+# `AnnotationBbox`, outside the axes it measures, and is invisible to
+# matplotlib's tight-bbox calculation -- rendering the logo how-to's
+# figure-anchored section both ways shows that logo cropped away entirely
+# under `"tight"`, while an axes-anchored logo survives. The logo how-to's
+# first section teaches exactly that figure placement, so `plot_rcparams`
+# carries the figure size only.
 plot_rcparams = {"figure.figsize": (8.0, 4.0)}
 # Restores those rcParams between blocks, so a page that sets a matplotlib style
 # cannot leak it into the next page built. It covers matplotlib state only --
