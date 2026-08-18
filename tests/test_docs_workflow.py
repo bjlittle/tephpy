@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 #: Minutes the job needs for everything that is not one of the bounded steps --
-#: the checkout, the pixi environment, the documentation build and the two
+#: the checkout, the pixi environment, the documentation build and the three
 #: checkers over its output. Together they take about forty seconds in practice.
 UNBOUNDED = 6
 
@@ -322,8 +322,14 @@ def test_the_bounded_steps_fit_inside_the_job():
 #: The tasks `ci-docs` exists to run. Held by membership rather than by count
 #: or by "at least one": the failure this gate is for is a gate that stops
 #: being run, and a job that dropped `docs-check-links` would still be running
-#: three tasks, still non-empty, still passing anything looser than this.
-GATES = {"docs-html", "docs-check-citations", "docs-check-links", "docs-browser-test"}
+#: four tasks, still non-empty, still passing anything looser than this.
+GATES = {
+    "docs-html",
+    "docs-check-citations",
+    "docs-check-links",
+    "docs-check-figures",
+    "docs-browser-test",
+}
 
 
 def test_the_workflow_runs_the_documentation_gates_by_task_name():
@@ -368,8 +374,8 @@ def _unsatisfied(steps, tasks):
 
 def test_no_step_skips_a_dependency_no_earlier_step_ran():
     # `--skip-deps` is here because pixi deduplicates a shared dependency
-    # within one invocation and not across several: three steps each invoking
-    # their own task would run `docs-clean` and the Sphinx build three times
+    # within one invocation and not across several: four steps each invoking
+    # their own task would run `docs-clean` and the Sphinx build four times
     # over, once per step, since `docs-html` is a dependency of each gate.
     #
     # What the flag actually skips, though, is *every* dependency, not the one
@@ -389,7 +395,7 @@ def test_no_step_skips_a_dependency_no_earlier_step_ran():
 
 #: A task graph this workflow does not have, for the readers above to be held
 #: to on shapes it could grow into. The gates they feed are about the shapes
-#: themselves, and today's four tasks reach none of them: nothing here depends
+#: themselves, and today's five tasks reach none of them: nothing here depends
 #: on anything that touches the network, and no step chains two invocations.
 GRAPH = {
     "clean": {"cmd": "make clean"},

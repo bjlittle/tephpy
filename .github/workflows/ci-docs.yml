@@ -32,7 +32,7 @@ jobs:
       # `--skip-deps` because pixi deduplicates a shared dependency within one
       # invocation and not across several: every gate below depends on
       # `docs-html`, which depends on `docs-clean`, so without the flag these
-      # three steps would each clean and rebuild the documentation in full.
+      # four steps would each clean and rebuild the documentation in full.
       # The flag skips *every* dependency though, not just the one the step
       # above supplied, so `tests/test_docs_workflow.py` holds each use of it
       # to a dependency an earlier step has already run.
@@ -42,6 +42,8 @@ jobs:
         run: pixi run --frozen --environment docs --skip-deps docs-check-citations
       - name: Check the documentation links
         run: pixi run --frozen --environment docs --skip-deps docs-check-links
+      - name: Check the published figures
+        run: pixi run --frozen --environment docs --skip-deps docs-check-figures
       # Both of the steps below reach the network -- one downloads a browser,
       # the other loads PyScript, Pyodide and the wheels from a CDN -- so both
       # are retried. Each attempt is bounded from inside the shell rather than
