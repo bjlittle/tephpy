@@ -92,9 +92,10 @@ Six settings, each of which changes a default that is wrong here:
 | `plot_rcparams` | `{"figure.figsize": (8.0, 4.0)}` | §4 |
 | `plot_working_directory` | a scratch directory under the git-ignored build tree | Defaults to the page's own source directory, so `howtos/logo.rst`'s `fig.savefig("sounding.png", ...)` would write into the checked-out documentation tree, where the next build finds it as a source file |
 
-`plot_apply_rcparams` stays `True`, which is what restores those rcParams between blocks; a
-page that sets a matplotlib style therefore cannot leak it into the next one. It is only
-matplotlib state that this covers — see §3.3.
+`plot_apply_rcparams` is a seventh changed default: matplotlib's own default is `False`, and
+it is set `True` here, which is what restores those rcParams between blocks; a page that sets
+a matplotlib style therefore cannot leak it into the next one. It is only matplotlib state
+that this covers — see §3.3.
 
 (plots-spec-3-2)=
 ### 3.2 Page shape
@@ -332,8 +333,10 @@ converted:
   cadence, the five options of §3.2, the module-state rule of §3.3, and how to re-bless a
   changed figure. The gate in §3.4 enforces them; the style guide is where an author reads
   them before writing.
-- **spec §8.6** lists the documentation extensions. `plot_directive` joined the list, and the
-  sentence recording that nothing rendered a figure from source stopped being true.
+- **spec §8.6** lists the documentation extensions. `plot_directive` joined the list. The
+  sentence recording that nothing rendered a figure from source is §1's own, above, not
+  spec §8.6's — it is already past tense, describing what was so before this document, and it
+  stayed true.
 - **`docs/src/developer/plans/2026-07-30-tephpy-member-emphasis.md`** is *not* corrected. Its
   "do not add a Sphinx extension as part of this work" was right when written, and a plan is a
   point-in-time record (docs spec §3.4). This document supersedes it; it does not edit it.
