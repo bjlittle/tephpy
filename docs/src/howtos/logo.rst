@@ -15,7 +15,9 @@ What you call it on decides what the position is relative to, exactly as
 inside the plotting box, or the figure to place it against the figure edges —
 in the margin, clear of the diagram:
 
-.. code-block:: python
+.. plot::
+    :context: reset
+    :filename-prefix: logo-axes-and-figure
 
     import matplotlib.pyplot as plt
 
@@ -29,7 +31,9 @@ in the margin, clear of the diagram:
 Calling it with no target at all brands the current figure, which is what you
 want at an interactive prompt:
 
-.. code-block:: python
+.. plot::
+    :context:
+    :filename-prefix: logo-current-figure
 
     add_logo()
 
@@ -41,8 +45,11 @@ at 100 dpi and in a 600 dpi figure for print. The ``"small"`` and ``"large"``
 presets are per form, because the three forms give the wordmark different shares
 of their height:
 
-.. code-block:: python
+.. plot::
+    :context: close-figs
+    :filename-prefix: logo-size-and-form
 
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     add_logo(ax, form="stacked", size="large")
     add_logo(ax, form="icon", size=0.25)
 
@@ -57,24 +64,37 @@ Light and Dark
 default, ``"auto"``, reads the target's facecolor, so the right variant appears
 without being asked for on a white figure and under a dark style alike:
 
-.. code-block:: python
+.. Maintainer note, deliberately unpublished: the defect is ``LABEL_BOX_COLOR``
+   (``"white"``) at ``LABEL_BOX_ALPHA`` ``0.6`` in ``src/tephpy/_constants.py``.
+   Fixing it re-blesses every image baseline. When it is fixed the ``:nofigs:``
+   below comes off — but do not drop the directive without publishing the
+   figure, because that picture is the acceptance test for the fix.
+
+.. plot::
+    :context: close-figs
+    :nofigs:
 
     with plt.style.context("dark_background"):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
         add_logo(ax)  # draws the dark-background variant
 
-Override it when you are compositing the figure onto something else:
+**That block publishes no picture, and it is worth knowing why before you try
+it.** Rendering a tephigram under a dark matplotlib style is not yet usable:
+the inline isopleth labels sit in pale boxes chosen against a white canvas, so
+on a black one they cover the diagram they label.
+:func:`~tephpy.plotting.logo.add_logo` is correct here — the dark-background
+variant is selected and drawn, which is what the prose above claims — but the
+figure around it is not, so this page does not publish it.
 
-.. code-block:: python
+Override it when you are compositing the figure onto something else, or where
+``savefig(transparent=True)`` is in play: that call does not change any
+facecolor, it overrides alpha at draw time, so ``"auto"`` still reads white and
+picks the light variant — correct for a figure destined for a white page,
+wrong for a dark one. Say which you meant:
 
-    add_logo(ax, theme="dark")
-
-One case ``"auto"`` cannot get right: ``savefig(transparent=True)`` does not
-change any facecolor, it overrides alpha at draw time. ``"auto"`` still reads
-white and picks the light variant — correct for a figure destined for a white
-page, wrong for a dark one. Say which you meant:
-
-.. code-block:: python
+.. plot::
+    :context:
+    :nofigs:
 
     add_logo(ax, theme="dark")
     fig.savefig("sounding.png", transparent=True)
@@ -90,8 +110,11 @@ silently guessing wrong is worse than saying so.
 For a position no string names, pass an ``(x, y)`` pair in the target's fraction
 coordinates. It places the logo's lower-left corner and ignores ``pad``:
 
-.. code-block:: python
+.. plot::
+    :context: close-figs
+    :filename-prefix: logo-exact-placement
 
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     add_logo(ax, loc=(0.42, 0.05))
 
 Coordinates outside ``[0, 1]`` are allowed and put the logo outside the box,
@@ -102,8 +125,16 @@ Restyling and Removal
 
 The returned artist is yours:
 
-.. code-block:: python
+.. plot::
+    :context: close-figs
+    :filename-prefix: logo-restyled
 
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     logo = add_logo(ax, alpha=0.6)
     logo.set_zorder(0)  # behind the isopleths rather than over them
+
+.. plot::
+    :context:
+    :nofigs:
+
     logo.remove()  # changed your mind

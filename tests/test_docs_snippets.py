@@ -46,7 +46,7 @@ DOCUMENTED = ("howtos/configuration.rst", "howtos/emphasis.rst", "howtos/logo.rs
 #: sharper reason than above: every page-shape check below iterates these pages,
 #: so a converted page that stopped being recognised would not fail those checks
 #: -- it would pass all of them, having been asked nothing.
-PUBLISHES_FIGURES = ("howtos/emphasis.rst",)
+PUBLISHES_FIGURES = ("howtos/emphasis.rst", "howtos/logo.rst")
 
 #: Every directive that introduces a literal block carrying a language. The three
 #: spellings are recognised together, and the language is judged separately, so
