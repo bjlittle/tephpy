@@ -15,7 +15,9 @@ Map the member value to an empty style. The member keeps its family's colour and
 draws at 1.5 pt instead of the usual 0.5 pt — the printed-chart idiom of same
 ink, heavier line:
 
-.. code-block:: python
+.. plot::
+    :context: reset
+    :filename-prefix: emphasis-freezing-level
 
     import matplotlib.pyplot as plt
 
@@ -30,7 +32,9 @@ Colour and Dashes
 Any of ``color``, ``linewidth``, ``linestyle`` and ``alpha`` overrides that
 default, so the airframe icing band's bounds can carry their own styling:
 
-.. code-block:: python
+.. plot::
+    :context:
+    :filename-prefix: emphasis-colour-and-dashes
 
     ax.isotherms(
         emphasis={
@@ -50,7 +54,9 @@ An emphasised member is always drawn, whatever the zoom ladder would select, so
 the dendritic growth zone's −12 °C and −18 °C bounds appear even though no
 isotherm interval includes them:
 
-.. code-block:: python
+.. plot::
+    :context:
+    :filename-prefix: emphasis-off-interval
 
     ax.isotherms(
         emphasis={
@@ -71,28 +77,43 @@ Every Family, Every Tier
 The option is the same on all five families, so a mandatory pressure level is
 the same gesture:
 
-.. code-block:: python
+.. plot::
+    :context: close-figs
+    :filename-prefix: emphasis-every-family
 
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     ax.isobars(emphasis={500.0: {}})
 
 and it takes the usual precedence — the accessor keyword over
-``tephpy.config`` over the convention default. A family reads
-``tephpy.config`` when the axes is created, and re-reads it on ``ax.clear()``,
-so set the configuration before creating the diagram it should apply to:
+``tephpy.config`` over the convention default.
 
-.. code-block:: python
+Configure It Once
+-----------------
 
-    import matplotlib.pyplot as plt
+A family reads ``tephpy.config`` when the axes is created, and re-reads it on
+``ax.clear()``, so the configuration has to be in force before the diagram it
+should apply to exists. :meth:`tephpy.config.context` scopes it to exactly
+that:
 
-    import tephpy
+.. plot::
+    :context: close-figs
+    :filename-prefix: emphasis-from-config
 
-    tephpy.config.isotherms.emphasis = {0.0: {}}
-    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    with tephpy.config.context(isotherms={"emphasis": {0.0: {"color": "tab:red"}}}):
+        fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+
+Setting ``tephpy.config.isotherms.emphasis`` directly does the same thing and
+keeps doing it, for every axes created afterwards, until something puts it back.
+Reach for that where a house style is the point — a configuration file
+(:ref:`configure-from-a-file`) is the tidier home for one — and for a single
+diagram prefer the accessor keyword the sections above use.
 
 Passing an empty mapping at the accessor emphasises nothing, which is how one
 diagram opts out of a configured emphasis:
 
-.. code-block:: python
+.. plot::
+    :context:
+    :filename-prefix: emphasis-opt-out
 
     ax.isotherms(emphasis={})
 
