@@ -130,7 +130,7 @@ The returned artist is yours:
     :filename-prefix: logo-restyled
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-    logo = add_logo(ax, alpha=0.6)
+    logo = add_logo(ax, alpha=0.6, loc="upper left")
     logo.set_zorder(0)  # behind the isopleths rather than over them
 
 .. plot::
