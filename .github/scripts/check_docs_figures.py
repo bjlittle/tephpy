@@ -80,8 +80,12 @@ DECLARATION = re.compile(
     re.MULTILINE,
 )
 #: The same shape as :data:`DECLARATION`, widened rather than narrowed: any
-#: indentation character (a tab as well as a space), and a value captured
-#: whole rather than restricted to word characters, dots and dashes. What this
+#: indentation character (a tab as well as a space), a value captured whole
+#: rather than restricted to word characters, dots and dashes, and the option
+#: name read without regard to case -- docutils lowercases a directive's
+#: option names, so ``:Filename-Prefix:`` is a real declaration and not a
+#: typo. ``DECLARATION`` stays case-sensitive: widening it would make this
+#: gate *accept* the variant sight unseen rather than report it. What this
 #: still matches and :data:`DECLARATION` does not is a declaration invisible
 #: to the strict pattern -- a fail-open it alone cannot report. The sibling
 #: gate on these same pages carries a near-miss detector of its own, on the
@@ -89,7 +93,7 @@ DECLARATION = re.compile(
 CANDIDATE = re.compile(
     r"^[ \t]*\.\.[ ]+plot::.*$(?:\n^[ \t]*:[\w-]+:.*$)*?"
     r"\n^[ \t]*:filename-prefix:[ \t]*(?P<prefix>.*)$",
-    re.MULTILINE,
+    re.MULTILINE | re.IGNORECASE,
 )
 #: Where the build collects the images a page references. Sphinx puts only
 #: referenced images here, so a ``:nofigs:`` block's render never arrives and
@@ -108,8 +112,13 @@ MISSING = (
     "The page declares this figure and the build produced no such image. Sphinx "
     "collects into '_images' only what a page references, so the usual cause is "
     "a directive carrying both ':filename-prefix:' and ':nofigs:' -- it renders "
-    "an image the page never shows, under a name this gate then looks for. "
-    "Either drop the ':nofigs:' and publish the figure, or drop the name."
+    "an image the page never shows, under a name this gate then looks for. The "
+    "other cause is a block that leaves two figures open: matplotlib then "
+    "numbers them '<prefix>_00.png' and '<prefix>_01.png' instead of writing "
+    "the bare name, so the declaration goes unbuilt while both numbered images "
+    "are published and pinned by nothing. Either drop the ':nofigs:' and "
+    "publish the figure, close the surplus figure so exactly one remains, or "
+    "drop the name."
 )
 #: What to do about a baseline no page claims.
 ORPHANED = (
@@ -157,11 +166,12 @@ UNRECOGNISED = (
 MALFORMED = (
     "This looks like a ':filename-prefix:' declaration and is not read as "
     "one, which is worse than declaring nothing: the page appears to publish "
-    "the figure, and no baseline is ever compared against it. The two shapes "
-    "this misses are a value that contains whitespace, and a line indented "
-    "with a tab rather than spaces. Rewrite the value as one run of letters, "
-    "digits, dots and dashes, and indent every line of the block with spaces "
-    "only."
+    "the figure, and no baseline is ever compared against it. The three "
+    "shapes this misses are a value that contains whitespace, a line indented "
+    "with a tab rather than spaces, and an option name spelled in some other "
+    "case, such as ':Filename-Prefix:'. Rewrite the value as one run of "
+    "letters, digits, dots and dashes, indent every line of the block with "
+    "spaces only, and spell the option name in lowercase."
 )
 
 

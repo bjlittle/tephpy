@@ -341,6 +341,41 @@ def test_a_malformed_declaration_is_reported(tmp_path, monkeypatch, capsys):
 
 
 @pytest.mark.usefixtures("unlisted")
+def test_a_case_variant_option_name_is_reported(tmp_path, monkeypatch, capsys):
+    """Docutils lowercases directive option names, so this spelling is real input.
+
+    Left alone, ``:Filename-Prefix:`` is invisible to both ``DECLARATION`` and
+    the (case-sensitive) ``CANDIDATE`` alike: the figure is silently published
+    and pinned by nothing, and neither ``declarations()`` nor ``malformed()``
+    reports anything wrong. ``CANDIDATE``, widened with ``re.IGNORECASE``,
+    turns this into a reported near miss instead -- while ``DECLARATION``
+    stays case-sensitive, so the variant is reported rather than accepted.
+    """
+    text = (
+        ".. plot::\n"
+        "    :context: reset\n"
+        "    :filename-prefix: alpha\n"
+        "\n"
+        "    value = 0\n"
+        ".. plot::\n"
+        "    :context: close-figs\n"
+        "    :Filename-Prefix: probe-case\n"
+        "\n"
+        "    value = 1\n"
+    )
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": text},
+        {"alpha": "red"},
+        {"alpha": "red"},
+    )
+    code, out = run(monkeypatch, capsys, gate, tree)
+    assert code == 1
+    assert "these look like declarations and are not read" in out
+    assert "'probe-case' (howtos/guide.rst)" in out
+
+
+@pytest.mark.usefixtures("unlisted")
 def test_a_spaced_value_is_reported_by_the_gate(tmp_path, monkeypatch, capsys):
     """A value with embedded whitespace is reported end-to-end, not just refused.
 
