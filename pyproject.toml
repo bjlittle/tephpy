@@ -398,16 +398,30 @@ cmd = "python .github/scripts/check_documentation_links.py docs/_build/html"
 depends-on = ["docs-html"]
 description = "Check that every documentation link resolves in the build"
 
-# The gate of docs spec §3.7 and the documentation-link check both read the
-# build's output, and until now ran only in `ci-docs.yml`. Each script has a test
-# module of its own — `tests/test_rendered_citations.py` and
-# `tests/test_documentation_links.py` — so what `pixi run tests` and
-# `pixi run lint` could not see is not the scripts but either gate's verdict over
-# a real build, and a build that linked no citation at all exits 0. `docs`
-# therefore depends on both, and a contributor reproduces a `ci-docs` failure
-# without pushing (:issue:`91`).
+[tool.pixi.feature.docs.tasks.docs-check-figures]
+cmd = "python .github/scripts/check_docs_figures.py docs/_build/html"
+depends-on = ["docs-html"]
+description = "Check that every published figure matches its baseline"
+
+# Blesses whatever the build just rendered, which is why it is a task a
+# contributor runs deliberately and not something `docs` depends on: the diff it
+# writes into `docs/baseline` is the thing to read before committing, and a
+# regression approves just as quietly as an improvement (plots spec §3.6).
+[tool.pixi.feature.docs.tasks.docs-figures]
+cmd = "python .github/scripts/bless_docs_figures.py docs/_build/html"
+depends-on = ["docs-html"]
+description = "Re-bless the published figure baselines from the build"
+
+# The gate of docs spec §3.7, the documentation-link check and the figure gate of
+# plots spec §3.5 all read the build's output, and the first two ran only in
+# `ci-docs.yml` until :issue:`91`. Each script has a test module of its own —
+# `tests/test_rendered_citations.py`, `tests/test_documentation_links.py` and
+# `tests/test_docs_figures.py` — so what `pixi run tests` and `pixi run lint`
+# could not see is not the scripts but each gate's verdict over a real build, and
+# a build that linked no citation at all exits 0. `docs` therefore depends on all
+# three, and a contributor reproduces a `ci-docs` failure without pushing.
 [tool.pixi.feature.docs.tasks.docs]
-depends-on = ["docs-check-citations", "docs-check-links"]
+depends-on = ["docs-check-citations", "docs-check-links", "docs-check-figures"]
 description = "Build the HTML documentation and check its output"
 
 [tool.pixi.feature.docs.tasks.docs-clean]
