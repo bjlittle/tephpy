@@ -50,8 +50,8 @@ of their height:
     :filename-prefix: logo-size-and-form
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-    add_logo(ax, form="stacked", size="large")
-    add_logo(ax, form="icon", size=0.25)
+    add_logo(ax, form="stacked", size="large", loc="upper left")
+    add_logo(ax, form="icon", size=0.25, loc="lower right")
 
 Use ``form="lockup"`` — the default — where there is room for the wordmark,
 ``"stacked"`` where the space is taller than it is wide, and ``"icon"`` only
