@@ -370,4 +370,16 @@ them does, without amendment here.
   gives them. The logo how-to's `dark_background` block is not a counterexample: it carries
   `:nofigs:` and publishes no figure at all, for a reason of its own that has nothing to do
   with dark-theme variants — the inline isopleth labels are unreadable on a dark canvas
-  today, which `howtos/logo.rst` records in prose beside the block.
+  today, which `howtos/logo.rst` records in prose beside the block and the next item tracks.
+
+- **Blocked** (on the isopleth label styling — {issue}`173`) — **`howtos/logo.rst` publishes no
+  figure for its "Light and Dark" section.** That section's block carries `:nofigs:` under the
+  second limb of §3.2's third rule — a picture that *should not* be published, rather than one
+  that would add nothing. It would add a great deal, and cannot be shown: `LABEL_BOX_COLOR` and
+  `LABEL_BOX_ALPHA` style the inline isopleth labels for a white canvas, so under
+  `dark_background` they cover the diagram they label. `add_logo` is correct in that block — the
+  dark-background variant is selected and drawn, which is what the prose claims — and the figure
+  around it is not. Unblocking it is one edit to the page rather than to this document: the
+  `:nofigs:` comes off and a `:filename-prefix:` goes on, at which point §3.5's gate pins the
+  result. The maintainer comment above the directive says so, where whoever fixes the defect
+  will be standing.
