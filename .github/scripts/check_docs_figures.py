@@ -290,6 +290,48 @@ def offenders(title: str, lines: list[str], advice: str) -> bool:
     return True
 
 
+def unreadable(source: Path, figures: list[Figure]) -> bool:
+    """Report every declaration this scan failed to read.
+
+    Both commands stop here rather than act on a set of figures known to be
+    short, because nothing downstream can tell a declaration that went unread
+    from one that was renamed away. To this gate the figure's baseline is an
+    orphan, and :data:`ORPHANED` advises deleting it; to the blessing command
+    it is an orphan too, and that command deletes it. Either way the figure
+    ends up published and pinned by nothing -- the very failure the near-miss
+    detector exists to report, reached through the remedy for it.
+
+    Parameters
+    ----------
+    source : Path
+        The documentation source root holding the quadrant directories.
+    figures : list of Figure
+        Every declaration read from that root.
+
+    Returns
+    -------
+    bool
+        Whether anything was reported.
+
+    """
+    garbled = []
+    for quadrant in QUADRANTS:
+        for page in sorted((source / quadrant).rglob("*.rst")):
+            text = page.read_text(encoding="utf-8")
+            relative = page.relative_to(source).as_posix()
+            garbled.extend(f"{value!r} ({relative})" for value in malformed(text))
+    garbled.sort()
+    # The near miss is reported first because it is the cause: a page whose
+    # every declaration is malformed declares nothing, so it reports under both
+    # headings, and only this one says which character to fix.
+    failed = offenders(
+        "these look like declarations and are not read", garbled, MALFORMED
+    )
+    silent = sorted(set(PUBLISHES) - {figure.page for figure in figures})
+    failed |= offenders("these pages declare no figure", silent, UNRECOGNISED)
+    return failed
+
+
 def main() -> int:
     """Check the built figures against their baselines.
 
@@ -318,22 +360,12 @@ def main() -> int:
         print("\nSee 'Published Figures' in docs/src/developer/docs-style.rst.")
         return 1
 
-    declared_by = {figure.page for figure in figures}
-    silent = sorted(set(PUBLISHES) - declared_by)
-    if offenders("these pages declare no figure", silent, UNRECOGNISED):
+    # Every check below reads this set, so an unread declaration makes all of
+    # them judge a short one -- where a live baseline is indistinguishable from
+    # an orphan. Report that and stop, rather than add advice to delete it.
+    if unreadable(source, figures):
         print("See 'Published Figures' in docs/src/developer/docs-style.rst.")
         return 1
-
-    garbled = []
-    for quadrant in QUADRANTS:
-        for page in sorted((source / quadrant).rglob("*.rst")):
-            text = page.read_text(encoding="utf-8")
-            relative = page.relative_to(source).as_posix()
-            garbled.extend(f"{value!r} ({relative})" for value in malformed(text))
-    garbled.sort()
-    failed = offenders(
-        "these look like declarations and are not read", garbled, MALFORMED
-    )
 
     missing, unapproved, changed = [], [], []
     for figure in sorted(figures):
@@ -378,7 +410,7 @@ def main() -> int:
         path.name for path in baselines.glob(f"*{SUFFIX}") if path not in claimed
     )
 
-    failed |= offenders("these declared figures were not built", missing, MISSING)
+    failed = offenders("these declared figures were not built", missing, MISSING)
     failed |= offenders("these figures have no baseline", unapproved, UNAPPROVED)
     failed |= offenders("these figures no longer match", changed, CHANGED)
     failed |= offenders("these baselines are claimed by no page", orphaned, ORPHANED)

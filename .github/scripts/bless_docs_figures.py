@@ -19,7 +19,11 @@ committing, and commit the baselines with the change that caused them.
 
 The declarations are read through ``check_docs_figures``, not re-parsed, so the
 set blessed here is by construction the set that gate checks. A baseline no page
-declares any longer is removed, which is the same orphan the gate reports.
+declares any longer is removed, which is the same orphan the gate reports -- and
+is why the refusals that say the declarations could not be read are shared too,
+and run before a file is touched. A declaration the scan cannot read leaves a
+live baseline looking exactly like an orphan, so without them this command's
+answer to a near miss the gate has just reported would be to delete the pin.
 
 Notes
 -----
@@ -33,7 +37,7 @@ from pathlib import Path
 import shutil
 import sys
 
-from check_docs_figures import IMAGES, SUFFIX, Figure, collect
+from check_docs_figures import IMAGES, SUFFIX, Figure, collect, unreadable
 from matplotlib.image import imread
 from matplotlib.testing.compare import compare_images
 from matplotlib.testing.exceptions import ImageComparisonFailure
@@ -110,6 +114,15 @@ def main() -> int:
     figures = collect(source, root / IMAGES, baselines)
     if not figures:
         print("no page declares a figure -- nothing to bless")
+        return 1
+
+    # The sweep at the end of this function deletes every baseline no
+    # declaration claims, so a declaration the scan cannot read is a live
+    # baseline deleted -- reported as the rename it is indistinguishable from.
+    # This runs before anything is copied or removed, because it is the gate's
+    # advice for a near miss that sends a contributor here in the first place.
+    if unreadable(source, figures):
+        print("Nothing was blessed. Fix the declarations first.")
         return 1
 
     # A figure that was not built cannot be approved, and blessing the rest

@@ -318,7 +318,10 @@ Each block carries its options by five rules:
   documentation. Unnamed, the image takes a per-document counter, so inserting a
   section renumbers every image after it and every baseline with them. A name and a
   ``:nofigs:`` on the same block is a figure declared and never built, which the
-  figure gate reports.
+  figure gate reports. Spell the option in lowercase, indent it with spaces, and
+  keep the value to one run of letters, digits, dots and dashes: Sphinx accepts
+  more than that, and the gate reports anything else as a near miss rather than
+  reading it as a declaration.
 - No file-argument form. ``.. plot:: script.py`` renders the figure from a file, and
   the code a reader is invited to copy has to be on the page.
 
@@ -339,6 +342,12 @@ When a figure is meant to change, re-bless it in the same change that caused it:
 
 Read the diff before committing. That command approves whatever was rendered,
 a regression as readily as a correction.
+
+It refuses outright, without touching a file, when the gate cannot read a
+declaration — a near miss as above, or a page the gate expects to publish that has
+stopped declaring anything. Fix the declaration and run it again. The baseline that
+declaration named is a live pin, and to a scan that cannot read the declaration it
+looks exactly like the orphan of a renamed section, which this command removes.
 
 Attribute Documentation
 -----------------------

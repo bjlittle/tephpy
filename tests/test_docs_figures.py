@@ -550,6 +550,72 @@ def test_blessing_refuses_a_tree_declaring_no_figure(tmp_path, monkeypatch, caps
 
 
 @pytest.mark.usefixtures("unlisted")
+def test_blessing_refuses_a_malformed_declaration(tmp_path, monkeypatch, capsys):
+    """The remedy for a near miss must not be the thing that destroys the pin.
+
+    ``:Filename-Prefix:`` is valid to Sphinx and refused by ``DECLARATION``, so
+    the build publishes 'beta' under a name no declaration claims. The gate
+    reports the near miss and, for the orphan it also sees, sends the
+    contributor to this command -- which without this refusal ran its sweep over
+    a set it had every means to know was short, deleted the live baseline, and
+    exited 0 reporting it as 'removed', which is what a genuine rename prints.
+    """
+    text = (
+        ".. plot::\n"
+        "    :context: reset\n"
+        "    :filename-prefix: alpha\n"
+        "\n"
+        "    value = 0\n"
+        ".. plot::\n"
+        "    :context: close-figs\n"
+        "    :Filename-Prefix: beta\n"
+        "\n"
+        "    value = 1\n"
+    )
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": text},
+        {"alpha": "red", "beta": "blue"},
+        {"alpha": "red", "beta": "blue"},
+    )
+    code, out = run(monkeypatch, capsys, bless, tree)
+    assert code == 1
+    assert "these look like declarations and are not read" in out
+    assert "'beta' (howtos/guide.rst)" in out
+    assert "Nothing was blessed" in out
+    assert (tree[2] / "beta.png").is_file()
+
+
+def test_blessing_refuses_a_listed_page_that_declares_nothing(
+    tmp_path, monkeypatch, capsys
+):
+    """A page that stopped declaring is every one of its baselines, deleted.
+
+    The same hazard as `test_blessing_refuses_a_malformed_declaration` reached
+    the other way: here nothing on the page even looks like a declaration, so
+    only ``PUBLISHES`` knows the page is meant to publish. That refusal is the
+    gate's, and has to be this command's too -- 'beta' is the baseline the
+    quiet page used to claim, and the sweep would take it.
+    """
+    monkeypatch.setattr(gate, "PUBLISHES", ("howtos/quiet.rst",))
+    tree = build(
+        tmp_path,
+        {
+            "howtos/guide.rst": declare("alpha"),
+            "howtos/quiet.rst": "Prose only.\n",
+        },
+        {"alpha": "red"},
+        {"alpha": "red", "beta": "blue"},
+    )
+    code, out = run(monkeypatch, capsys, bless, tree)
+    assert code == 1
+    assert "these pages declare no figure" in out
+    assert "howtos/quiet.rst" in out
+    assert "Nothing was blessed" in out
+    assert (tree[2] / "beta.png").is_file()
+
+
+@pytest.mark.usefixtures("unlisted")
 def test_blessing_adds_updates_and_removes(tmp_path, monkeypatch, capsys):
     """One command and a diff to read, rather than a hand copy per file."""
     tree = build(
