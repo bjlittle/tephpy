@@ -1,0 +1,7 @@
+The published-figures design specification now records why the "Light and Dark"
+section of the :ref:`howto-logo` how-to guide shows no picture. Its scope section
+gains a ``Blocked`` open item citing :issue:`173`: the inline isopleth labels are
+styled for a white canvas, so a tephigram drawn under matplotlib's
+``dark_background`` style is covered by the labels that annotate it. The block
+still runs, and :func:`~tephpy.plotting.logo.add_logo` still draws the
+dark-background variant the surrounding prose describes. (:user:`claude`)
