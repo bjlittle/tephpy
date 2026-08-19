@@ -1,0 +1,15 @@
+Fixed inline isopleth labels rendering as pale blobs over the diagram under a
+dark matplotlib style (:issue:`173`). Each label's box was filled with a
+hard-coded white, a bet that the canvas is white, so under
+``plt.style.context("dark_background")`` every label masked the lines it was
+labelling instead of dimming them, and the tephigram became unreadable. The box
+now takes its colour from the canvas it sits on — the figure and axes
+facecolors alpha-composited over an assumed white page, which is the same
+reading :func:`~tephpy.plotting.logo.add_logo` already thresholds to choose a
+light or dark brand master, now shared so the two cannot disagree about what
+colour the background is. The colour is resolved on every draw rather than once
+where the label is created, because labels are pooled and outlive the
+background: a diagram restyled after its first draw would otherwise keep the
+colour the canvas used to be. There is no new option to set — the box tracks
+the canvas and is not configurable — and no rendering changes on a default
+white canvas, where the composite is still exactly white. (:user:`claude`)

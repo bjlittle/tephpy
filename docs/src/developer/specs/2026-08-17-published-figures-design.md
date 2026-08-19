@@ -375,8 +375,8 @@ them does, without amendment here.
   rendering of a figure this documentation already shows in light, which is what is rejected
   here.
 
-- **Resolved** (2026-08-19) — **`howtos/logo.rst` publishes a figure for its "Light and Dark"
-  section.** It could not while the inline isopleth labels were styled for a white canvas: a
+- **Resolved** (2026-08-19, PR {pull}`180`) — **`howtos/logo.rst` publishes a figure for its
+  "Light and Dark" section.** It could not while the inline isopleth labels were styled for a white canvas: a
   hard-coded white label box at `LABEL_BOX_ALPHA` covered the diagram it labelled under
   `dark_background`, so the block carried `:nofigs:` under the second limb of §3.2's third
   rule — a picture that *should not* be published, rather than one that would add nothing.
