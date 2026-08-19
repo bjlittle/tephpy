@@ -5,3 +5,4 @@ recursive-include requirements *.txt
 exclude src/tephpy/_version.py
 prune .github
 prune docs/src/developer/plans
+prune docs/baseline

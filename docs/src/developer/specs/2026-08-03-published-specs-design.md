@@ -591,6 +591,16 @@ contributor material whose specifications and plans quote code as illustration. 
 no python block contributes nothing to run, which is the ordinary case in the explanation
 quadrant.
 
+**A python block takes one of two directives, and the extractor knows both.** `code-block`
+(with its `code` and `sourcecode` spellings) is the plain form. `.. plot::` is the form that
+also renders its block as a figure on the page, and its body is python by definition rather
+than by a language argument — so it is matched by a pattern of its own, and contributes its
+lines to the page's script exactly as a `code-block:: python` body does. The page shape that
+directive brings with it — one form per page, the session options each block carries, the
+name every published figure declares — is plots spec §3.2, and is asserted in this gate
+rather than in the style guide because this is the gate that already reads every user page
+as text.
+
 **A page is a session, not a catalogue.** The second block of the `add_logo` how-to is
 `add_logo()` with no argument, which brands the figure the first block bound; executed
 alone it has nothing to brand. Running the blocks of a page as one script is therefore not
@@ -632,7 +642,8 @@ copy, which cannot run, is a defect in the page rather than a case for the gate 
 accommodate. An exemption with no reason attached is the form that cancels a rule quietly,
 because the cheapest way to make a failing snippet pass is to reach for it; if one is ever
 genuinely needed, the block that needs it will say what the reason is, which is not
-knowable now.
+knowable now. `:nofigs:` is not that exemption and does not become one: it suppresses the
+*picture*, and the block it sits on runs here like any other.
 
 **Refusing its own empty input.** A gate that derives its corpus can be made to check
 nothing by an edit that has nothing to do with it — a renamed quadrant directory, or a
@@ -702,11 +713,19 @@ are anonymous and positional, so a baseline could only be keyed on figure order 
 break when an author inserts a snippet. What a how-to's figures should look like is already
 pinned by `tests/plotting/test_images.py`, against the APIs the pages call.
 
+Those three reasons are each a statement about where *this* gate runs, and none of them
+rules out a comparison somewhere else. Plots spec §3.5 is that somewhere else: a
+documentation-side gate over the images a build published, in the one environment that
+builds them, keyed on the name each figure declares. It takes nothing from this section —
+this gate gains no baselines — and the sentence above stays the reason it is narrow.
+`tests/plotting/test_images.py` pins the constructions, in the test matrix, on every
+supported Python; plots spec §3.5 pins the artifacts, once, where they are built.
+
 What the terminating draw validates is each figure's *final* state, because there is one
-draw and it is at the end. Where a later block replaces an earlier one's artists — two
-blocks of `emphasis.rst` call `ax.isotherms(...)` on the same axes, and the second supersedes
-the first — the superseded artists are never drawn, and an undrawable value in the block that
-made them raises nothing. Measured: `"color": "notacolour"` in the later block fails that
+draw and it is at the end. Where a later block replaces an earlier one's artists — three
+blocks of `emphasis.rst` call `ax.isotherms(...)` on the same axes, and each supersedes the
+one before it — the superseded artists are never drawn, and an undrawable value in the block
+that made them raises nothing. Measured: `"color": "notacolour"` in the later block fails that
 page, and the same mutation in the earlier one passes. Drawing after every block would close
 it, and would cost the property that makes a failure readable: the draw would have to be
 interleaved into the script at the line numbers the page's own prose occupies, so a

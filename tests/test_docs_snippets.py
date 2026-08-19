@@ -42,6 +42,12 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 #: stops recognising a directive, instead of every page passing by not being found.
 DOCUMENTED = ("howtos/configuration.rst", "howtos/emphasis.rst", "howtos/logo.rst")
 
+#: The pages that publish figures (plots spec §3.2). Membership again, and for a
+#: sharper reason than above: every page-shape check below iterates these pages,
+#: so a converted page that stopped being recognised would not fail those checks
+#: -- it would pass all of them, having been asked nothing.
+PUBLISHES_FIGURES = ("howtos/emphasis.rst", "howtos/logo.rst")
+
 #: Every directive that introduces a literal block carrying a language. The three
 #: spellings are recognised together, and the language is judged separately, so
 #: that rewriting ``code-block`` as ``code`` cannot quietly empty the corpus.
@@ -50,9 +56,23 @@ DIRECTIVE = re.compile(
     r"(?P<language>\S*)[ ]*$"
 )
 
+#: The directive that publishes a figure (plots spec §3.1). It is deliberately not
+#: folded into :data:`DIRECTIVE`: that pattern reads a directive's argument as a
+#: language, and ``.. plot::`` either takes none or takes a filename, so folding it
+#: in would classify an unnamed plot as naming no language -- which
+#: :func:`test_no_block_hides_the_language_this_gate_runs` reports -- and would read
+#: ``script.py`` as a language nobody executes (plots spec §3.4). Its body is python
+#: by definition, so it needs no language to be judged from.
+PLOT = re.compile(r"^(?P<indent>[ ]*)\.\.[ ]+plot::[ ]*(?P<argument>\S*)[ ]*$")
+
 #: A directive option -- ``:linenos:``, ``:caption: …`` -- which sits between the
 #: directive and its body and is not part of the code.
 OPTION = re.compile(r"^[ ]*:[\w-]+:")
+
+#: A directive option with its value, for the options a ``.. plot::`` is judged by
+#: (plots spec §3.2). The value is optional: ``:nofigs:`` is a flag and
+#: ``:context: reset`` is not.
+OPTION_VALUE = re.compile(r"^[ ]*:(?P<name>[\w-]+):[ ]*(?P<value>.*?)[ ]*$")
 
 #: The language this gate executes, compared case-insensitively.
 PYTHON = "python"
@@ -110,10 +130,11 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
     index = 0
     while index < len(lines):
         directive = DIRECTIVE.match(lines[index])
-        if directive is None:
+        plot = PLOT.match(lines[index]) if directive is None else None
+        if directive is None and plot is None:
             index += 1
             continue
-        opening = len(directive["indent"])
+        opening = len((directive or plot)["indent"])
         cursor = index + 1
         if (
             cursor < len(lines)
@@ -156,7 +177,7 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
         found.append(
             (
                 start + 1,
-                directive["language"],
+                directive["language"] if directive else PYTHON,
                 [line[body:] for line in lines[start:end]],
             )
         )
@@ -303,6 +324,50 @@ def python_blocks(text: str) -> list[tuple[int, list[str]]]:
         for line, language, code in literal_blocks(text)
         if language.lower() == PYTHON
     ]
+
+
+def plot_directives(text: str) -> list[tuple[int, str, dict[str, str]]]:
+    """Every ``.. plot::`` on a page, with its argument and its options.
+
+    Separate from :func:`literal_blocks`, which reports what to *run*: the page
+    shape of plots spec §3.2 is judged from what a directive declares, including
+    a directive that renders no figure and one given a filename instead of a
+    body, neither of which contributes a line of code.
+
+    Parameters
+    ----------
+    text : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    list of tuple
+        ``(line, argument, options)`` per directive, in document order, ``line``
+        1-based and naming the directive itself. ``argument`` is the empty string
+        for the body form. ``options`` maps each option to its value, which is the
+        empty string for a flag such as ``:nofigs:``.
+
+    """
+    lines = text.splitlines()
+    # A ``.. plot::`` written *inside* another block's body is that block's
+    # content -- the style guide quotes the directive it documents -- and is not
+    # a directive this page declares.
+    inside = block_lines(text)
+    found: list[tuple[int, str, dict[str, str]]] = []
+    for index, line in enumerate(lines):
+        plot = PLOT.match(line)
+        if plot is None or index + 1 in inside:
+            continue
+        options: dict[str, str] = {}
+        cursor = index + 1
+        while cursor < len(lines) and lines[cursor].strip():
+            option = OPTION_VALUE.match(lines[cursor])
+            if option is None:
+                break
+            options[option["name"]] = option["value"]
+            cursor += 1
+        found.append((index + 1, plot["argument"], options))
+    return found
 
 
 def page_script(text: str) -> str | None:
@@ -723,4 +788,157 @@ def test_no_block_hides_the_language_this_gate_runs():
         "the page, whether it is a directive that names none or a paragraph "
         "ending in `::`, and a paragraph opening `>>>` is a console session "
         "whatever the page says; write them all as `python` (docs spec §3.9)"
+    )
+
+
+def figure_pages() -> list[Path]:
+    """Select the user pages that publish figures.
+
+    Returns
+    -------
+    list of Path
+        The pages carrying at least one ``.. plot::`` (plots spec §3.2).
+
+    """
+    return [
+        page
+        for page in user_pages()
+        if plot_directives(page.read_text(encoding="utf-8"))
+    ]
+
+
+def test_the_figure_pages_are_recognised():
+    """Every check below iterates these pages; unrecognised, they are unasked."""
+    found = {identify(page) for page in figure_pages()}
+    assert set(PUBLISHES_FIGURES) <= found, (
+        "these pages publish figures and yielded no `.. plot::`: "
+        f"{sorted(set(PUBLISHES_FIGURES) - found)}. Every page-shape check in "
+        "this module would pass them in silence (plots spec §3.2)"
+    )
+
+
+def test_a_page_publishes_figures_or_it_does_not():
+    """The two block forms never mix on one page (plots spec §3.2)."""
+    offenders: list[tuple[str, int]] = []
+    for page in figure_pages():
+        text = page.read_text(encoding="utf-8")
+        inside = block_lines(text)
+        offenders.extend(
+            (identify(page), number)
+            for number, line in enumerate(text.splitlines(), start=1)
+            if number not in inside
+            and (match := DIRECTIVE.match(line)) is not None
+            and match["language"].lower() == PYTHON
+        )
+    assert offenders == [], (
+        "these pages publish figures and still carry a plain python block: "
+        f"{offenders}. Such a block runs in this gate and not in the "
+        "documentation build, so the build's namespace silently loses whatever "
+        "it bound; give it `.. plot::` with `:nofigs:` if its picture would add "
+        "nothing (plots spec §3.2)"
+    )
+
+
+def test_the_first_plot_on_a_page_resets_the_context():
+    """A page that opens without `reset` inherits the page built before it."""
+    offenders: list[tuple[str, int, str]] = []
+    for page in figure_pages():
+        line, _, options = plot_directives(page.read_text(encoding="utf-8"))[0]
+        if options.get("context") != "reset":
+            offenders.append((identify(page), line, options.get("context", "")))
+    assert offenders == [], (
+        "these pages open with a plot that does not carry `:context: reset`: "
+        f"{offenders}. Build order is not a property any page controls, so a "
+        "page that builds only because of its neighbour breaks the moment "
+        "someone rebuilds one file (plots spec §3.2)"
+    )
+
+
+def test_every_later_plot_continues_the_session():
+    """A block with no `:context:` runs in a fresh namespace (plots spec §3.2)."""
+    offenders: list[tuple[str, int]] = []
+    for page in figure_pages():
+        for line, _, options in plot_directives(page.read_text(encoding="utf-8"))[1:]:
+            if options.get("context", None) not in ("", "close-figs"):
+                offenders.append((identify(page), line))
+    assert offenders == [], (
+        "these plots neither continue the page's session nor open a figure of "
+        f"their own: {offenders}. Each must carry `:context:` or `:context: "
+        "close-figs` -- `reset` belongs to the first block alone, and a block "
+        "with no `:context:` at all runs in a namespace where the page's "
+        "imports never happened (plots spec §3.2)"
+    )
+
+
+def test_every_published_figure_is_named():
+    """An unnamed image takes a counter, which renumbers on an insertion."""
+    offenders: list[tuple[str, int]] = []
+    for page in figure_pages():
+        for line, _, options in plot_directives(page.read_text(encoding="utf-8")):
+            if "nofigs" not in options and "filename-prefix" not in options:
+                offenders.append((identify(page), line))
+    assert offenders == [], (
+        "these plots publish a figure under a per-document counter: "
+        f"{offenders}. Inserting a section renumbers every image after it, and "
+        "every baseline with it; give each one a `:filename-prefix:` "
+        "(plots spec §3.2)"
+    )
+
+
+def test_a_suppressed_figure_is_not_also_named():
+    """A name the build never produces is a baseline that can never match."""
+    offenders: list[tuple[str, int]] = []
+    for page in figure_pages():
+        for line, _, options in plot_directives(page.read_text(encoding="utf-8")):
+            if "nofigs" in options and "filename-prefix" in options:
+                offenders.append((identify(page), line))
+    assert offenders == [], (
+        "these plots carry both `:nofigs:` and `:filename-prefix:`: "
+        f"{offenders}. The name is a declaration that the figure gate then "
+        "looks for, and Sphinx collects only the images a page references, so "
+        "the pair can only ever fail as declared-but-not-built "
+        "(plots spec §3.5)"
+    )
+
+
+def test_a_figure_name_is_unique_across_the_documentation():
+    """Two sections sharing a prefix share one image, and one baseline."""
+    seen: dict[str, tuple[str, int]] = {}
+    collisions: list[tuple[str, str, str]] = []
+    for page in figure_pages():
+        for line, _, options in plot_directives(page.read_text(encoding="utf-8")):
+            prefix = options.get("filename-prefix")
+            if prefix is None:
+                continue
+            if prefix in seen:
+                collisions.append(
+                    (
+                        prefix,
+                        f"{seen[prefix][0]}:{seen[prefix][1]}",
+                        f"{identify(page)}:{line}",
+                    )
+                )
+            seen[prefix] = (identify(page), line)
+    assert collisions == [], (
+        f"these figure names are declared more than once: {collisions}. "
+        "The images land in one flat directory, so a shared name is one image "
+        "published under both sections (plots spec §3.2)"
+    )
+
+
+def test_no_plot_renders_from_a_file():
+    """`.. plot:: script.py` puts the code a reader copies off the page."""
+    offenders: list[tuple[str, int, str]] = []
+    for page in figure_pages():
+        offenders.extend(
+            (identify(page), line, argument)
+            for line, argument, _ in plot_directives(page.read_text(encoding="utf-8"))
+            if argument
+        )
+    assert offenders == [], (
+        "these plots render from a file rather than from a block on the page: "
+        f"{offenders}. The page's own snippet is the figure's source -- a "
+        "figure built from a script beside the page is a second construction "
+        "that agrees with the prose until someone edits one of them "
+        "(plots spec §2)"
     )

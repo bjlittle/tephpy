@@ -25,6 +25,7 @@ version = ".".join(release.split(".")[:2])
 extensions = [
     "tephpy_citation_xrefs",
     "autoapi.extension",
+    "matplotlib.sphinxext.plot_directive",
     "myst_nb",
     "numpydoc",
     "sphinx.ext.extlinks",
@@ -109,6 +110,45 @@ sphinx_gallery_conf = {
     "examples_dirs": [],
     "gallery_dirs": [],
 }
+
+# -- plot_directive ----------------------------------------------------------
+# Renders the how-to snippets as figures (plots spec §3.1). Each setting below
+# changes a default that is wrong for a page whose subject is the picture: the
+# source is the point, so it is shown; and the source link and the format links
+# both offer a download of something already on the page.
+plot_include_source = True
+plot_html_show_source_link = False
+plot_html_show_formats = False
+# One format, because the two settings above leave `hires.png` and `pdf`
+# unlinked. The trailing dpi is the figure's, matching `tests/baseline`.
+plot_formats = [("png", 100)]
+# The figure size in the recipe of plots spec §4. A tephigram's axes is a
+# wide, short parallelogram, so at matplotlib's square default most of the
+# canvas is empty and an emphasised member is lost in the five-family grid.
+# Deliberately *not* `savefig.bbox: "tight"`; plots spec §4 records why it
+# was withdrawn: an `add_logo(fig, ...)` logo is a figure-anchored
+# `AnnotationBbox`, outside the axes it measures, and is invisible to
+# matplotlib's tight-bbox calculation -- rendering the logo how-to's
+# figure-anchored section both ways shows that logo cropped away entirely
+# under `"tight"`, while an axes-anchored logo survives. The logo how-to's
+# first section teaches exactly that figure placement, so `plot_rcparams`
+# carries the figure size only.
+plot_rcparams = {"figure.figsize": (8.0, 4.0)}
+# Restores those rcParams between blocks, so a page that sets a matplotlib style
+# cannot leak it into the next page built. It covers matplotlib state only --
+# `tephpy.config` is module state and survives it, which is why a published block
+# may not leave it mutated (plots spec §3.3).
+plot_apply_rcparams = True
+# Without this the directive runs each block from the *page's own source
+# directory*, so a snippet that writes a file -- `fig.savefig("sounding.png")`,
+# say -- writes into the checked-out documentation tree, where the next build
+# then finds it. Redirect the writes to a scratch directory under the
+# git-ignored build tree instead. It is also prepended to `sys.path`; keeping
+# it empty of modules is why it is a dedicated directory rather than `_build`
+# itself.
+_plot_scratch = Path(__file__).parent.parent / "_build" / "plot-scratch"
+_plot_scratch.mkdir(parents=True, exist_ok=True)
+plot_working_directory = str(_plot_scratch)
 
 # -- myst-nb -----------------------------------------------------------------
 nb_execution_mode = "off"

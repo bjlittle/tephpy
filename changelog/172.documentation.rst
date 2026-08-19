@@ -1,0 +1,7 @@
+The :ref:`howto-emphasis` and :ref:`howto-logo` how-to guides now show the
+figures their snippets produce, rendered from those snippets by the
+documentation build rather than described in prose. Every python block on a
+page that publishes figures is a ``.. plot::``, so the block a reader is
+invited to copy is the one that drew the picture above it. The rules a page
+follows to do that are written down in the "Published Figures" section of the
+documentation style guide. (:user:`claude`)
