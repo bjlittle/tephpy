@@ -809,8 +809,13 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests():
     prose = (
         REPO / "docs" / "src" / "developer" / "specs"
     ) / "2026-08-13-dependency-floors-design.md"
+    # `[\w-]` rather than `\w`: `_spelled` reads a hyphenated number and says so,
+    # but this could not hand it one -- `\w` stops at the hyphen, so `twenty-one`
+    # arrived as `one` and the gate reported the count as off by twenty. Every
+    # number the suite had reached until it crossed twenty was a single word, so
+    # the finder was narrower than the reader for as long as nothing tested it.
     (quoted,) = re.findall(
-        r"(\w+) of the `test` tier's tests guard on a repository",
+        r"([\w-]+) of the `test` tier's tests guard on a repository",
         prose.read_text(encoding="utf-8"),
     )
     assert _spelled(quoted) == collected

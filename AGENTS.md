@@ -4,7 +4,7 @@
 (T–ln θ math + Matplotlib projection) ← `plotting` ← (`calc`, `sounding`,
 `io`). Thermodynamics is delegated to MetPy; units are pint quantities.
 
-- Environments and tasks: pixi (`pixi run tests`, `pixi run lint`, `pixi run docs`).
+- Environments and tasks: pixi (`pixi run tests`, `pixi run lint`, `pixi run docs`; `pixi run docs-all` adds the browser demo, which needs a Chromium installed by hand).
 - The tests tree mirrors the `src/tephpy` package layout (`tests/plotting/` ↔ `tephpy.plotting`; see `tests/AGENTS.md`).
 - Every source file carries the BSD copyright header (ruff `CPY001`).
 - Every PR adds a `changelog/<PR>.<type>.rst` fragment, ending with ``(:user:`<github-username>`)`` attribution.

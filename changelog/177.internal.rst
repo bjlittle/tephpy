@@ -1,0 +1,11 @@
+``pixi run docs-all`` is a new task running every gate the documentation job
+runs: the three that read the HTML it just built, and the browser demo that
+drives the built page in Chromium, which until now ran only in CI — so a change
+breaking that demo failed after pushing rather than locally (:issue:`171`).
+``pixi run docs`` stays the fast check the contributing guide and the pull
+request template name, and the browser demo is the only gate it leaves out,
+because no environment here carries the Chromium it drives. Where that browser
+will not start, ``check_browser_demo.py`` now names the command that installs
+what is missing instead of reporting a page of browser log. A test holds both
+tasks to the job: what they run between them is what it runs, and the browser
+demo is the whole of the difference. (:user:`claude`)
