@@ -424,6 +424,22 @@ description = "Re-bless the published figure baselines from the build"
 depends-on = ["docs-check-citations", "docs-check-links", "docs-check-figures"]
 description = "Build the HTML documentation and check its output"
 
+# The fourth gate `ci-docs.yml` runs, and the one `docs` above leaves out on
+# purpose. `docs-browser-test` needs a Chromium this environment does not
+# provide: pixi installs Playwright, not the browser it drives, and not the
+# system libraries that browser links against -- so where either is missing it
+# fails in a page of browser log, and a contributor correcting a docstring is
+# who would meet it. It is also the slowest gate, the only one reaching the
+# network, and the one `ci-docs.yml` has to retry (:pull:`165`). So `docs` stays
+# the fast check `CONTRIBUTING.md` and the pull-request template name, and this
+# is the whole set. Which leaves the set written out by hand in two places, so
+# `tests/test_docs_workflow.py` holds them to each other: what this task runs is
+# what the job runs, and the browser demo is the only thing `docs` omits
+# (:issue:`171`).
+[tool.pixi.feature.docs.tasks.docs-all]
+depends-on = ["docs", "docs-browser-test"]
+description = "Build the HTML documentation and run every gate ci-docs runs"
+
 [tool.pixi.feature.docs.tasks.docs-clean]
 cmd = "make clean"
 cwd = "docs"

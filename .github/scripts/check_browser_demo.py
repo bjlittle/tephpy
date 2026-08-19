@@ -11,9 +11,17 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from playwright.sync_api import ConsoleMessage, Error, Frame, Page, sync_playwright
+# Deferred rather than imported here, so that importing this module needs only
+# the standard library. Playwright belongs to the `docs` feature and is absent
+# from the `test` environments `ci-tests` runs, where a module-scope import
+# would make every test below a test that skips -- passing, in CI, without ever
+# reading a line of this file. `main()` imports what it runs, under the one
+# `PLC0415` this module allows itself; every name here is an annotation, which
+# `from __future__ import annotations` has already made a string.
+if TYPE_CHECKING:
+    from playwright.sync_api import ConsoleMessage, Error, Frame, Page
 
 REPOSITORY = Path(__file__).parents[2]
 HTML = REPOSITORY / "docs" / "_build" / "html"
@@ -279,8 +287,50 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
     assert frame.locator("#data-panel").inner_text() == good_table
 
 
+#: How a Chromium launch fails when something it needs was never installed, what
+#: installs it, and what that leaves out. The first wording is Playwright's own,
+#: for a browser it never downloaded, and it comes with a box naming the command;
+#: the second is the dynamic linker's, for a browser downloaded and unable to
+#: start, and it comes with nothing -- forty lines into a browser log. The second
+#: is the likelier of the two to be met here, because `playwright install` is a
+#: step a contributor may well have run and the system libraries are not
+#: something any of this project's environments carries.
+MISSING = (
+    (
+        ("executable doesn't exist", "playwright install"),
+        "playwright install chromium",
+        "downloads the pinned browser",
+    ),
+    (
+        ("error while loading shared libraries", "cannot open shared object file"),
+        "playwright install --with-deps chromium",
+        "adds the system libraries it links against, as root",
+    ),
+)
+
+
+def _launch_advice(reported: str) -> list[str]:
+    """Return the commands that would fix this launch failure, as advice lines.
+
+    Every command comes back when the failure matches none of them. A wording
+    this does not recognise is not one it can rule anything out from, and naming
+    a command that turns out to have been unnecessary costs the few seconds it
+    takes to find that out; naming none costs the page of browser log that this
+    exists to put a sentence in front of.
+    """
+    reported = reported.lower()
+    matched = [
+        f"{command}  ({why})"
+        for markers, command, why in MISSING
+        if any(marker in reported for marker in markers)
+    ]
+    return matched or [f"{command}  ({why})" for _markers, command, why in MISSING]
+
+
 def main() -> None:
     """Serve the documentation and run the Chromium browser smoke test."""
+    from playwright.sync_api import Error, sync_playwright  # noqa: PLC0415
+
     if not (HTML / "tutorials" / "browser-demo.html").is_file():
         msg = f"built tutorial not found under {HTML}; build the documentation first"
         raise FileNotFoundError(msg)
@@ -295,7 +345,16 @@ def main() -> None:
     errors: list[str] = []
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch()
+            try:
+                browser = playwright.chromium.launch()
+            except Error as exc:
+                advice = "\n  ".join(_launch_advice(str(exc)))
+                msg = (
+                    "Chromium would not start. This check drives the built demo "
+                    "in a browser the documentation environment installs "
+                    f"Playwright for but does not carry; run:\n  {advice}\n\n{exc}"
+                )
+                raise RuntimeError(msg) from exc
             page = browser.new_page()
             page.on("console", partial(_record_console, errors))
             page.on("pageerror", partial(_record_page_error, errors))

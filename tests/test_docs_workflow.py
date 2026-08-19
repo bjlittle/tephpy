@@ -3,15 +3,23 @@
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
 
-"""Tests for the budgets `ci-docs` gives its network-reaching steps."""
+"""Tests for what `ci-docs` runs, and the budgets it gives its network steps.
+
+The gates the job runs are named by their pixi task rather than spelled out
+(:issue:`120`), so what the job checks and what a contributor checks locally are
+the same set written twice -- once in the workflow and once in the `docs` task
+table. Both directions are held here.
+"""
 
 from __future__ import annotations
 
 import ast
+import importlib.util
 from itertools import pairwise
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tomllib
 from typing import NamedTuple
 
@@ -20,7 +28,8 @@ import yaml
 
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-docs.yml"
-SCRIPT = REPO / ".github" / "scripts" / "check_browser_demo.py"
+SCRIPTS = REPO / ".github" / "scripts"
+SCRIPT = SCRIPTS / "check_browser_demo.py"
 SPEC = REPO / "docs" / "src" / "developer" / "specs" / "2026-07-22-tephpy-design.md"
 
 # `MANIFEST.in` prunes `.github`, so an sdist ships these tests without either
@@ -31,6 +40,24 @@ pytestmark = pytest.mark.skipif(
     not WORKFLOW.is_file() or not SCRIPT.is_file(),
     reason="not a checkout of the repository",
 )
+
+
+def _load(path: Path):
+    """Import a script by path; ``.github`` is not an importable package."""
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: The demo script, imported rather than only parsed. It reaches Playwright from
+#: inside `main()` precisely so that this import needs nothing the `test`
+#: environments lack -- they carry no `docs` feature, and a module-scope import
+#: of Playwright would turn everything below that reads this into a skip.
+demo = _load(SCRIPT) if SCRIPT.is_file() else None
 
 #: Minutes the job needs for everything that is not one of the bounded steps --
 #: the checkout, the pixi environment, the documentation build and the three
@@ -160,6 +187,22 @@ def _closure(names, tasks):
         reached.add(name)
         pending.extend(tasks.get(name, {}).get("depends-on", []))
     return reached
+
+
+def _runs(names, tasks):
+    """Return every task with a command of its own that running these ones runs.
+
+    An aggregate carries no command -- it exists to name others -- so counting
+    it would put a task on one side of a comparison that can never appear on the
+    other: `ci-docs` names the gates, never the aggregate a contributor runs, and
+    a contributor runs the aggregate, never the four gates by hand. What both
+    sides can be held to is the set of commands each reaches.
+
+    A name behind which there is no task at all reaches nothing, for the same
+    reason and by the same test: `depends-on` pointing at something that does not
+    exist runs no command, and pixi is where that is reported.
+    """
+    return {name for name in _closure(names, tasks) if "cmd" in tasks.get(name, {})}
 
 
 def _steps():
@@ -348,6 +391,36 @@ def test_the_workflow_runs_the_documentation_gates_by_task_name():
     assert named == GATES
 
 
+#: The local aggregates: the one `CONTRIBUTING.md` and the pull-request template
+#: name, and the one that adds the gate it leaves out.
+FAST = "docs"
+FULL = "docs-all"
+
+#: What `FAST` is allowed not to run. Written down rather than derived, because
+#: the split is a decision and not an accident: the browser demo needs a Chromium
+#: no environment here installs, so holding it out keeps a docstring fix from
+#: failing in a page of browser log (:issue:`171`). Derive this from the manifest
+#: and every later omission looks like the intended one.
+EXEMPT = {"docs-browser-test"}
+
+
+def test_the_local_aggregates_run_every_gate_the_workflow_runs():
+    # The other half of the test above. That one keeps the workflow naming the
+    # tasks; this one keeps the tasks covering the workflow -- and the set is
+    # still written out by hand in the manifest, so a gate added to `ci-docs`
+    # and to no aggregate is a gate no contributor can run before pushing.
+    #
+    # The total alone would not say it. `docs` is the aggregate people actually
+    # run, and a gate moved out of it into `docs-all` leaves the total intact
+    # while quietly making that gate CI-only, which is the arrangement this
+    # issue was filed about. So the split is asserted too, in both directions:
+    # what the fast check omits, and that it omits nothing else.
+    tasks = _tasks()
+    assert _runs([FULL], tasks) == _runs(GATES, tasks)
+    assert _runs(GATES, tasks) - _runs([FAST], tasks) == EXEMPT
+    assert not _runs([FAST], tasks) - _runs(GATES, tasks)
+
+
 def _unsatisfied(steps, tasks):
     """Return each skipped dependency no earlier step ran, as step, task, missing.
 
@@ -402,6 +475,9 @@ GRAPH = {
     "fetch": {"cmd": "playwright install chromium"},
     "html": {"cmd": "make html", "depends-on": ["clean", "fetch"]},
     "check": {"cmd": "python check_links.py", "depends-on": ["html"]},
+    # An aggregate, carrying no command of its own. The manifest has two and the
+    # workflow names neither, which is the asymmetry `_runs` exists to flatten.
+    "all": {"depends-on": ["check", "fetch"]},
 }
 
 
@@ -424,6 +500,28 @@ GRAPH = {
 )
 def test_the_command_reader_follows_what_a_task_depends_on(script, reached):
     assert _commands(script, GRAPH)[1:] == reached
+
+
+@pytest.mark.parametrize(
+    ("names", "runs"),
+    [
+        # An aggregate contributes its closure and not itself. Counting itself
+        # would make the comparison above unequal by construction: the workflow
+        # names gates, never an aggregate, so no aggregate can appear on both
+        # sides and the gate would fail on every manifest including a correct one.
+        (["all"], {"clean", "fetch", "html", "check"}),
+        # Nothing to drop, so this is the plain closure.
+        (["html"], {"clean", "fetch", "html"}),
+        # A `depends-on` pointing at no task runs no command. `_closure` returns
+        # the name regardless, so that the gate reading it can report what it
+        # could not resolve; here it has to vanish, or a typo would be counted
+        # as a gate that runs -- covering, in the comparison above, for the gate
+        # it was a typo of.
+        (["absent"], set()),
+    ],
+)
+def test_only_tasks_with_a_command_of_their_own_are_counted(names, runs):
+    assert _runs(names, GRAPH) == runs
 
 
 @pytest.mark.parametrize(
@@ -592,6 +690,50 @@ def test_the_demo_s_waits_fit_inside_one_of_its_attempts():
         f"{waits} waits of {milliseconds / 1000:.0f}s exceed the {attempt}s "
         "an attempt is given"
     )
+
+
+@pytest.mark.parametrize(
+    ("reported", "commands"),
+    [
+        # Playwright's own wording, for a browser it never downloaded. It already
+        # arrives in a box naming the command, so what this row is really for is
+        # keeping the other advice *off* it: sending someone to `apt-get` as root
+        # for a missing download is worse than saying nothing.
+        (
+            "BrowserType.launch: Executable doesn't exist at /ms-playwright/chrome",
+            ["playwright install chromium"],
+        ),
+        # The dynamic linker's, for a browser downloaded and unable to start.
+        # This is what `pixi install` and `playwright install chromium` between
+        # them still leave on a machine without the system libraries -- verified
+        # against this repository's own sandbox, where it is the actual failure.
+        # Nothing in it names Playwright, and it arrives some forty lines into a
+        # browser log, which is the whole reason for translating it.
+        (
+            (
+                "chrome-headless-shell: error while loading shared libraries: "
+                "libnspr4.so: cannot open shared object file: No such file"
+            ),
+            ["playwright install --with-deps chromium"],
+        ),
+        # Recognised as neither, so both come back rather than nothing. A
+        # wording this does not know is not one it can rule anything out from.
+        (
+            "BrowserType.launch: Target page, context or browser has been closed",
+            ["playwright install chromium", "playwright install --with-deps chromium"],
+        ),
+    ],
+)
+def test_the_demo_names_what_to_install_when_chromium_will_not_start(
+    reported, commands
+):
+    # `docs-browser-test` is the one gate `pixi run docs` leaves out, so the
+    # contributor who meets this failure is one who went looking for the full
+    # set on purpose (:issue:`171`). Handing them a browser log for an answer is
+    # what would send them back to CI to find out what they were missing.
+    advice = demo._launch_advice(reported)
+    for line, command in zip(advice, commands, strict=True):
+        assert line.startswith(f"{command}  (")
 
 
 @pytest.mark.parametrize(
