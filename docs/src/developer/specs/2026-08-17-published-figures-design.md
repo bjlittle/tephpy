@@ -116,9 +116,12 @@ by these rules:
    `close-figs`, so the page's first block resets and its sections close figures.
 3. **A block whose picture would add nothing, or should not be published, carries
    `:nofigs:`.** It still runs, so the chain is unbroken. This is the reason plain
-   `code-block:: python` is not the answer for such a block — the logo how-to's
-   `dark_background` block is the second case: its picture would add plenty, and it is
-   suppressed because the figure around it is defective, not because it teaches nothing.
+   `code-block:: python` is not the answer for such a block. Both of the logo how-to's
+   `:nofigs:` blocks are the first case — a `savefig` recipe and a `logo.remove()`, neither
+   of which draws anything the reader has not just seen. The second limb has no instance
+   today. It was written for that page's `dark_background` block, whose picture would have
+   added plenty and was suppressed because the figure around it was defective rather than
+   because it taught nothing; that block publishes since {issue}`173` was fixed.
 4. **Every figure-producing block carries a `:filename-prefix:`.** Unnamed, the image takes a
    per-document counter, so inserting a section renumbers every image after it and every
    baseline with them. Named, `check_output_base_name` also rejects a collision project-wide.
@@ -367,19 +370,17 @@ them does, without amendment here.
   white in it. The alternatives both cost more than the mismatch: a second render per figure
   doubles the images, the baselines and the gate's work, and a CSS inversion would invert a
   diagram whose colours carry meaning. What the reader sees is what their own `plt.show()`
-  gives them. The logo how-to's `dark_background` block is not a counterexample: it carries
-  `:nofigs:` and publishes no figure at all, for a reason of its own that has nothing to do
-  with dark-theme variants — the inline isopleth labels are unreadable on a dark canvas
-  today, which `howtos/logo.rst` records in prose beside the block and the next item tracks.
+  gives them. The logo how-to's `dark_background` block is not a counterexample. It does
+  publish a dark figure, but because dark styling is that section's subject — not as a second
+  rendering of a figure this documentation already shows in light, which is what is rejected
+  here.
 
-- **Blocked** (on the isopleth label styling — {issue}`173`) — **`howtos/logo.rst` publishes no
-  figure for its "Light and Dark" section.** That section's block carries `:nofigs:` under the
-  second limb of §3.2's third rule — a picture that *should not* be published, rather than one
-  that would add nothing. It would add a great deal, and cannot be shown: `LABEL_BOX_COLOR` and
-  `LABEL_BOX_ALPHA` style the inline isopleth labels for a white canvas, so under
-  `dark_background` they cover the diagram they label. `add_logo` is correct in that block — the
-  dark-background variant is selected and drawn, which is what the prose claims — and the figure
-  around it is not. Unblocking it is one edit to the page rather than to this document: the
-  `:nofigs:` comes off and a `:filename-prefix:` goes on, at which point §3.5's gate pins the
-  result. The maintainer comment above the directive says so, where whoever fixes the defect
-  will be standing.
+- **Resolved** (2026-08-19) — **`howtos/logo.rst` publishes a figure for its "Light and Dark"
+  section.** It could not while the inline isopleth labels were styled for a white canvas: a
+  hard-coded white label box at `LABEL_BOX_ALPHA` covered the diagram it labelled under
+  `dark_background`, so the block carried `:nofigs:` under the second limb of §3.2's third
+  rule — a picture that *should not* be published, rather than one that would add nothing.
+  `add_logo` was correct in that block throughout; the figure around it was not. The box now
+  takes the colour of the canvas it sits on, the `:nofigs:` has come off in favour of a
+  `:filename-prefix:`, and §3.5's gate pins the result. Nothing in this document had to
+  change to unblock it, as the item predicted — one edit to the page did it.

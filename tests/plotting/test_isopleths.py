@@ -29,6 +29,7 @@ from tephpy._constants import (
     ISOPLETH_LINEWIDTH,
     ISOPLETH_SAMPLES,
     ISOTHERM_COLOR,
+    LABEL_BOX_ALPHA,
     MIXING_RATIO_VALUES,
     MOIST_ADIABAT_TRUNCATION,
 )
@@ -484,6 +485,100 @@ def test_a_family_that_stops_labelling_gives_up_its_pool(plain_axes, stop_labell
     stop_labelling(family)
     figure.canvas.draw()
     assert family._texts == []
+
+
+def _label_box_colors(family):
+    """Return the ``(red, green, blue, alpha)`` of every drawn label's box."""
+    return [
+        mcolors.to_rgba(text.get_bbox_patch().get_facecolor())
+        for text in family._texts
+        if text.get_text()
+    ]
+
+
+def _drawn_family(axes, name="isobars"):
+    """Add a family to `axes` and draw it once."""
+    family = _make_family(name)
+    axes.add_artist(family)
+    axes.figure.canvas.draw()
+    return family
+
+
+def test_label_box_matches_a_white_canvas(plain_axes):
+    """The default canvas keeps the white box the diagram has always drawn.
+
+    This is the no-change half of the pair below: every published figure and
+    image baseline is rendered on a white canvas, and reading the canvas
+    rather than assuming it must leave them all untouched (spec §3.2).
+    """
+    family = _drawn_family(plain_axes)
+    boxes = _label_box_colors(family)
+    assert boxes
+    for red, green, blue, _ in boxes:
+        assert (red, green, blue) == (1.0, 1.0, 1.0)
+
+
+def test_label_box_matches_a_dark_canvas(plain_axes):
+    """A dark canvas gets a dark box, so the label masks rather than blots.
+
+    A box styled for a white canvas is a pale blob on a black one, covering
+    the diagram it labels — the whole defect this pins (:issue:`173`).
+    """
+    plain_axes.figure.set_facecolor("black")
+    plain_axes.set_facecolor("black")
+    family = _drawn_family(plain_axes)
+    boxes = _label_box_colors(family)
+    assert boxes
+    for red, green, blue, _ in boxes:
+        assert (red, green, blue) == (0.0, 0.0, 0.0)
+
+
+def test_label_box_composites_a_translucent_axes_over_the_figure(plain_axes):
+    """The box takes what the reader sees, not the axes' own channels.
+
+    10% black over a white figure is near-white; tinting the box from the
+    axes alone would paint an all-but-black box on an all-but-white canvas.
+    """
+    plain_axes.set_facecolor((0.0, 0.0, 0.0, 0.1))
+    family = _drawn_family(plain_axes)
+    boxes = _label_box_colors(family)
+    assert boxes
+    for red, green, blue, _ in boxes:
+        assert (red, green, blue) == pytest.approx((0.9, 0.9, 0.9))
+
+
+def test_label_box_follows_a_canvas_restyled_after_the_first_draw(plain_axes):
+    """Labels are pooled and reused, so the tint has to be resolved per draw.
+
+    Resolving it once, where the pooled label is created, leaves every label
+    that survives into the next draw wearing the colour of the canvas the
+    diagram used to have.
+    """
+    family = _drawn_family(plain_axes)
+    assert _label_box_colors(family)
+    plain_axes.figure.set_facecolor("black")
+    plain_axes.set_facecolor("black")
+    plain_axes.figure.canvas.draw()
+    boxes = _label_box_colors(family)
+    assert boxes
+    for red, green, blue, _ in boxes:
+        assert (red, green, blue) == (0.0, 0.0, 0.0)
+
+
+def test_label_box_stays_translucent(plain_axes):
+    """A box tinted to the canvas has to keep letting the lines through.
+
+    Opaque, it would hide the lines it is meant only to dim, and on a canvas
+    it matches exactly it would be invisible while doing so. The alpha lives
+    on the patch ``_make_text`` builds and nothing else in the suite reads
+    it, so a ``bbox`` mapping that lost the key would go unnoticed.
+    """
+    plain_axes.set_facecolor("black")
+    family = _drawn_family(plain_axes)
+    boxes = _label_box_colors(family)
+    assert boxes
+    for *_, alpha in boxes:
+        assert alpha == pytest.approx(LABEL_BOX_ALPHA)
 
 
 def test_moist_adiabat_truncation_configurable():

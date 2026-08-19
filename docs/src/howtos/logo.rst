@@ -64,27 +64,18 @@ Light and Dark
 default, ``"auto"``, reads the target's facecolor, so the right variant appears
 without being asked for on a white figure and under a dark style alike:
 
-.. Maintainer note, deliberately unpublished: the defect is ``LABEL_BOX_COLOR``
-   (``"white"``) at ``LABEL_BOX_ALPHA`` ``0.6`` in ``src/tephpy/_constants.py``.
-   Fixing it re-blesses every image baseline. When it is fixed the ``:nofigs:``
-   below comes off — but do not drop the directive without publishing the
-   figure, because that picture is the acceptance test for the fix.
-
 .. plot::
     :context: close-figs
-    :nofigs:
+    :filename-prefix: logo-light-and-dark
 
     with plt.style.context("dark_background"):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
         add_logo(ax)  # draws the dark-background variant
 
-**That block publishes no picture, and it is worth knowing why before you try
-it.** Rendering a tephigram under a dark matplotlib style is not yet usable:
-the inline isopleth labels sit in pale boxes chosen against a white canvas, so
-on a black one they cover the diagram they label.
-:func:`~tephpy.plotting.logo.add_logo` is correct here — the dark-background
-variant is selected and drawn, which is what the prose above claims — but the
-figure around it is not, so this page does not publish it.
+The diagram travels with it. Each inline isopleth label sits in a box tinted
+from the canvas under it, read the same way ``theme="auto"`` reads it, so the
+label dims the lines beneath its value instead of blotting them out — on a
+black canvas as on a white one.
 
 Override it when you are compositing the figure onto something else, or where
 ``savefig(transparent=True)`` is in play: that call does not change any

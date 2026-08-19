@@ -52,7 +52,6 @@ from tephpy._constants import (
     ISOTHERM_STEPS,
     ISOTHERM_ZORDER,
     LABEL_BOX_ALPHA,
-    LABEL_BOX_COLOR,
     LABEL_BOXSTYLE,
     LABEL_FONTSIZE,
     MIXING_RATIO_COLOR,
@@ -76,6 +75,7 @@ from tephpy._constants import (
 from tephpy._constants import (
     EMPHASIS_STYLE_KEYS as _EMPHASIS_STYLE_KEYS,
 )
+from tephpy.plotting._theme import canvas_rgb
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,6 +83,7 @@ if TYPE_CHECKING:
 
     from matplotlib.backend_bases import RendererBase
     from matplotlib.figure import Figure, SubFigure
+    from matplotlib.patches import FancyBboxPatch
     import matplotlib.transforms as mtransforms
 
 __all__ = [
@@ -1427,6 +1428,10 @@ class IsoplethFamily(martist.Artist):
     def _make_text(self) -> Text:
         """Create one pooled label with the family label conventions.
 
+        The box carries no colour here: :meth:`_draw_labels` tints it from
+        the canvas on every draw, because a pooled label outlives the
+        background it was created against (spec §3.2).
+
         Returns
         -------
         matplotlib.text.Text
@@ -1440,12 +1445,7 @@ class IsoplethFamily(martist.Artist):
             va="center",
             fontsize=LABEL_FONTSIZE,
             rotation_mode="anchor",
-            bbox={
-                "boxstyle": LABEL_BOXSTYLE,
-                "facecolor": LABEL_BOX_COLOR,
-                "edgecolor": LABEL_BOX_COLOR,
-                "alpha": LABEL_BOX_ALPHA,
-            },
+            bbox={"boxstyle": LABEL_BOXSTYLE, "alpha": LABEL_BOX_ALPHA},
         )
         figure = self.get_figure(root=False)
         if figure is not None:
@@ -1515,6 +1515,10 @@ class IsoplethFamily(martist.Artist):
         a claimed edge already ticks are dropped first (spec §3.2). An
         emphasised member's label takes the emphasis colour and alpha.
 
+        Each label's box is tinted from the composited canvas, so at
+        ``LABEL_BOX_ALPHA`` it dims the lines under the value rather than
+        blotting them out, on a dark canvas as on a white one (spec §3.2).
+
         Parameters
         ----------
         renderer : matplotlib.backend_bases.RendererBase
@@ -1525,6 +1529,9 @@ class IsoplethFamily(martist.Artist):
         axes = self.axes
         if axes is None:
             return
+        # Once per draw rather than once per label: every label on the
+        # diagram sits on the same canvas.
+        box_color = canvas_rgb(self.get_figure(root=False), axes)
         view = axes.viewLim
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
@@ -1564,6 +1571,13 @@ class IsoplethFamily(martist.Artist):
             style = self._member_style(member.value)
             text.set_color(cast("str", style["color"]))
             text.set_alpha(cast("float", style["alpha"]))
+            # Never None: ``_make_text`` gives every pooled label a ``bbox``.
+            box = cast("FancyBboxPatch", text.get_bbox_patch())
+            # The colour only. Translucency is the patch's own
+            # ``LABEL_BOX_ALPHA``, which ``set_facecolor`` re-applies over
+            # whatever colour it is handed, so retinting never spends it.
+            box.set_facecolor(box_color)
+            box.set_edgecolor(box_color)
             text.set_rotation(angle)
             text.set_transform(axes.transData)
             text.set_clip_box(axes.bbox)

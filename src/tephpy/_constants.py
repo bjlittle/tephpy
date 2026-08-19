@@ -316,10 +316,9 @@ LABEL_FONTSIZE: Final[float] = 8.0
 #: Isopleth label box style.
 LABEL_BOXSTYLE: Final[str] = "round,pad=0.3"
 
-#: Isopleth label box colour.
-LABEL_BOX_COLOR: Final[str] = "white"
-
-#: Isopleth label box alpha.
+#: Isopleth label box alpha. The box takes no colour of its own: it is tinted
+#: from the canvas it sits on, so it masks the lines under the label without
+#: assuming the canvas is white (spec §3.2).
 LABEL_BOX_ALPHA: Final[float] = 0.6
 
 #: The diagram edges an isopleth family may claim for its labels (spec §3.2).
