@@ -295,15 +295,22 @@ def _exercise(page: Page, url: str, manifest: dict[str, Any]) -> None:
 #: is the likelier of the two to be met here, because `playwright install` is a
 #: step a contributor may well have run and the system libraries are not
 #: something any of this project's environments carries.
+#:
+#: Each remedy carries its `pixi run -e docs` prefix and each marker does not.
+#: The markers are matched against Playwright's own words, which are written the
+#: way Playwright writes them; the remedies are read by the shell that ran
+#: `pixi run docs-all`, where nothing named `playwright` is on `PATH` -- only the
+#: `docs` environment carries it. Bare, this would answer one failure with
+#: another, and `command not found` is not the sentence it exists to say.
 MISSING = (
     (
         ("executable doesn't exist", "playwright install"),
-        "playwright install chromium",
+        "pixi run -e docs playwright install chromium",
         "downloads the pinned browser",
     ),
     (
         ("error while loading shared libraries", "cannot open shared object file"),
-        "playwright install --with-deps chromium",
+        "pixi run -e docs playwright install --with-deps chromium",
         "adds the system libraries it links against, as root",
     ),
 )

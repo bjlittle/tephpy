@@ -701,7 +701,7 @@ def test_the_demo_s_waits_fit_inside_one_of_its_attempts():
         # for a missing download is worse than saying nothing.
         (
             "BrowserType.launch: Executable doesn't exist at /ms-playwright/chrome",
-            ["playwright install chromium"],
+            ["pixi run -e docs playwright install chromium"],
         ),
         # The dynamic linker's, for a browser downloaded and unable to start.
         # This is what `pixi install` and `playwright install chromium` between
@@ -714,13 +714,16 @@ def test_the_demo_s_waits_fit_inside_one_of_its_attempts():
                 "chrome-headless-shell: error while loading shared libraries: "
                 "libnspr4.so: cannot open shared object file: No such file"
             ),
-            ["playwright install --with-deps chromium"],
+            ["pixi run -e docs playwright install --with-deps chromium"],
         ),
         # Recognised as neither, so both come back rather than nothing. A
         # wording this does not know is not one it can rule anything out from.
         (
             "BrowserType.launch: Target page, context or browser has been closed",
-            ["playwright install chromium", "playwright install --with-deps chromium"],
+            [
+                "pixi run -e docs playwright install chromium",
+                "pixi run -e docs playwright install --with-deps chromium",
+            ],
         ),
     ],
 )
@@ -734,6 +737,37 @@ def test_the_demo_names_what_to_install_when_chromium_will_not_start(
     advice = demo._launch_advice(reported)
     for line, command in zip(advice, commands, strict=True):
         assert line.startswith(f"{command}  (")
+
+
+#: How a remedy above has to start. Playwright belongs to the `docs` feature and
+#: to nothing else, so the shell that read the failure -- the one that ran
+#: `pixi run docs-all` -- has no `playwright` on its `PATH`. One spelling is
+#: pinned rather than any working prefix, because the point of the gate below is
+#: that the two copies of these commands say the same thing.
+PREFIX = "pixi run -e docs "
+
+#: Where the second copy lives: the guide names both commands for the reader who
+#: has not met the failure yet, which is where they are found before there is a
+#: browser log to translate.
+GUIDE = REPO / "CONTRIBUTING.md"
+
+
+def test_the_advice_runs_where_it_is_read_and_the_guide_says_the_same():
+    # Both halves are needed. The prefix alone leaves the guide free to drift
+    # from the message; the guide alone is satisfied by two copies that agree on
+    # a command neither shell can run -- which is what they did agree on until
+    # now, `playwright install chromium` in both, answering a browser that will
+    # not start with `command not found` (:pull:`177`).
+    #
+    # The guide is matched with its wrapping collapsed. These commands are long
+    # enough to be wrapped mid-command in the source, and the reader sees one
+    # line however the paragraph is filled.
+    assert all(command.startswith(PREFIX) for _markers, command, _why in demo.MISSING)
+    guide = " ".join(GUIDE.read_text(encoding="utf-8").split())
+    missing = [
+        command for _markers, command, _why in demo.MISSING if command not in guide
+    ]
+    assert not missing, f"{GUIDE.name} does not name {missing}"
 
 
 @pytest.mark.parametrize(
