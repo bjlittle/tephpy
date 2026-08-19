@@ -1,0 +1,15 @@
+The weekly dependency-floors job now runs its documentation tier by pixi task
+rather than by hand. Spelled out step by step, it ran two of the three gates
+``pixi run docs`` runs — the figure gate had joined that task and this copy of
+the list never heard about it — while the design specification described the
+exercise as ``pixi run docs``, a third spelling and wrong the other way
+(:issue:`178`). Naming the tasks leaves the manifest as the one place those
+commands are written, and the diagnosis that reproduces a failing tier names
+the same three. The figure gate is still left out, and now says why: it
+compares the published figures against baselines blessed under the matplotlib
+the lockfile pins, so at a floor matplotlib it would report the distance
+between the two — which grows every time the lock moves and never on account
+of a floor. Three tests hold the tier to that set: what it runs against what
+``pixi run docs`` runs, the diagnosis against the workflow, and every
+``--skip-deps`` against a step that has already run what it skips.
+(:user:`claude`)
