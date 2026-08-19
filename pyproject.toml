@@ -419,7 +419,8 @@ description = "Re-bless the published figure baselines from the build"
 # `tests/test_docs_figures.py` — so what `pixi run tests` and `pixi run lint`
 # could not see is not the scripts but each gate's verdict over a real build, and
 # a build that linked no citation at all exits 0. `docs` therefore depends on all
-# three, and a contributor reproduces a `ci-docs` failure without pushing.
+# three, and a contributor reproduces those `ci-docs` failures without pushing.
+# The fourth gate the job runs is the one below.
 [tool.pixi.feature.docs.tasks.docs]
 depends-on = ["docs-check-citations", "docs-check-links", "docs-check-figures"]
 description = "Build the HTML documentation and check its output"

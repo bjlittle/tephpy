@@ -1014,7 +1014,12 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   escalating privilege — a root-owned child outlives the bound meant to end it and fails the
   *next* attempt on the lock it is still holding, so a retry around one rescues nothing
   ({pull}`166`). The job has a 35-minute bound, and a persistent CDN or dependency-install
-  failure still fails it; no static-image fallback is published.
+  failure still fails it; no static-image fallback is published. It is also the one gate
+  `pixi run docs` leaves out: the browser is not something any environment here carries, so
+  a contributor who has not installed one by hand would meet a page of browser log for a
+  correction to a docstring. `pixi run docs-all` is the whole set, and
+  `tests/test_docs_workflow.py` holds the two aggregates to what this job runs — the total,
+  and the browser demo being the only thing the fast one omits ({issue}`171`).
 - **Scheduled, not gating:** `ci-floors` (weekly) resolves every dependency minimum tephpy
   declares — at both declaration sites — exercises what it resolves, and files one issue per
   broken floor, attributed to a single package (floors spec §1). It is deliberately not a
