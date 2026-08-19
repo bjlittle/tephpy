@@ -36,18 +36,23 @@ if TYPE_CHECKING:
 SCRIPTS = Path(__file__).parent
 
 #: How each tier is exercised once it resolves (floors spec §3.3), step for step
-#: as `ci-floors.yml` runs it. The docs tier is a build *and* its two output
-#: gates, and a floor can pass the build and fail a gate -- `sphinx-click 6.0.0`
-#: did (:issue:`109`). A probe running the build alone would re-run that leg
-#: green and report it unreproduced, which reads as "the floor is fine". `devs`
-#: has no entry to run: its packages are linters, and pre-commit at a floor
-#: `ruff` reports that version's rule set rather than anything about tephpy.
+#: as `ci-floors.yml` runs it -- by pixi task, as the workflow names them, so
+#: that what each step runs is read from the manifest in both places rather than
+#: written out here a second time (:issue:`178`). The docs tier is a build *and*
+#: its output gates, and a floor can pass the build and fail a gate --
+#: `sphinx-click 6.0.0` did (:issue:`109`). A probe running the build alone would
+#: re-run that leg green and report it unreproduced, which reads as "the floor is
+#: fine". `docs-check-figures` is not among them, and its absence is the
+#: workflow's: at a floor matplotlib that gate reports the distance to the
+#: baselines the lock blessed. `devs` has no entry to run: its packages are
+#: linters, and pre-commit at a floor `ruff` reports that version's rule set
+#: rather than anything about tephpy.
 EXERCISE: dict[str, list[list[str]] | None] = {
     "test": [["pytest"]],
     "docs": [
-        ["make", "-C", "docs", "html"],
-        ["python", ".github/scripts/check_rendered_citations.py", "docs/_build/html"],
-        ["python", ".github/scripts/check_documentation_links.py", "docs/_build/html"],
+        ["docs-html"],
+        ["--skip-deps", "docs-check-citations"],
+        ["--skip-deps", "docs-check-links"],
     ],
     "devs": None,
 }

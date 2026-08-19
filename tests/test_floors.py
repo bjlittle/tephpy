@@ -23,6 +23,8 @@ from packaging.version import Version
 import pytest
 import yaml
 
+from tests.pixi_tasks import invocations, runs, unsatisfied
+
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 
@@ -986,22 +988,114 @@ def test_a_probe_copy_carries_the_index_the_exercise_reads(tmp_path):
     assert (root / ".git" / "HEAD").is_file()
 
 
+def _docs_steps():
+    """Return each documentation-tier step of the conda job, by the name it reports.
+
+    Selected on the condition the job itself branches on, not on what a step
+    happens to run: a step added to this tier and running something unexpected
+    is the state to report, and a selector keyed on the task names would drop it
+    instead of failing on it.
+    """
+    job = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["conda"]
+    return {
+        step.get("name", f"step {index}"): step["run"]
+        for index, step in enumerate(job["steps"])
+        if "run" in step and step.get("if") == "matrix.tier == 'docs'"
+    }
+
+
+def _docs_tasks():
+    """Return the `docs` feature's pixi tasks, as this repository declares them."""
+    manifest = tomllib.loads(_committed_manifest())
+    return manifest["tool"]["pixi"]["feature"]["docs"]["tasks"]
+
+
+#: The aggregate a contributor runs, which is what this tier is measured against.
+FAST = "docs"
+
+#: What the floors job leaves out of it, and why the omission is written down
+#: rather than derived: the figure gate compares the published figures against
+#: baselines blessed under the matplotlib the lockfile pins, by the same RMS
+#: measure `pytest-mpl` applies to `tests/baseline`, so at a floor matplotlib it
+#: reports the distance between the two rather than anything about the floor --
+#: and that distance grows on its own as the lock moves. Derived from the
+#: workflow instead, every later omission would look like this intended one.
+EXCLUDED = {"docs-check-figures"}
+
+
+def test_the_docs_leg_runs_every_gate_but_the_one_it_leaves_out():
+    # Spelled out step by step, this job ran two of the three gates `pixi run
+    # docs` runs: `docs-check-figures` joined that task in :issue:`172` and the
+    # copy here heard nothing about it, while floors spec §3.3 went on calling
+    # the exercise `pixi run docs` -- three spellings of one list, two of them
+    # wrong (:issue:`178`). Naming the tasks leaves the manifest as the only
+    # place the commands are written, and this holds the job to the same set.
+    #
+    # The total alone would not say it, which is why the split is asserted in
+    # both directions: what the job omits, and that it omits nothing else. A
+    # gate added to `docs` and not here would otherwise be a gate this tier
+    # silently stops exercising, which is the state that was already true.
+    tasks = _docs_tasks()
+    named = {
+        invocation.target
+        for script in _docs_steps().values()
+        for invocation in invocations(script)
+        if invocation.target in tasks
+    }
+    assert runs([FAST], tasks) - runs(named, tasks) == EXCLUDED
+    assert not runs(named, tasks) - runs([FAST], tasks)
+
+
+def test_no_docs_step_skips_a_dependency_no_earlier_step_ran():
+    # `--skip-deps` is here because every gate depends on `docs-html`, and pixi
+    # deduplicates a shared dependency within one invocation and not across
+    # several -- so without it each gate would rebuild the documentation first,
+    # at a floor Sphinx, three times over.
+    #
+    # What the flag skips, though, is *every* dependency and not the one the
+    # preceding step happens to have supplied, so a second dependency added to a
+    # gate later is dropped here with nothing in the diff to say so. The same
+    # accounting `ci-docs.yml` is held to, and it matters more in this job: this
+    # one runs weekly, and a gate reading a build that never had what it needed
+    # reports a broken floor.
+    steps = _docs_steps()
+    # Nothing to complain about is the answer to be sure of here: the selector
+    # reads the `if:` of each step, and a tier written some other way -- through
+    # an expression, or a job of its own -- leaves this gate with no input and
+    # an empty list of complaints about it.
+    assert steps, "no documentation-tier step found in the floors workflow"
+    complaints = unsatisfied(steps, _docs_tasks())
+    assert not complaints, "\n".join(
+        f"{step}: `{target}` skips {missing}, which no earlier step has run"
+        for step, target, missing in complaints
+    )
+
+
 def test_the_docs_probe_runs_every_gate_the_workflow_does():
-    # The docs leg is a build and two output gates, and a floor can pass the
+    # The docs leg is a build and its output gates, and a floor can pass the
     # build and fail a gate -- `sphinx-click 6.0.0` did (:issue:`109`). A probe
     # that runs the build alone re-runs that leg green and reports it
     # unreproduced, which reads as "the floor is fine" (floors spec §3.3). The
     # workflow is the source of the list, so a gate added there and not here is
     # a failure rather than a step nobody notices is missing.
+    #
+    # Both sides go through the same reader, and what is compared is a list: the
+    # gates read what the build wrote, so the order is part of the claim, and
+    # `--skip-deps` is part of it too -- a probe that skipped what the workflow
+    # builds would exercise the gates against no build at all.
     diagnose = _load_diagnose()
-    workflow = (REPO / ".github" / "workflows" / "ci-floors.yml").read_text(
-        encoding="utf-8"
-    )
-    gates = set(re.findall(r"\.github/scripts/check_\w+\.py", workflow))
-    probed = {word for command in diagnose.EXERCISE["docs"] for word in command}
-    assert gates
-    assert gates <= probed
-    assert ["make", "-C", "docs", "html"] in diagnose.EXERCISE["docs"]
+    named = [
+        invocation
+        for script in _docs_steps().values()
+        for invocation in invocations(script)
+    ]
+    probed = [
+        invocation
+        for command in diagnose.EXERCISE["docs"]
+        for invocation in invocations(f"pixi run {' '.join(command)}")
+    ]
+    assert named
+    assert named == probed
 
 
 def test_the_exercise_reports_the_step_that_failed_and_stops(monkeypatch, tmp_path):
@@ -1013,7 +1107,7 @@ def test_the_exercise_reports_the_step_that_failed_and_stops(monkeypatch, tmp_pa
 
     def _run(command, **_):
         ran.append(command[-1])
-        code = 1 if command[-1] == "html" else 0
+        code = 1 if command[-1] == "docs-html" else 0
         return subprocess.CompletedProcess(command, code, "build failed", "")
 
     monkeypatch.setattr(diagnose.subprocess, "run", _run)
@@ -1024,7 +1118,7 @@ def test_the_exercise_reports_the_step_that_failed_and_stops(monkeypatch, tmp_pa
     passed, output = diagnose.exercise(probe, tmp_path)
     assert not passed
     assert output.startswith("build failed")
-    assert ran == ["html"]
+    assert ran == ["docs-html"]
 
 
 def test_the_forced_pin_is_written_after_the_generator_runs(monkeypatch, tmp_path):

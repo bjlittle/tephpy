@@ -9,22 +9,26 @@ The gates the job runs are named by their pixi task rather than spelled out
 (:issue:`120`), so what the job checks and what a contributor checks locally are
 the same set written twice -- once in the workflow and once in the `docs` task
 table. Both directions are held here.
+
+Reading a `pixi run` step and resolving it against that table is
+`tests/pixi_tasks.py`, shared with the gate over `ci-floors.yml`, whose
+documentation tier names its tasks the same way (:issue:`178`).
 """
 
 from __future__ import annotations
 
 import ast
 import importlib.util
-from itertools import pairwise
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tomllib
-from typing import NamedTuple
 
 import pytest
 import yaml
+
+from tests.pixi_tasks import commands, invocations, runs, unsatisfied
 
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-docs.yml"
@@ -105,106 +109,6 @@ def _tasks():
     return manifest["tool"]["pixi"]["feature"]["docs"]["tasks"]
 
 
-#: The `pixi run` flags this workflow uses, and whether each takes the token
-#: after it as its value. An unrecognised flag is refused rather than guessed
-#: at, because guessing wrong shifts which token is read as the task: a flag
-#: that takes a value, mistaken for one that does not, makes the *value* the
-#: task, and every assertion below then reports on something no job runs.
-FLAGS = {
-    "--frozen": False,
-    "--environment": True,
-    "-e": True,
-    "--skip-deps": False,
-}
-
-
-class Invocation(NamedTuple):
-    """One `pixi run` in a step's script.
-
-    `conditional` is what separates what a step *may* run from what it is
-    certain to: a caller asking whether a step reaches the network wants both,
-    and a caller asking what an earlier step has already run may count only the
-    second.
-    """
-
-    target: str
-    skipped: bool
-    conditional: bool
-
-
-def _invocations(script):
-    """Return each `pixi run` in a script, as its target, flag and certainty.
-
-    The target is the first token that is not a flag: the name of a task where
-    the step names one, and a bare command where it spells one out. Both come
-    back, undistinguished -- telling them apart is what the callers are for,
-    and a reader that returned only the tasks could not report the commands.
-
-    Each invocation ends at the first shell separator, not at the newline: the
-    retried steps end theirs with `; then` and the shape this workflow used to
-    have chained two with `||`, so reading to the end of the line would take
-    `docs-browser-test;` for a task name and miss the second invocation whole.
-
-    An invocation is conditional when `||` is what precedes it, because then it
-    runs only if what came before it failed. `&&` is not conditional here, and
-    the asymmetry is the point: after `&&` an invocation runs only once its
-    left-hand side has succeeded, so by the time it runs everything before it
-    has run -- and a chain that never gets there fails its step, which takes
-    every later step with it. After `||`, nothing of the sort is promised.
-    """
-    parts = re.split(r"\bpixi run\b", script.replace("\\\n", " "))
-    invocations = []
-    for preceding, tail in pairwise(parts):
-        tokens = re.split(r"[;&|\n]", tail, maxsplit=1)[0].split()
-        skipped = False
-        while tokens and tokens[0].startswith("-"):
-            flag = tokens[0]
-            assert flag in FLAGS, f"unrecognised `pixi run` flag `{flag}`"
-            skipped = skipped or flag == "--skip-deps"
-            tokens = tokens[2:] if FLAGS[flag] else tokens[1:]
-        assert tokens, "`pixi run` with nothing after it to run"
-        invocations.append(
-            Invocation(tokens[0], skipped, preceding.rstrip().endswith("||"))
-        )
-    return invocations
-
-
-def _closure(names, tasks):
-    """Return every task that running these ones runs, dependencies included.
-
-    A name with no task of that name behind it comes back all the same. It is
-    reported by pixi, not here, but dropping it would make a `depends-on`
-    pointing at nothing indistinguishable from one already satisfied -- and the
-    gate below, asking what an earlier step has left unrun, would then answer
-    "nothing" for the one case where the honest answer is "all of it".
-    """
-    reached = set()
-    pending = list(names)
-    while pending:
-        name = pending.pop()
-        if name in reached:
-            continue
-        reached.add(name)
-        pending.extend(tasks.get(name, {}).get("depends-on", []))
-    return reached
-
-
-def _runs(names, tasks):
-    """Return every task with a command of its own that running these ones runs.
-
-    An aggregate carries no command -- it exists to name others -- so counting
-    it would put a task on one side of a comparison that can never appear on the
-    other: `ci-docs` names the gates, never the aggregate a contributor runs, and
-    a contributor runs the aggregate, never the four gates by hand. What both
-    sides can be held to is the set of commands each reaches.
-
-    A name behind which there is no task at all reaches nothing, for the same
-    reason and by the same test: `depends-on` pointing at something that does not
-    exist runs no command, and pixi is where that is reported.
-    """
-    return {name for name in _closure(names, tasks) if "cmd" in tasks.get(name, {})}
-
-
 def _steps():
     """Return every step that runs a shell script, by the name it reports under."""
     return {
@@ -212,29 +116,6 @@ def _steps():
         for index, step in enumerate(_job()["steps"])
         if "run" in step
     }
-
-
-def _commands(script, tasks):
-    """Return everything a script runs: itself, and each task command it reaches.
-
-    A step naming `docs-browser-test` runs the demo without containing a word
-    of it, so a caller judging the script alone judges half of what the step
-    does.
-
-    Reaching is transitive, because running a task runs its dependencies too: a
-    build step that names only `docs-html` runs whatever `docs-html` comes to
-    depend on, and a dependency that fetched an inventory over the network
-    would otherwise be work no caller here could see. Unless the invocation
-    skips them -- then the task really does run alone, and charging it with its
-    closure would credit the step with the work the flag exists to avoid.
-    """
-    commands = [script]
-    for target, skipped, _conditional in _invocations(script):
-        reached = {target} if skipped else _closure([target], tasks)
-        commands.extend(
-            tasks[name].get("cmd", "") for name in sorted(reached) if name in tasks
-        )
-    return commands
 
 
 def _network_steps():
@@ -253,7 +134,7 @@ def _network_steps():
     tasks = _tasks()
     steps = {}
     for name, script in _steps().items():
-        run = "\n".join(_commands(script, tasks))
+        run = "\n".join(commands(script, tasks))
         if "playwright" in run or "check_browser_demo" in run:
             steps[name] = run
     return steps
@@ -385,7 +266,7 @@ def test_the_workflow_runs_the_documentation_gates_by_task_name():
     named = {
         invocation.target
         for script in _steps().values()
-        for invocation in _invocations(script)
+        for invocation in invocations(script)
         if invocation.target in tasks
     }
     assert named == GATES
@@ -416,33 +297,9 @@ def test_the_local_aggregates_run_every_gate_the_workflow_runs():
     # issue was filed about. So the split is asserted too, in both directions:
     # what the fast check omits, and that it omits nothing else.
     tasks = _tasks()
-    assert _runs([FULL], tasks) == _runs(GATES, tasks)
-    assert _runs(GATES, tasks) - _runs([FAST], tasks) == EXEMPT
-    assert not _runs([FAST], tasks) - _runs(GATES, tasks)
-
-
-def _unsatisfied(steps, tasks):
-    """Return each skipped dependency no earlier step ran, as step, task, missing.
-
-    What an invocation is asked for is checked whether or not it is certain to
-    run -- if it runs, it needs what it skipped -- but only what is certain to
-    run is credited with having run, since a task reached down an alternative
-    branch may never be reached at all.
-    """
-    complaints = []
-    ran = set()
-    for name, script in steps.items():
-        for target, skipped, conditional in _invocations(script):
-            if target not in tasks:
-                continue
-            if skipped:
-                missing = _closure(tasks[target].get("depends-on", []), tasks) - ran
-                if missing:
-                    complaints.append((name, target, sorted(missing)))
-            if conditional:
-                continue
-            ran |= {target} if skipped else _closure([target], tasks)
-    return complaints
+    assert runs([FULL], tasks) == runs(GATES, tasks)
+    assert runs(GATES, tasks) - runs([FAST], tasks) == EXEMPT
+    assert not runs([FAST], tasks) - runs(GATES, tasks)
 
 
 def test_no_step_skips_a_dependency_no_earlier_step_ran():
@@ -459,177 +316,11 @@ def test_no_step_skips_a_dependency_no_earlier_step_ran():
     # earlier step has already run what it skips, dependencies of those
     # dependencies included: `docs-clean` is never invoked by any step, and is
     # covered only because the step that runs `docs-html` runs it in passing.
-    complaints = _unsatisfied(_steps(), _tasks())
+    complaints = unsatisfied(_steps(), _tasks())
     assert not complaints, "\n".join(
         f"{step}: `{target}` skips {missing}, which no earlier step has run"
         for step, target, missing in complaints
     )
-
-
-#: A task graph this workflow does not have, for the readers above to be held
-#: to on shapes it could grow into. The gates they feed are about the shapes
-#: themselves, and today's five tasks reach none of them: nothing here depends
-#: on anything that touches the network, and no step chains two invocations.
-GRAPH = {
-    "clean": {"cmd": "make clean"},
-    "fetch": {"cmd": "playwright install chromium"},
-    "html": {"cmd": "make html", "depends-on": ["clean", "fetch"]},
-    "check": {"cmd": "python check_links.py", "depends-on": ["html"]},
-    # An aggregate, carrying no command of its own. The manifest has two and the
-    # workflow names neither, which is the asymmetry `_runs` exists to flatten.
-    "all": {"depends-on": ["check", "fetch"]},
-}
-
-
-@pytest.mark.parametrize(
-    ("script", "reached"),
-    [
-        # Running a task runs its dependencies, so a step naming one runs every
-        # command in its closure. `fetch` is where the network is here, and no
-        # step names it: a reader that resolved the named task alone would
-        # report this step as reaching nothing, and the three gates above would
-        # then judge a step that downloads a browser without knowing it does.
-        ("pixi run html", ["make clean", "playwright install chromium", "make html"]),
-        # `--skip-deps` runs the task by itself, so the closure is *not* what it
-        # reaches -- resolving it the same way would credit this step with work
-        # the flag exists to prevent it doing.
-        ("pixi run --skip-deps html", ["make html"]),
-        # A command spelled out belongs to no task and resolves to nothing.
-        ("make -C docs html", []),
-    ],
-)
-def test_the_command_reader_follows_what_a_task_depends_on(script, reached):
-    assert _commands(script, GRAPH)[1:] == reached
-
-
-@pytest.mark.parametrize(
-    ("names", "runs"),
-    [
-        # An aggregate contributes its closure and not itself. Counting itself
-        # would make the comparison above unequal by construction: the workflow
-        # names gates, never an aggregate, so no aggregate can appear on both
-        # sides and the gate would fail on every manifest including a correct one.
-        (["all"], {"clean", "fetch", "html", "check"}),
-        # Nothing to drop, so this is the plain closure.
-        (["html"], {"clean", "fetch", "html"}),
-        # A `depends-on` pointing at no task runs no command. `_closure` returns
-        # the name regardless, so that the gate reading it can report what it
-        # could not resolve; here it has to vanish, or a typo would be counted
-        # as a gate that runs -- covering, in the comparison above, for the gate
-        # it was a typo of.
-        (["absent"], set()),
-    ],
-)
-def test_only_tasks_with_a_command_of_their_own_are_counted(names, runs):
-    assert _runs(names, GRAPH) == runs
-
-
-@pytest.mark.parametrize(
-    ("scripts", "complaints"),
-    [
-        # The shape the workflow has: one step runs the build, the next skips it.
-        (["pixi run html", "pixi run --skip-deps check"], []),
-        # Retried with `||`, the shape :pull:`166` replaced. The first attempt
-        # runs whatever happens, so the task is run either way.
-        (["pixi run html || pixi run html", "pixi run --skip-deps check"], []),
-        # `&&` is not conditional for this accounting: the right-hand side runs
-        # only once the left has succeeded, and a step whose chain never gets
-        # there fails, taking every later step with it. So anything reached
-        # after `&&` was reached by everything before it.
-        (["pixi run clean && pixi run html", "pixi run --skip-deps check"], []),
-        # `||` is. `html` runs only if `clean` *fails*, so a later step skipping
-        # its dependencies is reading a build that need never have happened --
-        # and the gate has to say so rather than count the alternative as done.
-        (
-            ["pixi run clean || pixi run html", "pixi run --skip-deps check"],
-            [("step 2", "check", ["fetch", "html"])],
-        ),
-    ],
-)
-def test_the_gate_credits_only_what_a_step_is_certain_to_have_run(scripts, complaints):
-    steps = {f"step {number}": script for number, script in enumerate(scripts, 1)}
-    assert _unsatisfied(steps, GRAPH) == complaints
-
-
-@pytest.mark.parametrize(
-    ("script", "invocations"),
-    [
-        # The shapes this workflow is written in, and the two it is not: a
-        # reader with no row it fails on is a reader nothing holds to its
-        # docstring, and every branch below is one the workflow depends on.
-        (
-            "pixi run --frozen --environment docs docs-html",
-            [Invocation("docs-html", skipped=False, conditional=False)],
-        ),
-        (
-            "pixi run --frozen --environment docs --skip-deps docs-check-links",
-            [Invocation("docs-check-links", skipped=True, conditional=False)],
-        ),
-        # A flag's value is not its target. Read as a boolean flag, `-e` would
-        # leave `docs` as the first bare token and name a task that exists.
-        (
-            "pixi run -e docs docs-html",
-            [Invocation("docs-html", skipped=False, conditional=False)],
-        ),
-        # Spelled out rather than named -- what this workflow did before
-        # :issue:`120`, and what the gate above has to be able to see.
-        (
-            "pixi run --frozen --environment docs make -C docs html",
-            [Invocation("make", skipped=False, conditional=False)],
-        ),
-        # Inside a retry: continued across a line, and closed by `; then`. The
-        # condition of an `if` is evaluated whatever happens, so this is not one
-        # of the conditional shapes -- the retry is in the loop around it.
-        (
-            (
-                "for a in 1 2; do\n  if timeout -k 30 480 pixi run --frozen \\\n"
-                "      --skip-deps docs-browser-test; then\n    exit 0\n  fi\ndone"
-            ),
-            [Invocation("docs-browser-test", skipped=True, conditional=False)],
-        ),
-        # Chained with `||`, the shape :pull:`166` replaced. Both attempts are
-        # invocations; reading to the end of the line would find one. Only the
-        # second is conditional -- the first runs before anything can fail.
-        (
-            "pixi run --frozen docs-html || pixi run --frozen docs-html",
-            [
-                Invocation("docs-html", skipped=False, conditional=False),
-                Invocation("docs-html", skipped=False, conditional=True),
-            ],
-        ),
-        # Chained with `&&`, and across a line break, so that the certainty is
-        # read from the separator rather than from what happens to be adjacent.
-        (
-            "pixi run --frozen clean &&\n  pixi run --frozen docs-html",
-            [
-                Invocation("clean", skipped=False, conditional=False),
-                Invocation("docs-html", skipped=False, conditional=False),
-            ],
-        ),
-        # Nothing to find is a legitimate answer, not a failure to look.
-        ("playwright install chromium", []),
-    ],
-)
-def test_the_invocation_reader_finds_the_target_however_it_is_written(
-    script, invocations
-):
-    assert _invocations(script) == invocations
-
-
-@pytest.mark.parametrize(
-    ("script", "complaint"),
-    [
-        ("pixi run --frozen --offline docs-html", "unrecognised"),
-        ("pixi run --frozen", "nothing after it"),
-    ],
-)
-def test_the_invocation_reader_refuses_what_it_cannot_read(script, complaint):
-    # Failing closed matters more here than anywhere else in this module: a
-    # reader that shrugged at a flag it did not know would go on to name some
-    # other token as the task, and the two gates above would then report,
-    # confidently, on a task the job does not run.
-    with pytest.raises(AssertionError, match=complaint):
-        _invocations(script)
 
 
 def test_the_specification_quotes_the_budget_the_job_actually_has():
