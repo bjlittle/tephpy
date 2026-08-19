@@ -1,0 +1,8 @@
+Every figure the documentation publishes is now compared against an approved
+baseline whenever the documentation is built, keyed on the name each block
+declares rather than on a per-document counter, so inserting a section no
+longer renumbers every image after it. A change in what a snippet draws fails
+the build rather than reaching the published page unnoticed. Re-approve an
+intended change with ``pixi run docs-figures``, which reports the RMS of each
+image it updates. The gate runs in CI beside the citation and link gates, and
+the baselines are pruned from the source distribution. (:user:`claude`)
