@@ -68,19 +68,32 @@ jobs:
         # matplotlib it reports the version difference every time, whatever the
         # state of the floor (floors spec §3.3).
         run: pixi run --environment floors-test pytest
+      # Named by their pixi task rather than spelled out, as `ci-docs.yml` names
+      # them (:issue:`178`). Spelled out, this ran two of the three gates that
+      # job runs -- the figure gate joined the task in :issue:`172` and no third
+      # copy of the list heard about it -- while floors spec §3.3 described the
+      # exercise as `pixi run docs`, which is a fourth spelling again.
+      #
+      # `--frozen` is deliberately absent, unlike every other job: this one
+      # resolves at the floors, and the lockfile is what it exists not to use.
       - name: Build the documentation
         if: matrix.tier == 'docs'
-        run: pixi run --environment floors-docs make -C docs html
-      - name: Check the documentation output
+        run: pixi run --environment floors-docs docs-html
+      - name: Check the rendered citations
         if: matrix.tier == 'docs'
-        run: >
-          pixi run --environment floors-docs
-          python .github/scripts/check_rendered_citations.py docs/_build/html
+        # `--skip-deps` because every gate depends on `docs-html`, and pixi
+        # deduplicates a shared dependency within one invocation and not across
+        # several: without it each gate rebuilds the documentation first.
+        run: pixi run --environment floors-docs --skip-deps docs-check-citations
       - name: Check the documentation links
         if: matrix.tier == 'docs'
-        run: >
-          pixi run --environment floors-docs
-          python .github/scripts/check_documentation_links.py docs/_build/html
+        run: pixi run --environment floors-docs --skip-deps docs-check-links
+      # The figure gate `pixi run docs` also runs is excluded, for the reason
+      # image comparison is excluded above: it compares the published figures to
+      # baselines blessed under the matplotlib the lockfile pins, by the same RMS
+      # measure `pytest-mpl` applies, so at a floor matplotlib it reports the
+      # version difference rather than anything about the floor -- and the gap it
+      # measures widens on its own, every time the lock moves (floors spec §3.3).
       - name: Note the build-backend shape
         if: failure()
         run: >

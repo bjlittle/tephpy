@@ -232,7 +232,7 @@ anything run:
 | tier | half | exercise |
 |---|---|---|
 | `test` | conda | the test suite, without image comparison |
-| `docs` | conda | `pixi run docs` — the build, plus the gates of docs spec §3.6 and docs spec §3.7 |
+| `docs` | conda | the documentation build and its output gates, without the figure comparison |
 | `devs` | conda | installed only |
 | `test` | PyPI | the test suite, under the interpreter the install went into |
 | `docs`, `devs` | PyPI | installed only |
@@ -252,6 +252,20 @@ test environment from ever being installed — and the tier that failed would no
 that reported it. Separate manifests make each tier's verdict its own, which is what §3.4
 then attributes and §3.6 files.
 
+The `docs` row names pixi tasks rather than spelling its commands out, as `ci-docs.yml` does
+({issue}`120`). Spelled out, it ran two of the three gates `pixi run docs` runs — the figure
+gate joined that task later and this copy of the list heard nothing about it — while this
+section described the exercise as `pixi run docs`, a third spelling again and wrong in the
+other direction ({issue}`178`). Naming the tasks leaves the manifest as the one place those
+commands are written, and generation keeps them: what it drops is features, never the tasks of
+the tier it was generated for. Each gate after the build carries `--skip-deps`, pixi
+deduplicating a shared dependency within one invocation and not across several — so without it
+every gate would rebuild the documentation first.
+
+The `test` row cannot do the same. The task that runs this suite turns on the image comparison
+this tier leaves out, so the row runs `pytest` bare — one word, standing for no list, and so
+nothing that can fall out of step with one.
+
 Holding one environment leaves every other feature defined and used by nothing, and pixi
 warns once per orphan. That block runs ahead of the solver output the diagnosis quotes
 verbatim into the issue it files, where it is the first thing a reader sees and none of it is
@@ -264,7 +278,11 @@ reports that version's rule set rather than anything about tephpy's floors — a
 is not a finding is worse than no run at all. The image comparisons come out of the test run
 for the same reason: `pytest-mpl` compares against baselines generated under the matplotlib
 the lockfile pins, so at a floor matplotlib they report the version difference, every time,
-whatever the state of the floor.
+whatever the state of the floor. The figure gate of plots spec §3.5 comes out of the `docs`
+row on the same ground and by the same measure — it is `pytest-mpl`'s RMS comparison, run over
+the published figures against baselines blessed under that same lockfile matplotlib. What it
+would report is the distance between the floor and the lock, which widens on its own every
+time the lock moves and never on account of a floor.
 
 Keeping `devs` out of the test tier costs one declaration. `test_masters_ship_in_the_wheel`
 builds a wheel with `python -m build`, and `build` is declared only under `devs` — every
@@ -313,7 +331,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Twenty-one of the `test` tier's tests guard on a repository being there —
+index included. Twenty-three of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
