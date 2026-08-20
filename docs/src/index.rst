@@ -3,6 +3,10 @@ tephpy
 
 Plot and analyse :term:`tephigrams <tephigram>`.
 
+.. The gallery card below is full width, so the four above it stay the 2x2
+   the Diataxis quadrants are. The gallery is not a fifth quadrant; it is a
+   way into all four.
+
 .. grid:: 2
 
     .. grid-item-card:: Tutorials
@@ -30,6 +34,7 @@ Plot and analyse :term:`tephigrams <tephigram>`.
         Information-oriented API and glossary.
 
     .. grid-item-card:: Examples Gallery
+        :columns: 12
         :link: gallery/index
         :link-type: doc
 

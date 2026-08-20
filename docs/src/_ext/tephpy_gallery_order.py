@@ -38,7 +38,7 @@ class RegistryOrder:
         self.src_dir = src_dir
 
     def __call__(self, filename: str) -> int:
-        """Return `filename`'s position in the registry.
+        """Return ``filename``'s position in the registry.
 
         Parameters
         ----------
