@@ -46,7 +46,15 @@ docs = { file = ["requirements/pypi-optional-docs.txt"] }
 test = { file = ["requirements/pypi-optional-test.txt"] }
 
 [tool.setuptools.package-data]
-tephpy = ["py.typed", "plotting/_static/*.png"]
+tephpy = [
+  "py.typed",
+  "plotting/_static/*.png",
+  # The shipped sounding data, and the gallery's landing page. Both are read
+  # from an installed tephpy: the first by `tephpy.samples`, the second by
+  # sphinx-gallery building the documentation against one (gallery spec §3.1).
+  "samples/*.txt",
+  "examples/GALLERY_HEADER.rst",
+]
 
 [tool.setuptools.packages.find]
 include = ["tephpy*"]

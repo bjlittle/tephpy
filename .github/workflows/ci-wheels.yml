@@ -34,8 +34,19 @@ jobs:
           import tephpy
           fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
           assert type(ax).__name__ == "TephigramAxes", type(ax)
+          # The sample data and the gallery header are package data, not
+          # Python, so only an installed wheel can prove they were shipped
+          # (gallery spec §3.7). Reading a sounding covers the sample file;
+          # the header is what sphinx-gallery reads out of an installed
+          # tephpy to build the gallery's landing page.
+          from importlib.resources import files
+          snd = tephpy.samples.sounding("norman-12z")
+          assert snd.wind_speed is not None
+          header = files("tephpy.examples") / "GALLERY_HEADER.rst"
+          assert header.is_file(), header
           print("wheel smoke OK:", tephpy.__version__)
           PY
+          /tmp/smoke/bin/tephpy examples list
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: dist
