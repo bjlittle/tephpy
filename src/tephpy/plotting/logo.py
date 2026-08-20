@@ -20,7 +20,6 @@ import math
 from typing import TYPE_CHECKING, Any, Final
 
 from matplotlib.axes import Axes
-import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 import matplotlib.image as mimage
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
@@ -33,6 +32,7 @@ from tephpy._constants import (
     LOGO_ZORDER,
     POINTS_PER_INCH,
 )
+from tephpy.plotting._theme import canvas_rgb
 
 __all__ = ["add_logo"]
 
@@ -182,7 +182,8 @@ def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     theme : str
         ``"auto"``, ``"light"`` or ``"dark"``, naming the *background*.
     figure : matplotlib.figure.Figure
-        The owning figure, composited under the axes.
+        The owning figure, read where there is no axes to read instead. Where
+        there is one this is still composited under it, reached from the axes.
     axes : matplotlib.axes.Axes or None
         The target axes, composited over the figure when there is one.
 
@@ -201,19 +202,13 @@ def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     if theme != "auto":
         msg = f"unknown theme {theme!r}, expected one of: auto, dark, light."
         raise ValueError(msg)
-    # Composite back to front over an assumed white page, so a translucent
-    # facecolor is judged on what the reader actually sees rather than on its
-    # own channels: 10% black over white is near-white, not black. Alpha 0
-    # leaves the accumulator untouched, which is how a transparent axes still
-    # defers to the figure and a transparent figure still assumes light.
-    red = green = blue = 1.0
-    for artist in (figure, axes):
-        if artist is None:
-            continue
-        over_red, over_green, over_blue, alpha = mcolors.to_rgba(artist.get_facecolor())
-        red = alpha * over_red + (1.0 - alpha) * red
-        green = alpha * over_green + (1.0 - alpha) * green
-        blue = alpha * over_blue + (1.0 - alpha) * blue
+    # The composite, not either layer's own channels: 10% black over white is
+    # near-white, so it wants the light mark. The isopleth label boxes tint
+    # themselves from the same answer, which is why it lives in ``_theme``.
+    # The axes when there is one: it is over the figure, and it finds what is
+    # behind it itself. ``_resolve_target`` has already refused a subfigure,
+    # so the walk out of an axes here is the one hop to `figure`.
+    red, green, blue = canvas_rgb(figure if axes is None else axes)
     weight_red, weight_green, weight_blue = LOGO_LUMINANCE_WEIGHTS
     luminance = weight_red * red + weight_green * green + weight_blue * blue
     return "dark" if luminance < LOGO_LUMINANCE_THRESHOLD else "light"

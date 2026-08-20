@@ -188,6 +188,21 @@ Differences from tephi:
   style), the bare-string check preventing a silent per-character iteration.
   `TephigramAxes.clear` drops the cached secondary axes alongside its existing
   xaxis/yaxis re-hiding. Not tephi's design: tephi labels inline only.
+- **An inline label's box is tinted from the canvas it sits on**, at `LABEL_BOX_ALPHA`, so
+  it dims the lines under the value rather than hiding them. The colour is read by
+  `plotting/_theme.canvas_rgb`, which alpha-composites the axes facecolor and every figure
+  enclosing it over an assumed white page — the same reading `add_logo`'s `theme="auto"`
+  thresholds to choose a brand master, shared so the two cannot disagree about what colour
+  the background is (logo spec §3.5). It is asked about the **axes alone** and finds the
+  figures behind it for itself, because a `SubFigure` paints nothing by default: an axes in
+  one sits over the root figure through two invisible sheets, and a caller passing the
+  layers it happened to hold would leave the root out and answer white for a canvas the
+  reader sees as black. It is resolved **on every draw**, not once where the pooled `Text` is
+  created: the pool outlives the background, so a diagram restyled after its first draw
+  would otherwise keep labels boxed in the colour the canvas used to be. A constant here
+  instead — the hard-coded `"white"` this replaced ({issue}`173`) — is a bet that the
+  canvas is white, and it loses under any dark style, where every label became a pale blob
+  over the diagram it was labelling.
 - **A claimed edge's ticks are stock matplotlib and yours to style.** tephpy stamps its
   tick conventions on an edge axis **once, when that axis is created** — `LABEL_FONTSIZE`,
   the `_constants` tick length and pad, the bottom/left ticks-position pin (the classic
