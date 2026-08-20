@@ -60,15 +60,16 @@ in prose, and the pinning that keeps the canonical figure honest.
 - **An example is a module with a `main()` that returns its figure.** One file then serves
   the gallery, the command line, the image baseline and direct execution, without a second
   construction of the same figure anywhere (§3.3).
-- **The registry is a list, written once.** The command line, the gallery's ordering, the
-  smoke test and the tag vocabulary all read it. Discovery by glob was rejected: it cannot
-  fail, so an example that stops being found is silently absent from all four.
+- **The registry is a list, written once.** The command line, the gallery's ordering and
+  the smoke test all read it. Discovery by glob was rejected: it cannot fail, so an example
+  that stops being found is silently absent from all three.
 - **The gallery shows what the package draws; getting data in is a how-to.** This extends
   plots spec §5 from a boundary between two mechanisms to a test any candidate example is
   put to (§5).
 - **The gallery adopts the published-figure configuration.** plots spec §3.1 settled the
   figure recipe and the format pinning for rendered documentation, and asked to be amended
-  rather than duplicated. §3.5 amends it in one respect and inherits the rest.
+  rather than duplicated. §3.5 inherits the recipe, and amends where it is applied and how
+  much of it is pinned against a baseline.
 
 (gallery-spec-3)=
 ## 3. Architecture
@@ -242,16 +243,34 @@ lesson, and compete with the tutorials that 7b writes for that index.
 
 **Ordering is the registry's.** `within_subsection_order` defaults to
 `NumberOfCodeLinesSortKey`, which sorts by length and would bury the canonical figure —
-the longest example and the one that should lead — at the bottom of the page. `conf.py`
-supplies a sort key that reads the registry, so registry order is gallery order is
-`run --all` order, and there is one place to change it. Numbering the filenames was
-rejected: those names are imported by users and printed by `examples list`.
+the longest example and the one that should lead — at the bottom of the page. A sort key
+that reads the registry replaces it, so registry order is gallery order is `run --all`
+order, and there is one place to change it. Numbering the filenames was rejected: those
+names are imported by users and printed by `examples list`.
+
+It is named as a **dotted string**, `"tephpy_gallery_order.RegistryOrder"`, resolved by
+sphinx-gallery's own importer, and the class lives in `docs/src/_ext/` beside the two
+extensions already there. Assigning the class object directly is the obvious spelling and
+it breaks the build: a class in `sphinx_gallery_conf` makes the value unpickleable, Sphinx
+warns `cannot cache unpickleable configuration value` under `config.cache`, and this
+project builds with `--fail-on-warning`. Both spellings were built to confirm which
+(2026-08-20).
 
 **What is inherited from plots spec §3.1.** The figure recipe — `figure.figsize` of
 `(8.0, 4.0)` on the full five-family diagram, matplotlib's default `savefig.bbox` — and the
 single `png` format. A gallery entry and a how-to figure are different things (§5), but
 they are the same picture of the same diagram, and two recipes would drift into two house
 styles.
+
+**Where the recipe is applied differs.** plots spec §3.1 sets the figure size through
+`plot_rcparams`, which is a `plot_directive` setting and reaches nothing here. Nor can
+`conf.py` set it globally: sphinx-gallery resets matplotlib *before every example*
+(`reset_modules` defaults to `("matplotlib", "seaborn")` and `reset_modules_order` to
+`"before"`, and its reset calls `plt.rcdefaults()`), so a configured `figure.figsize` is
+discarded before the first line of an example runs. Each example therefore passes
+`figsize=(8.0, 4.0)` at its own `subplots` call. That is not a workaround but the better
+placement: the downloaded script is the published figure's only reproduction, and a size
+that lived in `conf.py` would not travel with it.
 
 **What is not.** `plot_directive`'s settings are directive options and do not reach
 sphinx-gallery; the equivalents are set in `sphinx_gallery_conf`. And the pinning differs:
@@ -265,17 +284,39 @@ has moved repeatedly.
 (gallery-spec-3-6)=
 ### 3.6 Tags
 
-`sphinx-tags` joins the documentation extensions, discharging one of the three residuals
-spec §10 item 15 re-homed to Plan 7 ({issue}`76`). It is a new dependency in
-`requirements/pypi-optional-docs.txt` and the pixi `docs` feature, with a floor declared
-per floors spec §3.1.
+Tags are sphinx-gallery's own, not a new extension. The installed sphinx-gallery 0.21.0
+reads a `# sphinx_gallery_tags = [...]` flag from an example's source, renders the tags on
+its page, and — because `gen_gallery.setup` registers `sg-tags.js` unconditionally — gives
+the gallery index a tag filter that narrows the thumbnails and records the selection in a
+`?sg-tags=` query parameter. All five example pages and their five `data-sgtags` thumbnails
+were built and inspected to confirm it (2026-08-20).
+
+That retires `sphinx-tags`, which spec §8.6 has listed since Plan 1 and {issue}`76` still
+tracks. It was specified before sphinx-gallery had tags of its own, and it solves a
+different problem — per-tag pages across the whole site, not a filter over one gallery. A
+five-example gallery does not need site-wide tag pages, and taking the dependency would
+leave two tag mechanisms live at once with nothing to say which an example's tags feed.
+Tagging the tutorials and how-tos is 7b's question, and the one that would earn it.
 
 Tags come from a closed vocabulary — `diagram`, `isopleths`, `sounding`, `barbs`,
-`analysis`, `shading`, `indices`, `overlay`, `metpy` — of two to four per example, declared
-in the registry beside the module. An open vocabulary was rejected for the reason a
-glossary has one canonical spelling per concept (spec §8.6): a tag page for `barb` beside
-one for `barbs` splits the very index the extension exists to build. §3.7 asserts the
-vocabulary, which is the only thing that keeps it closed.
+`analysis`, `shading`, `indices`, `overlay`, `metpy` — of two to four per example. An open
+vocabulary was rejected for the reason a glossary has one canonical spelling per concept
+(spec §8.6): a `barb` filter button beside a `barbs` one splits the very index the feature
+exists to build.
+
+The flag is the single declaration, because it is the only one sphinx-gallery reads; the
+registry (§3.2) holds names and order, not tags. That places the vocabulary outside the
+registry's reach, so §3.7 asserts it from the source. It has to: a misspelled flag —
+`sphinx_gallery_tag` for `sphinx_gallery_tags` — parses to a differently-keyed entry and is
+discarded in silence, with no warning to fail the build on (verified against the real
+parser, 2026-08-20). That is the same silent absence §2 rejects glob discovery for.
+
+The flag stays visible in the published source. sphinx-gallery's
+`sphinx_gallery_start_ignore` block would hide it from the page and was tested working, but
+plots spec §3.1 set `plot_include_source = True` on the reasoning that "the source is the
+point, so it is shown", and hiding lines from a page whose purpose is showing source
+contradicts it — for a saving of one self-explanatory line on the page, at a cost of three
+lines of machinery in the file the reader downloads and runs.
 
 (gallery-spec-3-7)=
 ### 3.7 Packaging and gates
@@ -296,9 +337,17 @@ Three tests, all reading the registry:
    example then fails `pixi run tests` across the supported Pythons, not only the
    documentation build.
 2. **The registry, the directory and the vocabulary agree.** Every `plot_*.py` is
-   registered, every registered module exists, and every tag is in §3.6's vocabulary. This
-   is what makes the registry a single source of truth rather than a second list to keep
-   in step.
+   registered, every registered module exists, and every example declares a non-empty tag
+   list drawn from §3.6's vocabulary. This is what makes the registry a single source of
+   truth rather than a second list to keep in step.
+
+   The tags are read from the source text, not from a `sphinx_gallery` import: the flag is
+   a comment, so importing the module cannot see it, and sphinx-gallery is absent from the
+   `test-py3*` environments CI runs the matrix in — a test that skipped without it would
+   always skip where it matters. Reading the text also makes the assertion the one §3.6
+   needs, because a test that asked the real parser for the tags of a file spelling the
+   flag `sphinx_gallery_tag` would be told there are none and could not tell that from an
+   example that declared none.
 3. **The canonical figure is pinned.** `pytest-mpl` over
    `tephpy.examples.plot_parcel_analysis.main`, satisfying spec §7's composed-figure baseline —
    the last outstanding baseline of the roadmap, and the one that has been waiting for
@@ -364,15 +413,19 @@ is tested, not the API surface touched.
 ## 6. Companion changes
 
 - **spec §8.6** describes sphinx-gallery as scraping `src/tephpy/examples` and lists
-  sphinx-tags among the extensions. Both become true here; the section gains the gallery's
-  place in the navigation, which it did not previously state.
+  sphinx-tags among the extensions. The first becomes true here; the second is deleted,
+  because §3.6 tags the examples with sphinx-gallery's own mechanism and takes no second
+  dependency to do it. The section also gains the gallery's place in the navigation, which
+  it did not previously state.
 - **spec §10's Plan 7 row** splits. This document is 7a. The row is rewritten to name the
   two halves and mark 7a delivered, with 7b — tutorials, explanation, the glossary sweep,
   the README non-goals statement, the eccodes and reader how-tos, the doctest gate and the
   SPEC 0 packaging statement — carried forward as the remainder.
-- **spec §10 item 15 and {issue}`76`** list three residuals. sphinx-tags is discharged by
-  §3.6; the doctest task with its `ci-docs` run, and spec §8.3's SPEC 0 statement, stay open
-  and move to 7b. The issue is updated rather than closed.
+- **spec §10 item 15 and {issue}`76`** list three residuals. The sphinx-tags residual is
+  closed as superseded — §3.6 delivers what it asked for, tagged examples with a filter,
+  without it; the doctest task with its `ci-docs` run, and spec §8.3's SPEC 0 statement,
+  stay open and move to 7b. The issue is updated rather than closed, and the update records
+  the supersession so a reader does not re-adopt the dependency.
 - **spec §7's composed §4-figure baseline** is delivered by §3.7, and spec §10's
   cross-cutting rule that "image baselines ship with their feature" is satisfied for the
   last row of the table.
@@ -387,9 +440,10 @@ is tested, not the API surface touched.
 - **`tests/fixtures/io/README.md`** records that its generator now writes a second
   destination under `src/`.
 
-Changelog fragments cover three user-visible halves: `feature` for `tephpy.samples` and the
-`tephpy examples` command, `documentation` for the gallery itself, and `dependency` for
-sphinx-tags.
+Changelog fragments cover the two user-visible halves: `feature` for `tephpy.samples` and
+the `tephpy examples` command, and `documentation` for the gallery itself. There is no
+`dependency` fragment — the documentation extensions are unchanged, which is the point of
+§3.6.
 
 (gallery-spec-7)=
 ## 7. Scope
@@ -407,8 +461,15 @@ an example that wants an API tephpy does not have is a defect report, not a scop
 **Open items**, tagged per docs spec §3.5.
 
 - **Deferred** (7b — {issue}`76`) — **the doctest task and its `ci-docs` run, and
-  spec §8.3's SPEC 0 packaging statement.** Two of the three residuals spec §10 item 15 re-homed to
-  Plan 7; the third, sphinx-tags, is discharged by §3.6.
+  spec §8.3's SPEC 0 packaging statement.** Two of the three residuals spec §10 item 15
+  re-homed to Plan 7; the third, sphinx-tags, is rejected below.
+
+- **Rejected** (2026-08-20) — **the sphinx-tags dependency.** spec §8.6 and {issue}`76`
+  committed to it before sphinx-gallery had tags of its own. It now does, with the filter
+  UI that was the whole reason to want them (§3.6), so adopting sphinx-tags would add a
+  dependency to duplicate a feature already installed. What it offers beyond that — a
+  site-wide tag index spanning the narrative documentation — is a question for 7b, which
+  owns the tutorials and explanation quadrants that would be tagged.
 
 - **Deferred** (7b — {issue}`66`) — **the reader how-to and the eccodes recipe.** §5 sends
   the `io` example there, and {issue}`66`'s quadrant build-out is where it lands.
