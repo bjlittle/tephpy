@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""A Hodograph Beside a Tephigram
+"""A Hodograph beside a Tephigram
 ==============================
 
 tephpy draws tephigrams and leaves hodographs to MetPy, so the two go side

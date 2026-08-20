@@ -834,7 +834,7 @@ BSD header, then:
 
 ```python
 """The Tephigram
-==============
+=============
 
 The bare diagram: five isopleth families on a coordinate system rotated so
 that isotherms and dry adiabats cross at right angles.
@@ -884,7 +884,7 @@ BSD header, then:
 
 ```python
 """A Sounding
-============
+==========
 
 Temperature and dewpoint profiles, with the ascent's wind barbs on the
 gutter staff to the right of the diagram.
@@ -1006,7 +1006,7 @@ The `# %%` block is sphinx-gallery's prose-cell marker: it renders as a section 
 BSD header, then:
 
 ```python
-"""A Hodograph Beside a Tephigram
+"""A Hodograph beside a Tephigram
 ==============================
 
 tephpy draws tephigrams and leaves hodographs to MetPy, so the two go side

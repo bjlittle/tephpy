@@ -3,7 +3,7 @@
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
 """The Tephigram
-==============
+=============
 
 The bare diagram: five isopleth families on a coordinate system rotated so
 that isotherms and dry adiabats cross at right angles.
