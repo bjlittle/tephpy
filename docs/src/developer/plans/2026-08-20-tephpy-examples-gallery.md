@@ -1669,8 +1669,11 @@ Gallery Examples
 The gallery is scraped from ``src/tephpy/examples``, which ships in the wheel:
 every entry is a module a reader can download, and also one an installed tephpy
 can run with ``tephpy examples run <name>``. The rules below are specified in
-gallery spec §3.2, §3.3 and §3.6, and asserted by
-``tests/examples/test_examples.py``.
+gallery spec §3.2, §3.3, §3.5, §3.6. Every one a test can read off a file — the
+registry, the ``main()`` shape and its guard, the figure size, the tag
+vocabulary and how many tags — is asserted by
+``tests/examples/test_examples.py``. What belongs in the gallery at all, and
+that an example reaches no network and writes no file, are left to review.
 
 The gallery shows what the package draws. Everything else is a how-to. An
 example whose subject is not a picture — getting data in, configuring the
@@ -1703,18 +1706,19 @@ function returning a figure; and the reader running the downloaded script.
 Showing inside ``main`` would cost the third of those, and the pinned figure
 would then be a claim about the test rather than about what was published.
 
-An example takes its data from :mod:`tephpy.samples`, reaches no network, and
-writes no file. The documentation build executes it, so a ``savefig`` call would
-leave an artefact in the generated tree on every build; the vector-output line
-appears in an example's prose instead, shown and not run.
+An example takes any data it needs from :mod:`tephpy.samples`, reaches no
+network, and writes no file. The documentation build executes it, so a
+``savefig`` call would leave an artefact in the generated tree on every build;
+the vector-output line appears in an example's prose instead, shown and not
+run.
 
 Add a new example to ``REGISTRY`` in ``src/tephpy/examples/__init__.py``, in the
 position it should occupy. Registry order is gallery order is
 ``examples run --all`` order, and the tests read it: an unregistered
 ``plot_*.py`` fails them rather than disappearing quietly. Pass
-``figsize=(8.0, 4.0)`` at the example's own ``subplots`` call — sphinx-gallery
-calls ``plt.rcdefaults()`` before every example, so a configured default is
-discarded before the first line runs.
+``figsize=(8.0, 4.0)`` at the example's own ``subplots`` or ``figure`` call —
+sphinx-gallery calls ``plt.rcdefaults()`` before every example, so a configured
+default is discarded before the first line runs.
 
 Tags come from a closed vocabulary — ``analysis``, ``barbs``, ``diagram``,
 ``indices``, ``isopleths``, ``metpy``, ``overlay``, ``shading``, ``sounding`` —

@@ -393,9 +393,10 @@ Showing inside ``main`` would cost the third of those, and the pinned figure
 would then be a claim about the test rather than about what was published.
 
 An example takes any data it needs from :mod:`tephpy.samples`, reaches no
-network, and writes no file. The documentation build executes it, so a ``savefig`` call would
-leave an artefact in the generated tree on every build; the vector-output line
-appears in an example's prose instead, shown and not run.
+network, and writes no file. The documentation build executes it, so a
+``savefig`` call would leave an artefact in the generated tree on every build;
+the vector-output line appears in an example's prose instead, shown and not
+run.
 
 Add a new example to ``REGISTRY`` in ``src/tephpy/examples/__init__.py``, in the
 position it should occupy. Registry order is gallery order is
