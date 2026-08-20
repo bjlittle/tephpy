@@ -164,6 +164,20 @@ max-statements = 53
 # package: an ``__init__.py`` would stop Sphinx resolving ``tephpy_citation_xrefs``
 # by top-level module name (docs spec §3.7).
 "docs/src/_ext/*.py" = ["INP001"]
+# A gallery example opens with sphinx-gallery's title block -- an RST section
+# heading, not a docstring summary -- and declares its tags in the comment flag
+# sphinx-gallery reads (gallery spec §3.2, §3.6).
+"src/tephpy/examples/plot_*.py" = [
+  "D205",   # blank line required between summary line and description
+  "D400",   # first line should end with a period
+  "ERA001", # commented-out code (the ``sphinx_gallery_tags`` flag)
+  # Importing tephpy is what registers the "tephigram" projection, so the
+  # diagram example imports it and never names it again. A ``# noqa`` on the
+  # line would be a linter directive in code the gallery invites a reader to
+  # copy, which docs-style.rst rules out; the import carries a comment
+  # saying why it is there instead.
+  "F401", # imported but unused
+]
 # DTZ001: naive datetimes are deliberate fixtures — the boundary under
 # test reads them as UTC (spec §3.4).
 "tests/*" = ["ANN001", "ANN003", "ANN201", "ANN202", "DTZ001", "SLF001", "D103"]
@@ -193,6 +207,18 @@ warn_unreachable = true
 # imports.
 ignore_missing_imports = true
 module = ["metpy.*", "pandas.*", "pint.*"]
+
+[[tool.mypy.overrides]]
+# A projection is registered at runtime, so `plt.subplots(subplot_kw=
+# {"projection": "tephigram"})` is typed `Axes` and every tephigram method
+# on it is `attr-defined`. That is matplotlib's projection registry, not a
+# tephpy defect -- cartopy's `GeoAxes` types the same way -- and the answer
+# for library code is a `cast`. The examples are not library code: they are
+# what a user writes, published for a user to copy, so they are written that
+# way and the one error class that follows is disabled here (gallery
+# spec §3.3). Everything else mypy checks about them still applies.
+disable_error_code = ["attr-defined"]
+module = ["tephpy.examples.*"]
 
 [tool.repo-review]
 ignore = [
