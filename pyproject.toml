@@ -169,7 +169,15 @@ max-statements = 53
 "tests/*" = ["ANN001", "ANN003", "ANN201", "ANN202", "DTZ001", "SLF001", "D103"]
 # One-shot generator scripts (spec §7 layer 4), not package modules; their
 # print is the script's user feedback.
-"tests/fixtures/generate_*.py" = ["INP001", "T201", "SLF001"]
+"tests/fixtures/generate_*.py" = [
+  "INP001",
+  # The IGRA sources are ``https://`` literals a few lines above the call, but
+  # they reach ``urlopen`` through a table and a loop variable, so ruff can no
+  # longer read the scheme off the argument (gallery spec §3.1).
+  "S310",
+  "SLF001",
+  "T201",
+]
 # The tests tree mirrors the package (spec §8.5): tests/io shadows nothing
 # importable — it is reached as tests.io.
 "tests/io/__init__.py" = ["A005"]

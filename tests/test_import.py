@@ -51,6 +51,7 @@ def test_top_level_namespace():
         "exceptions",
         "io",
         "plotting",
+        "samples",
         "transforms",
     }
     assert set(tephpy.__all__) == expected
