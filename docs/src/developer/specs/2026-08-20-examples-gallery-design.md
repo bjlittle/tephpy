@@ -188,9 +188,28 @@ possible. An example that called `plt.show()` in `main` would have to be re-impl
 the test to be pinned, and the pinned figure would then be a claim about the test rather
 than about what was published.
 
-Every example takes its data from `tephpy.samples`. None reaches the network — spec §7
-rules live network out of CI, and sphinx-gallery executes examples during the documentation
-build.
+**The module docstring is not a docstring.** It is sphinx-gallery's title block — an RST
+section heading and the page's opening prose, rendered above the figure — so it carries no
+numpydoc summary line and never will. The two checks that read it as one are therefore
+switched off for `plot_*.py`: ruff's `D205` and `D400`, in `pyproject.toml`'s
+per-file-ignores, and the `numpydoc-validation` pre-commit hook, by exclusion. An inline
+`numpydoc ignore=SS01` would silence the hook and keep `main()` validated, and was rejected
+— `docs/src/developer/docs-style.rst` rules linter directives out of code a reader is
+invited to copy, and the gallery hands them the file. `main`'s own docstring is an ordinary
+numpydoc one, and ruff's pydocstyle rules still cover both.
+
+**An example is typed the way a user writes one.** A projection is registered at runtime, so
+`plt.subplots(subplot_kw={"projection": "tephigram"})` is typed `Axes` and every tephigram
+method called on it is an `attr-defined` error. That is matplotlib's projection registry and
+not a tephpy defect — cartopy's `GeoAxes` types the same way — and the answer for library
+code is a `cast`. The examples are not library code: they are what a user writes, published
+for a user to copy, and a `cast` in a file offered for download is machinery the reader has
+to see past. So that one error code is disabled for `tephpy.examples.*` in `pyproject.toml`'s
+mypy overrides, and everything else mypy checks about them still applies.
+
+Every example that loads data takes it from `tephpy.samples`; `plot_tephigram.py` draws the
+bare diagram and loads none. None reaches the network — spec §7 rules live network out of
+CI, and sphinx-gallery executes examples during the documentation build.
 
 None writes a file either, for the same reason: the build executes them, so a `savefig`
 call leaves an artefact in the generated tree on every build. Spec §1 item 4 asks for
@@ -268,9 +287,9 @@ styles.
 (`reset_modules` defaults to `("matplotlib", "seaborn")` and `reset_modules_order` to
 `"before"`, and its reset calls `plt.rcdefaults()`), so a configured `figure.figsize` is
 discarded before the first line of an example runs. Each example therefore passes
-`figsize=(8.0, 4.0)` at its own `subplots` call. That is not a workaround but the better
-placement: the downloaded script is the published figure's only reproduction, and a size
-that lived in `conf.py` would not travel with it.
+`figsize=(8.0, 4.0)` at its own `subplots` or `figure` call. That is not a workaround but
+the better placement: the downloaded script is the published figure's only reproduction, and
+a size that lived in `conf.py` would not travel with it.
 
 **What is not.** `plot_directive`'s settings are directive options and do not reach
 sphinx-gallery; the equivalents are set in `sphinx_gallery_conf`. And the pinning differs:
@@ -331,14 +350,22 @@ carries importable modules with nothing to read.
 exercises the installed artifact rather than the checkout, so it is the only one that can
 catch a `package-data` miss — the failure mode this whole section exists to prevent.
 
-Three tests, all reading the registry:
+Three things are asserted, all of them off the registry:
 
-1. **Every example runs.** Parametrised over the registry, calling `main()`. A broken
-   example then fails `pixi run tests` across the supported Pythons, not only the
-   documentation build.
+1. **Every example runs, at the gallery's size, and closes with its guard.** Parametrised
+   over the registry: `main()` is called and the figure's size read back off it, and the
+   guard is read out of the source as an AST — the calls it makes, not merely its presence.
+   A broken example then fails `pixi run tests` across the supported Pythons, not only the
+   documentation build. The other two are checks nothing else makes. §3.5 puts the figure
+   size inside each file, so no configuration outside it can hold it there. And the suite
+   calls `main()` directly, so a guard that went missing would break nothing here, while
+   sphinx-gallery would execute the file, find no figure, and publish the page with its
+   `no_image.png` placeholder — a supported case it emits no warning for, so
+   `--fail-on-warning` would not catch it either. That is the one silent failure this
+   section has left.
 2. **The registry, the directory and the vocabulary agree.** Every `plot_*.py` is
-   registered, every registered module exists, and every example declares a non-empty tag
-   list drawn from §3.6's vocabulary. This is what makes the registry a single source of
+   registered, every registered module exists, and every example declares two to four tags
+   drawn from §3.6's vocabulary. This is what makes the registry a single source of
    truth rather than a second list to keep in step.
 
    The tags are read from the source text, not from a `sphinx_gallery` import: the flag is
@@ -375,22 +402,31 @@ hand-installed Chromium and has nothing to do with the gallery.
 ## 4. The example set
 
 One per §1 use case, plus the composition spec §9 promises when it rules a hodograph out of
-scope. All five draw from `tephpy.samples`.
+scope. Four of the five draw from `tephpy.samples`; `plot_tephigram.py` needs no data.
 
 | Module | CLI name | Shows | §1 | Tags |
 |---|---|---|---|---|
 | `plot_tephigram.py` | `tephigram` | The bare diagram: five isopleth families, the default extent, `set_extent` | 1 | diagram, isopleths |
 | `plot_sounding.py` | `sounding` | 12Z temperature and dewpoint, wind barbs on the gutter staff | 2 | sounding, barbs |
-| `plot_parcel_analysis.py` | `parcel-analysis` | spec §4's figure: parcel path, Normand's point and LCL, CAPE and CIN shading, the indices panel | 3 | analysis, shading, indices, sounding |
+| `plot_parcel_analysis.py` | `parcel-analysis` | spec §4's figure: parcel path, CAPE and CIN shading, the indices panel (which reports the LCL) | 3 | analysis, shading, indices, sounding |
 | `plot_sounding_comparison.py` | `sounding-comparison` | 12Z against 17Z on fixed extents, distinguishable styles, legends carrying station and time; the vector-output line in prose (§3.3) | 4 | overlay, sounding |
 | `plot_hodograph.py` | `hodograph` | MetPy's `Hodograph` composed beside a tephigram from the same `Sounding` | spec §9 | metpy, barbs, sounding |
 
 `plot_parcel_analysis.py` leads the gallery (§3.5) and is the baseline of §3.7. It is the
 package's shop window, and it is the one example whose figure the specification already
-describes in words. It is spec §4's block call for call, with two deliberate divergences:
-`wyoming.fetch` becomes `samples.sounding("norman-12z")`, and the closing `savefig` moves
-into prose — the network and the file write of §3.3. Both are properties of the build, not
-of the figure, so the picture the example draws is the one spec §4 specifies.
+describes in words. It is spec §4's block call for call, with four deliberate divergences:
+
+- `wyoming.fetch` becomes `samples.sounding("norman-12z")` — the network of §3.3.
+- The closing `savefig` is dropped, appearing instead in `plot_sounding_comparison.py`'s
+  prose — the file write of §3.3.
+- `subplots` gains `figsize=(8.0, 4.0)`, because §3.5's recipe cannot be configured for a
+  gallery sphinx-gallery resets matplotlib in front of.
+- `ax.legend()` is added, because spec §3.4 keeps legends stock matplotlib: tephpy sets the
+  labels and the user draws them, so a block that never calls it publishes none.
+
+The first two are properties of the build and the third of the page, not of the diagram; the
+fourth renders a label spec §4's own comment already claims for it. So the picture the
+example draws is the one spec §4 specifies.
 
 `plot_sounding_comparison.py` is where the 12Z/17Z pair earns its place: across five hours
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are

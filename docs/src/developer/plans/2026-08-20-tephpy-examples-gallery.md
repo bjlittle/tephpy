@@ -1832,7 +1832,7 @@ pixi run --frozen -e docs docs-check-citations
 
 `lint` runs the `check-citations` hook — "design specification citations resolve" — over the new `gallery spec §…` anchors in the source. Read its linked/literal counts, not just its exit code: a backticked citation is an inline literal, not a link, and the gate counts literals as legitimate.
 
-`docs-check-citations` is the same question asked of the rendered HTML, and its page count is the one that moves — 52 pages with the gallery, since the five generated pages are pages like any other. Expect `719 linked, 43 literal`.
+`docs-check-citations` is the same question asked of the rendered HTML, and its page count is the one that moves — 52 pages with the gallery, since the five generated pages are pages like any other. Expect `739 linked, 43 literal`.
 
 Do **not** reach for `docs-all` here. It adds `docs-browser-test`, which drives the PyScript demo in a Chromium the documentation environment installs Playwright for but does not carry, so it fails on a machine without a hand-installed browser — an unrelated dependency, and nothing in this plan touches the demo.
 
@@ -1844,7 +1844,7 @@ The other two gates are worth *not* running, and worth knowing why. `docs-check-
 pixi run --frozen -e test pytest --mpl -q
 ```
 
-Expected: `1485 passed, 1 skipped` — 24 more than `main`'s 1461 collected (13 in `tests/examples/`, 5 in `tests/test_samples.py`, 6 in `tests/test_cli.py`). A count that fell means something was destroyed; check against `main` before pushing.
+Expected: `1490 passed, 1 skipped` — 29 more than `main`'s 1461 collected (18 in `tests/examples/`, 5 in `tests/test_samples.py`, 6 in `tests/test_cli.py`). A count that fell means something was destroyed; check against `main` before pushing.
 
 - [ ] **Step 11: Commit**
 
@@ -1868,4 +1868,4 @@ Probe `https://tephpy--<PR>.org.readthedocs.build/en/<PR>/gallery/index.html`. R
 
 **Verification status.** Every code block in this plan was written at its real path and executed before the plan shipped: `pixi run --frozen -e devs lint` clean over the whole tree, `pytest --mpl` at 1484 passed, a clean `--fail-on-warning` docs build with the gallery, the built wheel installed into a venv and smoke-tested, and the mutation checks of Task 1 Step 11, Task 2 Step 10, Task 3 Step 8 and Task 4 Step 5 each confirmed failing and restoring.
 
-**Amendments during execution.** Three, each recorded where it applies rather than only here. Task 2 registers only the example it creates and Task 3 appends the other four, so no commit leaves the registry gate red. Task 1 applies the generator's ruff `S310` exemption itself, since its own refactor is what provokes the rule, and Task 6 verifies it rather than adding it. Task 4's `run` refuses a name and `--all` together instead of silently letting the flag win, which is the sixth test in `tests/test_cli.py` and why the final count above is 1485 rather than the 1484 verified at ship time.
+**Amendments during execution.** Four, each recorded where it applies rather than only here. Task 2 registers only the example it creates and Task 3 appends the other four, so no commit leaves the registry gate red. Task 1 applies the generator's ruff `S310` exemption itself, since its own refactor is what provokes the rule, and Task 6 verifies it rather than adding it. Task 4's `run` refuses a name and `--all` together instead of silently letting the flag win, which is the sixth test in `tests/test_cli.py` and why the count before the final review was 1485 rather than the 1484 verified at ship time. And the whole-branch review closed the gap between what Task 7's style-guide section promised was asserted and what `tests/examples/test_examples.py` actually asserted: the figure size of gallery spec §3.5 and §3.6's two-to-four tag bound fold into the existing parametrisations, and the `__main__` guard — the branch's one silent failure mode, invisible to a suite that calls `main()` directly and to a build sphinx-gallery emits no warning from — gets a parametrised test of its own, which is the five that take the count above to 1490 and the rendered citations to 739.
