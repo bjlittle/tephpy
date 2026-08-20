@@ -1217,10 +1217,13 @@ Expected: 5 failed — click exits 2 with `No such command 'examples'`, so even 
 In `src/tephpy/_cli.py`, add to the imports:
 
 ```python
+from importlib import import_module
+
 from tephpy.examples import REGISTRY
 ```
 
-(`from importlib import import_module` is already there.) Append to the end of the module:
+Neither is there yet — an earlier draft of this plan claimed `import_module`
+already was, and it does not. Append to the end of the module:
 
 ```python
 # Every docstring below is published twice: by ``--help``, and by sphinx-click
@@ -1841,7 +1844,7 @@ The other two gates are worth *not* running, and worth knowing why. `docs-check-
 pixi run --frozen -e test pytest --mpl -q
 ```
 
-Expected: `1484 passed, 1 skipped` — 23 more than `main`'s 1461 collected (13 in `tests/examples/`, 5 in `tests/test_samples.py`, 5 in `tests/test_cli.py`). A count that fell means something was destroyed; check against `main` before pushing.
+Expected: `1485 passed, 1 skipped` — 24 more than `main`'s 1461 collected (13 in `tests/examples/`, 5 in `tests/test_samples.py`, 6 in `tests/test_cli.py`). A count that fell means something was destroyed; check against `main` before pushing.
 
 - [ ] **Step 11: Commit**
 
@@ -1864,3 +1867,5 @@ Probe `https://tephpy--<PR>.org.readthedocs.build/en/<PR>/gallery/index.html`. R
 **Type consistency.** `REGISTRY: tuple[tuple[str, str], ...]` of `(cli_name, module_name)` is read identically by `tephpy_gallery_order._ORDER` (Task 5), `_cli.list_`/`_cli.run` (Task 4) and all four registry tests (Task 2). `main() -> Figure` is the signature every example defines and every consumer calls. `samples.sounding(name) -> Sounding` is the only data entry point in all five examples. `samples.available() -> tuple[str, ...]` is used by `sounding`'s error message and asserted in `tests/test_samples.py`.
 
 **Verification status.** Every code block in this plan was written at its real path and executed before the plan shipped: `pixi run --frozen -e devs lint` clean over the whole tree, `pytest --mpl` at 1484 passed, a clean `--fail-on-warning` docs build with the gallery, the built wheel installed into a venv and smoke-tested, and the mutation checks of Task 1 Step 11, Task 2 Step 10, Task 3 Step 8 and Task 4 Step 5 each confirmed failing and restoring.
+
+**Amendments during execution.** Three, each recorded where it applies rather than only here. Task 2 registers only the example it creates and Task 3 appends the other four, so no commit leaves the registry gate red. Task 1 applies the generator's ruff `S310` exemption itself, since its own refactor is what provokes the rule, and Task 6 verifies it rather than adding it. Task 4's `run` refuses a name and `--all` together instead of silently letting the flag win, which is the sixth test in `tests/test_cli.py` and why the final count above is 1485 rather than the 1484 verified at ship time.

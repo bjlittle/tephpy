@@ -5,8 +5,9 @@
 """The ``tephpy`` command line (configfile spec §4).
 
 Argument parsing and output text only. Everything this module does is
-reachable from Python through ``tephpy.config`` and ``tephpy._configfile``,
-so the command line is never the only way to do something.
+reachable from Python through ``tephpy.config``, ``tephpy._configfile`` and
+``tephpy.examples``, so the command line is never the only way to do
+something.
 """
 
 from __future__ import annotations
@@ -165,6 +166,12 @@ def run(name: str | None, *, run_all: bool = False) -> None:
     import matplotlib.pyplot as plt  # noqa: PLC0415
 
     modules = dict(REGISTRY)
+    if run_all and name is not None:
+        # Running everything and naming one are different requests, and the
+        # reader who typed both meant one of them. Guessing which would
+        # discard the argument they were most specific about.
+        msg = "give an example name or --all, not both"
+        raise click.UsageError(msg)
     if run_all:
         chosen = list(modules.values())
     elif name is None:

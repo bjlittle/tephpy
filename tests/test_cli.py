@@ -295,3 +295,17 @@ def test_examples_run_points_an_unknown_name_at_the_list(runner, headless):
     assert result.exit_code == 2
     assert "tephpy examples list" in result.output
     assert not headless
+
+
+def test_examples_run_refuses_a_name_with_all(runner, headless):
+    """Naming an example and asking for every example are different requests.
+
+    Letting ``--all`` win would silently discard the argument the reader was
+    most specific about; letting the name win would ignore the flag. Neither
+    is a guess worth making on their behalf.
+    """
+    result = runner.invoke(_cli.main, ["examples", "run", "tephigram", "--all"])
+    assert result.exit_code == 2
+    assert "not both" in result.output
+    assert not headless
+    assert not plt.get_fignums()
