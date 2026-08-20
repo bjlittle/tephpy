@@ -1,0 +1,7 @@
+Added the :ref:`gallery`, five worked examples of what tephpy draws, built with
+``sphinx-gallery`` from the modules the package ships. Each page shows the
+figure and its source, offers the script and a notebook to download, and carries
+tags the gallery index filters on. The example set covers the bare diagram, a
+sounding with wind barbs, the parcel analysis with its CAPE and CIN shading, two
+ascents overlaid, and MetPy's hodograph composed beside a tephigram.
+(:user:`bjlittle`)

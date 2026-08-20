@@ -349,6 +349,78 @@ stopped declaring anything. Fix the declaration and run it again. The baseline t
 declaration named is a live pin, and to a scan that cannot read the declaration it
 looks exactly like the orphan of a renamed section, which this command removes.
 
+Gallery Examples
+----------------
+
+The gallery is scraped from ``src/tephpy/examples``, which ships in the wheel:
+every entry is a module a reader can download, and also one an installed tephpy
+can run with ``tephpy examples run <name>``. The rules below are specified in
+gallery spec §3.2, §3.3, §3.6, and asserted by
+``tests/examples/test_examples.py``.
+
+The gallery shows what the package draws. Everything else is a how-to. An
+example whose subject is not a picture — getting data in, configuring the
+package, installing it — belongs in the how-to quadrant, however much code it
+carries (gallery spec §5). An example that happens to load data is fine; the
+subject is what is tested, not the API surface touched.
+
+Every module is named ``plot_*.py``, and the prefix is load-bearing.
+sphinx-gallery's ``filename_pattern`` defaults to ``/plot``, and only a matching
+file is *executed*: a file outside the pattern is still rendered, silently, with
+no figure and no error.
+
+Every module defines ``main()``, which builds the figure and returns it, and
+closes with the guard that shows it:
+
+.. code-block:: python
+
+    def main() -> Figure:
+        ...
+        return fig
+
+
+    if __name__ == "__main__":
+        main()
+        plt.show()
+
+One construction then serves four consumers — sphinx-gallery, which executes the
+file as ``__main__``; ``tephpy examples run``; ``pytest-mpl``, which decorates a
+function returning a figure; and the reader running the downloaded script.
+Showing inside ``main`` would cost the third of those, and the pinned figure
+would then be a claim about the test rather than about what was published.
+
+An example takes its data from :mod:`tephpy.samples`, reaches no network, and
+writes no file. The documentation build executes it, so a ``savefig`` call would
+leave an artefact in the generated tree on every build; the vector-output line
+appears in an example's prose instead, shown and not run.
+
+Add a new example to ``REGISTRY`` in ``src/tephpy/examples/__init__.py``, in the
+position it should occupy. Registry order is gallery order is
+``examples run --all`` order, and the tests read it: an unregistered
+``plot_*.py`` fails them rather than disappearing quietly. Pass
+``figsize=(8.0, 4.0)`` at the example's own ``subplots`` call — sphinx-gallery
+calls ``plt.rcdefaults()`` before every example, so a configured default is
+discarded before the first line runs.
+
+Tags come from a closed vocabulary — ``analysis``, ``barbs``, ``diagram``,
+``indices``, ``isopleths``, ``metpy``, ``overlay``, ``shading``, ``sounding`` —
+two to four per example, declared in the flag sphinx-gallery reads:
+
+.. code-block:: python
+
+    # sphinx_gallery_tags = ["analysis", "shading", "indices", "sounding"]
+
+They render on the page and drive the index's filter buttons, so a ``barb``
+beside a ``barbs`` splits the very index the feature exists to build. Widening
+the vocabulary means editing ``VOCABULARY`` in
+``tests/examples/test_examples.py``, which is deliberate. Spell the flag exactly:
+sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
+discards it in silence, with no warning to fail the build on — which is why the
+test reads the flag out of the source text rather than asking the parser.
+
+Leave the flag visible. ``sphinx_gallery_start_ignore`` would hide it from the
+page, but the source is the point on a page whose purpose is showing source.
+
 Attribute Documentation
 -----------------------
 

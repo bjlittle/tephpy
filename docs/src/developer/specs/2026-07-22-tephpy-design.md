@@ -944,8 +944,10 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   glossary — see "Glossary" below).
 - Extensions per geovista: **`sphinx-autoapi`** (API reference generated from `src/`),
   **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
-  scraped from `src/tephpy/examples`), `sphinx-design`, `sphinx-copybutton`,
-  `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references), `sphinx-tags`.
+  scraped from `src/tephpy/examples`, tagged with the extension's own
+  `sphinx_gallery_tags` flag and published as a fifth top-level section beside the four
+  quadrants — gallery spec §3.5, §3.6), `sphinx-design`, `sphinx-copybutton`,
+  `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references).
   Plus `matplotlib.sphinxext.plot_directive`, which renders a user page's own snippets as
   figures — not from geovista, and not the gallery above: a gallery entry is a standalone
   worked example and a how-to figure is subordinate to a paragraph (plots spec §5).
@@ -1093,7 +1095,8 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR {pull}`19`) |
 | 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR {pull}`26`) |
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR {pull}`40`; ingest and layout hardening PR {pull}`41`) |
-| 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | **next** |
+| 7a | Examples gallery | gallery spec: `src/tephpy/samples` (two shipped IGRA ascents) and `src/tephpy/examples` (five examples — one per §1 use case, plus the §9 hodograph composition); the `tephpy examples` command; the sphinx-gallery build, its registry ordering and its native tags; composed §4-figure baseline (§7 — needed the union of Plans 5 and 6) | 2–6 | ✅ complete (PR {pull}`181`) |
+| 7b | Documentation completion | §8.6: tutorials/how-tos/explanation content, glossary completion, `doctest` task + CI doctest run; README non-goals statement, the eccodes recipe and the reader how-to (§9, gallery spec §5); §8.3's SPEC 0 packaging statement (item 15) | 7a | **next** |
 
 Cross-cutting rules (apply to every plan rather than one row):
 
@@ -1255,19 +1258,23 @@ them, ordered by owning plan.
     direct declaration is dropped in Plan 5 (§8.1 updated; the implementation plan
     also removes scipy from the declared-dependencies tuple in
     `tests/test_import.py`).
-15. **Deferred** (Plan 7 — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
-    `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2) → reconciled
+15. **Deferred** (Plan 7b — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → rejected in Plan 7a; `doctest` task +
+    `ci-docs` doctest run (§8.2/§8.7) → Plan 7b; `tests-clean` task (§8.2) → reconciled
     in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
     task regenerates the pytest-mpl baselines);
     wheel-install smoke test → Plan 2 (decided 2026-07-23); check-manifest CI gate →
     revisit once the wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs
-    statement → Plan 7.
+    statement → Plan 7b.
 
     Per-deferral status:
 
-    - **Deferred** (Plan 7 — {issue}`76`): sphinx-tags (§8.6).
-    - **Deferred** (Plan 7 — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
-    - **Deferred** (Plan 7 — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
+    - **Rejected** (2026-08-20, gallery spec §3.6): sphinx-tags (§8.6) — superseded.
+      sphinx-gallery now reads a `sphinx_gallery_tags` flag and ships the index filter
+      that was the whole reason to want tags, so adopting sphinx-tags would take a
+      dependency to duplicate an installed feature. Site-wide tag pages across the
+      narrative documentation are 7b's question.
+    - **Deferred** (Plan 7b — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
+    - **Deferred** (Plan 7b — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
     - **Resolved** (2026-07-24, PR {pull}`15`): the `tests-clean` task, with `baselines` alongside it.
     - **Resolved** (2026-07-23, PR {pull}`9`): the wheel-install smoke test.
     - **Open** ({issue}`77`): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
@@ -1287,7 +1294,10 @@ them, ordered by owning plan.
     the newest satisfying release — which is how the wrong floor survived three plans; a
     lowest-direct-resolution gate is re-homed to Plan 7.
 
-    *Residual:* **Deferred** (Plan 7 — {issue}`78`) — the lowest-direct-resolution gate.
+    *Residual:* **Resolved** (2026-08-14, PR {pull}`141`) — the lowest-direct-resolution
+    gate ships as `ci-floors`, the weekly job that resolves every declared dependency
+    floor at both declaration sites, exercises what it resolves, and files one issue per
+    broken floor (§8.7; floors spec §1).
 
 (spec-11)=
 ## 11. Open questions (carried from research)
