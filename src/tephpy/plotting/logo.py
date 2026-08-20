@@ -182,7 +182,8 @@ def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     theme : str
         ``"auto"``, ``"light"`` or ``"dark"``, naming the *background*.
     figure : matplotlib.figure.Figure
-        The owning figure, composited under the axes.
+        The owning figure, read where there is no axes to read instead. Where
+        there is one this is still composited under it, reached from the axes.
     axes : matplotlib.axes.Axes or None
         The target axes, composited over the figure when there is one.
 
@@ -204,7 +205,10 @@ def _resolve_theme(theme: str, figure: Figure, axes: Axes | None) -> str:
     # The composite, not either layer's own channels: 10% black over white is
     # near-white, so it wants the light mark. The isopleth label boxes tint
     # themselves from the same answer, which is why it lives in ``_theme``.
-    red, green, blue = canvas_rgb(figure, axes)
+    # The axes when there is one: it is over the figure, and it finds what is
+    # behind it itself. ``_resolve_target`` has already refused a subfigure,
+    # so the walk out of an axes here is the one hop to `figure`.
+    red, green, blue = canvas_rgb(figure if axes is None else axes)
     weight_red, weight_green, weight_blue = LOGO_LUMINANCE_WEIGHTS
     luminance = weight_red * red + weight_green * green + weight_blue * blue
     return "dark" if luminance < LOGO_LUMINANCE_THRESHOLD else "light"

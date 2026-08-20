@@ -237,7 +237,11 @@ because the isopleth label boxes ask the same question and take the answer unthr
 to tint themselves (spec §3.2). Sharing it is what stops the mark and the diagram
 disagreeing about what colour the background is — the state {issue}`173` left the diagram
 in, where `auto` correctly drew the dark mark onto a figure whose labels were still boxed
-for a white page.
+for a white page. It is asked about the axes and walks out to the root figure itself, which
+matters to the label boxes rather than to `add_logo`: a `SubFigure` is transparent by
+default, so an axes in one is over the root through two invisible sheets, and §5's refusal
+of a `SubFigure` target means the walk from an axes `add_logo` accepted is always the
+single hop to its figure.
 
 **Documented limitation:** `savefig(transparent=True)` does not change any facecolor; it
 overrides alpha at draw time. `auto` therefore still sees white and picks `light`, which is

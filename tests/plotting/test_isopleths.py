@@ -581,6 +581,29 @@ def test_label_box_stays_translucent(plain_axes):
         assert alpha == pytest.approx(LABEL_BOX_ALPHA)
 
 
+def test_label_box_reads_past_a_subfigure_to_the_root():
+    """A family in a subfigure is tinted by the canvas the reader sees.
+
+    A subfigure is transparent by default, so an axes inside one that is
+    itself transparent shows the root figure. Reading only the family's
+    direct parent stops at the subfigure and answers white, putting the pale
+    blobs of :issue:`173` back on a black canvas.
+    """
+    figure = plt.figure(facecolor="black")
+    subfigure = figure.subfigures()
+    axes = subfigure.add_subplot()
+    axes.set(xlim=(1591.0, 1902.0), ylim=(1671.0, 1822.0))
+    axes.set_facecolor("none")
+    try:
+        family = _drawn_family(axes)
+        boxes = _label_box_colors(family)
+        assert boxes
+        for red, green, blue, _ in boxes:
+            assert (red, green, blue) == (0.0, 0.0, 0.0)
+    finally:
+        plt.close(figure)
+
+
 def test_moist_adiabat_truncation_configurable():
     family = _make_family("moist_adiabats")
     family.configure(truncation=-30.0)

@@ -1530,8 +1530,10 @@ class IsoplethFamily(martist.Artist):
         if axes is None:
             return
         # Once per draw rather than once per label: every label on the
-        # diagram sits on the same canvas.
-        box_color = canvas_rgb(self.get_figure(root=False), axes)
+        # diagram sits on the same canvas. Asked about the axes, which finds
+        # the figures behind it for itself — a subfigure between the two is
+        # transparent, so the root is the canvas and neither is skippable.
+        box_color = canvas_rgb(axes)
         view = axes.viewLim
         labelled = self._inline_members(view, selected)
         while len(self._texts) < len(labelled):
