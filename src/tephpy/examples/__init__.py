@@ -20,4 +20,10 @@ __all__ = ["REGISTRY"]
 
 #: Command-line name to module name, in gallery order. The name is the
 #: module's with its ``plot_`` prefix removed.
-REGISTRY: tuple[tuple[str, str], ...] = (("parcel-analysis", "plot_parcel_analysis"),)
+REGISTRY: tuple[tuple[str, str], ...] = (
+    ("parcel-analysis", "plot_parcel_analysis"),
+    ("tephigram", "plot_tephigram"),
+    ("sounding", "plot_sounding"),
+    ("sounding-comparison", "plot_sounding_comparison"),
+    ("hodograph", "plot_hodograph"),
+)
