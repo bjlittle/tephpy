@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from click.testing import CliRunner
+import matplotlib.pyplot as plt
 import pytest
 import yaml
 
 from tephpy import _cli, _configfile
+from tephpy.examples import REGISTRY
 
 
 @pytest.fixture
@@ -236,3 +238,60 @@ def test_help_lists_both_subcommands(runner):
     assert result.exit_code == 0
     assert "generate" in result.output
     assert "path" in result.output
+
+
+@pytest.fixture
+def headless(monkeypatch):
+    """Count ``plt.show`` calls instead of opening a window.
+
+    Returns
+    -------
+    list of int
+        One entry per call, so a test can assert how many there were.
+    """
+    calls = []
+    monkeypatch.setattr(plt, "show", lambda *_, **__: calls.append(1))
+    return calls
+
+
+def test_examples_list_is_the_registry_in_order(runner):
+    """The names the reader types, in the order the gallery shows them."""
+    result = runner.invoke(_cli.main, ["examples", "list"])
+    assert result.exit_code == 0
+    assert result.output.split() == [name for name, _ in REGISTRY]
+
+
+def test_examples_run_draws_one_example(runner, headless):
+    result = runner.invoke(_cli.main, ["examples", "run", "tephigram"])
+    assert result.exit_code == 0
+    assert len(headless) == 1
+    assert plt.get_fignums()
+    plt.close("all")
+
+
+def test_examples_run_all_shows_once(runner, headless):
+    """``--all`` is a set of figures, not a queue of blocking windows.
+
+    Showing inside the loop would make the reader close each figure before
+    the next is drawn, which is the opposite of what ``--all`` is for.
+    """
+    result = runner.invoke(_cli.main, ["examples", "run", "--all"])
+    assert result.exit_code == 0
+    assert len(headless) == 1
+    assert len(plt.get_fignums()) == len(REGISTRY)
+    plt.close("all")
+
+
+def test_examples_run_needs_a_name(runner, headless):
+    result = runner.invoke(_cli.main, ["examples", "run"])
+    assert result.exit_code == 2
+    assert "--all" in result.output
+    assert not headless
+
+
+def test_examples_run_points_an_unknown_name_at_the_list(runner, headless):
+    """The user has just mistyped a name, so name the command that has them."""
+    result = runner.invoke(_cli.main, ["examples", "run", "tephigrams"])
+    assert result.exit_code == 2
+    assert "tephpy examples list" in result.output
+    assert not headless
