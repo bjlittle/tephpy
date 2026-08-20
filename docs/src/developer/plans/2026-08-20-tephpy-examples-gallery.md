@@ -55,7 +55,7 @@
 | `docs/src/index.rst` | **Modify.** Fifth grid card and toctree entry. |
 | `docs/Makefile` | **Modify.** `clean` removes the generated gallery. |
 | `.gitignore` | **Modify.** Ignore `docs/src/gallery/`. |
-| `pyproject.toml` | **Modify.** package-data, ruff per-file-ignores, mypy override. |
+| `pyproject.toml` | **Modify**, by three tasks: the generator's `S310` exemption (Task 1), the example per-file-ignores and mypy override (Task 2), package-data (Task 6). |
 | `MANIFEST.in` | **Modify.** Ship the sample and the gallery header in the sdist. |
 | `.pre-commit-config.yaml` | **Modify.** Whitespace excludes for the capture; numpydoc exclude for examples. |
 | `.github/workflows/ci-wheels.yml` | **Modify.** Smoke-test the installed package data. |
@@ -79,7 +79,7 @@
 
 **Files:**
 - Create: `src/tephpy/samples/__init__.py`, `src/tephpy/samples/USM00072357-data-trimmed.txt`
-- Modify: `src/tephpy/__init__.py`, `tests/fixtures/generate_io_fixtures.py`, `tests/fixtures/io/README.md`, `.pre-commit-config.yaml`, `tests/test_import.py`
+- Modify: `src/tephpy/__init__.py`, `tests/fixtures/generate_io_fixtures.py`, `tests/fixtures/io/README.md`, `.pre-commit-config.yaml`, `tests/test_import.py`, `pyproject.toml` (the generator's `S310` exemption only)
 - Test: `tests/test_samples.py`
 
 **Interfaces:**
@@ -440,16 +440,35 @@ the script rewrites it too — update that docstring's capture date as well.
 
 - [ ] **Step 13: Lint and commit**
 
+- [ ] **Step 13: Restore the generator's URL check**
+
+Not conditional — this task's own refactor causes it. The IGRA sources are still `https://` literals, but they now reach `urlopen` through a table and a loop variable, so ruff can no longer read the scheme off the argument and reports `S310 suspicious-url-open-usage`. In `pyproject.toml`, replace the generator's per-file-ignores entry:
+
+```toml
+# One-shot generator scripts (spec §7 layer 4), not package modules; their
+# print is the script's user feedback.
+"tests/fixtures/generate_*.py" = [
+  "INP001",
+  # The IGRA sources are ``https://`` literals a few lines above the call, but
+  # they reach ``urlopen`` through a table and a loop variable, so ruff can no
+  # longer read the scheme off the argument (gallery spec §3.1).
+  "S310",
+  "SLF001",
+  "T201",
+]
+```
+
+- [ ] **Step 14: Lint and commit**
+
 ```bash
 pixi run --frozen -e devs lint
 wc -c src/tephpy/samples/USM00072357-data-trimmed.txt   # still 17104
+pixi run --frozen -e test pytest -q                      # 1466 collected
 git add src/tephpy/samples src/tephpy/__init__.py tests/test_samples.py \
         tests/test_import.py tests/fixtures/generate_io_fixtures.py \
-        tests/fixtures/io/README.md .pre-commit-config.yaml
+        tests/fixtures/io/README.md .pre-commit-config.yaml pyproject.toml
 git commit -m "Ship two Norman soundings as tephpy.samples"
 ```
-
-If lint reports `S310 suspicious-url-open-usage` on the generator, that is Task 6's `pyproject.toml` change arriving early — apply the per-file-ignores entry from Task 6 Step 3 now and note it in the commit.
 
 ---
 
@@ -488,14 +507,10 @@ __all__ = ["REGISTRY"]
 #: module's with its ``plot_`` prefix removed.
 REGISTRY: tuple[tuple[str, str], ...] = (
     ("parcel-analysis", "plot_parcel_analysis"),
-    ("tephigram", "plot_tephigram"),
-    ("sounding", "plot_sounding"),
-    ("sounding-comparison", "plot_sounding_comparison"),
-    ("hodograph", "plot_hodograph"),
 )
 ```
 
-The registry lists all five now. Tasks 2 and 3 fill them in; between the two the directory test of Step 5 fails, which is the point — it is the gate that would otherwise let an example go missing.
+**The registry holds only the example this task creates.** Task 3 appends its four as it writes them, each entry landing in the same commit as its module. Registering all five up front would leave `test_registry_covers_the_directory` and four parametrised cases red for the whole of Task 2 — every commit unbisectable, and every reviewer having to re-derive that the red was planned. The gate is proven instead by Task 3 Step 8's mutation, which removes a registered entry and watches the suite fail.
 
 - [ ] **Step 2: Write the gallery header**
 
@@ -684,7 +699,7 @@ def test_parcel_analysis_figure():
 - [ ] **Step 5: Run the tests to verify they fail**
 
 Run: `pixi run --frozen -e test pytest tests/examples/ -q`
-Expected: `ModuleNotFoundError: No module named 'tephpy.examples.plot_parcel_analysis'` from the parametrised run test, and failures for the four unwritten modules.
+Expected: `ModuleNotFoundError: No module named 'tephpy.examples.plot_parcel_analysis'` from the parametrised run test and from `test_parcel_analysis_figure`, plus `test_registry_covers_the_directory` failing on an empty directory against a one-entry registry.
 
 - [ ] **Step 6: Write the canonical example**
 
@@ -744,10 +759,10 @@ if __name__ == "__main__":
 
 Use a hyphen-minus in `-271 J/kg`, not U+2212 — ruff `RUF003` rejects the ambiguous minus sign in a docstring.
 
-- [ ] **Step 7: Run the tests — one example passes, four are still missing**
+- [ ] **Step 7: Run the tests to verify they pass**
 
-Run: `pixi run --frozen -e test pytest tests/examples/ -q -k "parcel or names"`
-Expected: PASS for `test_example_runs[plot_parcel_analysis]`, `test_example_tags_are_declared_and_in_vocabulary[plot_parcel_analysis]`, `test_parcel_analysis_figure` and `test_registry_names_drop_the_prefix`.
+Run: `pixi run --frozen -e test pytest tests/examples/ -q`
+Expected: 5 passed — the registry holds one example, the directory holds one module, and they agree.
 
 - [ ] **Step 8: Generate the composed-figure baseline**
 
@@ -791,7 +806,7 @@ git add src/tephpy/examples tests/examples tests/baseline pyproject.toml \
 git commit -m "Add the parcel analysis example and the registry over it"
 ```
 
-The suite is red until Task 3 — `test_registry_covers_the_directory` and four parametrised runs still fail. That is the registry doing its job; say so in the commit body.
+Confirm the whole suite is green before committing — `pixi run --frozen -e test pytest --mpl -q`, expecting **1471 passed** (1461 on `main`, plus Task 1's 5 and this task's 5). Every task in this plan leaves the suite green; a red one means the registry and the directory have gone out of step.
 
 ---
 
@@ -799,16 +814,19 @@ The suite is red until Task 3 — `test_registry_covers_the_directory` and four 
 
 **Files:**
 - Create: `src/tephpy/examples/plot_tephigram.py`, `plot_sounding.py`, `plot_sounding_comparison.py`, `plot_hodograph.py`
-- Test: `tests/examples/test_examples.py` (already written; it goes green here)
+- Modify: `src/tephpy/examples/__init__.py` (the four remaining registry entries)
+- Test: `tests/examples/test_examples.py` (already written; it covers each example as it is registered)
 
 **Interfaces:**
 - Consumes: `REGISTRY` and `samples.sounding` as in Task 2; `metpy.calc.wind_components`, `metpy.plots.Hodograph`.
-- Produces: `main() -> Figure` in each of the four modules.
+- Produces: `main() -> Figure` in each of the four modules, and the completed five-entry `REGISTRY` every later task reads.
 
-- [ ] **Step 1: Confirm the four are red**
+Each module and its registry entry land **together**. Write the module, add its line to `REGISTRY`, run `pytest tests/examples/ -q`, and only then start the next — the suite is green at every one of those points, and a module added without its entry fails `test_registry_covers_the_directory` immediately rather than four steps later.
+
+- [ ] **Step 1: Confirm the starting point is green**
 
 Run: `pixi run --frozen -e test pytest tests/examples/ -q`
-Expected: 5 failed — `test_registry_covers_the_directory` plus four `ModuleNotFoundError`s.
+Expected: 5 passed — Task 2's one example, registered and drawing.
 
 - [ ] **Step 2: Write `plot_tephigram.py`**
 
@@ -1040,7 +1058,19 @@ if __name__ == "__main__":
 
 The cross-reference must be `:class:`Sounding <tephpy.sounding.Sounding>``. autoapi publishes the class at `tephpy.sounding.Sounding`, and `numpydoc_xref_aliases` maps the bare name only for parameter and return types — a plain `` :class:`~tephpy.Sounding` `` fails the docs build with `py:class reference target not found`.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: Verify the completed registry**
+
+By now `REGISTRY` carries all five entries, in gallery order, added one per module:
+
+```python
+REGISTRY: tuple[tuple[str, str], ...] = (
+    ("parcel-analysis", "plot_parcel_analysis"),
+    ("tephigram", "plot_tephigram"),
+    ("sounding", "plot_sounding"),
+    ("sounding-comparison", "plot_sounding_comparison"),
+    ("hodograph", "plot_hodograph"),
+)
+```
 
 Run: `pixi run --frozen -e test pytest tests/examples/ --mpl -q`
 Expected: 13 passed.
@@ -1516,23 +1546,15 @@ recursive-include src/tephpy/samples *.txt
 include src/tephpy/examples/GALLERY_HEADER.rst
 ```
 
-- [ ] **Step 3: Restore the generator's URL check**
+- [ ] **Step 3: Confirm the generator's `S310` exemption is already in place**
 
-The IGRA sources now reach `urlopen` through a table and a loop variable, so ruff can no longer read the scheme off the argument and reports `S310`. In `pyproject.toml`, replace the generator's per-file-ignores entry:
+Task 1 Step 13 added it — that task could not pass its own lint gate without it. Verify rather than re-add:
 
-```toml
-# One-shot generator scripts (spec §7 layer 4), not package modules; their
-# print is the script's user feedback.
-"tests/fixtures/generate_*.py" = [
-  "INP001",
-  # The IGRA sources are ``https://`` literals a few lines above the call, but
-  # they reach ``urlopen`` through a table and a loop variable, so ruff can no
-  # longer read the scheme off the argument (gallery spec §3.1).
-  "S310",
-  "SLF001",
-  "T201",
-]
+```bash
+grep -A4 'generate_\*\.py' pyproject.toml
 ```
+
+Expected: the entry lists `INP001`, `S310`, `SLF001`, `T201`, with the comment explaining that the URLs reach `urlopen` through a loop variable. If `S310` is missing, Task 1 was committed with a lint failure — stop and fix it there.
 
 - [ ] **Step 4: Extend the wheel smoke test**
 
