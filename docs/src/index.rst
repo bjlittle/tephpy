@@ -29,6 +29,12 @@ Plot and analyse :term:`tephigrams <tephigram>`.
 
         Information-oriented API and glossary.
 
+    .. grid-item-card:: Examples Gallery
+        :link: gallery/index
+        :link-type: doc
+
+        Worked examples of what tephpy draws.
+
 .. toctree::
     :hidden:
 
@@ -36,4 +42,5 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     howtos/index
     explanation/index
     reference/index
+    gallery/index
     developer/index

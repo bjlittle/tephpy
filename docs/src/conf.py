@@ -106,9 +106,14 @@ numpydoc_xref_ignore = {"default", "mapping", "of", "optional", "or", "to"}
 bibtex_bibfiles = ["refs.bib"]
 
 # -- sphinx-gallery ----------------------------------------------------------
+# Scrapes the examples out of the package (gallery spec §3.5). `gallery_dirs`
+# is inside the Sphinx source tree because sphinx-gallery writes there, and
+# git-ignored because everything in it is generated.
 sphinx_gallery_conf = {
-    "examples_dirs": [],
-    "gallery_dirs": [],
+    "examples_dirs": ["../../src/tephpy/examples"],
+    "gallery_dirs": ["gallery"],
+    # A dotted string, not the class: see tephpy_gallery_order's docstring.
+    "within_subsection_order": "tephpy_gallery_order.RegistryOrder",
 }
 
 # -- plot_directive ----------------------------------------------------------
@@ -186,7 +191,16 @@ html_extra_path = ["../_build/browser"]
 # ``MANIFEST.in``'s ``prune docs/src/developer/plans`` is recursive: under ``*`` a
 # plan filed in a subdirectory would be pruned from the sdist yet published on the
 # site — the asymmetry, in the direction that leaks.
-exclude_patterns = ["brand/assets/*", "developer/plans/**"]
+exclude_patterns = [
+    "brand/assets/*",
+    "developer/plans/**",
+    # sphinx-gallery writes a downloadable notebook beside each generated page,
+    # and myst-nb makes ``.ipynb`` a source suffix -- so without this Sphinx
+    # finds two documents claiming the docname ``gallery/plot_tephigram`` and
+    # reads whichever it discovered first, leaving every
+    # ``sphx_glr_gallery_*`` label undefined (gallery spec §3.5).
+    "gallery/**.ipynb",
+]
 html_favicon = "_static/brand/favicon-48x48.png"
 # pydata-sphinx-theme 0.20 reads ``default_mode`` as a template context value
 # (not a theme option). Without it the freshly loaded page logs an invalid empty
