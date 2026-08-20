@@ -353,8 +353,23 @@ Three tests, all reading the registry:
    the last outstanding baseline of the roadmap, and the one that has been waiting for
    Plans 5 and 6 together.
 
+That third test is a `tests/` one rather than a documentation-side one because the
+documentation-side figure gate cannot see the gallery at all. `docs-check-figures` builds
+its expected set from the `:filename-prefix:` each `plot_directive` declares on a page,
+deliberately rather than by globbing the build's `_images/` (plots spec §3.5); sphinx-gallery
+writes its figures through its own scraper and declares no prefix, so the gate stays at the
+twelve figures of two how-to pages and every gallery figure is invisible to it.
+`docs-check-links` is scoped the same way and is likewise unaffected. Of the post-build
+gates only `docs-check-citations` sees the new pages, because it walks all of them.
+
+So the gallery's five figures are covered by one baseline and the build's own execution of
+the other four — an example that stops drawing fails, an example that draws something else
+does not. Widening that is a matter of adding `mpl_image_compare` tests, not of configuring
+a gate that was never pointed here.
+
 `docs-clean` removes `docs/src/gallery` and `docs/src/sg_execution_times.rst` alongside the
-build tree it already clears.
+build tree it already clears. `docs-all` additionally runs `docs-browser-test`, which needs a
+hand-installed Chromium and has nothing to do with the gallery.
 
 (gallery-spec-4)=
 ## 4. The example set
