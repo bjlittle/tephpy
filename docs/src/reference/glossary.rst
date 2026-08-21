@@ -12,7 +12,16 @@ cross-reference rules.
         A thermodynamic diagram that plots temperature against entropy on a
         rotated coordinate system, so that isotherms and dry adiabats form an
         exactly perpendicular straight-line grid. ``tephpy`` renders it as a
-        Matplotlib projection named ``"tephigram"``.
+        Matplotlib :term:`projection` named ``"tephigram"``.
+
+    projection
+        Matplotlib's name for a custom Axes class registered under a string,
+        selected with
+        :func:`plt.subplots(subplot_kw={"projection": ...}) <matplotlib.pyplot.subplots>`
+        — nothing to do with a map projection. Importing ``tephpy`` registers
+        :class:`TephigramAxes <tephpy.plotting.axes.TephigramAxes>` under
+        ``"tephigram"``, which is why every example imports the package even
+        where it names nothing from it.
 
     sounding
         A vertical profile of atmospheric measurements (pressure, temperature,
@@ -173,10 +182,19 @@ cross-reference rules.
     convective inhibition
         The energy per unit mass (J/kg, non-positive) a :term:`parcel`
         must be given to reach its :term:`LFC` through the layers where
-        it is cooler than the environment — the lid that must break
-        before :term:`CAPE` is released. Reported by
+        it is cooler than the environment — the :term:`cap` that must
+        break before :term:`CAPE` is released. Reported by
         :func:`calc.indices(...) <tephpy.calc.indices>` and shaded by
         :meth:`ax.shade_cin(snd, parcel) <tephpy.plotting.axes.TephigramAxes.shade_cin>`.
+
+    cap
+    capping inversion
+        The warm, stable layer above the surface that holds a lifted
+        :term:`parcel` down until something breaks it — the physical thing
+        :term:`CIN` measures, which is why forecasters quote a cap in J/kg
+        and speak of it eroding through the day. ``tephpy`` reports the
+        number as the ``cin`` field of
+        :class:`calc.SoundingIndices <tephpy.calc.SoundingIndices>`.
 
     lifted index
         The environment-minus-parcel temperature difference at 500 hPa
@@ -191,6 +209,13 @@ cross-reference rules.
         rises — the source of most real :term:`soundings <sounding>`.
         ``tephpy`` ingests radiosonde archives through the ``tephpy.io``
         readers.
+
+    special sounding
+    special
+        A :term:`radiosonde` release outside a station's scheduled times —
+        00Z and 12Z, where the Z is UTC — made when the weather warrants an
+        extra look. The 17Z ascent that :mod:`tephpy.samples` ships is one,
+        sent up about three hours before the Moore tornado of 2013-05-20.
 
     IGRA
     Integrated Global Radiosonde Archive
@@ -210,3 +235,13 @@ cross-reference rules.
         draws a :term:`sounding`'s barbs on a staff in the right-hand
         gutter, each level at the height where its isobar meets the
         diagram's edge.
+
+    hodograph
+        A plot of a :term:`sounding`'s winds as vectors from a common
+        origin, joined in height order, so that the shape of the curve is
+        how the wind turns and strengthens with height. It answers what a
+        tephigram cannot: the diagram carries the thermodynamics, and its
+        :term:`wind barbs <wind barb>` give one level at a time. ``tephpy``
+        draws no hodograph — MetPy's :class:`metpy.plots.Hodograph` composes
+        onto the same figure, and the :ref:`gallery` insets one over a
+        tephigram.

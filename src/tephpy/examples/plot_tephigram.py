@@ -5,11 +5,12 @@
 """The Tephigram
 =============
 
-The bare diagram: five isopleth families on a coordinate system rotated so
-that isotherms and dry adiabats cross at right angles.
+The bare diagram: the five :term:`isopleth` families of a :term:`tephigram`,
+on a coordinate system rotated so that :term:`isotherms <isotherm>` and
+:term:`dry adiabats <dry adiabat>` cross at right angles.
 
-The projection is registered by importing tephpy, and the extent is given
-as two (pressure, temperature) corners.
+The :term:`projection` is registered by importing tephpy, and the extent is
+given as two (pressure, temperature) corners.
 """
 
 from __future__ import annotations

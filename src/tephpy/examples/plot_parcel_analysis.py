@@ -5,11 +5,12 @@
 """Parcel Analysis
 ===============
 
-Lift a parcel from the surface, shade the energy available to it, and
-annotate the indices that summarise the ascent.
+Lift a :term:`parcel` from the surface, shade the energy available to it,
+and annotate the indices that summarise the :term:`ascent <parcel ascent>`.
 
-The sounding is Norman, Oklahoma at 12Z on 2013-05-20 — the morning of the
-Moore EF5 tornado, with about 1750 J/kg of CAPE under a -271 J/kg cap.
+The :term:`sounding` is Norman, Oklahoma at 12Z on 2013-05-20 — the morning
+of the Moore EF5 tornado, with about 1750 J/kg of :term:`CAPE` under a
+-271 J/kg :term:`cap`.
 """
 
 from __future__ import annotations

@@ -5,8 +5,9 @@
 """A Hodograph inside a Tephigram
 ==============================
 
-tephpy draws tephigrams and leaves hodographs to MetPy, so the wind profile
-goes in an inset over the diagram's top-left corner, drawn from the same
+tephpy draws :term:`tephigrams <tephigram>` and leaves
+:term:`hodographs <hodograph>` to MetPy, so the wind profile goes in an inset
+over the diagram's top-left corner, drawn from the same
 :class:`Sounding <tephpy.sounding.Sounding>`.
 
 A tephigram shows the thermodynamic profile and a hodograph the wind profile,
@@ -14,7 +15,7 @@ and a forecaster reads them together. Insetting the hodograph keeps the
 tephigram at the figure's full width; side by side, the two panels halve it
 and neither is comfortable to read.
 
-The sounding is Norman, Oklahoma at 12Z on 2013-05-20.
+The :term:`sounding` is Norman, Oklahoma at 12Z on 2013-05-20.
 """
 
 from __future__ import annotations

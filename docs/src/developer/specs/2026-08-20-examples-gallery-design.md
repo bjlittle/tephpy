@@ -198,6 +198,26 @@ per-file-ignores, and the `numpydoc-validation` pre-commit hook, by exclusion. A
 invited to copy, and the gallery hands them the file. `main`'s own docstring is an ordinary
 numpydoc one, and ruff's pydocstyle rules still cover both.
 
+Being page prose rather than a docstring also settles where the glossary rule of spec §8.6
+bites. An example's docstring, and `GALLERY_HEADER.rst`, are narrative prose: the first
+mention of a term on each gets a `:term:`, exactly as a how-to page would. The `# %%` block
+comments and `main`'s numpydoc are not, and take none. Sweeping the five against the
+glossary on 2026-08-21 is what added `projection`, `cap`, `special sounding` and `hodograph`
+to it — a gallery page is often where a term first reaches a reader in prose, because the
+rest of the documentation meets it inside a code block.
+
+The cost is the notebook. sphinx-gallery's reST-to-markdown converter special-cases `:math:`
+and `:ref:` and passes every other role through verbatim (`rst2md`, 0.21), so a downloaded
+`.ipynb` shows ``:term:`dewpoint` `` where the page shows a link. That was already true of
+the `:class:` reference this section's own example carries, and the alternatives are worse:
+`pypandoc` converts properly but takes a pandoc binary into the documentation environment
+for the sake of one cell's cosmetics, and writing the prose role-free would cost the HTML
+page — the artefact almost every reader actually meets — to tidy the one they download. So
+the rule is applied as written, and the density is kept honest instead: link the terms a
+sentence leans on, not every term it contains. `plot_sounding.py` leaves "profiles"
+unlinked for exactly that reason, the `sounding` entry it links two lines later having
+already defined them.
+
 **An example is typed the way a user writes one.** A projection is registered at runtime, so
 `plt.subplots(subplot_kw={"projection": "tephigram"})` is typed `Axes` and every tephigram
 method called on it is an `attr-defined` error. That is matplotlib's projection registry and
@@ -447,9 +467,10 @@ example clears them and states the unit once in the inset title.
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are
 visibly different and the comparison has a subject. Two arbitrary soundings would show the
 API and teach nothing. Its `EXTENT` is a quarter narrower than the default view and clips
-both ascents near 250 hPa: the difference the example is about is below the cap, and a frame
-closer than the default is also what keeps the `set_extent` call from restating what
-`plot_tephigram.py` already shows.
+both ascents near 250 hPa: the difference the example is about is in the lower troposphere,
+far below that, and a frame closer than the default is also what keeps the `set_extent` call
+from restating what `plot_tephigram.py` already shows. The prose says so in those words
+rather than "below the cap", which the same paragraph has just used for the inversion.
 
 (gallery-spec-5)=
 ## 5. What belongs in the gallery

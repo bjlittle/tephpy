@@ -5,10 +5,11 @@
 """A Sounding
 ==========
 
-Temperature and dewpoint profiles, with the ascent's wind barbs on the
-gutter staff to the right of the diagram.
+Temperature and :term:`dewpoint` profiles, with the ascent's
+:term:`wind barbs <wind barb>` on the gutter staff to the right of the
+diagram.
 
-The sounding is Norman, Oklahoma at 12Z on 2013-05-20.
+The :term:`sounding` is Norman, Oklahoma at 12Z on 2013-05-20.
 """
 
 from __future__ import annotations
