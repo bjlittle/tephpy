@@ -3,6 +3,10 @@ tephpy
 
 Plot and analyse :term:`tephigrams <tephigram>`.
 
+.. The landing page carries the four Diataxis quadrants and nothing else. The
+   gallery is not a fifth quadrant; it is a way into all four, so it is reached
+   from the toctree below rather than from a card of its own.
+
 .. grid:: 2
 
     .. grid-item-card:: Tutorials
@@ -36,4 +40,5 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     howtos/index
     explanation/index
     reference/index
+    gallery/index
     developer/index

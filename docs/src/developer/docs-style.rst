@@ -25,10 +25,15 @@ gives the concept in one plain sentence, then how it appears in ``tephpy`` (the
 data, its units, the API type that carries it), and links deeper physics to the
 Explanation quadrant.
 
+.. _glossary-rule:
+
 Cross-reference the *first* mention of a glossary term per page with
 ``:term:``, in narrative prose only — never in titles, code blocks, API
 signatures, or admonition labels. Within a definition, link related terms but
-never the term itself. Keep one canonical spelling per concept.
+never the term itself. Keep one canonical spelling per concept. The
+documentation build is fail-on-warning, so a ``:term:`` whose entry does not
+exist yet breaks it: a pull request that reaches for a new term adds the entry
+in the same change.
 
 When a definition names a documented API, cross-reference it with the matching
 Sphinx domain role — ``:class:``, ``:func:``, ``:meth:``, ``:mod:``, or
@@ -348,6 +353,89 @@ declaration — a near miss as above, or a page the gate expects to publish that
 stopped declaring anything. Fix the declaration and run it again. The baseline that
 declaration named is a live pin, and to a scan that cannot read the declaration it
 looks exactly like the orphan of a renamed section, which this command removes.
+
+Gallery Examples
+----------------
+
+The gallery is scraped from ``src/tephpy/examples``, which ships in the wheel:
+every entry is a module a reader can download, and also one an installed tephpy
+can run with ``tephpy examples run <name>``. The rules below are specified in
+gallery spec §3.2, §3.3, §3.5, §3.6. Every one a test can read off a file — the
+registry, the ``main()`` shape and its guard, the figure size, the tag
+vocabulary and how many tags — is asserted by
+``tests/examples/test_examples.py``. What belongs in the gallery at all, and
+that an example reaches no network and writes no file, are left to review.
+
+The gallery shows what the package draws. Everything else is a how-to. An
+example whose subject is not a picture — getting data in, configuring the
+package, installing it — belongs in the how-to quadrant, however much code it
+carries (gallery spec §5). An example that happens to load data is fine; the
+subject is what is tested, not the API surface touched.
+
+Every module is named ``plot_*.py``, and the prefix is load-bearing.
+sphinx-gallery's ``filename_pattern`` defaults to ``/plot``, and only a matching
+file is *executed*: a file outside the pattern is still rendered, silently, with
+no figure and no error.
+
+Every module defines ``main()``, which builds the figure and returns it, and
+closes with the guard that shows it:
+
+.. code-block:: python
+
+    def main() -> Figure:
+        ...
+        return fig
+
+
+    if __name__ == "__main__":
+        main()
+        plt.show()
+
+One construction then serves four consumers — sphinx-gallery, which executes the
+file as ``__main__``; ``tephpy examples run``; ``pytest-mpl``, which decorates a
+function returning a figure; and the reader running the downloaded script.
+Showing inside ``main`` would cost the third of those, and the pinned figure
+would then be a claim about the test rather than about what was published.
+
+An example takes any data it needs from :mod:`tephpy.samples`, reaches no
+network, and writes no file. The documentation build executes it, so a
+``savefig`` call would leave an artefact in the generated tree on every build;
+the vector-output line appears in an example's prose instead, shown and not
+run.
+
+Add a new example to ``REGISTRY`` in ``src/tephpy/examples/__init__.py``, in the
+position it should occupy. Registry order is gallery order is
+``examples run --all`` order, and the tests read it: an unregistered
+``plot_*.py`` fails them rather than disappearing quietly. Pass
+``figsize=(8.0, 4.0)`` at the example's own ``subplots`` or ``figure`` call —
+sphinx-gallery calls ``plt.rcdefaults()`` before every example, so a configured
+default is discarded before the first line runs.
+
+Tags come from a closed vocabulary — ``analysis``, ``barbs``, ``diagram``,
+``indices``, ``isopleths``, ``metpy``, ``overlay``, ``shading``, ``sounding`` —
+two to four per example, declared in the flag sphinx-gallery reads:
+
+.. code-block:: python
+
+    # sphinx_gallery_tags = ["analysis", "shading", "indices", "sounding"]
+
+They render on the page and drive the index's filter buttons, so a ``barb``
+beside a ``barbs`` splits the very index the feature exists to build. Widening
+the vocabulary means editing ``VOCABULARY`` in
+``tests/examples/test_examples.py``, which is deliberate. Spell the flag exactly:
+sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
+discards it in silence, with no warning to fail the build on — which is why the
+test reads the flag out of the source text rather than asking the parser.
+
+Leave the flag visible. ``sphinx_gallery_start_ignore`` would hide it from the
+page, but the source is the point on a page whose purpose is showing source.
+
+A module's docstring is not a docstring — it is the page's title and opening
+prose — so the :ref:`glossary rule <glossary-rule>` applies to it in full:
+cross-reference the first mention of a term per example with ``:term:``, and
+seed the entry in the same pull request when the term is new. The ``# %%``
+block comments and ``main()``'s own numpydoc are code and documentation of
+code, and take no ``:term:``.
 
 Attribute Documentation
 -----------------------

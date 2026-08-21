@@ -325,7 +325,12 @@ A gallery entry is a standalone worked example, reached by browsing thumbnails, 
 should not re-decide §3.1's configuration or §3.5's pinning when it lands — it should adopt
 them, or amend this document.
 
-`sphinx_gallery_conf` keeps its empty directories. Nothing here populates them.
+`sphinx_gallery_conf` kept its empty directories through this document.
+[`2026-08-20-examples-gallery-design.md`](2026-08-20-examples-gallery-design.md)
+populates them: gallery spec §3.5 adopts §3.1's figure recipe and single `png` format
+as this section asked, amending only where the recipe is applied — sphinx-gallery
+resets matplotlib before every example, so each passes `figsize=(8.0, 4.0)` at its own
+`subplots` call — and pinning one figure against a baseline rather than all five.
 
 (plots-spec-6)=
 ## 6. Companion changes

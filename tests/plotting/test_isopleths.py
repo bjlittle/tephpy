@@ -859,7 +859,8 @@ def test_selected_and_inline_members_at_the_default_extent():
         selected = isobars._selected_members()
         assert [member.value for member in selected][:3] == [150.0, 200.0, 250.0]
         assert len(selected) == 19
-        assert isobars._inline_members(view, selected) == []
+        inline = isobars._inline_members(view, selected)
+        assert [member.value for member in inline] == [150.0]
 
         # Release the edges before the isotherms take them: Task 5 makes a
         # second claimant an error, and this test must keep passing.
@@ -868,7 +869,7 @@ def test_selected_and_inline_members_at_the_default_extent():
         selected = isotherms._selected_members()
         assert len(selected) == 19
         remainder = isotherms._inline_members(view, selected)
-        assert [member.value for member in remainder] == [-120.0]
+        assert remainder == []
 
         adiabats = ax.dry_adiabats()
         selected = adiabats._selected_members()
@@ -884,8 +885,8 @@ def test_edge_locator_matches_the_coverage_table():
         fig.canvas.draw()
         locator = isopleths._EdgeLocator(ax.isobars(), "left")
         positions = locator()
-        assert len(positions) == 18
-        assert locator.values == [float(p) for p in range(150, 1050, 50)]
+        assert len(positions) == 14
+        assert locator.values == [float(p) for p in range(200, 900, 50)]
         assert locator.positions == positions
 
         locator = isopleths._EdgeLocator(ax.mixing_ratios(), "top")
@@ -894,15 +895,22 @@ def test_edge_locator_matches_the_coverage_table():
 
         locator = isopleths._EdgeLocator(ax.isotherms(), "bottom")
         locator()
-        assert locator.values == [float(t) for t in range(-40, 70, 10)]
+        assert locator.values == [float(t) for t in range(-60, 70, 10)]
     finally:
         plt.close(fig)
 
 
 def test_edge_locator_ticks_every_crossing():
-    """200 hPa leaves and re-enters the view across the top edge."""
+    """200 hPa leaves and re-enters the view across the top edge.
+
+    The extent is given rather than defaulted: no member double-crosses an
+    edge at ``DEFAULT_EXTENT``, so a test that took the view it is handed
+    would assert the ordinary single-crossing case under a name promising
+    the doubled one (spec §3.2).
+    """
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
+        ax.set_extent(((1050.0, -40.0), (200.0, 40.0)))
         fig.canvas.draw()
         locator = isopleths._EdgeLocator(ax.isobars(), "top")
         locator()

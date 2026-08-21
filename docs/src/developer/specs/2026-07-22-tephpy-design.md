@@ -431,33 +431,60 @@ Differences from tephi:
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
 
-Edge coverage decides which pairing suits each family. Measured 2026-07-29 against the
+`DEFAULT_EXTENT` is `((900.0, -65.0), (200.0, 5.0))` — narrowed 2026-08-21 from the
+`((1050.0, -40.0), (200.0, 40.0))` the projection shipped with, which pushed a real ascent
+into the left third of the view and spent an eighth of the drawing area outside the
+diagram's own temperature domain. Two properties decide the replacement, and both are
+geometric rather than meteorological.
+
+The first is the dead corner. Isopleths exist only where the temperature is inside
+`TEMPERATURE_DOMAIN`, and an extent's two corners become the axis-aligned box between the
+points they map to, so the box's own corners can fall outside the domain: the bottom-right
+`(x1, y0)` is blank where `x1 - y0 > 120` and the top-left `(x0, y1)` where
+`x0 - y1 < -240`. The old extent spent 13.1% of its area on one such corner, the
+bottom-right; the new one splits the excess evenly between the two and spends 3.1%. Some
+dead corner is unavoidable at the `(8.0, 4.0)` figure size: the two conditions together
+require `w + h <= 360`, so at `w = 2h` the view can be no more than 120 units tall, and a
+surface-to-200 hPa ascent already spans 121.5.
+
+The second is what the box actually frames. Both shipped soundings (gallery spec §3.1) run
+from about 965 hPa to well above 200 hPa; against the new extent their combined footprint
+fills 83% of the view's height and sits 98.0 units from the left edge against 87.3 from the
+right, where the old extent pushed them into the left third (52.1 against 157.8). The view
+is 285.9 by 145.9 units, an aspect of 1.96 — near the 2:1 the `figure.figsize` of the
+published-figure recipe wants (plots spec §4), so the equal-aspect axes box fills the canvas
+rather than leaving a band of it empty. A
+tephigram's data is a narrow, steep diagonal band, so no landscape frame makes an ascent
+wide; centring it and shrinking the dead corners is the whole of the available win.
+
+Edge coverage decides which pairing suits each family. Measured 2026-08-21 against the
 real families at `DEFAULT_EXTENT` (matplotlib 3.11.1) — of the members the zoom ladder
 selects, how many reach each edge, and how many reach at least one:
 
 | family | members | bottom | top | left | right | any |
 |---|---|---|---|---|---|---|
-| isotherms | 19 | 11 | 16 | 8 | 3 | 18 |
-| isobars | 19 | 1 | 2 | 18 | 3 | 19 |
-| dry adiabats | 35 | 9 | 20 | 7 | 3 | 27 |
-| moist adiabats | 21 | 0 | 7 | 1 | 0 | 8 |
-| mixing ratios | 8 | 0 | 8 | 1 | 0 | 8 |
+| isotherms | 19 | 13 | 13 | 6 | 6 | 19 |
+| isobars | 19 | 4 | 1 | 14 | 11 | 19 |
+| dry adiabats | 35 | 11 | 15 | 4 | 7 | 22 |
+| moist adiabats | 21 | 3 | 4 | 0 | 3 | 10 |
+| mixing ratios | 8 | 2 | 8 | 0 | 0 | 8 |
 
 No single edge covers a family, which is why placements are a tuple and why the inline
 remainder is automatic rather than optional. The pairings the numbers recommend:
 
-- **Isobars `("bottom", "left"), interval=150`** — at the default 50 hPa spacing all 19
-  members tick (none doubled, nothing left inline: the left edge carries 150–1000 hPa and
-  the bottom edge the 1050 hPa isobar alone), but the left-edge labels crowd; `interval=150`
-  gives a legible ~6-label scale. The printed chart's pressure scale.
-- **Isotherms `("bottom", "left")`** — 18 of 19, the warm 11 below (−40 to 60 °C) and the
-  cold 8 beside (−110 to −40 °C). The two edges are not disjoint: −40 °C passes through
-  the corner and is ticked on both, and −120 °C reaches no edge at all and falls to the
-  inline remainder. Both rules above, visible in one call.
+- **Isobars `("bottom", "left"), interval=150`** — at the default 50 hPa spacing 18 of the
+  19 members tick, on disjoint edges: 200–850 hPa beside, 900–1050 hPa below, while
+  150 hPa crosses only the top and falls to the inline remainder. The left-edge labels
+  crowd at that spacing; `interval=150` gives a legible 6-label scale (300–750 hPa beside,
+  900 and 1050 hPa below, 150 hPa still inline). The printed chart's pressure scale.
+- **Isotherms `("bottom", "left")`** — 19 of 19 on disjoint edges, the warm 13 below
+  (−60 to 60 °C) and the cold 6 beside (−120 to −70 °C).
 - **Mixing ratios `"top"`** — 8 of 8, a complete scale from one token.
-- **Dry adiabats `("top", "left")`** — 27 of 35; the 8 that reach nothing stay inline.
-- **Moist adiabats** — 8 of 21 at best, because they are truncated curves that mostly
-  begin and end inside the view. Not an edge family: leave them inline or `labels=False`.
+- **Dry adiabats `("top", "left")`** — 19 of 35 on disjoint edges; the 16 that reach
+  neither stay inline.
+- **Moist adiabats** — no edge ticks more than 4 of the 21, because they are truncated
+  curves that mostly begin and end inside the view. Not an edge family: leave them inline
+  or `labels=False`.
 
 The counts are extent-dependent — `set_extent` changes every one of them — which is
 precisely why the crossings are recomputed by the locator on each draw rather than fixed
@@ -944,8 +971,10 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   glossary — see "Glossary" below).
 - Extensions per geovista: **`sphinx-autoapi`** (API reference generated from `src/`),
   **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
-  scraped from `src/tephpy/examples`), `sphinx-design`, `sphinx-copybutton`,
-  `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references), `sphinx-tags`.
+  scraped from `src/tephpy/examples`, tagged with the extension's own
+  `sphinx_gallery_tags` flag and published as a fifth top-level section beside the four
+  quadrants — gallery spec §3.5, §3.6), `sphinx-design`, `sphinx-copybutton`,
+  `sphinx-togglebutton`, `sphinxcontrib-bibtex` (cited meteorology references).
   Plus `matplotlib.sphinxext.plot_directive`, which renders a user page's own snippets as
   figures — not from geovista, and not the gallery above: a gallery entry is a standalone
   worked example and a how-to figure is subordinate to a paragraph (plots spec §5).
@@ -1068,7 +1097,8 @@ covering the domain terms above.
 
 - No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
 - No skew-T projection — MetPy owns that space.
-- No hodograph — MetPy's `Hodograph` composes alongside; a gallery example shows it.
+- No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets
+  one over the diagram.
 - No GUI or interactive dashboard.
 - No fog-point or layer-cloud constructions (v1.x candidates).
 - No aviation overlays (icing, MINTRA contrail curves) — flagged open question below.
@@ -1093,7 +1123,8 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 4 | Sounding data model & profile plotting | §3.4 `Sounding` dataclass (validation §6, constructors); the §5 units machinery incl. `TephpyUnitsError` and the shared exception module; `plot_profile` (quantities path), `plot_sounding`, multi-sounding overlay + legends (§1 item 4); profile image baselines | 3 | ✅ complete (PR {pull}`19`) |
 | 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR {pull}`26`) |
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR {pull}`40`; ingest and layout hardening PR {pull}`41`) |
-| 7 | Examples gallery & documentation completion | §8.6: sphinx-gallery examples (one per §1 use case, incl. the hodograph composition example from §9), `src/tephpy/examples`, tutorials/how-tos/explanation content, glossary completion, sphinx-tags, doctest task + CI doctest run; composed §4-figure baseline (§7 — needs the union of Plans 5 and 6); README non-goals statement and eccodes recipe how-to (§9) | 2–6 | **next** |
+| 7a | Examples gallery | gallery spec: `src/tephpy/samples` (two shipped IGRA ascents) and `src/tephpy/examples` (five examples — one per §1 use case, plus the §9 hodograph composition); the `tephpy examples` command; the sphinx-gallery build, its registry ordering and its native tags; composed §4-figure baseline (§7 — needed the union of Plans 5 and 6) | 2–6 | ✅ complete (PR {pull}`181`) |
+| 7b | Documentation completion | §8.6: tutorials/how-tos/explanation content, glossary completion, `doctest` task + CI doctest run; README non-goals statement, the eccodes recipe and the reader how-to (§9, gallery spec §5); §8.3's SPEC 0 packaging statement (item 15) | 7a | **next** |
 
 Cross-cutting rules (apply to every plan rather than one row):
 
@@ -1255,19 +1286,23 @@ them, ordered by owning plan.
     direct declaration is dropped in Plan 5 (§8.1 updated; the implementation plan
     also removes scipy from the declared-dependencies tuple in
     `tests/test_import.py`).
-15. **Deferred** (Plan 7 — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → Plan 7; `doctest` task +
-    `ci-docs` doctest run (§8.2/§8.7) → Plan 7; `tests-clean` task (§8.2) → reconciled
+15. **Deferred** (Plan 7b — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → rejected in Plan 7a; `doctest` task +
+    `ci-docs` doctest run (§8.2/§8.7) → Plan 7b; `tests-clean` task (§8.2) → reconciled
     in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
     task regenerates the pytest-mpl baselines);
     wheel-install smoke test → Plan 2 (decided 2026-07-23); check-manifest CI gate →
     revisit once the wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs
-    statement → Plan 7.
+    statement → Plan 7b.
 
     Per-deferral status:
 
-    - **Deferred** (Plan 7 — {issue}`76`): sphinx-tags (§8.6).
-    - **Deferred** (Plan 7 — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
-    - **Deferred** (Plan 7 — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
+    - **Rejected** (2026-08-20, gallery spec §3.6): sphinx-tags (§8.6) — superseded.
+      sphinx-gallery now reads a `sphinx_gallery_tags` flag and ships the index filter
+      that was the whole reason to want tags, so adopting sphinx-tags would take a
+      dependency to duplicate an installed feature. Site-wide tag pages across the
+      narrative documentation are 7b's question.
+    - **Deferred** (Plan 7b — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
+    - **Deferred** (Plan 7b — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
     - **Resolved** (2026-07-24, PR {pull}`15`): the `tests-clean` task, with `baselines` alongside it.
     - **Resolved** (2026-07-23, PR {pull}`9`): the wheel-install smoke test.
     - **Open** ({issue}`77`): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
@@ -1287,7 +1322,10 @@ them, ordered by owning plan.
     the newest satisfying release — which is how the wrong floor survived three plans; a
     lowest-direct-resolution gate is re-homed to Plan 7.
 
-    *Residual:* **Deferred** (Plan 7 — {issue}`78`) — the lowest-direct-resolution gate.
+    *Residual:* **Resolved** (2026-08-14, PR {pull}`141`) — the lowest-direct-resolution
+    gate ships as `ci-floors`, the weekly job that resolves every declared dependency
+    floor at both declaration sites, exercises what it resolves, and files one issue per
+    broken floor (§8.7; floors spec §1).
 
 (spec-11)=
 ## 11. Open questions (carried from research)

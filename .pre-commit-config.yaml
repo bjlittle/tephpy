@@ -17,16 +17,16 @@ repos:
       - id: check-yaml
       - id: debug-statements
       - id: end-of-file-fixer
-        exclude: '\.svg$|^tests/fixtures/io/'
+        exclude: '\.svg$|^tests/fixtures/io/|^src/tephpy/samples/.*\.txt$'
       - id: mixed-line-ending
-        exclude: '^tests/fixtures/io/'
+        exclude: '^tests/fixtures/io/|^src/tephpy/samples/.*\.txt$'
       - id: no-commit-to-branch
       - id: trailing-whitespace
-        # The io fixtures are byte-faithful archive captures (their records
-        # legitimately end with a trailing space). The browser toolbar SVGs
-        # are likewise preserved byte-for-byte from the pinned Matplotlib
-        # wheel.
-        exclude: '^tests/fixtures/io/|^docs/src/_static/browser-toolbar/.*\.svg$'
+        # The io fixtures and the shipped sample are byte-faithful archive
+        # captures (their records legitimately end with a trailing space).
+        # The browser toolbar SVGs are likewise preserved byte-for-byte from
+        # the pinned Matplotlib wheel.
+        exclude: '^tests/fixtures/io/|^src/tephpy/samples/.*\.txt$|^docs/src/_static/browser-toolbar/.*\.svg$'
 
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.25
@@ -66,6 +66,14 @@ repos:
     hooks:
       - id: numpydoc-validation
         files: '^src/'
+        # A gallery example's module docstring is sphinx-gallery's title
+        # block -- an RST section heading and the page's opening prose --
+        # so it has no numpydoc summary and never will (gallery spec §3.3).
+        # An inline ``numpydoc ignore=SS01`` silences it and keeps ``main()``
+        # validated, but docs-style.rst rules linter directives out of code a
+        # reader is invited to copy, and the gallery hands them the file.
+        # ruff's pydocstyle rules still cover both docstrings.
+        exclude: '^src/tephpy/examples/plot_'
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0

@@ -15,7 +15,7 @@ try:
 except ImportError:  # pragma: no cover
     __version__ = "unknown"
 
-from tephpy import calc, exceptions, io, plotting, transforms
+from tephpy import calc, exceptions, io, plotting, samples, transforms
 from tephpy._config import config
 from tephpy._configfile import _warn_from_caller
 from tephpy.sounding import Sounding
@@ -28,6 +28,7 @@ __all__ = [
     "exceptions",
     "io",
     "plotting",
+    "samples",
     "transforms",
 ]
 

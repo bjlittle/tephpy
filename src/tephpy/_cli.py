@@ -5,12 +5,14 @@
 """The ``tephpy`` command line (configfile spec §4).
 
 Argument parsing and output text only. Everything this module does is
-reachable from Python through ``tephpy.config`` and ``tephpy._configfile``,
-so the command line is never the only way to do something.
+reachable from Python through ``tephpy.config``, ``tephpy._configfile`` and
+``tephpy.examples``, so the command line is never the only way to do
+something.
 """
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 import warnings
 
@@ -18,6 +20,7 @@ import click
 
 from tephpy import _configfile
 from tephpy._config import Config
+from tephpy.examples import REGISTRY
 from tephpy.exceptions import TephpyConfigError, TephpyConfigWarning
 
 __all__ = ["main"]
@@ -130,3 +133,58 @@ def generate(destination: str | None, *, force: bool = False) -> None:
     except TephpyConfigError as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(f"Wrote {target}")
+
+
+# Every docstring below is published twice: by ``--help``, and by sphinx-click
+# on the CLI reference page. So the citation for this group (gallery spec §3.4)
+# is here rather than in it — an internal section number is not an answer to
+# "what does this command do?" in either place.
+@main.group()
+def examples() -> None:
+    """List and run the worked examples."""
+
+
+@examples.command("list")
+def list_() -> None:
+    """Report the examples, in gallery order."""
+    for name, _ in REGISTRY:
+        click.echo(name)
+
+
+@examples.command()
+@click.argument("name", required=False)
+@click.option("--all", "run_all", is_flag=True, help="Run every example.")
+def run(name: str | None, *, run_all: bool = False) -> None:
+    """Run one example, or every example."""
+    # name and run_all are already explained by the argument and option
+    # above, which is what --help actually shows: numpydoc ignore=PR01
+    #
+    # Deferred on purpose: ``import tephpy`` does not import pyplot, and
+    # this is the only command that needs it. At the top of the module it
+    # would make ``tephpy config path`` select a matplotlib backend to
+    # print a list of file paths.
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    modules = dict(REGISTRY)
+    if run_all and name is not None:
+        # Running everything and naming one are different requests, and the
+        # reader who typed both meant one of them. Guessing which would
+        # discard the argument they were most specific about.
+        msg = "give an example name or --all, not both"
+        raise click.UsageError(msg)
+    if run_all:
+        chosen = list(modules.values())
+    elif name is None:
+        msg = "give an example name, or --all"
+        raise click.UsageError(msg)
+    elif name not in modules:
+        msg = f"unknown example {name!r}; try 'tephpy examples list'"
+        raise click.UsageError(msg)
+    else:
+        chosen = [modules[name]]
+    for module in chosen:
+        import_module(f"tephpy.examples.{module}").main()
+    # One show for all of them: it blocks until the reader closes the
+    # windows, so showing inside the loop would make --all a queue of
+    # figures rather than a set.
+    plt.show()

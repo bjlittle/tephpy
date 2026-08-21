@@ -1,0 +1,8 @@
+Added :mod:`tephpy.samples`, two radiosonde ascents shipped in the package, and
+a ``tephpy examples`` command that lists and runs the worked examples an
+installed tephpy carries. ``samples.sounding("norman-12z")`` reads one of the
+two Norman, Oklahoma ascents of 2013-05-20 through :func:`tephpy.io.igra.read`,
+so a script no longer has to build a sounding before it can draw one, and
+``tephpy examples run parcel-analysis`` draws the figure the specification has
+described in prose since the project started. See :ref:`gallery`.
+(:user:`bjlittle`)

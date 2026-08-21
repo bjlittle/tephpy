@@ -9,7 +9,8 @@ help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 clean:
-	rm -rf $(BUILDDIR) $(SOURCEDIR)/reference/generated
+	rm -rf $(BUILDDIR) $(SOURCEDIR)/reference/generated $(SOURCEDIR)/gallery
+	rm -f $(SOURCEDIR)/sg_execution_times.rst
 
 browser:
 	@$(PYTHON) build_browser.py

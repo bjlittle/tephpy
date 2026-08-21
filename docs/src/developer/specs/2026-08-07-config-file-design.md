@@ -154,7 +154,7 @@ isotherms:
     0.0: {color: tab:cyan, linewidth: 1.5}
 
 diagram:
-  extent: [[1050.0, -40.0], [200.0, 40.0]]
+  extent: [[900.0, -65.0], [200.0, 5.0]]
 
 cursor:
   fields: [pressure, temperature, theta]

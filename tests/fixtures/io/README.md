@@ -9,6 +9,14 @@ Both fixtures record the **same physical ascent** — Camborne, nominal
 2026-07-21 12Z, released 11:17 UTC — so the two readers cross-validate
 against each other in the tests.
 
+That script writes a third file, which is **not** a fixture:
+`src/tephpy/samples/USM00072357-data-trimmed.txt`, the sounding data tephpy
+ships and the gallery draws (gallery spec §3.1). It is the same IGRA capture
+by the same method, so it is generated here rather than by a second script
+that would drift from this one; its provenance is recorded in the
+`tephpy.samples` docstring, which the API documentation publishes. Running
+the script rewrites it too — update that docstring's capture date as well.
+
 ## wyoming-03808-2026-07-21-12Z.csv
 
 - **Source:** <https://weather.uwyo.edu/wsgi/sounding?datetime=2026-07-21%2012:00:00&id=03808&type=TEXT:CSV>

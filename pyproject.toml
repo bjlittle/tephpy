@@ -46,7 +46,20 @@ docs = { file = ["requirements/pypi-optional-docs.txt"] }
 test = { file = ["requirements/pypi-optional-test.txt"] }
 
 [tool.setuptools.package-data]
-tephpy = ["py.typed", "plotting/_static/*.png"]
+tephpy = [
+  "py.typed",
+  "plotting/_static/*.png",
+  # The shipped sounding data, and the gallery's landing page. Only the first is
+  # read from an installed tephpy, by `tephpy.samples`. Nothing reads the second
+  # from one: `docs/src/conf.py`'s `examples_dirs` is a path relative to
+  # `conf.py`, and sphinx-gallery globs that directory, so the header is needed
+  # in the *sdist* -- where a documentation build has a checkout to glob -- and
+  # `MANIFEST.in` is what carries it there. It is listed here so the installed
+  # `tephpy.examples` is whole, every file of it the gallery offers for download
+  # (gallery spec §3.7).
+  "samples/*.txt",
+  "examples/GALLERY_HEADER.rst",
+]
 
 [tool.setuptools.packages.find]
 include = ["tephpy*"]
@@ -164,12 +177,38 @@ max-statements = 53
 # package: an ``__init__.py`` would stop Sphinx resolving ``tephpy_citation_xrefs``
 # by top-level module name (docs spec §3.7).
 "docs/src/_ext/*.py" = ["INP001"]
+# A gallery example opens with sphinx-gallery's title block -- an RST section
+# heading, not a docstring summary -- and declares its tags in the comment flag
+# sphinx-gallery reads (gallery spec §3.3, §3.6).
+"src/tephpy/examples/plot_*.py" = [
+  "D205",   # blank line required between summary line and description
+  "D400",   # first line should end with a period
+  "ERA001", # commented-out code (the ``sphinx_gallery_tags`` flag)
+]
+# Importing tephpy is what registers the "tephigram" projection, so the diagram
+# example imports it and never names it again. A ``# noqa`` on the line would be
+# a linter directive in code the gallery invites a reader to copy, which
+# docs-style.rst rules out; the import carries a comment saying why it is there
+# instead. Keyed to the one file with the idiom rather than to the ``plot_*.py``
+# glob above: in any other example an unused import is a defect, and a shared
+# entry would wave it through in all five (gallery spec §3.3).
+"src/tephpy/examples/plot_tephigram.py" = [
+  "F401", # imported but unused
+]
 # DTZ001: naive datetimes are deliberate fixtures — the boundary under
 # test reads them as UTC (spec §3.4).
 "tests/*" = ["ANN001", "ANN003", "ANN201", "ANN202", "DTZ001", "SLF001", "D103"]
 # One-shot generator scripts (spec §7 layer 4), not package modules; their
 # print is the script's user feedback.
-"tests/fixtures/generate_*.py" = ["INP001", "T201", "SLF001"]
+"tests/fixtures/generate_*.py" = [
+  "INP001",
+  # The IGRA sources are ``https://`` literals a few lines above the call, but
+  # they reach ``urlopen`` through a table and a loop variable, so ruff can no
+  # longer read the scheme off the argument (gallery spec §3.1).
+  "S310",
+  "SLF001",
+  "T201",
+]
 # The tests tree mirrors the package (spec §8.5): tests/io shadows nothing
 # importable — it is reached as tests.io.
 "tests/io/__init__.py" = ["A005"]
@@ -185,6 +224,18 @@ warn_unreachable = true
 # imports.
 ignore_missing_imports = true
 module = ["metpy.*", "pandas.*", "pint.*"]
+
+[[tool.mypy.overrides]]
+# A projection is registered at runtime, so `plt.subplots(subplot_kw=
+# {"projection": "tephigram"})` is typed `Axes` and every tephigram method
+# on it is `attr-defined`. That is matplotlib's projection registry, not a
+# tephpy defect -- cartopy's `GeoAxes` types the same way -- and the answer
+# for library code is a `cast`. The examples are not library code: they are
+# what a user writes, published for a user to copy, so they are written that
+# way and the one error class that follows is disabled here (gallery
+# spec §3.3). Everything else mypy checks about them still applies.
+disable_error_code = ["attr-defined"]
+module = ["tephpy.examples.*"]
 
 [tool.repo-review]
 ignore = [

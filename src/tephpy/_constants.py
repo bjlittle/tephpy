@@ -38,10 +38,11 @@ MA: Final[float] = 300.0
 
 #: Default diagram extent as ((pressure, temperature), (pressure, temperature))
 #: corners in hPa / degrees Celsius: bottom-left and top-right of the default
-#: view (see ``TephigramAxes.set_extent``).
+#: view (see ``TephigramAxes.set_extent``). Chosen to frame a mid-latitude
+#: ascent from the surface to 200 hPa, centred and near 2:1 (spec §3.2).
 DEFAULT_EXTENT: Final[tuple[tuple[float, float], tuple[float, float]]] = (
-    (1050.0, -40.0),
-    (200.0, 40.0),
+    (900.0, -65.0),
+    (200.0, 5.0),
 )
 
 #: Pressure domain the isopleth geometry is computed over (hPa).
@@ -67,7 +68,7 @@ MOIST_ADIABAT_PRESSURE_STEP: Final[float] = 5.0
 MOIST_ADIABAT_TRUNCATION: Final[float] = -50.0
 
 #: Isotherm zoom ladder: (min view width, member interval in °C) pairs,
-#: widest first (10 °C at the default view width of ~311 units).
+#: widest first (10 °C at the default view width of ~286 units).
 ISOTHERM_STEPS: Final[tuple[tuple[float, float], ...]] = (
     (500.0, 20.0),
     (100.0, 10.0),

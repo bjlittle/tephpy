@@ -1,6 +1,8 @@
 include LICENSE README.md CHANGELOG.rst CITATION.cff
 include src/tephpy/py.typed
 recursive-include src/tephpy/plotting/_static *.png
+recursive-include src/tephpy/samples *.txt
+include src/tephpy/examples/GALLERY_HEADER.rst
 recursive-include requirements *.txt
 exclude src/tephpy/_version.py
 prune .github

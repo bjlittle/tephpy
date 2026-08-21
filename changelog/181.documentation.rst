@@ -1,0 +1,10 @@
+Added the :ref:`gallery`, five worked examples of what tephpy draws, built with
+``sphinx-gallery`` from the modules the package ships. Each page shows the
+figure and its source, offers the script and a notebook to download, and carries
+tags the gallery index filters on. The example set covers the bare diagram, a
+sounding with wind barbs, the parcel analysis with its CAPE and CIN shading, two
+ascents overlaid, and MetPy's hodograph inset on a tephigram. Their prose
+cross-references the glossary, which gains the four entries they reach for and
+it did not define: :term:`projection`, :term:`cap`, :term:`special sounding`
+and :term:`hodograph`.
+(:user:`bjlittle`)
