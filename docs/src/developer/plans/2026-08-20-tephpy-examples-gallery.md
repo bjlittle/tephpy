@@ -47,7 +47,7 @@
 | `src/tephpy/examples/plot_tephigram.py` | **Create.** The bare diagram and `set_extent`. |
 | `src/tephpy/examples/plot_sounding.py` | **Create.** Profiles plus gutter-staff barbs. |
 | `src/tephpy/examples/plot_sounding_comparison.py` | **Create.** 12Z against 17Z; carries the `savefig` line in prose. |
-| `src/tephpy/examples/plot_hodograph.py` | **Create.** MetPy's `Hodograph` beside a tephigram. |
+| `src/tephpy/examples/plot_hodograph.py` | **Create.** MetPy's `Hodograph` beside a tephigram — inset on it after review, see Step 5. |
 | `src/tephpy/_cli.py` | **Modify.** Add the `examples` group: `list`, `run [NAME] [--all]`. |
 | `src/tephpy/__init__.py` | **Modify.** Export `samples`. |
 | `docs/src/_ext/tephpy_gallery_order.py` | **Create.** `RegistryOrder`, the pickleable `within_subsection_order` key. |
@@ -1003,6 +1003,11 @@ The `# %%` block is sphinx-gallery's prose-cell marker: it renders as a section 
 
 - [ ] **Step 5: Write `plot_hodograph.py`**
 
+> **Reversed in review (2026-08-21).** The `1, 2` side-by-side layout below was built and
+> then replaced: at `figsize=(8.0, 4.0)` each panel gets four inches, and a four-inch
+> tephigram is illegible. The shipped example insets the hodograph over the top left of the
+> diagram instead — gallery spec §4.
+
 BSD header, then:
 
 ```python
@@ -1097,8 +1102,11 @@ parcel-analysis        axes=3 size=[8. 4.]
 tephigram              axes=1 size=[8. 4.]
 sounding               axes=2 size=[8. 4.]
 sounding-comparison    axes=1 size=[8. 4.]
-hodograph              axes=3 size=[8. 4.]
+hodograph              axes=2 size=[8. 4.]
 ```
+
+`hodograph` reads 2, not 3: after the Step 5 reversal its third axes is an inset, and
+`Axes.inset_axes` registers a *child* axes, which `Figure.axes` does not list.
 
 An `8.0 × 4.0` that came out `6.4 × 4.8` means a `figsize` was dropped — sphinx-gallery's `plt.rcdefaults()` gives no second chance at it.
 
@@ -1434,6 +1442,11 @@ In `docs/src/index.rst`, add a fifth grid card after the reference card:
 
         Worked examples of what tephpy draws.
 ```
+
+> **Reversed in review (2026-08-21).** The card was built and then removed: the landing
+> grid is the four Diátaxis quadrants, and a fifth card in it reads as a fifth quadrant.
+> The toctree entry below is the gallery's only entry point from the landing page — gallery
+> spec §3.5.
 
 and a toctree entry between `reference/index` and `developer/index`:
 
@@ -1812,7 +1825,7 @@ Added the :ref:`gallery`, five worked examples of what tephpy draws, built with
 figure and its source, offers the script and a notebook to download, and carries
 tags the gallery index filters on. The example set covers the bare diagram, a
 sounding with wind barbs, the parcel analysis with its CAPE and CIN shading, two
-ascents overlaid, and MetPy's hodograph composed beside a tephigram.
+ascents overlaid, and MetPy's hodograph inset on a tephigram.
 (:user:`claude`)
 ```
 
@@ -1860,7 +1873,7 @@ git push
 
 - [ ] **Step 12: Verify the rendered documentation on the ReadTheDocs preview**
 
-Probe `https://tephpy--<PR>.org.readthedocs.build/en/<PR>/gallery/index.html`. RTD skips commits, so a missing status check is not the same as no build. Check that the thumbnails are in registry order, that the tag filter buttons narrow them, and that the landing grid's fifth card reaches the gallery.
+Probe `https://tephpy--<PR>.org.readthedocs.build/en/<PR>/gallery/index.html`. RTD skips commits, so a missing status check is not the same as no build. Check that the thumbnails are in registry order, that the tag filter buttons narrow them, and that the landing page's toctree reaches the gallery.
 
 ---
 

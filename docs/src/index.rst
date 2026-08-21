@@ -3,9 +3,9 @@ tephpy
 
 Plot and analyse :term:`tephigrams <tephigram>`.
 
-.. The gallery card below is full width, so the four above it stay the 2x2
-   the Diataxis quadrants are. The gallery is not a fifth quadrant; it is a
-   way into all four.
+.. The landing page carries the four Diataxis quadrants and nothing else. The
+   gallery is not a fifth quadrant; it is a way into all four, so it is reached
+   from the toctree below rather than from a card of its own.
 
 .. grid:: 2
 
@@ -32,13 +32,6 @@ Plot and analyse :term:`tephigrams <tephigram>`.
         :link-type: doc
 
         Information-oriented API and glossary.
-
-    .. grid-item-card:: Examples Gallery
-        :columns: 12
-        :link: gallery/index
-        :link-type: doc
-
-        Worked examples of what tephpy draws.
 
 .. toctree::
     :hidden:

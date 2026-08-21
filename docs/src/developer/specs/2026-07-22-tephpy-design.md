@@ -1070,7 +1070,8 @@ covering the domain terms above.
 
 - No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
 - No skew-T projection — MetPy owns that space.
-- No hodograph — MetPy's `Hodograph` composes alongside; a gallery example shows it.
+- No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets
+  one over the diagram.
 - No GUI or interactive dashboard.
 - No fog-point or layer-cloud constructions (v1.x candidates).
 - No aviation overlays (icing, MINTRA contrail curves) — flagged open question below.

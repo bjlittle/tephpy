@@ -253,12 +253,17 @@ sphinx-gallery writes there, and git-ignored because everything in it is generat
 alongside `docs/src/sg_execution_times.rst`, which `.gitignore` already covers for the same
 reason.
 
-The gallery is a top-level section: a fifth card on the landing grid and its own toctree
-entry, sibling to the four Diátaxis quadrants rather than inside one. Diátaxis has no
-gallery quadrant, and browsing thumbnails is neither a lesson nor a recipe; spec §8.6
-itself lists sphinx-gallery separately from the four directories. Filing it under
-`tutorials/` was rejected — it would put browse-by-thumbnail beside the browser demo
-lesson, and compete with the tutorials that 7b writes for that index.
+The gallery is a top-level section: its own toctree entry, sibling to the four Diátaxis
+quadrants rather than inside one. Diátaxis has no gallery quadrant, and browsing
+thumbnails is neither a lesson nor a recipe; spec §8.6 itself lists sphinx-gallery
+separately from the four directories. Filing it under `tutorials/` was rejected — it would
+put browse-by-thumbnail beside the browser demo lesson, and compete with the tutorials that
+7b writes for that index.
+
+It gets **no landing-page card**. A fifth card was built and rejected (2026-08-21): the
+landing grid is the four Diátaxis quadrants, so anything sitting in it reads as a fifth
+quadrant, which is exactly what the gallery is not. The toctree entry is the way in, and
+the gallery's own thumbnails are what a reader browses once there.
 
 **Ordering is the registry's.** `within_subsection_order` defaults to
 `NumberOfCodeLinesSortKey`, which sorts by length and would bury the canonical figure —
@@ -410,7 +415,7 @@ scope. Four of the five draw from `tephpy.samples`; `plot_tephigram.py` needs no
 | `plot_sounding.py` | `sounding` | 12Z temperature and dewpoint, wind barbs on the gutter staff | 2 | sounding, barbs |
 | `plot_parcel_analysis.py` | `parcel-analysis` | spec §4's figure: parcel path, CAPE and CIN shading, the indices panel (which reports the LCL) | 3 | analysis, shading, indices, sounding |
 | `plot_sounding_comparison.py` | `sounding-comparison` | 12Z against 17Z on fixed extents, distinguishable styles, legends carrying station and time; the vector-output line in prose (§3.3) | 4 | overlay, sounding |
-| `plot_hodograph.py` | `hodograph` | MetPy's `Hodograph` composed beside a tephigram from the same `Sounding` | spec §9 | metpy, barbs, sounding |
+| `plot_hodograph.py` | `hodograph` | MetPy's `Hodograph` inset on a tephigram from the same `Sounding` | spec §9 | metpy, barbs, sounding |
 
 `plot_parcel_analysis.py` leads the gallery (§3.5) and is the baseline of §3.7. It is the
 package's shop window, and it is the one example whose figure the specification already
@@ -427,6 +432,16 @@ describes in words. It is spec §4's block call for call, with four deliberate d
 The first two are properties of the build and the third of the page, not of the diagram; the
 fourth renders a label spec §4's own comment already claims for it. So the picture the
 example draws is the one spec §4 specifies.
+
+`plot_hodograph.py` **insets** the hodograph rather than setting it beside the diagram. Two
+`1, 2` subplots was the first build and it was rejected in review (2026-08-21): at the
+§3.5 figure size each panel gets four inches, and a tephigram at four inches wide is
+illegible — the isopleth labels collide and the thumbnail shows a smudge. An
+`inset_axes((0.02, 0.55, 0.31, 0.43))` in axes fractions puts the hodograph over the top
+left of the view, which is above the isotherm the profiles climb and so covers nothing,
+and leaves the tephigram the figure's full width. MetPy plots pint quantities, so
+matplotlib labels both inset axes `meter/second`; the example clears them and states the
+unit once in the inset title.
 
 `plot_sounding_comparison.py` is where the 12Z/17Z pair earns its place: across five hours
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are
