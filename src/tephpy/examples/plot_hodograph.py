@@ -6,7 +6,7 @@
 ==============================
 
 tephpy draws tephigrams and leaves hodographs to MetPy, so the wind profile
-goes in an inset over the diagram's empty top-left corner, drawn from the same
+goes in an inset over the diagram's top-left corner, drawn from the same
 :class:`Sounding <tephpy.sounding.Sounding>`.
 
 A tephigram shows the thermodynamic profile and a hodograph the wind profile,
@@ -45,8 +45,9 @@ def main() -> Figure:
     fig, ax = plt.subplots(figsize=(8.0, 4.0), subplot_kw={"projection": "tephigram"})
     ax.plot_sounding(snd)
     ax.plot_barbs(snd)
-    # Axes fractions, not data: the top-left of the view is above the isotherm
-    # the profiles climb, so the inset covers no part of the diagram.
+    # Axes fractions, not data. The top-left is the cold, low-theta corner
+    # the profiles never reach, so the inset hides background isopleths and
+    # no part of the ascent.
     inset = ax.inset_axes((0.02, 0.55, 0.31, 0.43))
     hodograph = Hodograph(inset, component_range=40.0)
     hodograph.add_grid(increment=10.0)

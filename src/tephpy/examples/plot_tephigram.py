@@ -35,7 +35,10 @@ def main() -> Figure:
         The composed figure.
     """
     fig, ax = plt.subplots(figsize=(8.0, 4.0), subplot_kw={"projection": "tephigram"})
-    ax.set_extent(((1050.0, -40.0), (200.0, 40.0)))
+    # The corners the diagram already frames itself with, restated so the
+    # example shows how to reframe it. `tests/examples` pins them to the
+    # default, so a change to that default cannot leave this figure behind.
+    ax.set_extent(((900.0, -65.0), (200.0, 5.0)))
     ax.set_title("Tephigram")
     return fig
 

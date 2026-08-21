@@ -431,33 +431,60 @@ Differences from tephi:
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
 
-Edge coverage decides which pairing suits each family. Measured 2026-07-29 against the
+`DEFAULT_EXTENT` is `((900.0, -65.0), (200.0, 5.0))` — narrowed 2026-08-21 from the
+`((1050.0, -40.0), (200.0, 40.0))` the projection shipped with, which pushed a real ascent
+into the left third of the view and spent an eighth of the drawing area outside the
+diagram's own temperature domain. Two properties decide the replacement, and both are
+geometric rather than meteorological.
+
+The first is the dead corner. Isopleths exist only where the temperature is inside
+`TEMPERATURE_DOMAIN`, and an extent's two corners become the axis-aligned box between the
+points they map to, so the box's own corners can fall outside the domain: the bottom-right
+`(x1, y0)` is blank where `x1 - y0 > 120` and the top-left `(x0, y1)` where
+`x0 - y1 < -240`. The old extent spent 13.1% of its area on one such corner, the
+bottom-right; the new one splits the excess evenly between the two and spends 3.1%. Some
+dead corner is unavoidable at the `(8.0, 4.0)` figure size: the two conditions together
+require `w + h <= 360`, so at `w = 2h` the view can be no more than 120 units tall, and a
+surface-to-200 hPa ascent already spans 121.5.
+
+The second is what the box actually frames. Both shipped soundings (gallery spec §3.1) run
+from about 965 hPa to well above 200 hPa; against the new extent their combined footprint
+fills 83% of the view's height and sits 98.0 units from the left edge against 87.3 from the
+right, where the old extent pushed them into the left third (52.1 against 157.8). The view
+is 285.9 by 145.9 units, an aspect of 1.96 — near the 2:1 the `figure.figsize` of the
+published-figure recipe wants (plots spec §4), so the equal-aspect axes box fills the canvas
+rather than leaving a band of it empty. A
+tephigram's data is a narrow, steep diagonal band, so no landscape frame makes an ascent
+wide; centring it and shrinking the dead corners is the whole of the available win.
+
+Edge coverage decides which pairing suits each family. Measured 2026-08-21 against the
 real families at `DEFAULT_EXTENT` (matplotlib 3.11.1) — of the members the zoom ladder
 selects, how many reach each edge, and how many reach at least one:
 
 | family | members | bottom | top | left | right | any |
 |---|---|---|---|---|---|---|
-| isotherms | 19 | 11 | 16 | 8 | 3 | 18 |
-| isobars | 19 | 1 | 2 | 18 | 3 | 19 |
-| dry adiabats | 35 | 9 | 20 | 7 | 3 | 27 |
-| moist adiabats | 21 | 0 | 7 | 1 | 0 | 8 |
-| mixing ratios | 8 | 0 | 8 | 1 | 0 | 8 |
+| isotherms | 19 | 13 | 13 | 6 | 6 | 19 |
+| isobars | 19 | 4 | 1 | 14 | 11 | 19 |
+| dry adiabats | 35 | 11 | 15 | 4 | 7 | 22 |
+| moist adiabats | 21 | 3 | 4 | 0 | 3 | 10 |
+| mixing ratios | 8 | 2 | 8 | 0 | 0 | 8 |
 
 No single edge covers a family, which is why placements are a tuple and why the inline
 remainder is automatic rather than optional. The pairings the numbers recommend:
 
-- **Isobars `("bottom", "left"), interval=150`** — at the default 50 hPa spacing all 19
-  members tick (none doubled, nothing left inline: the left edge carries 150–1000 hPa and
-  the bottom edge the 1050 hPa isobar alone), but the left-edge labels crowd; `interval=150`
-  gives a legible ~6-label scale. The printed chart's pressure scale.
-- **Isotherms `("bottom", "left")`** — 18 of 19, the warm 11 below (−40 to 60 °C) and the
-  cold 8 beside (−110 to −40 °C). The two edges are not disjoint: −40 °C passes through
-  the corner and is ticked on both, and −120 °C reaches no edge at all and falls to the
-  inline remainder. Both rules above, visible in one call.
+- **Isobars `("bottom", "left"), interval=150`** — at the default 50 hPa spacing 18 of the
+  19 members tick, on disjoint edges: 200–850 hPa beside, 900–1050 hPa below, while
+  150 hPa crosses only the top and falls to the inline remainder. The left-edge labels
+  crowd at that spacing; `interval=150` gives a legible 6-label scale (300–750 hPa beside,
+  900 and 1050 hPa below, 150 hPa still inline). The printed chart's pressure scale.
+- **Isotherms `("bottom", "left")`** — 19 of 19 on disjoint edges, the warm 13 below
+  (−60 to 60 °C) and the cold 6 beside (−120 to −70 °C).
 - **Mixing ratios `"top"`** — 8 of 8, a complete scale from one token.
-- **Dry adiabats `("top", "left")`** — 27 of 35; the 8 that reach nothing stay inline.
-- **Moist adiabats** — 8 of 21 at best, because they are truncated curves that mostly
-  begin and end inside the view. Not an edge family: leave them inline or `labels=False`.
+- **Dry adiabats `("top", "left")`** — 19 of 35 on disjoint edges; the 16 that reach
+  neither stay inline.
+- **Moist adiabats** — no edge ticks more than 4 of the 21, because they are truncated
+  curves that mostly begin and end inside the view. Not an edge family: leave them inline
+  or `labels=False`.
 
 The counts are extent-dependent — `set_extent` changes every one of them — which is
 precisely why the crossings are recomputed by the locator on each draw rather than fixed

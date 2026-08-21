@@ -159,6 +159,24 @@ def test_example_tags_are_declared_and_in_vocabulary(module):
     assert set(tags) <= VOCABULARY, sorted(set(tags) - VOCABULARY)
 
 
+def test_the_tephigram_example_restates_the_default_extent():
+    """``plot_tephigram`` frames the diagram exactly as the default does.
+
+    The example writes the corners out literally, because showing
+    ``set_extent`` is half of what it is for (gallery spec §4). That makes
+    them a second copy of ``DEFAULT_EXTENT``, and a change to that default
+    would otherwise leave the example framing the diagram the old way while
+    the gallery page claims it shows the default.
+    """
+    figure = import_module("tephpy.examples.plot_tephigram").main()
+    default, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    try:
+        assert figure.axes[0].viewLim.bounds == ax.viewLim.bounds
+    finally:
+        plt.close(figure)
+        plt.close(default)
+
+
 @pytest.mark.mpl_image_compare
 def test_parcel_analysis_figure():
     """Pin spec §4's composed figure, which spec §7 has always required."""

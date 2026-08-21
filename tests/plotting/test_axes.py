@@ -761,9 +761,9 @@ def test_isobars_claim_bottom_and_left():
         fig.canvas.draw()
         assert ax._edge_owners == {"bottom": "isobars", "left": "isobars"}
         assert ax.xaxis.get_visible()
-        assert _ticks(ax.xaxis) == ["1050"]
-        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
-        assert len(_ticks(ax.yaxis)) == 18
+        assert _ticks(ax.xaxis) == ["900", "950", "1000", "1050"]
+        assert _ticks(ax.yaxis)[:2] == ["200", "250"]
+        assert len(_ticks(ax.yaxis)) == 14
         assert ax.get_xlabel() == EDGE_AXIS_TITLES["isobars"]
         assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
     finally:
@@ -839,7 +839,7 @@ def test_a_family_can_move_its_own_edge():
         ax.isobars(labels="top")
         fig.canvas.draw()
         top = ax.edge_axis("top")
-        assert _ticks(top) == ["150", "200", "200"]
+        assert _ticks(top) == ["150"]
         ax.isobars(labels="right")
         fig.canvas.draw()
         assert ax._edge_owners == {"right": "isobars"}
@@ -855,7 +855,7 @@ def test_a_family_can_move_its_own_edge():
         right = ax.edge_axis("right")
         assert ax._secondary_axes["right"].get_visible()
         assert right.get_label_text() == EDGE_AXIS_TITLES["isobars"]
-        assert _ticks(right) == ["200", "250", "300"]
+        assert _ticks(right) == [str(hpa) for hpa in range(200, 750, 50)]
         assert ax._edge_titles == {"right": EDGE_AXIS_TITLES["isobars"]}
         assert len(ax.child_axes) == 2
     finally:
@@ -878,7 +878,7 @@ def test_a_family_can_move_its_own_edge_the_other_way():
         ax.isobars(labels="right")
         fig.canvas.draw()
         right = ax.edge_axis("right")
-        assert _ticks(right) == ["200", "250", "300"]
+        assert _ticks(right) == [str(hpa) for hpa in range(200, 750, 50)]
         ax.isobars(labels="top")
         fig.canvas.draw()
         # The transient is gone by the time the sync returns: one owner, on
@@ -896,7 +896,7 @@ def test_a_family_can_move_its_own_edge_the_other_way():
         top = ax.edge_axis("top")
         assert ax._secondary_axes["top"].get_visible()
         assert top.get_label_text() == EDGE_AXIS_TITLES["isobars"]
-        assert _ticks(top) == ["150", "200", "200"]
+        assert _ticks(top) == ["150"]
         assert ax._edge_titles == {"top": EDGE_AXIS_TITLES["isobars"]}
         assert len(ax.child_axes) == 2
     finally:
@@ -1156,10 +1156,10 @@ def test_family_configure_claims_and_releases_an_edge():
         fig.canvas.draw()
         assert ax._edge_owners == {"left": "isobars"}
         assert ax.yaxis.get_visible()
-        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert _ticks(ax.yaxis)[:2] == ["200", "250"]
         assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
         selected = family._selected_members()
-        assert len(family._inline_members(ax.viewLim, selected)) == 1
+        assert len(family._inline_members(ax.viewLim, selected)) == 5
         family.configure(labels=True)
         fig.canvas.draw()
         assert ax._edge_owners == {}
@@ -1209,12 +1209,12 @@ def test_set_visible_releases_and_reclaims_an_edge():
         assert ax._edge_owners == {}
         assert not ax.yaxis.get_visible()
         assert ax.get_ylabel() == ""
-        assert _ticks(ax.yaxis)[:2] != ["150", "200"]
+        assert _ticks(ax.yaxis)[:2] != ["200", "250"]
         family.set_visible(True)
         fig.canvas.draw()
         assert ax._edge_owners == {"left": "isobars"}
         assert ax.yaxis.get_visible()
-        assert _ticks(ax.yaxis)[:2] == ["150", "200"]
+        assert _ticks(ax.yaxis)[:2] == ["200", "250"]
         assert ax.get_ylabel() == EDGE_AXIS_TITLES["isobars"]
     finally:
         plt.close(fig)

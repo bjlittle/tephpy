@@ -438,15 +438,18 @@ example draws is the one spec §4 specifies.
 §3.5 figure size each panel gets four inches, and a tephigram at four inches wide is
 illegible — the isopleth labels collide and the thumbnail shows a smudge. An
 `inset_axes((0.02, 0.55, 0.31, 0.43))` in axes fractions puts the hodograph over the top
-left of the view, which is above the isotherm the profiles climb and so covers nothing,
-and leaves the tephigram the figure's full width. MetPy plots pint quantities, so
-matplotlib labels both inset axes `meter/second`; the example clears them and states the
-unit once in the inset title.
+left of the view — the cold, low-θ corner no ascent reaches, so the inset hides background
+isopleths and no part of the profile — and leaves the tephigram the figure's full width.
+MetPy plots pint quantities, so matplotlib labels both inset axes `meter/second`; the
+example clears them and states the unit once in the inset title.
 
 `plot_sounding_comparison.py` is where the 12Z/17Z pair earns its place: across five hours
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are
 visibly different and the comparison has a subject. Two arbitrary soundings would show the
-API and teach nothing.
+API and teach nothing. Its `EXTENT` is a quarter narrower than the default view and clips
+both ascents near 250 hPa: the difference the example is about is below the cap, and a frame
+closer than the default is also what keeps the `set_extent` call from restating what
+`plot_tephigram.py` already shows.
 
 (gallery-spec-5)=
 ## 5. What belongs in the gallery

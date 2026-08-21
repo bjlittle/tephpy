@@ -11,6 +11,9 @@ extent so the change between them is the only thing that moves.
 Norman, Oklahoma on 2013-05-20: the 12Z ascent, and the 17Z special
 released about three hours before the Moore EF5 tornado. Over those five
 hours the cap erodes from -271 J/kg to nothing while CAPE nearly triples.
+The extent is closer than the default view, and both ascents run out of
+the top of it near 250 hPa. That is deliberate: what changed between them
+is below the cap.
 """
 
 from __future__ import annotations
@@ -27,8 +30,10 @@ if TYPE_CHECKING:
 # sphinx_gallery_tags = ["overlay", "sounding"]
 
 # Both profiles are drawn against this, so neither ascent's own data can
-# decide the frame the comparison is read in.
-EXTENT = ((1050.0, -30.0), (200.0, 40.0))
+# decide the frame the comparison is read in. It is a quarter narrower
+# than the default view and clips both ascents near 250 hPa: the two differ
+# below the cap, and the frame is worth no more than the story it carries.
+EXTENT = ((950.0, -50.0), (300.0, 5.0))
 
 
 def main() -> Figure:

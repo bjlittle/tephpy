@@ -1,0 +1,12 @@
+The out-of-the-box tephigram now frames an ascent more closely. Its default
+view runs between the ``(900 hPa, -65 °C)`` and ``(200 hPa, 5 °C)`` corners,
+where it used to run between ``(1050 hPa, -40 °C)`` and ``(200 hPa, 40 °C)``, so
+a sounding drawn without
+:meth:`~tephpy.plotting.axes.TephigramAxes.set_extent` sits centred instead of
+crowded into the left third of the diagram, and the blank corner where the view
+reached outside the temperature domain falls from 13.1% of the drawing area to
+3.1%. Every isopleth family draws the same members it did before — the zoom
+ladder selects the same intervals at the narrower view — and a figure that sets
+its own extent, in code or through the ``diagram.extent`` configuration option,
+is unaffected.
+(:user:`bjlittle`)
