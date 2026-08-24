@@ -29,13 +29,13 @@ repos:
         exclude: '^tests/fixtures/io/|^src/tephpy/samples/.*\.txt$|^docs/src/_static/browser-toolbar/.*\.svg$'
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.25
+    rev: '0.26'
     hooks:
       - id: validate-pyproject
         additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.3
+    rev: v0.16.4
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
