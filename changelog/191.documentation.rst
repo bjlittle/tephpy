@@ -1,0 +1,7 @@
+Stated the project's scope and support in the places a reader looks for them:
+the six non-goals of the design specification now appear in ``README.md`` with
+somewhere to go instead, a new how-to shows how to decode TEMP and BUFR with
+ecCodes and build a :class:`~tephpy.sounding.Sounding` from the result, a new
+developer packaging guide carries the SPEC 0 support window and the
+dependency-floor policy, and the glossary gained its lapse rate entry.
+(:user:`bjlittle`)
