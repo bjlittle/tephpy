@@ -119,6 +119,13 @@ def tephigram_axes():
     plt.close(fig)
 
 
+@pytest.fixture
+def tephigram_axes_b():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    yield ax
+    plt.close(fig)
+
+
 def test_projection_registered_by_package_import(tephigram_axes):
     """`import tephpy` registers the projection for stock matplotlib idioms."""
     assert isinstance(tephigram_axes, TephigramAxes)
@@ -180,8 +187,9 @@ FAMILY_NAMES = (
 
 
 def _expected_limits(extent):
-    """Map extent corners through the transforms to expected x/y limits."""
-    (p0, t0), (p1, t1) = extent
+    """Map extent bounds through the transforms to expected x/y limits."""
+    p0, p1 = extent["pressure"]
+    t0, t1 = extent["temperature"]
     thetas = transforms.theta_from_pressure_temperature(
         np.array([p0, p1]), np.array([t0, t1])
     )
@@ -241,15 +249,15 @@ def test_default_extent_applied(tephigram_axes):
 
 
 def test_set_extent_moves_the_view(tephigram_axes):
-    extent = ((1050.0, -10.0), (700.0, 30.0))
-    tephigram_axes.set_extent(extent)
+    extent = {"pressure": (1050.0, 700.0), "temperature": (-10.0, 30.0)}
+    tephigram_axes.set_extent(**extent)
     (x0, x1), (y0, y1) = _expected_limits(extent)
     assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
     assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
 
 
 def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
-    tephigram_axes.set_extent(DEFAULT_EXTENT)
+    tephigram_axes.set_extent(**DEFAULT_EXTENT)
     before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
     assert not tephigram_axes.get_autoscale_on()
     tephigram_axes.plot(
@@ -262,10 +270,80 @@ def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
 
 
 def test_set_extent_rejects_unphysical_corners(tephigram_axes):
-    with pytest.raises(ValueError, match="physical"):
-        tephigram_axes.set_extent(((0.0, -40.0), (200.0, 40.0)))
+    with pytest.raises(ValueError, match="above 0 hPa"):
+        tephigram_axes.set_extent(pressure=(0.0, 200.0), temperature=(-40.0, 40.0))
     with pytest.raises(ValueError, match="degenerate"):
-        tephigram_axes.set_extent(((850.0, 10.0), (850.0, 10.0)))
+        tephigram_axes.set_extent(pressure=(850.0, 850.0), temperature=(10.0, 10.0))
+
+
+def test_set_extent_takes_keyword_ranges(tephigram_axes):
+    """The view is named by a pressure range and a temperature range."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    assert tephigram_axes.get_xlim() == pytest.approx((1545.51, 1831.40), abs=0.01)
+    assert tephigram_axes.get_ylim() == pytest.approx((1675.51, 1821.40), abs=0.01)
+
+
+def test_order_within_a_range_carries_no_meaning(tephigram_axes, tephigram_axes_b):
+    """(a, b) and (b, a) name the same window (framing spec §3.1)."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    tephigram_axes_b.set_extent(pressure=(200.0, 900.0), temperature=(5.0, -65.0))
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_the_view_contains_the_whole_region_it_names(tephigram_axes):
+    """Every corner of the named region falls inside the view.
+
+    The defect this replaces mapped two corners and took the extremes,
+    which is the bounding box of two *points* rather than of the region
+    they delimit. Measured 2026-08-25, the old code placed
+    (1000 hPa, -10 degC) and (900 hPa, 30 degC) outside the view that
+    ``((1000, 30), (900, -10))`` asked for -- half the named region
+    (framing spec §1).
+    """
+    tephigram_axes.set_extent(pressure=(1000.0, 900.0), temperature=(30.0, -10.0))
+    xlo, xhi = tephigram_axes.get_xlim()
+    ylo, yhi = tephigram_axes.get_ylim()
+    for p in (1000.0, 900.0):
+        for t in (30.0, -10.0):
+            theta = transforms.theta_from_pressure_temperature(
+                np.array([p]), np.array([t])
+            )
+            x, y = transforms.xy_from_temperature_theta(np.array([t]), theta)
+            assert xlo <= float(x[0]) <= xhi, f"({p}, {t}) outside x"
+            assert ylo <= float(y[0]) <= yhi, f"({p}, {t}) outside y"
+
+
+def test_the_old_corner_call_is_now_unwritable(tephigram_axes):
+    """The transposition of framing spec §1 cannot be expressed."""
+    with pytest.raises(TypeError):
+        tephigram_axes.set_extent(((900.0, -65.0), (200.0, 5.0)))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({"pressure": (0.0, 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (-5.0, 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (float("nan"), 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (900.0, 900.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        (
+            {"pressure": (900.0, 200.0), "temperature": (float("inf"), 5.0)},
+            "temperature",
+        ),
+        ({"pressure": (900.0, 200.0), "temperature": (5.0, 5.0)}, "temperature"),
+    ],
+)
+def test_an_unusable_range_is_refused_by_name(tephigram_axes, kwargs, expected):
+    """The message names the offending keyword, not a nested tuple."""
+    with pytest.raises(ValueError, match=expected):
+        tephigram_axes.set_extent(**kwargs)
+
+
+def test_set_extent_disables_autoscaling(tephigram_axes):
+    """A caller who fixed a window meant it (framing spec §3.5)."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    assert tephigram_axes.get_autoscale_on() is False
 
 
 def _cursor_xy(pressure, temperature):
@@ -367,7 +445,7 @@ def test_clear_restores_projection_defaults(tephigram_axes):
 
 
 def test_config_diagram_extent_honoured_at_creation():
-    extent = ((1000.0, -20.0), (500.0, 20.0))
+    extent = {"pressure": (1000.0, 500.0), "temperature": (-20.0, 20.0)}
     with config.context(diagram={"extent": extent}):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
@@ -1114,7 +1192,7 @@ def test_edge_ticks_follow_set_extent():
         ax.isobars(labels="left")
         fig.canvas.draw()
         wide = _ticks(ax.yaxis)
-        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        ax.set_extent(pressure=(900.0, 500.0), temperature=(-10.0, 20.0))
         fig.canvas.draw()
         zoomed = _ticks(ax.yaxis)
         assert zoomed != wide
@@ -1426,7 +1504,7 @@ def test_a_cleared_axis_title_stays_cleared():
         ax.set_ylabel("")
         ax.isotherms(color="grey")
         ax.isobars(color="blue")
-        ax.set_extent(DEFAULT_EXTENT)
+        ax.set_extent(**DEFAULT_EXTENT)
         fig.canvas.draw()
         assert ax.get_ylabel() == ""
         # Dropping the labels and re-adding them is a fresh claim.

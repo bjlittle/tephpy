@@ -89,7 +89,7 @@ def test_diagram_default_is_the_extent_an_untouched_axes_lands_in():
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         untouched = (ax.get_xlim(), ax.get_ylim())
-        ax.set_extent(CONFIG_DEFAULTS["diagram"]["extent"])
+        ax.set_extent(**CONFIG_DEFAULTS["diagram"]["extent"])
         assert (ax.get_xlim(), ax.get_ylim()) == untouched
     finally:
         plt.close(fig)

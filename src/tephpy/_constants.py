@@ -36,13 +36,14 @@ P_REF: Final[float] = 1000.0
 #: Rotation scale of the tephigram mapping: x = MA ln(theta_K) + T.
 MA: Final[float] = 300.0
 
-#: Default diagram extent as ((pressure, temperature), (pressure, temperature))
-#: corners in hPa / degrees Celsius: bottom-left and top-right of the default
-#: view (see ``TephigramAxes.set_extent``). Chosen to frame a mid-latitude
-#: ascent from the surface to 200 hPa, centred and near 2:1 (spec §3.2).
-DEFAULT_EXTENT: Final[tuple[tuple[float, float], tuple[float, float]]] = (
-    (900.0, -65.0),
-    (200.0, 5.0),
+#: Default diagram extent as pressure and temperature ranges in hPa and
+#: degrees Celsius (see ``TephigramAxes.set_extent``). Chosen to frame a
+#: mid-latitude ascent from the surface to 200 hPa, centred and near 2:1
+#: (spec §3.2). A mapping rather than nested pairs because the view is
+#: named by ranges and not by points: naming points in a rotated space is
+#: what framing spec §1 records going wrong.
+DEFAULT_EXTENT: Final[Mapping[str, tuple[float, float]]] = MappingProxyType(
+    {"pressure": (900.0, 200.0), "temperature": (-65.0, 5.0)}
 )
 
 #: Pressure domain the isopleth geometry is computed over (hPa).

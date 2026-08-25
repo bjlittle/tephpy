@@ -180,7 +180,7 @@ def test_plot_barbs_zoom_changes_the_drawn_levels(tephigram_axes):
     staff = tephigram_axes.plot_barbs(_sounding())
     tephigram_axes.figure.canvas.draw()
     default_count = len(staff.barbs.get_paths())
-    tephigram_axes.set_extent(((1000.0, -20.0), (850.0, 30.0)))
+    tephigram_axes.set_extent(pressure=(1000.0, 850.0), temperature=(-20.0, 30.0))
     tephigram_axes.figure.canvas.draw()
     zoomed_count = len(staff.barbs.get_paths())
     assert zoomed_count != default_count
@@ -204,7 +204,7 @@ def test_plot_barbs_view_clear_of_every_level_masks_every_member(tephigram_axes)
     fig = tephigram_axes.figure
     fig.canvas.draw()
     assert len(staff.barbs.get_paths()) > 0
-    tephigram_axes.set_extent(((150.0, -80.0), (100.0, -60.0)))
+    tephigram_axes.set_extent(pressure=(150.0, 100.0), temperature=(-80.0, -60.0))
     fig.canvas.draw()
     y = staff_y(PRESSURE, tephigram_axes.get_xlim()[1])
     y0, y1 = sorted(tephigram_axes.get_ylim())
@@ -212,14 +212,14 @@ def test_plot_barbs_view_clear_of_every_level_masks_every_member(tephigram_axes)
     assert len(staff.barbs.get_paths()) == 0
     assert staff.barbs.u.size == N
     assert np.ma.getmaskarray(staff.barbs.u).all()
-    tephigram_axes.set_extent(((1000.0, -50.0), (200.0, 40.0)))
+    tephigram_axes.set_extent(pressure=(1000.0, 200.0), temperature=(-50.0, 40.0))
     fig.canvas.draw()
     assert len(staff.barbs.get_paths()) > 0
 
 
 def test_plot_barbs_builds_a_masked_child_when_nothing_is_in_view(tephigram_axes):
     """The zero-candidate branch also holds on the very first draw."""
-    tephigram_axes.set_extent(((150.0, -80.0), (100.0, -60.0)))
+    tephigram_axes.set_extent(pressure=(150.0, 100.0), temperature=(-80.0, -60.0))
     staff = tephigram_axes.plot_barbs(_sounding())
     tephigram_axes.figure.canvas.draw()
     assert staff.barbs is not None
@@ -259,7 +259,7 @@ def test_plot_barbs_converts_wind_speed_units(tephigram_axes):
 
 def test_plot_barbs_gutter_tracks_the_view(tephigram_axes):
     tephigram_axes.plot_barbs(_sounding())
-    tephigram_axes.set_extent(((1000.0, -20.0), (850.0, 30.0)))
+    tephigram_axes.set_extent(pressure=(1000.0, 850.0), temperature=(-20.0, 30.0))
     assert tephigram_axes._barb_gutter.get_ylim() == tephigram_axes.get_ylim()
 
 

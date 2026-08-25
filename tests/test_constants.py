@@ -25,10 +25,12 @@ INTERVAL_LADDERS = (
 
 
 def test_default_extent_orientation():
-    """Bottom-left has the higher pressure; temperatures increase rightward."""
-    (p0, t0), (p1, t1) = constants.DEFAULT_EXTENT
-    assert p0 > p1 > 0.0
-    assert t0 < t1
+    """The default frames a mid-latitude ascent from the surface to 200 hPa."""
+    p_lo, p_hi = sorted(constants.DEFAULT_EXTENT["pressure"])
+    t_lo, t_hi = sorted(constants.DEFAULT_EXTENT["temperature"])
+    assert 0.0 < p_lo < 300.0
+    assert p_hi > 700.0
+    assert t_lo < 0.0 < t_hi
 
 
 def test_domains_are_ordered():

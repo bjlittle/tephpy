@@ -252,6 +252,37 @@ _CURSOR_FORMATTERS: Final[dict[str, Callable[[float, float, float], str]]] = {
 }
 
 
+def _limits_from_ranges(
+    pressure: tuple[float, float], temperature: tuple[float, float]
+) -> tuple[float, float, float, float]:
+    """Map a named (pressure, temperature) region to x/y limits.
+
+    All four corners of the region are mapped, not the two a caller
+    happens to write: the view is an axis-aligned rectangle in a rotated
+    space, so the bounding box of two *points* need not contain the
+    region they delimit (framing spec §1, §3.1).
+
+    Parameters
+    ----------
+    pressure : tuple of float
+        Pressure bounds in hPa, in either order.
+    temperature : tuple of float
+        Temperature bounds in degrees Celsius, in either order.
+
+    Returns
+    -------
+    tuple of float
+        ``(xlo, xhi, ylo, yhi)`` in data space.
+    """
+    p_lo, p_hi = sorted(pressure)
+    t_lo, t_hi = sorted(temperature)
+    pressures = np.array([p_lo, p_lo, p_hi, p_hi], dtype=np.float64)
+    temperatures = np.array([t_lo, t_hi, t_lo, t_hi], dtype=np.float64)
+    thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
+    x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
+    return float(np.min(x)), float(np.max(x)), float(np.min(y)), float(np.max(y))
+
+
 class TephigramTransform(mtransforms.Transform):
     """Map ``(temperature, theta)`` pairs to tephigram ``(x, y)`` pairs.
 
@@ -453,7 +484,7 @@ class TephigramAxes(Axes):
             self._families[name] = family
         self._sync_edge_labels()
         extent = config.diagram.extent
-        self.set_extent(DEFAULT_EXTENT if extent is None else extent)
+        self.set_extent(**(DEFAULT_EXTENT if extent is None else extent))
 
     def _figure_is_clearing(self) -> bool:
         """Whether the enclosing figure is the caller of :meth:`clear`.
@@ -490,40 +521,57 @@ class TephigramAxes(Axes):
         return False
 
     def set_extent(
-        self, extent: tuple[tuple[float, float], tuple[float, float]]
+        self,
+        *,
+        pressure: tuple[float, float],
+        temperature: tuple[float, float],
     ) -> None:
-        """Fix the view from ((pressure, temperature), ...) corners.
+        """Fix the view to a pressure range and a temperature range.
 
-        The cartopy-style idiom for directly comparable figures
-        (spec §3.2): the two corners are mapped through the tephigram
-        transforms to x/y limits, and autoscaling is disabled so later
-        overlays never drift the window.
+        For directly comparable figures (spec §3.2). Both ranges are
+        keyword-only and both are required: two positional sequences that
+        cannot be told apart is the defect this replaces, and fixing one
+        axis while leaving the other is a different operation
+        (framing spec §3.1). Order within a range carries no meaning and is
+        normalised. Autoscaling is disabled, so later overlays never drift
+        a window the caller fixed.
+
+        The view is an axis-aligned rectangle and pressure is not an axis,
+        so it always reaches further than the ranges name. For the default
+        extent the view's other two corners are 84.9 hPa / -137.9 degC and
+        1058.4 hPa / +77.9 degC. Nothing draws there because it is
+        unphysical, but the region is reachable and the ranges do not say
+        so (framing spec §1).
 
         Parameters
         ----------
-        extent : tuple
-            ``((pressure, temperature), (pressure, temperature))``
-            bottom-left and top-right corners in hPa / degrees Celsius.
+        pressure : tuple of float
+            Pressure bounds in hPa, in either order, both finite and above
+            zero.
+        temperature : tuple of float
+            Temperature bounds in degrees Celsius, in either order, both
+            finite.
 
         Raises
         ------
         ValueError
-            If a corner is unphysical (non-positive pressure) or the
-            corners are degenerate.
+            If either range is non-finite, degenerate, or -- for pressure
+            -- not above zero. The message names the keyword at fault.
         """
-        (p0, t0), (p1, t1) = extent
-        pressures = np.array([p0, p1], dtype=np.float64)
-        temperatures = np.array([t0, t1], dtype=np.float64)
-        thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
-        x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
-        if not (np.isfinite(x).all() and np.isfinite(y).all()):
-            msg = f"extent corners must be physical (pressure > 0 hPa): {extent!r}"
-            raise ValueError(msg)
-        if x[0] == x[1] or y[0] == y[1]:
-            msg = f"extent corners must span a non-degenerate view: {extent!r}"
-            raise ValueError(msg)
-        self.set_xlim(float(np.min(x)), float(np.max(x)))
-        self.set_ylim(float(np.min(y)), float(np.max(y)))
+        for name, bounds in (("pressure", pressure), ("temperature", temperature)):
+            lo, hi = sorted(bounds)
+            if not (math.isfinite(lo) and math.isfinite(hi)):
+                msg = f"set_extent {name} bounds must be finite: {bounds!r}"
+                raise ValueError(msg)
+            if lo == hi:
+                msg = f"set_extent {name} range must not be degenerate: {bounds!r}"
+                raise ValueError(msg)
+            if name == "pressure" and lo <= 0.0:
+                msg = f"set_extent pressure bounds must be above 0 hPa: {bounds!r}"
+                raise ValueError(msg)
+        xlo, xhi, ylo, yhi = _limits_from_ranges(pressure, temperature)
+        self.set_xlim(xlo, xhi)
+        self.set_ylim(ylo, yhi)
         self.set_autoscale_on(False)
 
     def format_coord(self, x: float, y: float) -> str:

@@ -289,7 +289,7 @@ def test_a_default_is_rendered_by_its_kind():
     assert "Default: ``None``" not in text
     assert "Default: ``{}``" in text
     assert "Default: ``dimgrey``" in text
-    assert "Default: ``[[900.0, -65.0], [200.0, 5.0]]``" in text
+    assert "Default: ``{pressure: [900.0, 200.0], temperature: [-65.0, 5.0]}``" in text
 
 
 @pytest.mark.parametrize(

@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 # than the default view and clips both ascents near 250 hPa: the two differ
 # in the lower troposphere, and the frame is worth no more than the story
 # it carries.
-EXTENT = ((950.0, -50.0), (300.0, 5.0))
+EXTENT = {"pressure": (950.0, 300.0), "temperature": (-50.0, 5.0)}
 
 
 def main() -> Figure:
@@ -50,7 +50,7 @@ def main() -> Figure:
     morning = samples.sounding("norman-12z")
     afternoon = samples.sounding("norman-17z")
     fig, ax = plt.subplots(figsize=(8.0, 4.0), subplot_kw={"projection": "tephigram"})
-    ax.set_extent(EXTENT)
+    ax.set_extent(**EXTENT)
     ax.plot_sounding(morning, linestyle="--")
     ax.plot_sounding(afternoon)
     ax.legend()

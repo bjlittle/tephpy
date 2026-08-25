@@ -256,8 +256,8 @@ def _annotation(section, option):
         (
             "diagram",
             "extent",
-            [[1000, -30], [300, 30]],
-            ((1000.0, -30.0), (300.0, 30.0)),
+            {"pressure": [1000, 300], "temperature": [-30, 30]},
+            {"pressure": (1000.0, 300.0), "temperature": (-30.0, 30.0)},
         ),
         ("moist_adiabats", "truncation", -30.0, -30.0),
     ],
@@ -273,7 +273,7 @@ def test_a_well_typed_value_is_accepted(section, option, value, expected):
     does not guard the inner element coercion for ``values``, ``extent``
     or ``emphasis``, whose outer ``tuple``/``dict`` type is the same
     either way; ``test_values_members_coerce_to_float``,
-    ``test_extent_corners_coerce_to_float`` and the pre-existing
+    ``test_extent_bounds_coerce_to_float`` and the pre-existing
     ``test_emphasis_keys_coerce_to_float`` pin those separately.
     """
     coerced = _configfile.coerce(section, option, value, _annotation(section, option))
@@ -290,16 +290,18 @@ def test_values_members_coerce_to_float():
     assert all(isinstance(member, float) for member in coerced)
 
 
-def test_extent_corners_coerce_to_float():
-    """Each corner's numbers must not survive as the ints the YAML wrote."""
+def test_extent_bounds_coerce_to_float():
+    """Each range's numbers must not survive as the ints the YAML wrote."""
     coerced = _configfile.coerce(
         "diagram",
         "extent",
-        [[1000, -30], [300, 30]],
+        {"pressure": [1000, 300], "temperature": [-30, 30]},
         _annotation("diagram", "extent"),
     )
-    assert coerced == ((1000.0, -30.0), (300.0, 30.0))
-    assert all(isinstance(number, float) for corner in coerced for number in corner)
+    assert coerced == {"pressure": (1000.0, 300.0), "temperature": (-30.0, 30.0)}
+    assert all(
+        isinstance(number, float) for bounds in coerced.values() for number in bounds
+    )
 
 
 @pytest.mark.parametrize(
@@ -329,13 +331,23 @@ def test_extent_corners_coerce_to_float():
         ("isotherms", "emphasis", [0], "expects a mapping of member value"),
         ("cursor", "fields", "notalist", "expects a list of strings"),
         ("cursor", "fields", [1], "expects a list of strings"),
-        ("diagram", "extent", 5, "expects two [pressure, temperature] corners"),
-        ("diagram", "extent", [1, 2], "expects two [pressure, temperature] corners"),
         (
             "diagram",
             "extent",
-            [[1000, -30], [300, "warm"]],
-            "expects two [pressure, temperature] corners",
+            5,
+            "expects a mapping of pressure and temperature ranges",
+        ),
+        (
+            "diagram",
+            "extent",
+            [1, 2],
+            "expects a mapping of pressure and temperature ranges",
+        ),
+        (
+            "diagram",
+            "extent",
+            {"pressure": [1000, -30], "temperature": "warm"},
+            "expects a mapping of pressure and temperature ranges",
         ),
     ],
 )
@@ -408,10 +420,10 @@ def test_every_option_has_a_validator():
         ("isotherms:\n  values: [0, 10]\n", "isotherms", "values", (0.0, 10.0)),
         ("cursor:\n  fields: [pressure]\n", "cursor", "fields", ("pressure",)),
         (
-            "diagram:\n  extent: [[1000, -30], [300, 30]]\n",
+            "diagram:\n  extent: {pressure: [1000, 300], temperature: [-30, 30]}\n",
             "diagram",
             "extent",
-            ((1000.0, -30.0), (300.0, 30.0)),
+            {"pressure": (1000.0, 300.0), "temperature": (-30.0, 30.0)},
         ),
     ],
 )
@@ -425,7 +437,7 @@ def test_sequences_coerce_to_tuples(tmp_path, text, section, option, expected):
     ("text", "section", "option", "match"),
     [
         (
-            "diagram:\n  extent: [[1000, -30], [300, warm]]\n",
+            "diagram:\n  extent: {pressure: [1000, 300], temperature: [-30, warm]}\n",
             "diagram",
             "extent",
             "diagram.extent",

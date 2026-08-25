@@ -910,7 +910,7 @@ def test_edge_locator_ticks_every_crossing():
     """
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
-        ax.set_extent(((1050.0, -40.0), (200.0, 40.0)))
+        ax.set_extent(pressure=(1050.0, 200.0), temperature=(-40.0, 40.0))
         fig.canvas.draw()
         locator = isopleths._EdgeLocator(ax.isobars(), "top")
         locator()
@@ -926,7 +926,7 @@ def test_edge_locator_tracks_the_view():
         fig.canvas.draw()
         locator = isopleths._EdgeLocator(ax.isobars(), "left")
         wide = locator()
-        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        ax.set_extent(pressure=(900.0, 500.0), temperature=(-10.0, 20.0))
         fig.canvas.draw()
         zoomed = locator()
         assert zoomed != wide

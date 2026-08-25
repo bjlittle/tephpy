@@ -43,7 +43,7 @@ _HUGE_INT = "9" * 320
 #: Eighteen of the domain spec §1 table's nineteen rows -- the gate drops
 #: ``color: 'b0b0b0'``, which has its own named test for the ``#`` hint --
 #: plus four cases that table does not tabulate: a ``diagram.extent``
-#: corner with a non-finite temperature rather than a non-finite pressure,
+#: range with a non-finite temperature rather than a non-finite pressure,
 #: an ``emphasis`` member key that is itself non-finite (a member key, not
 #: a style key), an ``emphasis`` ``linewidth`` override carrying the huge
 #: integer above rather than an ordinary bad number, and ``linewidth: 0``,
@@ -108,14 +108,14 @@ REFUSED = [
     (
         "diagram",
         "extent",
-        "[[0.0, -80.0], [1050.0, 40.0]]",
-        "corner pressures above 0 hPa, not the number 0.0",
+        "{pressure: [0.0, 1050.0], temperature: [-80.0, 40.0]}",
+        "extent pressures above 0 hPa, not the number 0.0",
     ),
     (
         "diagram",
         "extent",
-        "[[1050.0, .nan], [300.0, 40.0]]",
-        "finite corner numbers, not the number nan",
+        "{pressure: [1050.0, 300.0], temperature: [.nan, 40.0]}",
+        "finite extent bounds, not the number nan",
     ),
     (
         "isotherms",
@@ -159,8 +159,8 @@ REFUSED = [
     (
         "diagram",
         "extent",
-        "[[.inf, -80.0], [300.0, 40.0]]",
-        "corner pressures above 0 hPa, not the number inf",
+        "{pressure: [.inf, 300.0], temperature: [-80.0, 40.0]}",
+        "extent pressures above 0 hPa, not the number inf",
     ),
 ]
 
@@ -351,7 +351,7 @@ ACCEPTED = [
     ("isotherms", "emphasis", "{850.0: {color: red, linewidth: 2.0, alpha: 1.0}}"),
     ("isobars", "interval", "10.0"),
     ("moist_adiabats", "truncation", "-40"),
-    ("diagram", "extent", "[[1050.0, -80.0], [300.0, 40.0]]"),
+    ("diagram", "extent", "{pressure: [1050.0, 300.0], temperature: [-80.0, 40.0]}"),
     ("cursor", "fields", "[pressure, theta_w]"),
 ]
 
@@ -429,9 +429,17 @@ RAISES_AT_THE_DRAW = [
     ("isotherms", "labels", ("botom",)),
     ("isobars", "interval", 0.0),
     ("isobars", "interval", float("inf")),
-    ("diagram", "extent", ((0.0, -80.0), (1050.0, 40.0))),
-    ("diagram", "extent", ((1050.0, float("nan")), (300.0, 40.0))),
-    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
+    ("diagram", "extent", {"pressure": (0.0, 1050.0), "temperature": (-80.0, 40.0)}),
+    (
+        "diagram",
+        "extent",
+        {"pressure": (1050.0, 300.0), "temperature": (float("nan"), 40.0)},
+    ),
+    (
+        "diagram",
+        "extent",
+        {"pressure": (float("inf"), 300.0), "temperature": (-80.0, 40.0)},
+    ),
     ("isotherms", "emphasis", {700.0: {"lw": 2.0}}),
     ("isotherms", "emphasis", {0.0: {"linewidth": "thick"}}),
     ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
