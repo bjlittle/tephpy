@@ -442,19 +442,24 @@ This is the only task in the plan that publishes a figure, which brings plots sp
 - Consumes: nothing.
 - Produces: the built page `howtos/temp-and-bufr.html`, which Task 5's README reference link `[temp-and-bufr]` resolves against. The figure prefix `temp-and-bufr-sounding` is project-wide unique and `check_output_base_name` enforces that.
 
-- [ ] **Step 1: Get a real ecCodes transcript**
+- [ ] **Step 1: Understand why this page shows no output transcript**
 
-**Do not invent the tool output.** The page shows a reader what a command prints, and inventing that is presenting a fabricated record as genuine.
+**Do not invent tool output.** A page that shows what a command prints, when nobody ran it, is a fabricated record presented as genuine. This step exists so you do not reach for one.
 
-ecCodes is not a tephpy dependency and must not become one. Get the transcript out of band — a throwaway environment is enough:
+The controller already tried, with ecCodes 2.48.0 installed via `pixi exec --spec eccodes`. The result:
 
-```bash
-pixi exec --spec eccodes -- bufr_dump -p /path/to/sounding.bufr | head -40
-```
+- ecCodes ships **no sample sounding message** — `share/eccodes/samples/` holds only `BUFR*.tmpl` templates, which are not soundings.
+- Encoding a valid radiosonde message from the template (WMO sequence 3 09 052) got as far as a real, dumpable BUFR file, but populating its delayed-replication level arrays failed on an array-size mismatch. A synthetic message is also not what the page is about.
 
-A public sounding BUFR message will do; ECMWF's ecCodes test data carries several. Keep the real key names and the real value formatting.
+**What was verified**, from genuine `bufr_dump -p` output, and what the page may therefore state as fact:
 
-If you genuinely cannot run it, the page must say so: label the block `abridged output` in the prose above it and keep every key name verifiable against the ecCodes documentation. An honest label is acceptable; a silent fabrication is not.
+- The key names a radiosonde message carries: `pressure`, `airTemperature`, `dewpointTemperature`, `windSpeed`, `windDirection`; `blockNumber` and `stationNumber` for the station; `year`, `month`, `day`, `hour`, `minute` for the launch; `latitude`, `longitude`.
+- `bufr_dump -p` prints one `key=value` line per key.
+- An absent value prints as the literal `MISSING`.
+
+So the page shows the **invocation** and describes the output in prose. Everything it claims above is checked. Nothing is invented.
+
+If you happen to have a real BUFR sounding to hand and want to include genuine output, you may — but it must be output you actually produced, pasted unedited. Do not synthesise one to fill the block.
 
 - [ ] **Step 2: Write the page**
 
@@ -479,16 +484,21 @@ Decode the Message
 ------------------
 
 ecCodes ships command-line tools, and they are the shortest route in. ``bufr_dump``
-prints a message's keys and values:
+prints a message as one ``key=value`` line per key:
 
 .. code-block:: console
 
-    $ bufr_dump -p sounding.bufr | head -20
-    ***** PASTE YOUR REAL TRANSCRIPT HERE (Step 1) *****
+    $ bufr_dump -p sounding.bufr
 
-Install it however you install anything — it is on conda-forge as ``eccodes``,
-and ECMWF publish source and packages. It is not installed by ``tephpy`` and
-does not need to be: nothing on the rest of this page imports it.
+A radiosonde message carries the levels as ``pressure``, ``airTemperature`` and
+``dewpointTemperature``, with ``windSpeed`` and ``windDirection`` beside them;
+``blockNumber`` and ``stationNumber`` identify the station, and ``year`` through
+``minute`` give the launch time. A value the message does not carry prints as the
+literal ``MISSING``, which matters below.
+
+Install ecCodes however you install anything — it is on conda-forge as
+``eccodes``, and ECMWF publish source and packages. It is not installed by
+``tephpy`` and does not need to be: nothing on the rest of this page imports it.
 
 For a TEMP bulletin the same applies one step earlier. ecCodes decodes BUFR, so a
 TTAA/TTBB bulletin is converted to BUFR first — most archives distribute BUFR
@@ -526,9 +536,9 @@ message that carried no humidity still gives a usable sounding — drop the
 Two things the decoder will hand you that need a moment. ecCodes reports
 temperatures in kelvin and pressures in pascals; say so in ``units=`` rather than
 converting by hand, because a conversion written twice is a conversion that
-disagrees with itself once. And a BUFR sounding routinely carries missing values
-at some levels — pass them through as ``float("nan")`` and ``tephpy`` treats them
-as gaps, which is what they are. Pressure is the exception: it must be finite and
+disagrees with itself once. And a BUFR sounding routinely carries
+missing values at some levels — the ``MISSING`` above. Pass those through as
+``float("nan")`` and ``tephpy`` treats them as gaps, which is what they are. Pressure is the exception: it must be finite and
 monotonic, so drop a level whose pressure is missing rather than passing a NaN.
 
 Draw It
