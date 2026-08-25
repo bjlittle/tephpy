@@ -33,9 +33,10 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 Decisions, not omissions — each with somewhere to go instead.
 
-- **No TEMP (TTAA/TTBB) or BUFR decoding.** Decode BUFR with ecCodes and build a
-  `Sounding` from the arrays; the [recipe][temp-and-bufr] shows both halves, and
-  says where a TEMP bulletin leaves you instead.
+- **No TEMP (TTAA/TTBB) or BUFR decoding.** For BUFR, decode with ecCodes and
+  build a `Sounding` from the arrays — the [recipe][temp-and-bufr] shows both
+  halves. For TEMP there is no maintained converter to point at, and the recipe
+  says what to reach for instead.
 - **No skew-T projection.** [MetPy](https://unidata.github.io/MetPy/latest/) owns
   that space.
 - **No [hodograph][hodograph].** MetPy's `Hodograph` composes onto the same

@@ -55,7 +55,7 @@ bespoke text-file ingest. tephpy exists to cover all four.
 | Relationship to tephi | Greenfield successor (new repo, new API) | The analysis layer, units handling, and ingest are a scope expansion that would break tephi's plotting-only philosophy and API anyway |
 | Name | `tephpy` | Owner's choice; PyPI name free |
 | Thermodynamics | `metpy.calc` as a **required** dependency | One unconditional API; inherited, community-validated parcel math; coherent pint units story. Accepted cost: heavier install, coupling to MetPy releases |
-| Data ingest | Arrays + light readers | Core accepts numpy/pandas/xarray with pint units; small `io` module for University of Wyoming and IGRA v2. No TEMP/BUFR decoding — documented recipes point at eccodes |
+| Data ingest | Arrays + light readers | Core accepts numpy/pandas/xarray with pint units; small `io` module for University of Wyoming and IGRA v2. No TEMP/BUFR decoding — a documented recipe points at ecCodes for BUFR |
 | Primary audience | Research scientists | Jupyter/scripting-first, composable API, publication output. Forecaster features are built as capabilities, not the organizing principle |
 | Architecture | Layered library around a matplotlib projection | See §3. Chosen over a sounding-centric god object and over a MetPy-`SkewT`-style figure manager |
 | Engineering standards | Mirror geovista (§8) | pixi-led, SPEC 0, Diátaxis, geovista pre-commit/ruff/mypy/CI conventions. geovista is the explicit minimum bar |
@@ -1104,7 +1104,8 @@ covering the domain terms above.
 `README.md` carries these as its **Non-Goals** section, in the order below, most of them
 naming what to reach for instead (scope spec §3.1).
 
-- No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
+- No TEMP (TTAA/TTBB) or BUFR decoding — the recipe points at ecCodes for BUFR; no
+  maintained converter exists for TEMP, so it points elsewhere (scope spec §3.2).
 - No skew-T projection — MetPy owns that space.
 - No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets
   one over the diagram.
