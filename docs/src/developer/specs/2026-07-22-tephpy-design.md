@@ -917,9 +917,11 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   Python **3.12, 3.13, and 3.14** at launch — the full SPEC 0 window as of 2026-07
   (3.11 is outside it). Dependency minimums tracked to the SPEC 0 schedule; the support
   window is revisited at implementation time and on each SPEC 0 rotation.
-- Enforced by: README SPEC 0 badge, a docs statement in the developer/packaging guide, the
-  CI Python matrix (`py312`/`py313`/`py314`), the per-Python pixi solve-groups, and the
-  `sp-repo-review` pre-commit hook.
+- Enforced by: README SPEC 0 badge, the support statement in the developer packaging guide
+  (`docs/src/developer/packaging.rst`, delivered by scope spec §3.3, which also records
+  which of the five are assertions and which are mechanisms), the CI Python matrix
+  (`py312`/`py313`/`py314`), the per-Python pixi solve-groups, and the `sp-repo-review`
+  pre-commit hook.
 
 (spec-8-4)=
 ### 8.4 Code quality (pre-commit + lint + types)
