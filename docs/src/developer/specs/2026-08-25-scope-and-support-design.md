@@ -432,13 +432,10 @@ issue that owns it.
   quadrants.** Not for want of material but for sequence: §3.6 shows that every one of them
   teaches framing, and {issue}`184` changes what framing looks like.
 
-- **Open** ({issue}`NNN`) — **docstring `Examples` sections and a
+- **Open** ({issue}`189`) — **docstring `Examples` sections and a
   `--doctest-modules` gate over `src/`.** The one surface the docs spec §3.9 gate does not reach.
   There is nothing unexecuted today, because there are no such sections; the question is
   whether to write them. It waits on {issue}`184` for the same reason 7c does.
-  *`NNN` is substituted when the issue is filed, which the implementation plan does before
-  this document is committed — an open item citing no issue would breach the docs spec §3.5
-  contract this section is written under.*
 
 - **Deferred** ({issue}`77`) — **check-manifest.** §3.3 states its position in the packaging
   guide and adopts nothing. The guide is where a reader would look for it, which is why the
