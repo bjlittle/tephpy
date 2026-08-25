@@ -9,3 +9,4 @@ Task-focused recipes.
     configuration
     emphasis
     logo
+    temp-and-bufr

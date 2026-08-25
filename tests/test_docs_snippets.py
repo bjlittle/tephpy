@@ -40,13 +40,22 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 #: The pages known to carry python. Membership, not a count: a count is a figure
 #: that has to be re-measured to stay true. This is what fails when the extractor
 #: stops recognising a directive, instead of every page passing by not being found.
-DOCUMENTED = ("howtos/configuration.rst", "howtos/emphasis.rst", "howtos/logo.rst")
+DOCUMENTED = (
+    "howtos/configuration.rst",
+    "howtos/emphasis.rst",
+    "howtos/logo.rst",
+    "howtos/temp-and-bufr.rst",
+)
 
 #: The pages that publish figures (plots spec §3.2). Membership again, and for a
 #: sharper reason than above: every page-shape check below iterates these pages,
 #: so a converted page that stopped being recognised would not fail those checks
 #: -- it would pass all of them, having been asked nothing.
-PUBLISHES_FIGURES = ("howtos/emphasis.rst", "howtos/logo.rst")
+PUBLISHES_FIGURES = (
+    "howtos/emphasis.rst",
+    "howtos/logo.rst",
+    "howtos/temp-and-bufr.rst",
+)
 
 #: Every directive that introduces a literal block carrying a language. The three
 #: spellings are recognised together, and the language is judged separately, so
