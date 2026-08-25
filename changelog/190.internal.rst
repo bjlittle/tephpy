@@ -1,0 +1,19 @@
+The weekly dependency-floors job no longer tells every unattributed issue that
+relaxation ran and found nothing (:issue:`188`). The diagnosis reaches *nothing
+attributed* three ways — the solve failed and no relaxation of it helped, the
+floors resolved and the tier's exercise then failed, or the exercise then
+passed and so reproduced nothing — and the finding recorded only the verdict,
+so all three were filed under the one sentence that fits the first, pointing at
+"the solver output". :issue:`185` was the second: it quoted a
+:exc:`ModuleNotFoundError` under *failure at the declared floors* and sent its
+reader after a dependency conflict that did not exist. The finding now records
+which route it came out of, and the issue picks its sentence, its starting
+point and each quoted block's label from that; a route the composer does not
+recognise says only that the diagnosis did not record how far it got, rather
+than inheriting a claim. The two halves can stop at different routes, so each
+block is labelled by its own and the sentence sending the reader to them names
+neither. The route stays out of the deduplication key, a tier that fails to
+solve one week and fails its exercise the next being one broken thing, and two
+gates hold the two scripts to one vocabulary. A two-half issue also no longer
+says each half scanned its own source when nothing was attributed and so
+nothing was scanned. (:user:`claude`)
