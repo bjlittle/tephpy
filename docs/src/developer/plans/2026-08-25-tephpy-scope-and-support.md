@@ -1227,6 +1227,36 @@ grep -n "NNN" docs/src/developer/specs/2026-07-22-tephpy-design.md
 
 Expected: the grep prints nothing.
 
+- [ ] **Step 3b: Fix the plan count in §10's lead sentence**
+
+Task 6 wrote a sentence that does not add up. `docs/src/developer/specs/2026-07-22-tephpy-design.md`
+currently opens §10 with:
+
+```
+Nine plans deliver the v1 scope (§9) — seven as first numbered, plus the two the Plan 7 row
+split into and the framing change of {issue}`184` that landed between them.
+```
+
+Three additive clauses — seven, plus two, plus one — read as ten, not nine, and the table
+does have ten rows. The arithmetic that is actually true is six first-numbered rows (Plans
+1 to 6), the three the Plan 7 row split into (7a, 7b, 7c), and Plan 8. Replace the sentence
+with:
+
+```
+Ten rows deliver the v1 scope (§9) — six as first numbered, the three the Plan 7 row split
+into, and the framing change of {issue}`184` that landed between them.
+```
+
+Confirm the count against the table itself:
+
+```bash
+grep -cE '^\| [0-9]' docs/src/developer/specs/2026-07-22-tephpy-design.md
+```
+
+Expected: `10`.
+
+This step does not need the pull request number, so it can be done before or after Step 3.
+
 - [ ] **Step 4: Run everything**
 
 ```bash
