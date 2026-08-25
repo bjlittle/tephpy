@@ -1109,7 +1109,7 @@ naming what to reach for instead (scope spec §3.1).
 - No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets
   one over the diagram.
 - No GUI or interactive dashboard.
-- No fog-point or layer-cloud constructions (v1.x candidates).
+- No fog-point or layer-cloud constructions (v1.x candidates — {issue}`192`).
 - No aviation overlays (icing, MINTRA contrail curves) — flagged open question below.
 
 (spec-10)=
@@ -1375,6 +1375,12 @@ them, ordered by owning plan.
 - **Open** ({issue}`81`) — Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 - **Deferred** (post-v1, demand-driven — {issue}`82`) — Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
+- **Deferred** (v1.x — {issue}`192`) — Whether the fog-point and layer-cloud constructions
+  (§9) are wanted, and in what form. Both are analysis rather than drawing: they compute a
+  level the diagram does not give, so their home is `calc` beside `normand_point` rather
+  than the layer shading of {issue}`79`, which would then have something to fill between.
+  Neither is blocked — the mixing-ratio and dry-adiabat transforms and `normand_point`'s
+  intersection solver are already there; they were out of v1 scope, not out of reach.
 
 (spec-12)=
 ## 12. References

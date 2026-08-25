@@ -101,7 +101,7 @@ name what to reach for instead:
 | skew-T projection | MetPy, which owns that space |
 | hodograph | `metpy.plots.Hodograph`, which composes onto the same figure — and the gallery example that insets one |
 | GUI or interactive dashboard | none; the browser demo is a documentation exhibit, not a product |
-| fog-point and layer-cloud constructions | named v1.x candidates, with spec §9 carrying the state |
+| fog-point and layer-cloud constructions | named v1.x candidates; spec §11 and {issue}`192` carry the state |
 | aviation overlays (icing, MINTRA contrail curves) | the same, and {issue}`79` folds them into the general layer-shading question |
 
 **No entry links an issue directly, and that is a constraint rather than a choice.**
