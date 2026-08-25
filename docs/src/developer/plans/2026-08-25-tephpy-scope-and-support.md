@@ -983,6 +983,71 @@ with:
   re-homed residuals are settled and {issue}`76` is closed.
 ```
 
+- [ ] **Step 6c: Correct one over-claim in the §9 prose Task 5 added**
+
+Task 5 added a sentence below spec §9's non-goals heading saying the README carries them
+"each with an onward pointer". Two of the six carry no link — the GUI entry and the
+fog-point entry point at prose, not at a page. Replace:
+
+```
+`README.md` carries these as its **Non-Goals** section, in the order below and each with an
+onward pointer (scope spec §3.1).
+```
+
+with:
+
+```
+`README.md` carries these as its **Non-Goals** section, in the order below, most of them
+naming what to reach for instead (scope spec §3.1).
+```
+
+Found by the Task 5 review. It is one sentence in a published specification, and a
+specification that overstates what a file contains is the defect this project corrects
+rather than tolerates.
+
+- [ ] **Step 6b: Re-point the two stale "7b" references the split leaves behind**
+
+Splitting 7b into 7b and 7c makes two existing sentences wrong. Both say a question about
+tagging the narrative documentation belongs to 7b; after the split the tutorials and
+explanation quadrants are 7c's, so the question moves with them.
+
+In `docs/src/developer/specs/2026-08-20-examples-gallery-design.md` §7, in the
+**Rejected** sphinx-tags entry, replace:
+
+```
+  site-wide tag index spanning the narrative documentation — is a question for 7b, which
+  owns the tutorials and explanation quadrants that would be tagged.
+```
+
+with:
+
+```
+  site-wide tag index spanning the narrative documentation — is a question for 7c, which
+  owns the tutorials and explanation quadrants that would be tagged.
+```
+
+And in `docs/src/developer/specs/2026-07-22-tephpy-design.md` §10 item 15, in the
+**Rejected** sphinx-tags entry, replace:
+
+```
+      narrative documentation are 7b's question.
+```
+
+with:
+
+```
+      narrative documentation are 7c's question.
+```
+
+Neither is a citation, so no gate catches these — they are stale cross-references that only
+reading finds. Confirm both with:
+
+```bash
+grep -rn "7b's question\|question for 7b" docs/src/developer/specs/
+```
+
+Expected: no output.
+
 and replace:
 
 ```
