@@ -443,10 +443,14 @@ def test_a_tier_that_solves_is_not_attributed_by_relaxation(monkeypatch, tmp_pat
     # today, on matplotlib's deprecated `pyparsing.oneOf` call (floors spec §1).
     diagnose, probe = _rig(monkeypatch, tmp_path, lambda *_: (True, "solved"))
     monkeypatch.setattr(diagnose, "exercise", lambda *_: (False, "'oneOf' deprecated"))
-    package, upper, failure = diagnose.attribute(probe)
+    package, upper, failure, stage = diagnose.attribute(probe)
     assert package is None
     assert upper is None
     assert "oneOf" in failure
+    # And says which of the three ways it got here, because the verdict alone
+    # does not: the issue body describes this as the loop having run and found
+    # nothing unless the stage says otherwise (:issue:`188`).
+    assert stage == diagnose.STAGE_EXERCISE
 
 
 def test_a_solve_failure_is_still_attributed(monkeypatch, tmp_path):
@@ -456,10 +460,67 @@ def test_a_solve_failure_is_still_attributed(monkeypatch, tmp_path):
     diagnose, probe = _rig(
         monkeypatch, tmp_path, lambda *args: (args[2] == "pytest", "conflict")
     )
-    package, upper, failure = diagnose.attribute(probe)
+    package, upper, failure, stage = diagnose.attribute(probe)
     assert package == "pytest"
     assert upper == "8.1.8"
     assert failure == "conflict"
+    # Attribution happens by relaxing a solve and nowhere else, so an attributed
+    # finding can only be this stage.
+    assert stage == diagnose.STAGE_SOLVE
+
+
+def test_the_three_unattributed_verdicts_are_told_apart_by_their_stage(
+    monkeypatch, tmp_path
+):
+    # All three carry no package, and floors spec §3.4 puts all three here by
+    # design -- but only the last is the relaxation loop running and resolving
+    # nothing, which is what the issue said of every one of them (:issue:`188`).
+    # Asserted together because what makes them a defect is that they were
+    # indistinguishable, and a test per branch would not say that.
+    diagnose, probe = _rig(monkeypatch, tmp_path, lambda *_: (True, "solved"))
+
+    # The tier solved and its exercise failed: the trace is the exercise's, and
+    # floors spec §3.4 says it usually names the culprit on its own.
+    monkeypatch.setattr(diagnose, "exercise", lambda *_: (False, "traceback"))
+    assert diagnose.attribute(probe)[1:] == (None, "traceback", diagnose.STAGE_EXERCISE)
+
+    # The tier solved and its exercise passed too, so nothing was reproduced at
+    # all and what is kept is a solve that succeeded.
+    monkeypatch.setattr(diagnose, "exercise", lambda *_: (True, ""))
+    package, upper, failure, stage = diagnose.attribute(probe)
+    assert (package, upper, stage) == (None, None, diagnose.STAGE_UNREPRODUCED)
+    assert diagnose.UNREPRODUCED_NOTE in failure
+
+    # And the honest one: the loop ran over every declared floor and none of
+    # them helped, which is the only branch the long-standing sentence fits.
+    diagnose, probe = _rig(monkeypatch, tmp_path, lambda *_: (False, "conflict"))
+    assert diagnose.attribute(probe) == (None, None, "conflict", diagnose.STAGE_SOLVE)
+
+
+def test_the_stage_reaches_the_artifact_the_composer_reads(monkeypatch, tmp_path):
+    # `attribute` returning it is no use if `main` drops it on the floor, and the
+    # composer's whole branch hangs on this key being in the JSON. Read back off
+    # disk rather than off the `Finding`, because the artifact is the interface.
+    diagnose, probe = _rig(monkeypatch, tmp_path, lambda *_: (True, "solved"))
+    monkeypatch.setattr(diagnose, "exercise", lambda *_: (False, "traceback"))
+    monkeypatch.setattr(diagnose, "Probe", lambda **_: probe)
+    out = tmp_path / "finding.json"
+    argv = [
+        "floors_diagnose.py",
+        "--scratch",
+        str(tmp_path),
+        "--tier",
+        "test",
+        "--half",
+        "conda",
+        "--out",
+        str(out),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert diagnose.main() == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["stage"] == (
+        diagnose.STAGE_EXERCISE
+    )
 
 
 def test_a_probe_is_dropped_once_it_has_answered(monkeypatch, tmp_path):
@@ -1617,6 +1678,61 @@ def test_both_scripts_name_the_same_requirements_files():
         assert (REPO / name).is_file()
 
 
+def test_both_scripts_name_the_same_stages():
+    # Written out separately for the same reason as the file list above, and
+    # holding them together matters more: a stage the composer does not know is
+    # not a blank in the issue body, it is the wrong sentence -- which is the
+    # defect the field was added to fix (:issue:`188`).
+    diagnose, issue = _load_diagnose(), _load_issue()
+    assert diagnose.STAGES == issue.STAGES
+    # And the composer has prose for each, plus the fallback its own reader
+    # hands back for a stage it does not recognise. A stage added to both lists
+    # and to none of these tables is a `KeyError` raised while composing an
+    # issue, in the one job that runs when everything it reports on is red.
+    for table in (
+        issue.UNATTRIBUTED_AT,
+        issue.UNATTRIBUTED_MEANS,
+        issue.QUOTED,
+        issue.SUMMARY,
+    ):
+        assert set(table) == {*issue.STAGES, issue.STAGE_UNKNOWN}
+
+
+def test_the_diagnosis_returns_no_stage_the_composer_has_not_heard_of():
+    # The tables above are total over the vocabulary; this is the other half of
+    # that claim, that `attribute` draws from the vocabulary and not from a
+    # string typed at the return. Read from the source rather than by calling
+    # it, because what needs catching is a *fifth* branch added later -- the
+    # four that exist are exercised above, and no test written today reaches one
+    # that does not exist yet.
+    diagnose = _load_diagnose()
+    path = REPO / ".github" / "scripts" / "floors_diagnose.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "attribute"
+    )
+    returned = []
+    for node in ast.walk(found):
+        if not isinstance(node, ast.Return):
+            continue
+        # A stage spelled out at the return, rather than named, is exactly what
+        # the vocabulary exists to prevent and what the comparison below would
+        # not see: `"exercise"` and `STAGE_EXERCISE` are the same string today
+        # and diverge silently the day one of them is edited.
+        assert isinstance(node.value, ast.Tuple)
+        assert len(node.value.elts) == 4
+        assert isinstance(node.value.elts[-1], ast.Name)
+        returned.append(node.value.elts[-1].id)
+    # Pinned, so that a branch added here has to be considered rather than
+    # inheriting whichever sentence its stage happens to select. Equality and
+    # not containment: a stage in the vocabulary that nothing returns is prose
+    # no reader can reach, which reads as covered and is not.
+    assert len(returned) == 4
+    assert {getattr(diagnose, name) for name in returned} == set(diagnose.STAGES)
+
+
 def test_the_two_halves_run_the_same_tier_names():
     # The dedupe key is tier and package (floors spec §3.6), so a half naming the
     # same tier something else -- `core-test` against `test`, as this workflow
@@ -1691,6 +1807,7 @@ def test_both_halves_record_the_same_two_lines_to_edit(monkeypatch, tmp_path):
             "setuptools_scm" if probe.half == "pypi" else "setuptools-scm",
             None,
             "the failure",
+            diagnose.STAGE_SOLVE,
         ),
     )
     monkeypatch.setattr(diagnose, "scan", lambda *_: (None, [], ""))
