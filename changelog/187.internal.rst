@@ -1,0 +1,13 @@
+The test suite no longer needs pytest started a particular way to import its
+own helpers (:issue:`185`). The tests tree is a package and three of its
+modules import a sibling through it, but under ``--import-mode=importlib`` a
+pytest below 8.2 leaves that dotted name to :data:`sys.path` — where the
+repository root sits only if ``python -m pytest`` put it there, and not if the
+``pytest`` console script started the run. So the ``pytest >=8.0`` floor had
+been a false claim since :pull:`179` added the import, and the weekly floors
+job found it as one half of the same run red and the other green: the two
+halves start pytest the two ways. ``pythonpath`` now names the root, so
+neither half depends on the invocation, and a new gate holds the declaration
+to the imports that need it — the root on the path pytest builds, the modules
+still importing through the package, and a table of every shape that import
+takes. (:user:`claude`)
