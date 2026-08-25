@@ -92,8 +92,8 @@ order the parent specification chose, and keeping it means the two can be read s
 and any drift between them is a diff rather than a search.
 
 Each entry is one sentence of what tephpy does not do, followed by where to go instead.
-That second half is the part that makes the section worth a reader's time, and it exists
-for every one of the six:
+That second half is the part that makes the section worth a reader's time, and most of them
+name what to reach for instead:
 
 | non-goal | onward pointer |
 |---|---|
@@ -101,7 +101,7 @@ for every one of the six:
 | skew-T projection | MetPy, which owns that space |
 | hodograph | `metpy.plots.Hodograph`, which composes onto the same figure — and the gallery example that insets one |
 | GUI or interactive dashboard | none; the browser demo is a documentation exhibit, not a product |
-| fog-point and layer-cloud constructions | named v1.x candidates, with spec §9 and spec §11 carrying the state |
+| fog-point and layer-cloud constructions | named v1.x candidates, with spec §9 carrying the state |
 | aviation overlays (icing, MINTRA contrail curves) | the same, and {issue}`79` folds them into the general layer-shading question |
 
 **No entry links an issue directly, and that is a constraint rather than a choice.**
@@ -145,30 +145,37 @@ reader who has a TEMP bulletin or a BUFR message and wants a tephigram out of it
 answer is in two halves with a seam that has to be honest.
 
 **The decode is not tephpy's, so it is not shown as python.** ecCodes ships command-line
-tools — `bufr_dump`, `grib_ls` and their relatives — and the recipe uses them, in
-`code-block:: console` blocks that show the invocation and enough of its output to
-recognise. This is the shape the gate of docs spec §3.9 requires, and the requirement is a
-feature rather than a constraint to work around. That gate executes every python block under
-`howtos/`, `tutorials/` and `explanation/` as one script per page, and it has no exemption
-mechanism on purpose: its own source says that where a block will not run, "the answer is to
-rewrite it as a script, not to exempt it". A python block calling `eccodes` could not run,
-because ecCodes is a non-goal and so is never in the `test` feature, on any Python, in any
-tier. A `console` block is the truthful rendering of a command-line tool and is passed over
-by an extractor that judges language rather than intent.
+tools — `bufr_dump`, `grib_ls` and their relatives — and the recipe uses one, in a
+`code-block:: console` block that shows the invocation and nothing else. Producing genuine
+output proved impossible — ecCodes ships no sample sounding message, and encoding one fails
+on a delayed-replication array-size mismatch — and inventing output nobody produced would
+present a fabricated record as real. The key names a reader will see and the `MISSING`
+sentinel a missing value prints as are described in prose beneath the block instead. This is
+the shape the gate of docs spec §3.9 requires, and the requirement is a feature rather than
+a constraint to work around. That gate executes every python block under `howtos/`,
+`tutorials/` and `explanation/` as one script per page, and it has no exemption mechanism on
+purpose: its own source says that where a block will not run, "the answer is to rewrite it
+as a script, not to exempt it". A python block calling `eccodes` could not run, because
+ecCodes is a non-goal and so is never in the `test` feature, on any Python, in any tier. A
+`console` block is the truthful rendering of a command-line tool and is passed over by an
+extractor that judges language rather than intent.
 
 **The assembly is tephpy's, so it is shown as python, and it runs.** Once the decode has
 produced pressure, temperature, dewpoint and wind as ordinary sequences, the rest is
-`Sounding(...)` and `ax.plot_sounding(...)` — tephpy's own API over literal arrays lifted
-from the transcript above. That block executes under the docs spec §3.9 gate like every other, which
-means the recipe's tephpy half is checked on every supported Python while its ecCodes half
-is checked by review. The seam between the two is exactly the seam between what this project
-maintains and what it points at, and drawing it in the page's markup rather than only in its
-prose is the point.
+`Sounding(...)` and `ax.plot_sounding(...)` — tephpy's own API over literal arrays standing
+in for what a decode produces. That block executes under the docs spec §3.9 gate like every
+other, which means the recipe's tephpy half is checked on every supported Python while its
+ecCodes half is checked by review. The seam between the two is exactly the seam between what
+this project maintains and what it points at, and drawing it in the page's markup rather
+than only in its prose is the point.
 
-The page registers in `docs/src/howtos/index.rst` and in
-`tests/test_docs_snippets.py::DOCUMENTED`. That second registration is membership rather
-than a count (docs spec §3.9): it is what fails when the extractor stops recognising the
-page, instead of the page passing by never having been found.
+The page registers in four places: `docs/src/howtos/index.rst`;
+`tests/test_docs_snippets.py::DOCUMENTED`; `tests/test_docs_snippets.py::PUBLISHES_FIGURES`,
+because the page publishes one figure, prefixed `temp-and-bufr-sounding`; and
+`.github/scripts/check_docs_figures.py::PUBLISHES`, the sibling list the documentation-side
+figure gate reads. Every list past the toctree is membership rather than a count
+(docs spec §3.9): each is what fails when its extractor stops recognising the page, instead
+of the page passing by never having been found.
 
 **Title.** *Decode TEMP and BUFR with ecCodes* — CMOS headline style per spec §8.6, with
 `ecCodes` keeping its published casing as a project name, which is the documented exception
@@ -348,7 +355,7 @@ reader actually wants.
 | # | Plan | Scope | Depends on |
 |---|---|---|---|
 | 7b | Scope and support statements | this specification: §3.1 README non-goals, §3.2 ecCodes recipe, §3.3 packaging guide and the spec §8.3 SPEC 0 statement, §3.4 glossary sweep, §3.5 doctest supersession | 7a |
-| 8 | Frame by ranges and by data | {issue}`184`: `set_extent` keyword ranges, `ax.fit(...)` | 3 |
+| 8 | Framing by ranges and by data | {issue}`184`: `set_extent` keyword ranges, `ax.fit(...)` | 3 |
 | 7c | Narrative quadrants | spec §8.6 tutorials (myst-nb) and explanation content; the reader how-to of gallery spec §5 | 7b, 8 |
 
 Not one item in 7b touches `set_extent`. Every item in 7c does, or would. The rows sit in
@@ -371,13 +378,18 @@ numbering a plotting-layer API change as though it were a documentation plan.
   "Seven plans deliver the v1 scope" is corrected to match.
 - **spec §10 item 15** retags the doctest residual **Deferred → Rejected** (§3.5), and marks
   the SPEC 0 packaging statement delivered.
-- **gallery spec §7** retags its two open items: the doctest and SPEC 0 deferral resolves
-  here, and the reader how-to deferral re-points from "7b" to 7c.
+- **gallery spec §3.6, gallery spec §5 and gallery spec §7** re-point their "7b" references
+  to 7c now that the row has split, and gallery spec §7's two open items retag: the doctest
+  and SPEC 0 deferral resolves here, and the reader how-to deferral moves to 7c.
 - **`docs/src/developer/specs/index.rst`** gains the `scope spec §…` row and the toctree
   entry.
 - **`docs/src/howtos/index.rst`** and **`docs/src/developer/index.rst`** gain their new
   pages.
-- **`tests/test_docs_snippets.py`** gains the recipe in `DOCUMENTED` (§3.2).
+- **`tests/test_docs_snippets.py`** gains the recipe in `DOCUMENTED` and in
+  `PUBLISHES_FIGURES`, and **`.github/scripts/check_docs_figures.py`** gains it in
+  `PUBLISHES` (§3.2) — the recipe publishes one figure, prefixed `temp-and-bufr-sounding`.
+- **`docs/baseline/temp-and-bufr-sounding.png`** is the new baseline the figure gate pins
+  the recipe's figure against (§5).
 - **{issue}`76`** is commented and closed; **{issue}`183`** is closed by §3.4; a new issue is
   filed for the docstring-`Examples` question of §3.5.
 
@@ -396,6 +408,7 @@ that already exists:
 |---|---|
 | the recipe's python block | `tests/test_docs_snippets.py` — executed as a page session, on every supported Python |
 | the recipe's `console` block | review; it is a non-python language and is passed over by design (§3.2) |
+| the recipe's published figure | `check_docs_figures.py` — compared against its `docs/baseline/` baseline within RMS 2 |
 | the README's new links | `check_documentation_links.py` over the built HTML — a page named by a URL must exist |
 | the packaging guide's `spec §…` and `floors spec §…` citations | the pre-commit anchor check and `check_rendered_citations.py` |
 | the lapse rate entry and its aliases | the fail-on-warning build; a dangling `:term:` is an error |

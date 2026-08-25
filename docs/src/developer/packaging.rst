@@ -57,10 +57,12 @@ fails with a package name attached instead of surfacing as a mystery on somebody
 else's machine.
 
 Three tiers run — ``test``, ``docs`` and ``devs``. The machinery behind them is
-floors spec: the two declaration sites (floors spec §3.1), the pin generator (floors spec §3.2),
-the attribution scan that names the culprit (floors spec §3.4), and the issue contract
-that files one finding per tier and package (floors spec §3.6). None of it is restated here,
-deliberately — a developer guide that copied a specification would be a second copy to drift from it.
+specified in floors spec: the two declaration sites (floors spec §3.1), the pin
+generator (floors spec §3.2), the attribution scan that names the culprit
+(floors spec §3.4), and the issue contract that files one finding per tier and
+package (floors spec §3.6). None of it is restated here, deliberately — a
+developer guide that copied a specification would be a second copy to drift
+from it.
 
 Raise a floor when ``tephpy`` starts using something the older version does not
 have, and say so in the changelog fragment. Lower one only with a reason.

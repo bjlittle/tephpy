@@ -1116,7 +1116,7 @@ naming what to reach for instead (scope spec §3.1).
 ## 10. Plan roadmap
 
 Ten rows deliver the v1 scope (§9) — six as first numbered, the three the Plan 7 row
-split into, and the framing change of {issue}`184` that landed between them. Each plan gets
+split into, and the framing change of {issue}`184` that sits between them. Each plan gets
 its own spec-derived implementation plan in `docs/src/developer/plans/`, and a plan is
 executed and merged before any plan that
 *depends on it* is written. The dependencies form a partial order, not a chain: Plans 5
@@ -1334,8 +1334,8 @@ them, ordered by owning plan.
       second execution path in the one environment the docs feature has, for the same
       coverage. Its one advantage, output checking, applies only to the CLI transcripts,
       which `tests/test_cli.py` already pins. §8.2 and §8.7 are corrected accordingly.
-    - **Resolved** (2026-08-25, scope spec §3.3): the §8.3 packaging-guide SPEC 0 statement,
-      delivered in `docs/src/developer/packaging.rst`.
+    - **Resolved** (2026-08-25, PR {pull}`191`, scope spec §3.3): the §8.3 packaging-guide
+      SPEC 0 statement, delivered in `docs/src/developer/packaging.rst`.
     - **Resolved** (2026-07-24, PR {pull}`15`): the `tests-clean` task, with `baselines` alongside it.
     - **Resolved** (2026-07-23, PR {pull}`9`): the wheel-install smoke test.
     - **Open** ({issue}`77`): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.

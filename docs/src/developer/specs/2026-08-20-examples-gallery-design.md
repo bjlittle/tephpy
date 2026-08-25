@@ -278,7 +278,7 @@ quadrants rather than inside one. Diátaxis has no gallery quadrant, and browsin
 thumbnails is neither a lesson nor a recipe; spec §8.6 itself lists sphinx-gallery
 separately from the four directories. Filing it under `tutorials/` was rejected — it would
 put browse-by-thumbnail beside the browser demo lesson, and compete with the tutorials that
-7b writes for that index.
+7c writes for that index.
 
 It gets **no landing-page card**. A fifth card was built and rejected (2026-08-21): the
 landing grid is the four Diátaxis quadrants, so anything sitting in it reads as a fifth
@@ -542,19 +542,21 @@ the `tephpy examples` command, and `documentation` for the gallery itself. There
 command; the gallery, its configuration, ordering and tags; the packaging that carries all
 of it into the wheel; the three gates of §3.7 and the composed-figure baseline.
 
-**Out of scope.** Everything spec §10's Plan 7 row assigns to documentation *completion*,
-which is 7b: the tutorials and explanation quadrants, the glossary sweep, the README
-non-goals statement, the eccodes recipe, the reader how-to of §5, the doctest task and its
-CI run, and spec §8.3's SPEC 0 packaging statement. The APIs any example calls are unchanged;
-an example that wants an API tephpy does not have is a defect report, not a scope question.
+**Out of scope.** Everything spec §10's Plan 7 row assigned to documentation *completion*,
+which was 7b at the time: the README non-goals statement, the eccodes recipe, spec §8.3's
+SPEC 0 packaging statement and the glossary sweep, all since delivered by 7b; the tutorials
+and explanation quadrants and the reader how-to of §5, carried forward to 7c; and the
+doctest task and its CI run, rejected as superseded in 7b. The APIs any example calls are
+unchanged; an example that wants an API tephpy does not have is a defect report, not a scope
+question.
 
 **Open items**, tagged per docs spec §3.5.
 
-- **Resolved** (2026-08-25, scope spec §3.3 and scope spec §3.5) — **the doctest task and
-  its `ci-docs` run, and spec §8.3's SPEC 0 packaging statement.** Plan 7b delivered the
-  packaging statement and rejected the doctest task as superseded by docs spec §3.9's
-  snippet executor. With sphinx-tags rejected below, all three of spec §10 item 15's
-  re-homed residuals are settled and {issue}`76` is closed.
+- **Resolved** (2026-08-25, PR {pull}`191`, scope spec §3.3 and scope spec §3.5) — **the
+  doctest task and its `ci-docs` run, and spec §8.3's SPEC 0 packaging statement.** Plan 7b
+  delivered the packaging statement and rejected the doctest task as superseded by
+  docs spec §3.9's snippet executor. With sphinx-tags rejected below, all three of
+  spec §10 item 15's re-homed residuals are settled and {issue}`76` is closed.
 
 - **Rejected** (2026-08-20) — **the sphinx-tags dependency.** spec §8.6 and {issue}`76`
   committed to it before sphinx-gallery had tags of its own. It now does, with the filter
