@@ -124,33 +124,52 @@ CAVEAT = (
     "as a starting point, not an answer."
 )
 
-#: What an unattributed finding says, by the stage it got that far at. Floors
-#: spec §3.4 puts all three here by design and the verdict is honest at each,
-#: but only `STAGE_SOLVE` is the relaxation loop running and finding nothing.
-#: `{outcome}` is filled from `outcome` below, so the phrase a reader meets is
-#: the same one the two-half list above them uses.
+#: What one half's diagnosis did to reach its verdict, by the stage it got that
+#: far at. Floors spec §3.4 puts all three here by design and the verdict is
+#: honest at each, but only `STAGE_SOLVE` is the relaxation loop running and
+#: finding nothing. `{outcome}` is filled from `outcome` below, so the phrase a
+#: reader meets is the same one either shape of this section uses.
+#:
+#: Per half rather than per issue, because the two halves are diagnosed
+#: separately and can get different distances -- so this is what a two-half
+#: issue puts on each of its two lines, and what a one-half issue opens with.
+#: What is *not* here is anything that reads across the whole issue: that is
+#: `UNATTRIBUTED_MEANS` below, said once or not at all.
 UNATTRIBUTED_AT = {
-    STAGE_SOLVE: (
-        "Relaxing each declared floor in turn resolved nothing, so {outcome}. "
-        "The solver output is below verbatim."
-    ),
+    STAGE_SOLVE: "Relaxing each declared floor in turn resolved nothing, so {outcome}.",
     STAGE_EXERCISE: (
         "The declared floors resolved and the tier's exercise then failed, so "
-        "no floor was relaxed at all and {outcome} — relaxation attributes a "
-        "*solve* failure, and this tier solved. What is quoted below is that "
-        "exercise, not a solver conflict, and where the floors resolve the "
-        "trace usually names the culprit on its own."
+        "no floor was relaxed at all and {outcome}."
     ),
     STAGE_UNREPRODUCED: (
         "The declared floors resolved and the tier's exercise then passed when "
-        "re-run here, so no floor was relaxed and {outcome}. This diagnosis "
-        "reproduced nothing: the failing step is one it does not run, and what "
-        "is quoted below is a solve that succeeded."
+        "re-run here, so no floor was relaxed and {outcome}."
     ),
     STAGE_UNKNOWN: (
         "The diagnosis reports that {outcome}, and did not record how far it "
-        "got before saying so. The output it kept is below."
+        "got before saying so."
     ),
+}
+
+#: What the stage above means for the reader, and what the blocks quoted under
+#: it hold. Split from `UNATTRIBUTED_AT` because it is about the stage and not
+#: about one half's verdict: a two-half issue says it once where both halves got
+#: the same distance, and where they did not it says nothing rather than
+#: asserting of both what is true of one. Kept out of the per-half lines for the
+#: same reason it is not repeated in a one-half issue -- twice is once too many,
+#: and every sentence here names what is *below*, which is both halves' blocks.
+UNATTRIBUTED_MEANS = {
+    STAGE_SOLVE: "The solver output is below verbatim.",
+    STAGE_EXERCISE: (
+        "Relaxation attributes a *solve* failure, and this tier solved. What is "
+        "quoted below is that exercise, not a solver conflict, and where the "
+        "floors resolve the trace usually names the culprit on its own."
+    ),
+    STAGE_UNREPRODUCED: (
+        "This diagnosis reproduced nothing: the failing step is one it does not "
+        "run, and what is quoted below is a solve that succeeded."
+    ),
+    STAGE_UNKNOWN: "What is below is whatever the diagnosis kept.",
 }
 
 #: Where to start, for the sentence that says no declaration site is named.
@@ -261,10 +280,31 @@ def stage(finding: dict) -> str:
     return found if found in STAGES else STAGE_UNKNOWN
 
 
+def agreed(group: Sequence[dict]) -> str | None:
+    """Return the stage a whole group got to, or None where its halves differ.
+
+    Parameters
+    ----------
+    group : sequence of dict
+        Every finding this issue reports, the primary half first.
+
+    Returns
+    -------
+    str or None
+        The one stage of `STAGES`, or `STAGE_UNKNOWN`, that every finding
+        reached; None where they reached more than one. The halves are
+        diagnosed separately and can stop at different stages, so anything
+        this issue says once about all of them has to ask first (:issue:`188`).
+
+    """
+    stages = {stage(item) for item in group}
+    return stages.pop() if len(stages) == 1 else None
+
+
 def _quoted(group: Sequence[dict]) -> str:
     """Name what the quoted blocks hold, as the stages of a whole group have it."""
-    stages = {stage(item) for item in group}
-    return QUOTED[stages.pop() if len(stages) == 1 else STAGE_UNKNOWN]
+    shared = agreed(group)
+    return QUOTED[STAGE_UNKNOWN if shared is None else shared]
 
 
 def outcome(finding: dict) -> str:
@@ -288,6 +328,30 @@ def outcome(finding: dict) -> str:
     if finding["lowest"] is None:
         return f"no version at or above the floor that passes, of {tried} tried"
     return f"**{finding['lowest']}**, the lowest that passes, of {tried} tried"
+
+
+def said(finding: dict) -> str:
+    """Say what one half's diagnosis did, and what it established by doing it.
+
+    Parameters
+    ----------
+    finding : dict
+        One finding artifact.
+
+    Returns
+    -------
+    str
+        `outcome` below where a culprit was attributed, the scan being the
+        whole of what that half did that the reader needs. Where none was, the
+        `UNATTRIBUTED_AT` sentence for the stage that half reached: the verdict
+        alone is the same at all three and so says nothing about which of them
+        ran, which is what a two-half issue used to leave the reader to guess
+        at (:issue:`188`).
+
+    """
+    if finding["package"] is not None:
+        return outcome(finding)
+    return UNATTRIBUTED_AT[stage(finding)].format(outcome=outcome(finding))
 
 
 def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
@@ -338,14 +402,19 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         lines += [
             f"Both halves failed, and they are one fix, so this is one issue. {each}",
             "",
-            *[f"- **{item['half']}:** {outcome(item)}" for item in group],
+            *[f"- **{item['half']}:** {said(item)}" for item in group],
             "",
         ]
+        # Said once for the group, and only where the group agrees: every
+        # sentence in it is about the stage rather than about one half, and
+        # names what is quoted *below*, which is both halves' blocks. Where the
+        # halves got different distances there is no such sentence to say, and
+        # the per-half lines above have already said what each of them did.
+        shared = agreed(group) if finding["package"] is None else None
+        if shared is not None:
+            lines += [UNATTRIBUTED_MEANS[shared], ""]
     elif finding["package"] is None:
-        lines += [
-            UNATTRIBUTED_AT[stage(finding)].format(outcome=outcome(finding)),
-            "",
-        ]
+        lines += [f"{said(finding)} {UNATTRIBUTED_MEANS[stage(finding)]}", ""]
     else:
         lines += [f"The scan found {outcome(finding)}.", ""]
     if any(item["lowest"] is None and item.get("blocked") for item in group):

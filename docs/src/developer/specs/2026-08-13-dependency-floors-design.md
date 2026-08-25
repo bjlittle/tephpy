@@ -426,13 +426,18 @@ that makes the set findable. The body carries what a fix needs:
   and, where both halves failed, the result of each, since a package can be at a different
   version in the conda channel and the package index (§3.5)
 - where nothing was attributed, which of §3.4's three routes reached that verdict, in a
-  sentence that claims no work the route did not do and names what the block quoted under it
-  holds. The two halves are diagnosed separately and can stop at different routes, so each
-  quoted block is labelled by its own half's and the sentence sending the reader to them names
-  neither rather than naming one and being wrong about the other. A route this composer does
-  not recognise says only that the diagnosis did not record how far it got: an unrecognised one
-  is a vocabulary drift caught by §5, and a vague true sentence beats the confident wrong one
-  it would otherwise inherit
+  sentence that claims no work the route did not do. Said per half, wrapped around that half's
+  result, which on its own is the same four words twice: the halves are diagnosed separately
+  and can stop at different routes, so the route is a property of a half and not of the issue.
+  What the route *means* — what the blocks quoted below hold, and what that leaves a reader to
+  do — is said once for the issue instead, and only where both halves reached the same route,
+  every sentence of it being about the route rather than about a half and naming what is
+  below, which is both halves' blocks. Where the halves differ it is not said at all, each
+  quoted block is labelled by its own half's route, and the sentence sending the reader to them
+  names neither rather than naming one and being wrong about the other. A route this composer
+  does not recognise says only that the diagnosis did not record how far it got: an
+  unrecognised one is a vocabulary drift caught by §5, and a vague true sentence beats the
+  confident wrong one it would otherwise inherit
 - both lines that declare the floor (§3.1) — a fix that changes one and not the other leaves
   the two sides disagreeing — each named as its own site spells it and in the tier that site
   floors it in, neither of which the two are guaranteed to share. Both are asked of the site

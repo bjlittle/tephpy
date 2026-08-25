@@ -220,6 +220,14 @@ def test_two_halves_that_got_different_distances_are_not_described_as_one():
     assert "failure at the declared floors (conda)" in text
     assert "exercise failure at the declared floors (pypi)" in text
     assert "Start from the output quoted below." in text
+    # Each half's own line says what that half did, which is the only place a
+    # mixed pair can say it: everything the issue says once is about the stage,
+    # and neither stage is the pair's.
+    assert "- **conda:** Relaxing each declared floor in turn resolved nothing" in text
+    assert "- **pypi:** The declared floors resolved and the tier's exercise" in text
+    # And nothing is said once, because there is nothing true of both to say.
+    for shared in module.UNATTRIBUTED_MEANS.values():
+        assert shared not in text
     # And where they agree it does name it, or the neutral wording above would
     # be all any two-half issue ever got.
     agreed = module.body(
@@ -228,6 +236,58 @@ def test_two_halves_that_got_different_distances_are_not_described_as_one():
         [{**NO_CULPRIT["exercise"], "half": "pypi"}],
     )
     assert "Start from the trace below." in agreed
+
+
+def test_a_two_half_issue_says_what_each_half_did_and_what_that_means():
+    # The stage prose used to reach a reader only where one half failed, so the
+    # common case -- a floor broken on both -- got the labels and the "start
+    # from" pointer and none of the sentences that say what ran (:issue:`188`).
+    # The unreproduced pair is the sharp instance: two halves, nothing
+    # attributed, and no word anywhere that both probes *passed*.
+    module = _load()
+    for name, ran, means in (
+        (
+            "exercise",
+            "so no floor was relaxed at all",
+            "Relaxation attributes a *solve* failure, and this tier solved.",
+        ),
+        (
+            "unreproduced",
+            "the tier's exercise then passed when re-run here",
+            "This diagnosis reproduced nothing:",
+        ),
+        (
+            "solve",
+            "Relaxing each declared floor in turn resolved nothing",
+            "The solver output is below verbatim.",
+        ),
+    ):
+        text = module.body(
+            NO_CULPRIT[name], "url", [{**NO_CULPRIT[name], "half": "pypi"}]
+        )
+        # Once per half, because it is that half's own diagnosis being reported
+        # and the two are not guaranteed to agree.
+        assert text.count(ran) == 2, name
+        # And once for the issue, because it is about the stage rather than
+        # about a half, and every sentence in it names what is quoted *below* --
+        # which is both halves' blocks, and is read once.
+        assert text.count(means) == 1, name
+
+
+def test_an_attributed_pair_still_lists_the_two_scans_and_nothing_else():
+    # The per-half line carries the stage prose only where nothing was
+    # attributed. With a culprit the scan is what that half established and the
+    # two genuinely differ, so this list has always been worth reading -- and a
+    # stage clause bolted onto it would be the relaxation loop described twice.
+    module = _load()
+    text = module.body(FINDING, "url", [{**FINDING, "half": "pypi", "lowest": None}])
+    assert "- **conda:** **3.10.3**, the lowest that passes, of 3 tried" in text
+    assert (
+        "- **pypi:** no version at or above the floor that passes, of 3 tried" in text
+    )
+    assert "Relaxing each declared floor in turn" not in text
+    for shared in module.UNATTRIBUTED_MEANS.values():
+        assert shared not in text
 
 
 def test_an_unattributed_pair_is_not_described_as_having_scanned():

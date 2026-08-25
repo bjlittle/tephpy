@@ -1689,7 +1689,12 @@ def test_both_scripts_name_the_same_stages():
     # hands back for a stage it does not recognise. A stage added to both lists
     # and to none of these tables is a `KeyError` raised while composing an
     # issue, in the one job that runs when everything it reports on is red.
-    for table in (issue.UNATTRIBUTED_AT, issue.QUOTED, issue.SUMMARY):
+    for table in (
+        issue.UNATTRIBUTED_AT,
+        issue.UNATTRIBUTED_MEANS,
+        issue.QUOTED,
+        issue.SUMMARY,
+    ):
         assert set(table) == {*issue.STAGES, issue.STAGE_UNKNOWN}
 
 
