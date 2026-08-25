@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import dataclasses
+import math
+
 import matplotlib.colors as mcolors
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
@@ -15,7 +18,7 @@ from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy import Sounding, calc, transforms
+from tephpy import Sounding, calc, samples, transforms
 from tephpy._config import config
 from tephpy._constants import (
     BARB_GUTTER_PAD,
@@ -35,7 +38,7 @@ from tephpy._constants import (
     SHADING_ALPHA,
     SHADING_ZORDER,
 )
-from tephpy.exceptions import TephpyUnitsError
+from tephpy.exceptions import TephpyUnitsError, TephpyValidationError
 from tephpy.plotting import axes
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import EDGES, IsoplethFamily
@@ -126,6 +129,18 @@ def tephigram_axes_b():
     plt.close(fig)
 
 
+@pytest.fixture
+def sample_sounding():
+    """Build the 17Z Norman ascent -- the one with CAPE (gallery spec §3.1)."""
+    return samples.sounding("norman-17z")
+
+
+@pytest.fixture
+def sample_sounding_b():
+    """Build the 12Z Norman ascent, a second sounding from the same station day."""
+    return samples.sounding("norman-12z")
+
+
 def test_projection_registered_by_package_import(tephigram_axes):
     """`import tephpy` registers the projection for stock matplotlib idioms."""
     assert isinstance(tephigram_axes, TephigramAxes)
@@ -187,13 +202,19 @@ FAMILY_NAMES = (
 
 
 def _expected_limits(extent):
-    """Map extent bounds through the transforms to expected x/y limits."""
+    """Map all four corners of an extent to expected x/y limits.
+
+    Independent of ``axes._limits_from_ranges``: it computes the same four
+    corners from scratch rather than calling the implementation under test,
+    so a regression there (e.g. back to mapping only the two positionally
+    paired corners) is still caught here (framing spec §1, §3.1).
+    """
     p0, p1 = extent["pressure"]
     t0, t1 = extent["temperature"]
-    thetas = transforms.theta_from_pressure_temperature(
-        np.array([p0, p1]), np.array([t0, t1])
-    )
-    x, y = transforms.xy_from_temperature_theta(np.array([t0, t1]), thetas)
+    pressures = np.array([p0, p0, p1, p1])
+    temperatures = np.array([t0, t1, t0, t1])
+    thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
+    x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
     return (float(np.min(x)), float(np.max(x))), (float(np.min(y)), float(np.max(y)))
 
 
@@ -343,6 +364,100 @@ def test_an_unusable_range_is_refused_by_name(tephigram_axes, kwargs, expected):
 def test_set_extent_disables_autoscaling(tephigram_axes):
     """A caller who fixed a window meant it (framing spec §3.5)."""
     tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    assert tephigram_axes.get_autoscale_on() is False
+
+
+# --- fit (framing spec §3.2, §3.3, §3.5) -----------------------------------
+
+
+def test_fit_frames_one_sounding(tephigram_axes, sample_sounding):
+    """Every finite datum falls inside the fitted view."""
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    xlo, xhi = tephigram_axes.get_xlim()
+    ylo, yhi = tephigram_axes.get_ylim()
+    p = sample_sounding.pressure.to("hPa").magnitude
+    t = sample_sounding.temperature.to("degC").magnitude
+    theta = transforms.theta_from_pressure_temperature(p, t)
+    x, y = transforms.xy_from_temperature_theta(t, theta)
+    assert xlo <= float(np.nanmin(x))
+    assert float(np.nanmax(x)) <= xhi
+    assert ylo <= float(np.nanmin(y))
+    assert float(np.nanmax(y)) <= yhi
+
+
+def test_fit_without_the_parcel_clips_the_path_it_is_read_against(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect ``fit`` exists to prevent (framing spec §3.2).
+
+    A parcel is warmer than its environment through the CAPE region, so
+    fitting the sounding alone can clip the very path the parcel analysis
+    is drawn to show. Passing the parcel is what dissolves it.
+    """
+    parcel = calc.parcel_path(sample_sounding)
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, parcel, margin=0.0)
+    without = tephigram_axes.get_xlim()
+    with_parcel = tephigram_axes_b.get_xlim()
+    assert with_parcel[1] > without[1] or with_parcel[0] < without[0]
+
+
+def test_fit_takes_several_soundings(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """A station's day, framed alike."""
+    tephigram_axes.fit(sample_sounding, sample_sounding_b, margin=0.0)
+    xlo, xhi = tephigram_axes.get_xlim()
+    for snd in (sample_sounding, sample_sounding_b):
+        p = snd.pressure.to("hPa").magnitude
+        t = snd.temperature.to("degC").magnitude
+        theta = transforms.theta_from_pressure_temperature(p, t)
+        x, _ = transforms.xy_from_temperature_theta(t, theta)
+        assert xlo <= float(np.nanmin(x))
+        assert float(np.nanmax(x)) <= xhi
+
+
+def test_a_nan_dewpoint_bounds_nothing_and_poisons_nothing(
+    tephigram_axes, sample_sounding
+):
+    """NaN gaps are data everywhere except pressure (spec §3.4)."""
+    dewpoint = sample_sounding.dewpoint.magnitude.copy()
+    dewpoint[1] = float("nan")
+    gapped = dataclasses.replace(
+        sample_sounding,
+        dewpoint=dewpoint * sample_sounding.dewpoint.units,
+    )
+    tephigram_axes.fit(gapped, margin=0.0)
+    assert all(
+        math.isfinite(v)
+        for v in (*tephigram_axes.get_xlim(), *tephigram_axes.get_ylim())
+    )
+
+
+def test_fit_needs_something_to_frame(tephigram_axes):
+    with pytest.raises(TephpyValidationError, match="at least one"):
+        tephigram_axes.fit()
+
+
+def test_fit_refuses_what_it_cannot_frame(tephigram_axes):
+    with pytest.raises(TephpyValidationError, match="Sounding or Profile"):
+        tephigram_axes.fit(object())
+
+
+def test_margin_resolves_keyword_over_config_over_constant(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The resolution order every tunable here uses (framing spec §3.3)."""
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tight = tephigram_axes.get_xlim()
+    with config.context(diagram={"margin": 0.5}):
+        tephigram_axes_b.fit(sample_sounding)
+    loose = tephigram_axes_b.get_xlim()
+    assert loose[1] - loose[0] > tight[1] - tight[0]
+
+
+def test_fit_disables_autoscaling(tephigram_axes, sample_sounding):
+    tephigram_axes.fit(sample_sounding)
     assert tephigram_axes.get_autoscale_on() is False
 
 

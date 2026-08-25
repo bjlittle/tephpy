@@ -46,6 +46,12 @@ DEFAULT_EXTENT: Final[Mapping[str, tuple[float, float]]] = MappingProxyType(
     {"pressure": (900.0, 200.0), "temperature": (-65.0, 5.0)}
 )
 
+#: Default ``fit`` margin, as a fraction of the fitted span added to each
+#: side in the drawn plane. Fractional so that one value frames a
+#: boundary-layer window and a full-troposphere one alike
+#: (framing spec §3.3).
+DEFAULT_FIT_MARGIN: Final[float] = 0.05
+
 #: Pressure domain the isopleth geometry is computed over (hPa).
 PRESSURE_DOMAIN: Final[tuple[float, float]] = (50.0, 1050.0)
 
@@ -459,7 +465,9 @@ CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType(
                 "values": None,
             }
         ),
-        "diagram": MappingProxyType({"extent": DEFAULT_EXTENT}),
+        "diagram": MappingProxyType(
+            {"extent": DEFAULT_EXTENT, "margin": DEFAULT_FIT_MARGIN}
+        ),
         "cursor": MappingProxyType({"fields": CURSOR_FIELDS}),
     }
 )

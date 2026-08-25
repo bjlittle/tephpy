@@ -162,8 +162,8 @@ def test_the_reference_names_every_option_and_no_others():
 
 
 def test_the_option_set_the_page_is_gated_against_is_not_empty():
-    """Forty-two, so the gate above cannot pass by rendering nothing."""
-    assert sum(len(options) for options in CONFIG_DEFAULTS.values()) == 42
+    """Forty-three, so the gate above cannot pass by rendering nothing."""
+    assert sum(len(options) for options in CONFIG_DEFAULTS.values()) == 43
 
 
 def test_every_rendered_type_is_resolvable_text():
@@ -179,7 +179,7 @@ def test_every_rendered_type_is_resolvable_text():
         for line in rendered().splitlines()
         if line.startswith(prefix)
     ]
-    assert len(types) == 42
+    assert len(types) == 43
     for text in types:
         assert "<" not in text, text
         for name in NAME.findall(text):

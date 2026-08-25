@@ -31,9 +31,9 @@ def _description_cases():
 def test_the_description_gate_covers_every_option():
     """A gate over an empty list passes by checking nothing.
 
-    Forty-two, the option count of configfile spec §3.3.
+    Forty-three, the option count of configfile spec §3.3.
     """
-    assert len(_description_cases()) == 42
+    assert len(_description_cases()) == 43
 
 
 def test_descriptions_cover_exactly_the_config_sections():

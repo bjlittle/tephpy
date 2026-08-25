@@ -49,6 +49,7 @@ from tephpy._constants import (
     CIN_COLOR,
     CURSOR_FIELDS,
     DEFAULT_EXTENT,
+    DEFAULT_FIT_MARGIN,
     EDGE_AXIS_TITLES,
     EDGE_LABEL_GUTTER_PAD,
     EDGE_TICK_LENGTH,
@@ -67,7 +68,7 @@ from tephpy._constants import (
     SHADING_ZORDER,
 )
 from tephpy._units import as_quantity, check_units_mapping
-from tephpy.exceptions import MissingDataError
+from tephpy.exceptions import MissingDataError, TephpyValidationError
 from tephpy.plotting import shading
 from tephpy.plotting.barbs import BarbStaff
 from tephpy.plotting.isopleths import (
@@ -281,6 +282,53 @@ def _limits_from_ranges(
     thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
     x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
     return float(np.min(x)), float(np.max(x)), float(np.min(y)), float(np.max(y))
+
+
+def _framing_coordinates(
+    obj: object,
+) -> tuple[npt.NDArray[np.float64], list[npt.NDArray[np.float64]]]:
+    """Pressure and the temperature-like values that bound a view.
+
+    The only place ``fit`` knows what a ``Sounding`` or a ``Profile`` is,
+    so a third plottable is taught here rather than inside ``fit``
+    (framing spec §3.2). Wind is absent by design: ``plot_barbs`` draws
+    into the gutter, so it is not a coordinate of the plane.
+
+    Parameters
+    ----------
+    obj : object
+        A ``Sounding`` or a ``calc.Profile``.
+
+    Returns
+    -------
+    tuple
+        Pressures in hPa, and a list of temperature-like arrays in
+        degrees Celsius.
+
+    Raises
+    ------
+    TephpyValidationError
+        If the object is neither.
+    """
+    # ``Sounding`` and ``Profile`` are TYPE_CHECKING-only imports in this
+    # module, so they are not bound at runtime; import them here rather than
+    # widening the module's import graph for one isinstance check. Neither
+    # imports ``plotting``, so this cannot cycle -- verified 2026-08-25.
+    from tephpy.calc import Profile  # noqa: PLC0415
+    from tephpy.sounding import Sounding  # noqa: PLC0415
+
+    if isinstance(obj, Sounding):
+        temperatures = [obj.temperature.to("degC").magnitude]
+        if obj.dewpoint is not None:
+            temperatures.append(obj.dewpoint.to("degC").magnitude)
+        return obj.pressure.to("hPa").magnitude, temperatures
+    if isinstance(obj, Profile):
+        return (
+            obj.pressure.to("hPa").magnitude,
+            [obj.temperature.to("degC").magnitude],
+        )
+    msg = f"fit() takes a Sounding or Profile, not {type(obj).__name__}"
+    raise TephpyValidationError(msg)
 
 
 class TephigramTransform(mtransforms.Transform):
@@ -572,6 +620,65 @@ class TephigramAxes(Axes):
         xlo, xhi, ylo, yhi = _limits_from_ranges(pressure, temperature)
         self.set_xlim(xlo, xhi)
         self.set_ylim(ylo, yhi)
+        self.set_autoscale_on(False)
+
+    def fit(
+        self,
+        *objects: Sounding | Profile,
+        margin: float | None = None,
+    ) -> None:
+        """Frame the view around the data given.
+
+        Answers "frame this neatly", where :meth:`set_extent` answers
+        "make these figures directly comparable". Takes soundings and
+        parcel paths interchangeably, and frames everything it is given:
+        a parcel is warmer than its environment through the CAPE region,
+        so fitting a sounding alone can clip the path the parcel analysis
+        is drawn to show (framing spec §3.2). Autoscaling is disabled, as
+        for :meth:`set_extent`.
+
+        Parameters
+        ----------
+        *objects : Sounding or Profile
+            What to frame. At least one is required.
+        margin : float, optional
+            Fraction of the fitted span added to each side in the drawn
+            plane. Resolves keyword > ``config.diagram.margin`` >
+            ``DEFAULT_FIT_MARGIN``. Zero fits exactly.
+
+        Raises
+        ------
+        TephpyValidationError
+            If no objects are given, or one is neither a ``Sounding`` nor
+            a ``Profile``.
+        MissingDataError
+            If the objects carry no finite data to frame.
+        """
+        if not objects:
+            msg = "fit() needs at least one Sounding or Profile to frame"
+            raise TephpyValidationError(msg)
+        pressures: list[npt.NDArray[np.float64]] = []
+        temperatures: list[npt.NDArray[np.float64]] = []
+        for obj in objects:
+            pressure, temps = _framing_coordinates(obj)
+            pressures.append(np.asarray(pressure, dtype=np.float64))
+            temperatures.extend(np.asarray(t, dtype=np.float64) for t in temps)
+        all_p = np.concatenate(pressures)
+        all_t = np.concatenate(temperatures)
+        if not (np.isfinite(all_p).any() and np.isfinite(all_t).any()):
+            msg = "fit() found no finite data to frame"
+            raise MissingDataError(msg)
+        xlo, xhi, ylo, yhi = _limits_from_ranges(
+            (float(np.nanmin(all_p)), float(np.nanmax(all_p))),
+            (float(np.nanmin(all_t)), float(np.nanmax(all_t))),
+        )
+        if margin is None:
+            configured = config.diagram.margin
+            margin = DEFAULT_FIT_MARGIN if configured is None else configured
+        pad_x = (xhi - xlo) * margin
+        pad_y = (yhi - ylo) * margin
+        self.set_xlim(xlo - pad_x, xhi + pad_x)
+        self.set_ylim(ylo - pad_y, yhi + pad_y)
         self.set_autoscale_on(False)
 
     def format_coord(self, x: float, y: float) -> str:

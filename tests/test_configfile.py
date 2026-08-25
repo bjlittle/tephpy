@@ -349,6 +349,18 @@ def test_extent_bounds_coerce_to_float():
             {"pressure": [1000, -30], "temperature": "warm"},
             "expects a mapping of pressure and temperature ranges",
         ),
+        (
+            "diagram",
+            "extent",
+            {"pressuer": [1000, -30], "temperature": [-30, 30]},
+            "expects a mapping of pressure and temperature ranges",
+        ),
+        (
+            "diagram",
+            "extent",
+            {"pressure": [1000, -30]},
+            "expects a mapping of pressure and temperature ranges",
+        ),
     ],
 )
 def test_a_wrong_typed_value_is_rejected(section, option, value, match):

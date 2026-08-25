@@ -503,7 +503,7 @@ def _as_emphasis(value: object) -> dict[float, dict[str, object]]:
 
 
 #: One ``(description, converter)`` per distinct annotation in ``Config``:
-#: eight entries covering all 42 options. The keys are evaluated
+#: eight entries covering all 43 options. The keys are evaluated
 #: annotations, which compare equal to the ones ``typing.get_type_hints``
 #: returns for ``_config``'s dataclasses — so the expected types are read
 #: from the declarations rather than written out a second time. Each
@@ -889,6 +889,27 @@ def _domain_extent(value: object) -> None:
             raise _DomainError(positive, _describe(bound))
 
 
+def _domain_margin(value: object) -> None:
+    """Check the fit margin is a usable fraction.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``margin``.
+
+    Raises
+    ------
+    _DomainError
+        If the margin is negative or not finite. Zero is legal and fits
+        exactly, which is what a caller composing panels wants
+        (framing spec §3.3).
+    """
+    expects = "a finite margin of 0 or more"
+    margin = cast("float", value)
+    if not (math.isfinite(margin) and margin >= 0.0):
+        raise _DomainError(expects, _describe(margin))
+
+
 #: The rule for each ``emphasis`` style override, keyed by style key. A key
 #: absent from this table is a legal style key with no domain of its own;
 #: today there is none, and ``tests/test_configfile_domain.py`` pins that.
@@ -944,10 +965,10 @@ def _domain_emphasis(value: object) -> None:
 
 #: The domain rule for each option that has one, keyed by **option name**
 #: where ``_TYPE_VALIDATORS`` is keyed by annotation. The two tables are
-#: shaped by different things: eight annotations cover all 42 options because
+#: shaped by different things: eight annotations cover all 43 options because
 #: a type is a coarse property, while a domain is a property of what the
 #: option *means* -- ``color`` and ``linewidth`` are both scalars and share no
-#: domain at all. Ten names cover the 42 options bar the five ``visible``
+#: domain at all. Eleven names cover the 43 options bar the five ``visible``
 #: flags, which are bools and need no domain (domain spec §3.1).
 #:
 #: Keying by name alone is sound only because no two sections give one option
@@ -965,6 +986,7 @@ _DOMAIN_VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = MappingProxy
         "values": _domain_values,
         "interval": _domain_positive,
         "extent": _domain_extent,
+        "margin": _domain_margin,
         "fields": _domain_fields,
         "truncation": _domain_finite,
     }
@@ -1308,6 +1330,10 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
                 "extent": (
                     "Default view as ``{pressure: [hPa, hPa], temperature: "
                     "[degC, degC]}``; order within a range does not matter."
+                ),
+                "margin": (
+                    "Default ``fit`` margin, as a fraction of the fitted "
+                    "span added to each side; ``0`` fits exactly."
                 ),
             }
         ),

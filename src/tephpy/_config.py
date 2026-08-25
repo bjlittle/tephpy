@@ -117,6 +117,9 @@ class DiagramOptions:
 
     #: Default view extent applied to new tephigram axes.
     extent: Extent | None = None
+    #: Default ``fit`` margin, as a fraction of the fitted span
+    #: (framing spec §3.3).
+    margin: float | None = None
 
 
 @dataclasses.dataclass

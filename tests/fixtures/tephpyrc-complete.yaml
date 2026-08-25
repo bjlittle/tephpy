@@ -51,5 +51,6 @@ mixing_ratios:
   values: [1.0, 4.0, 16.0]
 diagram:
   extent: {pressure: [1000.0, 300.0], temperature: [-30.0, 30.0]}
+  margin: 0.1
 cursor:
   fields: [pressure]
