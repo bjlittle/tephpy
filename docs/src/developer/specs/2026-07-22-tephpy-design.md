@@ -1115,8 +1115,8 @@ naming what to reach for instead (scope spec §3.1).
 (spec-10)=
 ## 10. Plan roadmap
 
-Nine plans deliver the v1 scope (§9) — seven as first numbered, plus the two the Plan 7 row
-split into and the framing change of {issue}`184` that landed between them. Each plan gets
+Ten rows deliver the v1 scope (§9) — six as first numbered, the three the Plan 7 row
+split into, and the framing change of {issue}`184` that landed between them. Each plan gets
 its own spec-derived implementation plan in `docs/src/developer/plans/`, and a plan is
 executed and merged before any plan that
 *depends on it* is written. The dependencies form a partial order, not a chain: Plans 5
