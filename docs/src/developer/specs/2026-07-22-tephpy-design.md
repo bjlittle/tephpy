@@ -1097,6 +1097,9 @@ covering the domain terms above.
 
 ### Non-goals for v1 (decisions, not omissions — stated in the README)
 
+`README.md` carries these as its **Non-Goals** section, in the order below and each with an
+onward pointer (scope spec §3.1).
+
 - No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
 - No skew-T projection — MetPy owns that space.
 - No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets

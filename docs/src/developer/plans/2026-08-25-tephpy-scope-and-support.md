@@ -735,19 +735,31 @@ Then add these four reference-link definitions alongside the existing ones at th
 
 `hodograph` is the README's first and only mention of that term, so it takes the glossary link and no later occurrence does (docs-style, *Documentation Links*).
 
-- [ ] **Step 3: Close the loop in spec §9**
+- [ ] **Step 3: Close the loop in spec §9 — in prose, never in the heading**
 
-In `docs/src/developer/specs/2026-07-22-tephpy-design.md`, the heading:
+**Leave the heading exactly as it is.** An earlier draft of this step put the citation in
+the heading, and that is forbidden: docs spec §3.7 reports a citation inside a section
+heading, and `--fail-on-warning` turns the report into a build failure. The reason is
+mechanical rather than stylistic — the theme rebuilds its "On this page" navigation out of
+the heading text, keeps the words, drops the anchor, and wraps the copy in the navigation's
+own link. The citation would then be a link to the section it sits in rather than to the
+section it names, and no check on the built HTML can tell the two anchors apart. Writing
+the link by hand does not help; the navigation strips an author's link the same way.
+
+So cite it in the prose below. In `docs/src/developer/specs/2026-07-22-tephpy-design.md`,
+insert one sentence between the heading and its bullet list, leaving both untouched:
 
 ```
 ### Non-goals for v1 (decisions, not omissions — stated in the README)
+
+`README.md` carries these as its **Non-Goals** section, in the order below and each with an
+onward pointer (scope spec §3.1).
+
+- No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
 ```
 
-becomes:
-
-```
-### Non-goals for v1 (decisions, not omissions — stated in the README, scope spec §3.1)
-```
+The last line above is the existing first bullet, shown so you can see where the new
+sentence goes. Do not retype the bullets.
 
 - [ ] **Step 4: Run the link gate**
 
@@ -842,7 +854,37 @@ Replace with:
 
 - [ ] **Step 3: Retag item 15**
 
-In §10's item 15, the lead paragraph reads `` `doctest` task + `ci-docs` doctest run (§8.2/§8.7) → Plan 7b; ``. Change `→ Plan 7b` to `→ rejected in Plan 7b`. In the same paragraph change `the §8.3 packaging-guide SPEC 0 docs statement → Plan 7b.` to `the §8.3 packaging-guide SPEC 0 docs statement → delivered in Plan 7b.`
+Item 15's lead paragraph is line-wrapped, and the string `→ Plan 7b` occurs **twice** in it —
+once for the doctest residual and once for the SPEC 0 statement. They get different
+replacements, so match on the whole line, not on the fragment. A blind
+`sed 's/→ Plan 7b/.../'` corrupts one of them.
+
+The two lines to change, quoted exactly as they appear:
+
+```
+    `ci-docs` doctest run (§8.2/§8.7) → Plan 7b; `tests-clean` task (§8.2) → reconciled
+```
+
+becomes:
+
+```
+    `ci-docs` doctest run (§8.2/§8.7) → rejected in Plan 7b; `tests-clean` task (§8.2) → reconciled
+```
+
+and:
+
+```
+    statement → Plan 7b.
+```
+
+becomes:
+
+```
+    statement → delivered in Plan 7b.
+```
+
+That second one is the tail of `the §8.3 packaging-guide SPEC 0 docs` on the line above it.
+Leave the `sphinx-tags (§8.6) → rejected in Plan 7a;` fragment on the first line alone.
 
 Then in the per-deferral list, replace these two lines:
 
