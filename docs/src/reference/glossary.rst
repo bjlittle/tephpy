@@ -98,6 +98,29 @@ cross-reference rules.
         the dry adiabats; "moist adiabat" is the canonical name, matching
         the AMS Glossary headword and MetPy's vocabulary.
 
+    lapse rate
+    dry adiabatic lapse rate
+    DALR
+    moist adiabatic lapse rate
+    saturated adiabatic lapse rate
+    SALR
+        The rate at which temperature falls with height. Two of them matter
+        on a tephigram, and they are the rates the two adiabat families
+        draw: the **dry adiabatic lapse rate** (DALR), which an unsaturated
+        :term:`parcel` cools at, and the **moist adiabatic lapse rate**
+        (SALR, for *saturated*), which a saturated one cools at — more
+        slowly, because condensation releases heat into the parcel as it
+        rises. Which of the two a lifted parcel is following, and where it
+        changes over, is the whole content of a :term:`parcel ascent`.
+        "Moist" leads here for the same reason it leads in
+        :term:`moist adiabat`: one canonical spelling per concept, and that
+        entry chose it. ``tephpy`` has no lapse-rate API of its own. The dry
+        rate is implicit in every :term:`dry adiabat` the diagram draws, and
+        the saturated rate is MetPy's — :func:`metpy.calc.moist_lapse` is
+        what a moist adiabat is integrated from, and what it integrates is
+        strictly the *pseudoadiabatic* rate, which differs from the
+        reversible saturated rate by an amount no tephigram resolves.
+
     wet-bulb potential temperature
         The temperature a parcel would have if brought saturated along a
         :term:`moist adiabat` to the 1000 hPa reference pressure; written

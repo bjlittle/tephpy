@@ -55,7 +55,7 @@ bespoke text-file ingest. tephpy exists to cover all four.
 | Relationship to tephi | Greenfield successor (new repo, new API) | The analysis layer, units handling, and ingest are a scope expansion that would break tephi's plotting-only philosophy and API anyway |
 | Name | `tephpy` | Owner's choice; PyPI name free |
 | Thermodynamics | `metpy.calc` as a **required** dependency | One unconditional API; inherited, community-validated parcel math; coherent pint units story. Accepted cost: heavier install, coupling to MetPy releases |
-| Data ingest | Arrays + light readers | Core accepts numpy/pandas/xarray with pint units; small `io` module for University of Wyoming and IGRA v2. No TEMP/BUFR decoding — documented recipes point at eccodes |
+| Data ingest | Arrays + light readers | Core accepts numpy/pandas/xarray with pint units; small `io` module for University of Wyoming and IGRA v2. No TEMP/BUFR decoding — a documented recipe points at ecCodes for BUFR |
 | Primary audience | Research scientists | Jupyter/scripting-first, composable API, publication output. Forecaster features are built as capabilities, not the organizing principle |
 | Architecture | Layered library around a matplotlib projection | See §3. Chosen over a sounding-centric god object and over a MetPy-`SkewT`-style figure manager |
 | Engineering standards | Mirror geovista (§8) | pixi-led, SPEC 0, Diátaxis, geovista pre-commit/ruff/mypy/CI conventions. geovista is the explicit minimum bar |
@@ -902,10 +902,13 @@ pixi is the primary interface for environments, tasks, and CI, configured in
 - **Environments / solve-groups:** a `default` group (pinned to the latest supported
   Python, currently 3.14) and per-Python groups (`py312`, `py313`, `py314`), each
   composing `test`/`docs`/`devs` — the geovista pattern.
-- **Tasks** (pixi `[tool.pixi.feature.*.tasks]`): `tests` / `tests-clean`, `docs` (build),
-  `serve-html`, `doctest`, `lint` (pre-commit run). Matplotlib image baselines are
-  regenerated via a `baselines` task (pytest-mpl `--mpl-generate-path`); `tests-clean`
-  removes pytest-mpl and coverage artifacts.
+- **Tasks** (pixi `[tool.pixi.feature.*.tasks]`): `tests` / `tests-clean`, `docs` (build plus
+  the gates that read its output), `docs-all`, `serve-html`, `lint` (pre-commit run).
+  Matplotlib image baselines are regenerated via a `baselines` task (pytest-mpl
+  `--mpl-generate-path`); `tests-clean` removes pytest-mpl and coverage artifacts. There is
+  no `doctest` task: the snippet executor of docs spec §3.9 runs the documentation's python
+  as an ordinary test module, which reaches every supported Python where a docs-build gate
+  reaches one (scope spec §3.5).
 - **Lockfile:** `pixi.lock` committed; `.gitattributes` marks it
   `merge=binary linguist-generated=true`; `check-added-large-files` excludes it. All CI and
   RTD invocations use `pixi run --frozen`.
@@ -917,9 +920,11 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   Python **3.12, 3.13, and 3.14** at launch — the full SPEC 0 window as of 2026-07
   (3.11 is outside it). Dependency minimums tracked to the SPEC 0 schedule; the support
   window is revisited at implementation time and on each SPEC 0 rotation.
-- Enforced by: README SPEC 0 badge, a docs statement in the developer/packaging guide, the
-  CI Python matrix (`py312`/`py313`/`py314`), the per-Python pixi solve-groups, and the
-  `sp-repo-review` pre-commit hook.
+- Enforced by: README SPEC 0 badge, the support statement in the developer packaging guide
+  (`docs/src/developer/packaging.rst`, delivered by scope spec §3.3, which also records
+  which of the five are assertions and which are mechanisms), the CI Python matrix
+  (`py312`/`py313`/`py314`), the per-Python pixi solve-groups, and the `sp-repo-review`
+  pre-commit hook.
 
 (spec-8-4)=
 ### 8.4 Code quality (pre-commit + lint + types)
@@ -1045,7 +1050,8 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
 
 - **v1 core gates:** `ci-tests` (matrix `py312`/`py313`/`py314` on `linux-64`,
   coverage → codecov),
-  `ci-docs` (build + doctest), `ci-wheels` (build sdist/wheel, test in pixi envs, publish to
+  `ci-docs` (build, then the four gates that read it — rendered citations, documentation
+  links, published figures, browser demo), `ci-wheels` (build sdist/wheel, test in pixi envs, publish to
   Test PyPI on main and PyPI on `v*` tags via **Trusted Publishing OIDC**), `ci-changelog`,
   `ci-citation` (validate `CITATION.cff`), **CodeQL**, pre-commit.ci, dependabot
   (github-actions grouped; the `pip` ecosystem is declared but parked at
@@ -1095,19 +1101,25 @@ covering the domain terms above.
 
 ### Non-goals for v1 (decisions, not omissions — stated in the README)
 
-- No TEMP (TTAA/TTBB) or BUFR decoding — recipe docs point at eccodes.
+`README.md` carries these as its **Non-Goals** section, in the order below, most of them
+naming what to reach for instead (scope spec §3.1).
+
+- No TEMP (TTAA/TTBB) or BUFR decoding — the recipe points at ecCodes for BUFR; no
+  maintained converter exists for TEMP, so it points elsewhere (scope spec §3.2).
 - No skew-T projection — MetPy owns that space.
 - No hodograph — MetPy's `Hodograph` composes onto the same figure; a gallery example insets
   one over the diagram.
 - No GUI or interactive dashboard.
-- No fog-point or layer-cloud constructions (v1.x candidates).
+- No fog-point or layer-cloud constructions (v1.x candidates — {issue}`192`).
 - No aviation overlays (icing, MINTRA contrail curves) — flagged open question below.
 
 (spec-10)=
 ## 10. Plan roadmap
 
-Seven plans deliver the v1 scope (§9). Each plan gets its own spec-derived implementation
-plan in `docs/src/developer/plans/`, and a plan is executed and merged before any plan that
+Ten rows deliver the v1 scope (§9) — six as first numbered, the three the Plan 7 row
+split into, and the framing change of {issue}`184` that sits between them. Each plan gets
+its own spec-derived implementation plan in `docs/src/developer/plans/`, and a plan is
+executed and merged before any plan that
 *depends on it* is written. The dependencies form a partial order, not a chain: Plans 5
 and 6 are mutually independent and may proceed in parallel once Plan 4 has merged. The
 ordering follows the §3 layering (`transforms` ← `plotting` ← (`calc`, `sounding`, `io`)):
@@ -1124,7 +1136,20 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 5 | Thermodynamic analysis | §3.3 `calc`: `parcel_path` (surface + mixed-layer parcels, −25 mb correction), `normand_point`, `indices`; the `Profile` type + its `plot_profile` overload (§3.2); analysis-time §6 errors (`MissingDataError`, `ProfileTooShortError`, `TephpyValidationError`); `shade_cape`/`shade_cin`, `annotate_indices`; shading baselines; worked-example integration test (§7); drop the scipy declaration (§8.1, item 14) | 3, 4 | ✅ complete (PR {pull}`26`) |
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR {pull}`40`; ingest and layout hardening PR {pull}`41`) |
 | 7a | Examples gallery | gallery spec: `src/tephpy/samples` (two shipped IGRA ascents) and `src/tephpy/examples` (five examples — one per §1 use case, plus the §9 hodograph composition); the `tephpy examples` command; the sphinx-gallery build, its registry ordering and its native tags; composed §4-figure baseline (§7 — needed the union of Plans 5 and 6) | 2–6 | ✅ complete (PR {pull}`181`) |
-| 7b | Documentation completion | §8.6: tutorials/how-tos/explanation content, glossary completion, `doctest` task + CI doctest run; README non-goals statement, the eccodes recipe and the reader how-to (§9, gallery spec §5); §8.3's SPEC 0 packaging statement (item 15) | 7a | **next** |
+| 7b | Scope and support statements | scope spec: the §9 README non-goals statement, the ecCodes recipe answering the first of them, the developer packaging guide carrying §8.3's SPEC 0 statement, the lapse rate entry closing §8.6's list, and the disposal of the `doctest` residual (item 15) | 7a | ✅ complete (PR {pull}`191`) |
+| 8 | Framing by ranges and by data | {issue}`184`: `set_extent` keyword ranges in place of corner pairs, and `ax.fit(...)` for data-driven framing — before v0.1, while both are still free | 3 | **next** |
+| 7c | Narrative quadrants | §8.6: tutorials (myst-nb) and explanation content, the glossary sweep around them, and the reader how-to (gallery spec §5) | 7b, 8 | after Plan 8 |
+
+Plan 7b's row was one row describing four unrelated deliverables, and {issue}`184` cuts
+through it: that issue replaces `set_extent`'s corner pairs with keyword ranges and adds
+`ax.fit(...)`, before v0.1, and the tutorials and explanation quadrants are where framing
+gets taught. Measured on 2026-08-25, `set_extent` appeared in no page of the four user
+quadrants — so writing them first would have multiplied that issue's migration into prose,
+where a signature change is not a mechanical edit because the sentence around the call
+explains the argument. The rows above therefore sit in execution order rather than in
+numerical order, which §10's partial-order note already permits, and Plan 8 is numbered
+rather than lettered because it is a plotting-layer change and not documentation completion.
+scope spec §3.6 carries the full argument.
 
 Cross-cutting rules (apply to every plan rather than one row):
 
@@ -1286,13 +1311,15 @@ them, ordered by owning plan.
     direct declaration is dropped in Plan 5 (§8.1 updated; the implementation plan
     also removes scipy from the declared-dependencies tuple in
     `tests/test_import.py`).
-15. **Deferred** (Plan 7b — {issue}`76`) — **Residual Plan 1 deferrals**, re-homed: sphinx-tags (§8.6) → rejected in Plan 7a; `doctest` task +
-    `ci-docs` doctest run (§8.2/§8.7) → Plan 7b; `tests-clean` task (§8.2) → reconciled
+15. **Open** ({issue}`77`) — **Residual Plan 1 deferrals**, re-homed. Five of the six are
+    settled; the check-manifest gate is the one still open, and {issue}`76` closed with the
+    other two of its trio: sphinx-tags (§8.6) → rejected in Plan 7a; `doctest` task +
+    `ci-docs` doctest run (§8.2/§8.7) → rejected in Plan 7b; `tests-clean` task (§8.2) → reconciled
     in Plan 3 (decided 2026-07-24: `tests-clean` removes test artifacts; a `baselines`
     task regenerates the pytest-mpl baselines);
     wheel-install smoke test → Plan 2 (decided 2026-07-23); check-manifest CI gate →
     revisit once the wheel carries domain code; the §8.3 packaging-guide SPEC 0 docs
-    statement → Plan 7b.
+    statement → delivered in Plan 7b.
 
     Per-deferral status:
 
@@ -1300,9 +1327,16 @@ them, ordered by owning plan.
       sphinx-gallery now reads a `sphinx_gallery_tags` flag and ships the index filter
       that was the whole reason to want tags, so adopting sphinx-tags would take a
       dependency to duplicate an installed feature. Site-wide tag pages across the
-      narrative documentation are 7b's question.
-    - **Deferred** (Plan 7b — {issue}`76`): the `doctest` task and the `ci-docs` doctest run (§8.2/§8.7).
-    - **Deferred** (Plan 7b — {issue}`76`): the §8.3 packaging-guide SPEC 0 statement.
+      narrative documentation are 7c's question.
+    - **Rejected** (2026-08-25, scope spec §3.5): the `doctest` task and the `ci-docs`
+      doctest run (§8.2/§8.7) — superseded. docs spec §3.9's snippet executor already runs
+      every python block in the three user quadrants as a page session, on every supported
+      Python; `sphinx.ext.doctest` would rewrite each block as `testcode::` and maintain a
+      second execution path in the one environment the docs feature has, for the same
+      coverage. Its one advantage, output checking, applies only to the CLI transcripts,
+      which `tests/test_cli.py` already pins. §8.2 and §8.7 are corrected accordingly.
+    - **Resolved** (2026-08-25, PR {pull}`191`, scope spec §3.3): the §8.3 packaging-guide
+      SPEC 0 statement, delivered in `docs/src/developer/packaging.rst`.
     - **Resolved** (2026-07-24, PR {pull}`15`): the `tests-clean` task, with `baselines` alongside it.
     - **Resolved** (2026-07-23, PR {pull}`9`): the wheel-install smoke test.
     - **Open** ({issue}`77`): the check-manifest CI gate — nothing runs it, and `MANIFEST.in` has already drifted once.
@@ -1342,6 +1376,12 @@ them, ordered by owning plan.
 - **Open** ({issue}`81`) — Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 - **Deferred** (post-v1, demand-driven — {issue}`82`) — Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.
+- **Deferred** (v1.x — {issue}`192`) — Whether the fog-point and layer-cloud constructions
+  (§9) are wanted, and in what form. Both are analysis rather than drawing: they compute a
+  level the diagram does not give, so their home is `calc` beside `normand_point` rather
+  than the layer shading of {issue}`79`, which would then have something to fill between.
+  Neither is blocked — the mixing-ratio and dry-adiabat transforms and `normand_point`'s
+  intersection solver are already there; they were out of v1 scope, not out of reach.
 
 (spec-12)=
 ## 12. References

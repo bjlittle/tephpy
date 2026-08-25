@@ -29,6 +29,25 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 > **Status:** early development — the plotting and analysis API is being built
 > out plan by plan for the [design][specs].
 
+## Non-Goals
+
+Decisions, not omissions — each with somewhere to go instead.
+
+- **No TEMP (TTAA/TTBB) or BUFR decoding.** For BUFR, decode with ecCodes and
+  build a `Sounding` from the arrays — the [recipe][temp-and-bufr] shows both
+  halves. For TEMP there is no maintained converter to point at, and the recipe
+  says what to reach for instead.
+- **No skew-T projection.** [MetPy](https://unidata.github.io/MetPy/latest/) owns
+  that space.
+- **No [hodograph][hodograph].** MetPy's `Hodograph` composes onto the same
+  figure, and the [gallery][gallery] insets one over a tephigram.
+- **No GUI or interactive dashboard.** The browser demo in the documentation is
+  an exhibit, not a product.
+- **No fog-point or layer-cloud constructions.** Candidates for v1.x.
+- **No aviation overlays** (icing, MINTRA contrail curves). Also v1.x — though
+  [member emphasis][emphasis] already distinguishes the icing band's 0 °C and
+  −20 °C bounds, which is most of what the overlay would draw.
+
 [tephigram]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-tephigram
 [parcel-ascent]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-parcel-ascent
 [cape]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-CAPE
@@ -37,3 +56,7 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 [lfc]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LFC
 [el]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-EL
 [specs]: https://tephpy.readthedocs.io/en/latest/developer/specs/index.html
+[temp-and-bufr]: https://tephpy.readthedocs.io/en/latest/howtos/temp-and-bufr.html
+[hodograph]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-hodograph
+[gallery]: https://tephpy.readthedocs.io/en/latest/gallery/index.html
+[emphasis]: https://tephpy.readthedocs.io/en/latest/howtos/emphasis.html

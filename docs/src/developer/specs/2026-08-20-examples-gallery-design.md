@@ -278,7 +278,7 @@ quadrants rather than inside one. Diátaxis has no gallery quadrant, and browsin
 thumbnails is neither a lesson nor a recipe; spec §8.6 itself lists sphinx-gallery
 separately from the four directories. Filing it under `tutorials/` was rejected — it would
 put browse-by-thumbnail beside the browser demo lesson, and compete with the tutorials that
-7b writes for that index.
+7c writes for that index.
 
 It gets **no landing-page card**. A fifth card was built and rejected (2026-08-21): the
 landing grid is the four Diátaxis quadrants, so anything sitting in it reads as a fifth
@@ -340,7 +340,7 @@ tracks. It was specified before sphinx-gallery had tags of its own, and it solve
 different problem — per-tag pages across the whole site, not a filter over one gallery. A
 five-example gallery does not need site-wide tag pages, and taking the dependency would
 leave two tag mechanisms live at once with nothing to say which an example's tags feed.
-Tagging the tutorials and how-tos is 7b's question, and the one that would earn it.
+Tagging the tutorials and how-tos is 7c's question, and the one that would earn it.
 
 Tags come from a closed vocabulary — `diagram`, `isopleths`, `sounding`, `barbs`,
 `analysis`, `shading`, `indices`, `overlay`, `metpy` — of two to four per example. An open
@@ -491,8 +491,8 @@ half could only be shown without running, in a surface whose entire affordance i
 thumbnail it would not have.
 
 Its home is a how-to, beside the eccodes recipe that answers the adjacent question — what
-about TEMP and BUFR — which spec §10 already assigns to the same tranche of work. Both are
-7b's (§7).
+about TEMP and BUFR — which spec §10 already assigns to the same tranche of work. The
+eccodes recipe is 7b's and the reader how-to itself is 7c's (§7).
 
 The same test rules out a configuration example, an installation example, and anything else
 whose figure would be incidental to its point. It does not rule out an example that
@@ -542,27 +542,33 @@ the `tephpy examples` command, and `documentation` for the gallery itself. There
 command; the gallery, its configuration, ordering and tags; the packaging that carries all
 of it into the wheel; the three gates of §3.7 and the composed-figure baseline.
 
-**Out of scope.** Everything spec §10's Plan 7 row assigns to documentation *completion*,
-which is 7b: the tutorials and explanation quadrants, the glossary sweep, the README
-non-goals statement, the eccodes recipe, the reader how-to of §5, the doctest task and its
-CI run, and spec §8.3's SPEC 0 packaging statement. The APIs any example calls are unchanged;
-an example that wants an API tephpy does not have is a defect report, not a scope question.
+**Out of scope.** Everything spec §10's Plan 7 row assigned to documentation *completion*,
+which was 7b at the time: the README non-goals statement, the eccodes recipe, spec §8.3's
+SPEC 0 packaging statement and the glossary sweep, all since delivered by 7b; the tutorials
+and explanation quadrants and the reader how-to of §5, carried forward to 7c; and the
+doctest task and its CI run, rejected as superseded in 7b. The APIs any example calls are
+unchanged; an example that wants an API tephpy does not have is a defect report, not a scope
+question.
 
 **Open items**, tagged per docs spec §3.5.
 
-- **Deferred** (7b — {issue}`76`) — **the doctest task and its `ci-docs` run, and
-  spec §8.3's SPEC 0 packaging statement.** Two of the three residuals spec §10 item 15
-  re-homed to Plan 7; the third, sphinx-tags, is rejected below.
+- **Resolved** (2026-08-25, PR {pull}`191`, scope spec §3.3 and scope spec §3.5) — **the
+  doctest task and its `ci-docs` run, and spec §8.3's SPEC 0 packaging statement.** Plan 7b
+  delivered the packaging statement and rejected the doctest task as superseded by
+  docs spec §3.9's snippet executor. With sphinx-tags rejected below, all three of
+  spec §10 item 15's re-homed residuals are settled and {issue}`76` is closed.
 
 - **Rejected** (2026-08-20) — **the sphinx-tags dependency.** spec §8.6 and {issue}`76`
   committed to it before sphinx-gallery had tags of its own. It now does, with the filter
   UI that was the whole reason to want them (§3.6), so adopting sphinx-tags would add a
   dependency to duplicate a feature already installed. What it offers beyond that — a
-  site-wide tag index spanning the narrative documentation — is a question for 7b, which
+  site-wide tag index spanning the narrative documentation — is a question for 7c, which
   owns the tutorials and explanation quadrants that would be tagged.
 
-- **Deferred** (7b — {issue}`66`) — **the reader how-to and the eccodes recipe.** §5 sends
-  the `io` example there, and {issue}`66`'s quadrant build-out is where it lands.
+- **Deferred** (7c — {issue}`66`) — **the reader how-to.** §5 sends the `io` example there.
+  The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to did
+  not, because it is where `ax.fit(...)` would be taught and {issue}`184` has not landed
+  yet (scope spec §3.6).
 
 - **Rejected** (2026-08-20) — **a sixth, `io` example.** §5 gives the reasoning: its
   subject is not a picture, and the network constraint makes the misfit mechanical as well

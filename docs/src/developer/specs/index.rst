@@ -34,6 +34,8 @@ counterpart in the parent specification.
       - :doc:`2026-08-17-published-figures-design`
     * - ``gallery spec §…``
       - :doc:`2026-08-20-examples-gallery-design`
+    * - ``scope spec §…``
+      - :doc:`2026-08-25-scope-and-support-design`
 
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
@@ -55,3 +57,4 @@ before implementation and is not updated afterwards.
     2026-08-13-dependency-floors-design
     2026-08-17-published-figures-design
     2026-08-20-examples-gallery-design
+    2026-08-25-scope-and-support-design

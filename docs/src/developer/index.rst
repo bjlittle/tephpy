@@ -5,4 +5,5 @@ Developer Guide
     :maxdepth: 1
 
     docs-style
+    packaging
     specs/index
