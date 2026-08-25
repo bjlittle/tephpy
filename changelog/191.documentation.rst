@@ -1,7 +1,8 @@
 Stated the project's scope and support in the places a reader looks for them:
 the six non-goals of the design specification now appear in ``README.md`` with
-somewhere to go instead, a new how-to shows how to decode TEMP and BUFR with
-ecCodes and build a :class:`~tephpy.sounding.Sounding` from the result, a new
-developer packaging guide carries the SPEC 0 support window and the
-dependency-floor policy, and the glossary gained its lapse rate entry.
-(:user:`bjlittle`)
+somewhere to go instead, a new how-to shows how to decode BUFR with ecCodes and
+build a :class:`~tephpy.sounding.Sounding` from the result, a new developer
+packaging guide carries the SPEC 0 support window and the dependency-floor
+policy, and the glossary gained its lapse rate entry. The how-to also says where
+a TEMP bulletin leaves you, ecCodes decoding no traditional code form and there
+being no maintained converter to point at. (:user:`bjlittle`)

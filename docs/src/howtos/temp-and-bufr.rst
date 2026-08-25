@@ -1,16 +1,17 @@
 .. _howto-temp-and-bufr:
 
-Decode TEMP and BUFR with ecCodes
-=================================
+Decode BUFR with ecCodes
+========================
 
 ``tephpy`` does not decode TEMP (TTAA/TTBB) bulletins or BUFR messages, and it
-is not going to. The formats are WMO's, the reference decoder is `ecCodes
-<https://confluence.ecmwf.int/display/ECC>`__, and a second implementation would
-be a worse copy of a maintained one. Whether demand later justifies a
-``tephpy[bufr]`` extra is :issue:`82`.
+is not going to. The formats are WMO's, the reference decoder for BUFR is
+`ecCodes <https://confluence.ecmwf.int/display/ECC>`__, and a second
+implementation would be a worse copy of a maintained one. Whether demand later
+justifies a ``tephpy[bufr]`` extra is :issue:`82`.
 
 That leaves a seam rather than a gap, and this page is the seam. ecCodes turns a
-message into numbers; ``tephpy`` turns numbers into a :term:`tephigram`.
+BUFR message into numbers; ``tephpy`` turns numbers into a :term:`tephigram`. A
+TEMP bulletin is a different problem, and gets its own section below.
 
 Decode the Message
 ------------------
@@ -32,9 +33,28 @@ Install ecCodes however you install anything — it is on conda-forge as
 ``eccodes``, and ECMWF publish source and packages. It is not installed by
 ``tephpy`` and does not need to be: nothing on the rest of this page imports it.
 
-For a TEMP bulletin the same applies one step earlier. ecCodes decodes BUFR, so a
-TTAA/TTBB bulletin is converted to BUFR first — most archives distribute BUFR
-already, which is why this page leads with it.
+If You Have a TEMP Bulletin
+---------------------------
+
+``bufr_dump`` will not read one. ecCodes decodes BUFR and GRIB, the binary WMO
+formats, and a TTAA/TTBB bulletin is neither — it is traditional alphanumeric
+code, and nothing above applies to it as it stands.
+
+Nor is there a converter to send you to. WMO's `synop2bufr
+<https://github.com/World-Meteorological-Organization/synop2bufr>`__ encodes
+FM-12 SYNOP rather than TEMP, and re-encoding is discouraged where it is done at
+all: a converted bulletin still lacks what a native message carries, the
+radiosonde type and the balloon's drift among it, and cannot recover precision
+the code form never had.
+
+What works is not converting. The bulletin and the message carry the same
+ascent, and WMO's migration away from the traditional code forms means most
+sources can issue the BUFR, so ask yours for that rather than for the bulletin.
+For a station and a time, :func:`wyoming.fetch <tephpy.io.wyoming.fetch>`
+returns a :class:`Sounding <tephpy.sounding.Sounding>` from the University of
+Wyoming archive and skips this page entirely. And if you do decode the bulletin,
+by whatever your centre uses, the rest of this page is unchanged: what follows
+takes numbers and does not care what produced them.
 
 Build a Sounding
 ----------------

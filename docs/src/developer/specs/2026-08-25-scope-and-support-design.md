@@ -144,6 +144,22 @@ labour and reads as one.
 reader who has a TEMP bulletin or a BUFR message and wants a tephigram out of it, and its
 answer is in two halves with a seam that has to be honest.
 
+**The two formats get different answers, and the page says which is which.** ecCodes decodes
+BUFR and GRIB. It does not decode a traditional code form, so `bufr_dump` will not read a
+TTAA/TTBB bulletin, and there is no maintained converter to send the holder of one to: WMO's
+`synop2bufr` encodes FM-12 SYNOP rather than TEMP, and re-encoding a bulletin is discouraged
+where it is done at all, the result lacking the radiosonde type and drift a native message
+carries and recovering no precision the code form never had. A page titled for both formats
+and naming one tool therefore promised a decode that cannot be performed, which is what the
+review of {pull}`191` found. The BUFR half stays a recipe; the TEMP half becomes a section
+of its own that says plainly what does not work and gives three things that do — ask the
+source for the BUFR, which most can issue after WMO's migration; call
+`io.wyoming.fetch` for a station and a time and skip the page; or decode the bulletin by
+whatever means and rejoin at *Build a Sounding*, which takes numbers and does not care what
+produced them. That last is the load-bearing one: the page's second half was never
+ecCodes-specific, and saying so is what keeps the page useful to a TEMP reader without
+promising them a tool.
+
 **The decode is not tephpy's, so it is not shown as python.** ecCodes ships command-line
 tools — `bufr_dump`, `grib_ls` and their relatives — and the recipe uses one, in a
 `code-block:: console` block that shows the invocation and nothing else. Producing genuine
@@ -177,9 +193,13 @@ figure gate reads. Every list past the toctree is membership rather than a count
 (docs spec §3.9): each is what fails when its extractor stops recognising the page, instead
 of the page passing by never having been found.
 
-**Title.** *Decode TEMP and BUFR with ecCodes* — CMOS headline style per spec §8.6, with
-`ecCodes` keeping its published casing as a project name, which is the documented exception
-rather than an oversight.
+**Title.** *Decode BUFR with ecCodes* — CMOS headline style per spec §8.6, with `ecCodes`
+keeping its published casing as a project name, which is the documented exception rather
+than an oversight. It names the format the tool decodes and no other, the whole of the
+defect above having been a title that named two. The file keeps the slug `temp-and-bufr`,
+because the page still answers both of the reader's questions and a TEMP holder searching
+for one should find it; a title states a capability, a slug states a subject, and here they
+are honestly different.
 
 (scope-spec-3-3)=
 ### 3.3 The packaging guide

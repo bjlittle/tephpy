@@ -468,17 +468,18 @@ Create `docs/src/howtos/temp-and-bufr.rst`. Substitute your real transcript into
 ```rst
 .. _howto-temp-and-bufr:
 
-Decode TEMP and BUFR with ecCodes
-=================================
+Decode BUFR with ecCodes
+========================
 
 ``tephpy`` does not decode TEMP (TTAA/TTBB) bulletins or BUFR messages, and it
-is not going to. The formats are WMO's, the reference decoder is `ecCodes
-<https://confluence.ecmwf.int/display/ECC>`__, and a second implementation would
-be a worse copy of a maintained one. Whether demand later justifies a
-``tephpy[bufr]`` extra is :issue:`82`.
+is not going to. The formats are WMO's, the reference decoder for BUFR is
+`ecCodes <https://confluence.ecmwf.int/display/ECC>`__, and a second
+implementation would be a worse copy of a maintained one. Whether demand later
+justifies a ``tephpy[bufr]`` extra is :issue:`82`.
 
 That leaves a seam rather than a gap, and this page is the seam. ecCodes turns a
-message into numbers; ``tephpy`` turns numbers into a :term:`tephigram`.
+BUFR message into numbers; ``tephpy`` turns numbers into a :term:`tephigram`. A
+TEMP bulletin is a different problem, and gets its own section below.
 
 Decode the Message
 ------------------
@@ -500,9 +501,28 @@ Install ecCodes however you install anything — it is on conda-forge as
 ``eccodes``, and ECMWF publish source and packages. It is not installed by
 ``tephpy`` and does not need to be: nothing on the rest of this page imports it.
 
-For a TEMP bulletin the same applies one step earlier. ecCodes decodes BUFR, so a
-TTAA/TTBB bulletin is converted to BUFR first — most archives distribute BUFR
-already, which is why this page leads with it.
+If You Have a TEMP Bulletin
+---------------------------
+
+``bufr_dump`` will not read one. ecCodes decodes BUFR and GRIB, the binary WMO
+formats, and a TTAA/TTBB bulletin is neither — it is traditional alphanumeric
+code, and nothing above applies to it as it stands.
+
+Nor is there a converter to send you to. WMO's `synop2bufr
+<https://github.com/World-Meteorological-Organization/synop2bufr>`__ encodes
+FM-12 SYNOP rather than TEMP, and re-encoding is discouraged where it is done at
+all: a converted bulletin still lacks what a native message carries, the
+radiosonde type and the balloon's drift among it, and cannot recover precision
+the code form never had.
+
+What works is not converting. The bulletin and the message carry the same
+ascent, and WMO's migration away from the traditional code forms means most
+sources can issue the BUFR, so ask yours for that rather than for the bulletin.
+For a station and a time, :func:`wyoming.fetch <tephpy.io.wyoming.fetch>`
+returns a :class:`Sounding <tephpy.sounding.Sounding>` from the University of
+Wyoming archive and skips this page entirely. And if you do decode the bulletin,
+by whatever your centre uses, the rest of this page is unchanged: what follows
+takes numbers and does not care what produced them.
 
 Build a Sounding
 ----------------
@@ -534,12 +554,13 @@ message that carried no humidity still gives a usable sounding — drop the
 ``dewpoint`` argument and its ``units`` entry together.
 
 Two things the decoder will hand you that need a moment. ecCodes reports
-temperatures in kelvin and pressures in pascals; say so in ``units=`` rather than
-converting by hand, because a conversion written twice is a conversion that
-disagrees with itself once. And a BUFR sounding routinely carries
-missing values at some levels — the ``MISSING`` above. Pass those through as
-``float("nan")`` and ``tephpy`` treats them as gaps, which is what they are. Pressure is the exception: it must be finite and
-monotonic, so drop a level whose pressure is missing rather than passing a NaN.
+temperatures in kelvin and pressures in pascals; say so in ``units=`` rather
+than converting by hand, because a conversion written twice is a conversion
+that disagrees with itself once. And a BUFR sounding routinely carries missing
+values at some levels — the ``MISSING`` above. Pass those through as
+``float("nan")`` and ``tephpy`` treats them as gaps, which is what they are.
+Pressure is the exception: it must be finite and monotonic, so drop a level
+whose pressure is missing rather than passing a NaN.
 
 Draw It
 -------
@@ -708,8 +729,9 @@ In `README.md`, insert this **after** the `> [!NOTE]` status block and **before*
 
 Decisions, not omissions — each with somewhere to go instead.
 
-- **No TEMP (TTAA/TTBB) or BUFR decoding.** Decode with ecCodes and build a
-  `Sounding` from the arrays; the [recipe][temp-and-bufr] shows both halves.
+- **No TEMP (TTAA/TTBB) or BUFR decoding.** Decode BUFR with ecCodes and build a
+  `Sounding` from the arrays; the [recipe][temp-and-bufr] shows both halves, and
+  says where a TEMP bulletin leaves you instead.
 - **No skew-T projection.** [MetPy](https://unidata.github.io/MetPy/latest/) owns
   that space.
 - **No [hodograph][hodograph].** MetPy's `Hodograph` composes onto the same
@@ -1201,16 +1223,17 @@ BODY
 
 - [ ] **Step 2: Write the fragment**
 
-With `188` as an example — **use the real PR number** — create `changelog/188.documentation.rst`:
+Create `changelog/<PR>.documentation.rst` — this branch's is `changelog/191.documentation.rst`:
 
 ```rst
 Stated the project's scope and support in the places a reader looks for them:
 the six non-goals of the design specification now appear in ``README.md`` with
-somewhere to go instead, a new how-to shows how to decode TEMP and BUFR with
-ecCodes and build a :class:`~tephpy.sounding.Sounding` from the result, a new
-developer packaging guide carries the SPEC 0 support window and the
-dependency-floor policy, and the glossary gained its lapse rate entry.
-(:user:`bjlittle`)
+somewhere to go instead, a new how-to shows how to decode BUFR with ecCodes and
+build a :class:`~tephpy.sounding.Sounding` from the result, a new developer
+packaging guide carries the SPEC 0 support window and the dependency-floor
+policy, and the glossary gained its lapse rate entry. The how-to also says where
+a TEMP bulletin leaves you, ecCodes decoding no traditional code form and there
+being no maintained converter to point at. (:user:`bjlittle`)
 ```
 
 Replace `bjlittle` with your own GitHub username if you are not the maintainer.
@@ -1220,7 +1243,7 @@ Replace `bjlittle` with your own GitHub username if you are not the maintainer.
 In `docs/src/developer/specs/2026-07-22-tephpy-design.md`, the Plan 7b row Task 6 added ends `✅ complete (PR {pull}`NNN`)`. Substitute the real number:
 
 ```bash
-sed -i 's/✅ complete (PR {pull}`NNN`)/✅ complete (PR {pull}`188`)/' \
+sed -i 's/✅ complete (PR {pull}`NNN`)/✅ complete (PR {pull}`191`)/' \
     docs/src/developer/specs/2026-07-22-tephpy-design.md
 grep -n "NNN" docs/src/developer/specs/2026-07-22-tephpy-design.md
 ```
