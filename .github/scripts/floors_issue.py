@@ -64,6 +64,34 @@ HALVES = ("conda", "pypi")
 #: the weekly run files another issue instead of commenting on the first.
 UNATTRIBUTED = "unattributed"
 
+#: How far the diagnosis got, as `floors_diagnose.attribute` records it. Three
+#: of its four returns carry no package, and this is what tells them apart: the
+#: verdict is the same at all three, but what ran to reach it is not, and every
+#: unattributed issue used to be described as the relaxation loop running and
+#: finding nothing -- true of one of the three (:issue:`188`).
+#:
+#: Deliberately *not* in the dedupe key, which is tier and package
+#: (floors spec §3.6). A tier that fails to solve one week and fails its
+#: exercise the next is one broken thing and belongs in one issue; keying on the
+#: stage would file a second the week its failure changed shape.
+#:
+#: The same three words are declared in `floors_diagnose.py`, and
+#: `tests/test_floors.py` holds the two lists together. A stage added there and
+#: unhandled here does not go missing from the body -- it takes the wrong
+#: sentence, which is the defect this field was added to fix.
+STAGE_SOLVE = "solve"
+STAGE_EXERCISE = "exercise"
+STAGE_UNREPRODUCED = "unreproduced"
+STAGES = (STAGE_SOLVE, STAGE_EXERCISE, STAGE_UNREPRODUCED)
+
+#: What a stage this composer does not recognise reads as, and what a two-half
+#: issue whose halves got different distances reads as. Every table below
+#: carries an entry for it, so each lookup is total and the filing job cannot
+#: die composing prose. The entries say nothing about what ran: a confident
+#: wrong sentence is the thing being fixed here, and a vaguer true one is
+#: strictly better than the wrong one it would otherwise inherit.
+STAGE_UNKNOWN = ""
+
 #: The precedent floors spec §3.5 cites, interpolated rather than written out.
 #: This text is posted as an issue body, which is not Sphinx-rendered: the
 #: `issue` role would reach the reader as its own source, and the bare form is
@@ -95,6 +123,62 @@ CAVEAT = (
     f"page differently from the pinned version (#{SPHINX_CLICK}). Read this "
     "as a starting point, not an answer."
 )
+
+#: What an unattributed finding says, by the stage it got that far at. Floors
+#: spec §3.4 puts all three here by design and the verdict is honest at each,
+#: but only `STAGE_SOLVE` is the relaxation loop running and finding nothing.
+#: `{outcome}` is filled from `outcome` below, so the phrase a reader meets is
+#: the same one the two-half list above them uses.
+UNATTRIBUTED_AT = {
+    STAGE_SOLVE: (
+        "Relaxing each declared floor in turn resolved nothing, so {outcome}. "
+        "The solver output is below verbatim."
+    ),
+    STAGE_EXERCISE: (
+        "The declared floors resolved and the tier's exercise then failed, so "
+        "no floor was relaxed at all and {outcome} — relaxation attributes a "
+        "*solve* failure, and this tier solved. What is quoted below is that "
+        "exercise, not a solver conflict, and where the floors resolve the "
+        "trace usually names the culprit on its own."
+    ),
+    STAGE_UNREPRODUCED: (
+        "The declared floors resolved and the tier's exercise then passed when "
+        "re-run here, so no floor was relaxed and {outcome}. This diagnosis "
+        "reproduced nothing: the failing step is one it does not run, and what "
+        "is quoted below is a solve that succeeded."
+    ),
+    STAGE_UNKNOWN: (
+        "The diagnosis reports that {outcome}, and did not record how far it "
+        "got before saying so. The output it kept is below."
+    ),
+}
+
+#: Where to start, for the sentence that says no declaration site is named.
+#: Read from the whole group rather than from one finding: the two halves are
+#: diagnosed separately and can get different distances, so one issue can carry
+#: a solver conflict from one half and a pytest traceback from the other, and
+#: neither name fits both. The `STAGE_UNREPRODUCED` entry sends the reader out
+#: of the issue entirely, because what is quoted under it is a probe that
+#: reproduced nothing -- said once, here, and not also in the sentence above,
+#: which has already said what is quoted.
+QUOTED = {
+    STAGE_SOLVE: "the solver output below",
+    STAGE_EXERCISE: "the trace below",
+    STAGE_UNREPRODUCED: "the run log",
+    STAGE_UNKNOWN: "the output quoted below",
+}
+
+#: How each quoted block is labelled. `failure at the declared floors` is true
+#: of all three in the sense that those were the floors in force, but it reads
+#: as the *solve* having failed -- and which of the three it was is the thing a
+#: reader most needs and could not get (:issue:`188`). An attributed finding is
+#: always `STAGE_SOLVE`, so its label is the one that has always been there.
+SUMMARY = {
+    STAGE_SOLVE: "failure at the declared floors",
+    STAGE_EXERCISE: "exercise failure at the declared floors",
+    STAGE_UNREPRODUCED: "the declared floors, which resolved and passed here",
+    STAGE_UNKNOWN: "failure at the declared floors",
+}
 
 
 def _gh() -> str:
@@ -153,6 +237,34 @@ def title(finding: dict) -> str:
 
     """
     return f"Dependency floor: {finding['tier']} / {finding['package'] or UNATTRIBUTED}"
+
+
+def stage(finding: dict) -> str:
+    """Return how far the diagnosis of one finding got.
+
+    Parameters
+    ----------
+    finding : dict
+        One finding artifact.
+
+    Returns
+    -------
+    str
+        One of `STAGES`, or `STAGE_UNKNOWN` where this composer does not
+        recognise what was recorded. A finding carrying no stage at all reads
+        as `STAGE_SOLVE`: that is what every issue said before there was a
+        stage to read, so an artifact from before then keeps the wording it
+        was written under (:issue:`188`).
+
+    """
+    found = finding.get("stage") or STAGE_SOLVE
+    return found if found in STAGES else STAGE_UNKNOWN
+
+
+def _quoted(group: Sequence[dict]) -> str:
+    """Name what the quoted blocks hold, as the stages of a whole group have it."""
+    stages = {stage(item) for item in group}
+    return QUOTED[stages.pop() if len(stages) == 1 else STAGE_UNKNOWN]
 
 
 def outcome(finding: dict) -> str:
@@ -214,21 +326,24 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         "",
     ]
     if others:
+        # A scan needs a culprit to scan, so an unattributed group ran none --
+        # and "each half scanned its own source" over two lines that both say
+        # nothing was attributed is the same assertion of work that never ran
+        # this stage exists to stop making (:issue:`188`).
+        each = (
+            "Each half was diagnosed against its own source:"
+            if finding["package"] is None
+            else "Each half scanned its own source:"
+        )
         lines += [
-            (
-                "Both halves failed, and they are one fix, so this is one "
-                "issue. Each half scanned its own source:"
-            ),
+            f"Both halves failed, and they are one fix, so this is one issue. {each}",
             "",
             *[f"- **{item['half']}:** {outcome(item)}" for item in group],
             "",
         ]
     elif finding["package"] is None:
         lines += [
-            (
-                "Relaxing each declared floor in turn resolved nothing, so "
-                f"{outcome(finding)}. The solver output is below verbatim."
-            ),
+            UNATTRIBUTED_AT[stage(finding)].format(outcome=outcome(finding)),
             "",
         ]
     else:
@@ -255,7 +370,7 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
                 "No declaration site is named, because nothing was attributed "
                 "and the tier that failed is not necessarily where the culprit "
                 "is declared — the core table resolves into every tier. Start "
-                "from the solver output below."
+                f"from {_quoted(group)}."
             ),
             "",
         ]
@@ -302,10 +417,7 @@ def body(finding: dict, run_url: str, others: Sequence[dict] = ()) -> str:
         lines += [CAVEAT, ""]
     for item in group:
         lines += [
-            (
-                "<details><summary>failure at the declared floors "
-                f"({item['half']})</summary>"
-            ),
+            f"<details><summary>{SUMMARY[stage(item)]} ({item['half']})</summary>",
             "",
             "```text",
             item["failure"],

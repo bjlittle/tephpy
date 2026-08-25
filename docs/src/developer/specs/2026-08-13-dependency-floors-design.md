@@ -350,6 +350,19 @@ only for conflicts too tangled to isolate. Relaxation reaches declared floors an
 else, so a tier broken by a transitive the solve chose — one no table names, and so one no
 probe can return — has nothing to relax and lands here by construction.
 
+Relaxation attributes a *solve* failure, so a tier that solves reaches the same verdict
+without any of it running. Three routes end in nothing attributed: the solve failed and every
+relaxation of it resolved nothing, the floors resolved and the tier's exercise then failed, or
+the floors resolved and the exercise then passed when re-run here — which attributes nothing
+because it reproduced nothing, the failing step being one this diagnosis does not run. The
+finding records which route it came out of. Recorded rather than left to be read back off the
+failure text, because that text is a solver conflict, a pytest traceback or a solve that
+succeeded depending on the very thing in question: a reader tells them apart at a glance and a
+program does not. §3.6 is the consumer, and one sentence covering all three told every reader
+that relaxation had run and found nothing — true of the first route, and of the other two an
+assertion of work that never ran ({issue}`188`). {issue}`185` was the exercise route, and what
+it quoted under *the solver output* was a `ModuleNotFoundError`.
+
 What relaxation *means* differs between the two sites, though what it establishes does not:
 exactly one package is not at its floor. Which floors are walked differs too — each half reads
 them from the site it installs from (§3.1), so a PyPI diagnosis walking the manifest would
@@ -412,6 +425,14 @@ that makes the set findable. The body carries what a fix needs:
 - the lowest version that passed the scan, or a statement that no attribution was reached —
   and, where both halves failed, the result of each, since a package can be at a different
   version in the conda channel and the package index (§3.5)
+- where nothing was attributed, which of §3.4's three routes reached that verdict, in a
+  sentence that claims no work the route did not do and names what the block quoted under it
+  holds. The two halves are diagnosed separately and can stop at different routes, so each
+  quoted block is labelled by its own half's and the sentence sending the reader to them names
+  neither rather than naming one and being wrong about the other. A route this composer does
+  not recognise says only that the diagnosis did not record how far it got: an unrecognised one
+  is a vocabulary drift caught by §5, and a vague true sentence beats the confident wrong one
+  it would otherwise inherit
 - both lines that declare the floor (§3.1) — a fix that changes one and not the other leaves
   the two sides disagreeing — each named as its own site spells it and in the tier that site
   floors it in, neither of which the two are guaranteed to share. Both are asked of the site
@@ -431,7 +452,10 @@ one is commented on, not filed again. A floor that stays broken would otherwise 
 issue every week. Two broken floors raise two issues, because they are two fixes — and one
 floor failing in both halves raises one, because it is one fix. The key deliberately omits
 the half for that reason: the two declaration sites are edited together (§3.1), so splitting
-them across two issues would invite a fix that closes one and leaves the pair disagreeing.
+them across two issues would invite a fix that closes one and leaves the pair disagreeing. It
+omits the route of §3.4 for the same reason: a tier that fails to solve one week and fails its
+exercise the next is one broken thing, and keying on the route would file a second issue the
+week its failure changed shape.
 
 Which means the key needs one spelling of a package that has two (§3.1). It takes the
 manifest's, for no reason beyond its being the half that has been filing, and the other rides
@@ -493,6 +517,14 @@ the test sources rather than running them, so it names the reader that would fai
 waiting a week for the tier to ({pull}`164`). It separates a build of the path from a mention
 of it — a test naming `pyproject.toml` in a message or a comment is not reading it — since a
 gate that cannot tell those apart earns a relaxation the first time it is wrong.
+
+The route of §3.4 is named in both scripts — the diagnosis records it, the issue composer
+branches its prose on it — and the two lists are held together by a gate, because a route added
+to one and unhandled by the other does not go missing from the issue body. It takes whichever
+sentence the fallback offers, which is prose that is wrong rather than absent, and that is the
+shape of the defect the route was added to fix. A second gate reads the diagnosis's own returns
+and refuses any that does not draw its route from that vocabulary, so a literal written inline
+is caught where it is written rather than a week later.
 
 The filters of §3.2 are covered against a canned index rather than against PyPI, since what
 they must be shown to reject is a release nobody publishes on purpose: one whose only files

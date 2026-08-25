@@ -99,6 +99,189 @@ def test_an_unattributed_finding_says_so_and_names_no_declaration_site():
     assert "[tool.pixi.feature.test.dependencies]" not in text
 
 
+#: An unattributed finding of each shape the diagnosis produces, keyed by the
+#: stage it records. The prose below is asserted against all of them together:
+#: what made this a defect is that the three were indistinguishable in the
+#: issue, so a test per stage would check the wording and miss the point
+#: (:issue:`188`).
+#:
+#: Each names its stage rather than leaning on the default, which is `solve` --
+#: a fixture that reaches a branch by omission cannot tell it apart from the
+#: fallback, and the fallback is separately a case worth asserting.
+NO_CULPRIT = {
+    stage: {**FINDING, "tier": "test", "package": None, "lowest": None, "stage": stage}
+    for stage in ("solve", "exercise", "unreproduced")
+}
+
+
+def test_only_the_verdict_that_relaxed_anything_says_it_relaxed_anything():
+    # `attribute` reaches "nothing attributed" three ways and only one of them
+    # runs the relaxation loop (floors spec §3.4). The issue said the sentence
+    # below of all three, so a reader of the other two was told work had run
+    # that never ran, and sent after a dependency conflict that did not exist:
+    # :issue:`185` was the exercise branch, and what it quoted was a pytest
+    # traceback.
+    module = _load()
+    claim = "Relaxing each declared floor in turn resolved nothing"
+    bodies = {
+        stage: module.body(finding, "url") for stage, finding in NO_CULPRIT.items()
+    }
+    assert claim in bodies["solve"]
+    assert claim not in bodies["exercise"]
+    assert claim not in bodies["unreproduced"]
+    # All three still reach the same verdict, which is the honest part and must
+    # survive the branching.
+    for text in bodies.values():
+        assert "no attribution was reached" in text
+        assert "Both declaration sites need the same edit" not in text
+
+
+def test_the_solved_verdicts_say_what_is_quoted_and_that_nothing_was_relaxed():
+    # The positive half of the test above: not saying the wrong thing is worth
+    # little if what replaces it says nothing. Each of the two branches has to
+    # tell its reader that no floor was relaxed and what the block below it
+    # actually holds -- calling a pytest traceback "the solver output" is half
+    # of why :issue:`185` read as a dependency conflict.
+    module = _load()
+    exercised = module.body(NO_CULPRIT["exercise"], "url")
+    assert "no floor was relaxed" in exercised
+    assert "the tier's exercise then failed" in exercised
+    assert "Start from the trace below." in exercised
+    assert "the solver output" not in exercised
+    unreproduced = module.body(NO_CULPRIT["unreproduced"], "url")
+    assert "no floor was relaxed" in unreproduced
+    assert "a solve that succeeded" in unreproduced
+    # This one has nothing in the issue worth starting from, so it sends the
+    # reader out of it rather than at a block that reproduced nothing.
+    assert "Start from the run log." in unreproduced
+
+
+def test_the_quoted_block_is_labelled_with_what_produced_it():
+    # "failure at the declared floors" is true of all three in the sense that
+    # those were the floors in force, and reads as the solve having failed --
+    # which is the one thing it was not in two of them.
+    module = _load()
+    assert "exercise failure at the declared floors (conda)" in module.body(
+        NO_CULPRIT["exercise"], "url"
+    )
+    assert "resolved and passed here (conda)" in module.body(
+        NO_CULPRIT["unreproduced"], "url"
+    )
+    # An attributed finding is a solve failure by construction -- relaxation is
+    # what attributes -- so its label is the one that has always been there.
+    assert "failure at the declared floors (conda)" in module.body(FINDING, "url")
+
+
+def test_a_finding_written_before_the_stage_keeps_the_wording_it_had():
+    # An artifact carrying no stage is one a `floors_diagnose.py` from before
+    # this field wrote, and the sentence it was written under is the solve one.
+    # Reading it as anything else would put a claim in the body that the run
+    # producing it never made.
+    module = _load()
+    assert module.stage({"tier": "test"}) == module.STAGE_SOLVE
+    # Built by removing the key rather than by leaning on the fixture's own
+    # `solve`: that one carries the stage explicitly, so asserting against it
+    # would pass whether or not the fallback exists.
+    stageless = {
+        key: value for key, value in NO_CULPRIT["solve"].items() if key != "stage"
+    }
+    assert "stage" not in stageless
+    assert "Relaxing each declared floor in turn" in module.body(stageless, "url")
+
+
+def test_a_stage_this_composer_does_not_know_asserts_nothing_about_what_ran():
+    # The gate in `tests/test_floors.py` holds the two vocabularies together, so
+    # this is the state that gate exists to prevent reaching a runner. It must
+    # still compose -- the filing job runs when everything it reports on is red,
+    # and a `KeyError` there loses the issue entirely -- and it must not guess,
+    # because a confident wrong sentence is the whole of what is being fixed.
+    module = _load()
+    finding = {**NO_CULPRIT["solve"], "stage": "nonesuch"}
+    assert module.stage(finding) == module.STAGE_UNKNOWN
+    text = module.body(finding, "url")
+    assert "no attribution was reached" in text
+    assert "did not record how far it got" in text
+    assert "Relaxing each declared floor in turn" not in text
+    assert "no floor was relaxed" not in text
+
+
+def test_two_halves_that_got_different_distances_are_not_described_as_one():
+    # The halves are diagnosed separately and can stop at different stages, so
+    # one issue can quote a solver conflict from one and a traceback from the
+    # other. Each block is labelled by its own half's stage; the sentence that
+    # sends the reader to them cannot be, so it names neither rather than
+    # naming the primary's and being wrong about the other.
+    module = _load()
+    text = module.body(
+        NO_CULPRIT["solve"],
+        "url",
+        [{**NO_CULPRIT["exercise"], "half": "pypi"}],
+    )
+    assert "failure at the declared floors (conda)" in text
+    assert "exercise failure at the declared floors (pypi)" in text
+    assert "Start from the output quoted below." in text
+    # And where they agree it does name it, or the neutral wording above would
+    # be all any two-half issue ever got.
+    agreed = module.body(
+        NO_CULPRIT["exercise"],
+        "url",
+        [{**NO_CULPRIT["exercise"], "half": "pypi"}],
+    )
+    assert "Start from the trace below." in agreed
+
+
+def test_an_unattributed_pair_is_not_described_as_having_scanned():
+    # A scan needs a culprit to scan (floors spec §3.5), so a two-half issue
+    # with nothing attributed ran none -- and "each half scanned its own source"
+    # over two lines that both say nothing was attributed is the same assertion
+    # of work that never ran as the sentence above.
+    module = _load()
+    text = module.body(
+        NO_CULPRIT["solve"],
+        "url",
+        [{**NO_CULPRIT["solve"], "half": "pypi"}],
+    )
+    assert "Each half was diagnosed against its own source" in text
+    assert "Each half scanned its own source" not in text
+    # And where there is a culprit there was a scan, so the original wording is
+    # the right one and has to survive.
+    scanned = module.body(FINDING, "url", [{**FINDING, "half": "pypi"}])
+    assert "Each half scanned its own source" in scanned
+
+
+def test_the_stage_is_not_in_the_dedupe_key_or_the_title():
+    # One floor is one issue, keyed on tier and package (floors spec §3.6). A
+    # tier that fails to solve one week and fails its exercise the next is still
+    # one broken thing, so the stage must not reach the key -- and because
+    # `_open_issues` rebuilds the key from the *title*, it must not reach that
+    # either, or the second week files a fresh issue rather than commenting.
+    module = _load()
+    keys = {module.key(finding) for finding in NO_CULPRIT.values()}
+    titles = {module.title(finding) for finding in NO_CULPRIT.values()}
+    assert len(keys) == 1
+    assert len(titles) == 1
+    # The round trip itself, which is what the comment above depends on.
+    titled = titles.pop().removeprefix("Dependency floor: ")
+    assert titled.replace(" / ", "/") == keys.pop()
+
+
+def test_a_tier_whose_failure_changes_shape_comments_rather_than_refiling(
+    monkeypatch, tmp_path
+):
+    # The key equality above holds by inspection; this is it holding through
+    # `main`, which is where it matters. Last week's issue was filed off a solve
+    # failure and this week's finding is an exercise failure, and the two are
+    # one issue -- the tier is broken either way, and a second issue every time
+    # the failure changes shape is the weekly noise the dedupe exists to stop.
+    module = _load()
+    finding = NO_CULPRIT["exercise"]
+    calls = _stub(monkeypatch, module, existing={module.key(finding): "9"})
+    paths = _write(tmp_path, [finding])
+    monkeypatch.setattr(sys, "argv", ["floors_issue.py", *paths, "--run-url", "u"])
+    assert module.main() == 0
+    assert [call[1:3] for call in calls] == [["issue", "comment"]]
+
+
 def test_the_declaration_sites_follow_the_declaring_table_not_the_tier():
     # The core table is resolved into every tier, so the `test` tier can fail on
     # a package declared in `[tool.pixi.dependencies]` -- which is exactly the

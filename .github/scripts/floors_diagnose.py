@@ -120,10 +120,30 @@ ENVIRONMENT = {**os.environ, "SETUPTOOLS_SCM_PRETEND_VERSION": "0.0.0"}
 #: Said when the tier solves and its exercise then passes on re-run, so the
 #: failing step was one this script does not reproduce. Last, not first, because
 #: `main` keeps the tail of the failure text and a prefix would be trimmed away.
-UNREPRODUCED = (
+UNREPRODUCED_NOTE = (
     "NOTE: the tier solved and its exercise passed when re-run here, so the "
     "failure is in a step this script does not reproduce. See the run log."
 )
+
+#: How far a diagnosis got, which is a different question from what it
+#: attributed. Three of `attribute`'s four returns carry no package and reach
+#: that verdict three different ways, and the artifact used to record only the
+#: verdict -- so the issue composer said "relaxing each declared floor in turn
+#: resolved nothing" of all three, true of `STAGE_SOLVE` alone and of the other
+#: two an assertion that work ran which never ran (:issue:`188`).
+#:
+#: Recorded rather than inferred downstream, because what would have to be read
+#: to infer it is the failure text, and that is a solver conflict, a pytest
+#: traceback or a docs build depending on the very thing in question. A reader
+#: tells them apart at a glance and a program does not.
+#:
+#: `floors_issue.py` carries the same three words, and `tests/test_floors.py`
+#: holds the two lists together: a stage added here and unhandled there is prose
+#: that is wrong rather than absent, which is the shape of the defect above.
+STAGE_SOLVE = "solve"
+STAGE_EXERCISE = "exercise"
+STAGE_UNREPRODUCED = "unreproduced"
+STAGES = (STAGE_SOLVE, STAGE_EXERCISE, STAGE_UNREPRODUCED)
 
 #: How much of an output a finding keeps, counted from its end. A finding can
 #: carry two traces now (:issue:`149`), a whole docs build runs to more than the
@@ -177,6 +197,13 @@ class Finding:
     half: str
     failure: str
     package: str | None = None
+    #: Which phase above the verdict came out of, one of `STAGES`. The verdict
+    #: is the same at all three -- nothing attributed, which is honest -- but
+    #: what the reader should do next is not, and neither is what `failure`
+    #: above holds (:issue:`188`). An attributed finding is always
+    #: `STAGE_SOLVE`: relaxation is what attributes, and it runs only where the
+    #: solve failed.
+    stage: str = STAGE_SOLVE
     declared: str | None = None
     #: Which table declares the culprit, which is not always the tier that
     #: failed: the core table is resolved into every tier, so a `test` run can
@@ -607,7 +634,7 @@ def declared(probe: Probe) -> dict[str, tuple[str, str, str]]:
     }
 
 
-def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
+def attribute(probe: Probe) -> tuple[str | None, str | None, str, str]:
     """Find the one floor whose relaxation lets the tier solve.
 
     Parameters
@@ -617,10 +644,14 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
 
     Returns
     -------
-    tuple of (str or None, str or None, str)
+    tuple of (str or None, str or None, str, str)
         The culprit package, or None when nothing attributed; the version
         the relaxed solve chose for it, which bounds the scan above
-        (floors spec §3.5); and the output that stands as the failure.
+        (floors spec §3.5); the output that stands as the failure; and which
+        of `STAGES` the diagnosis got that far at. Three of the four returns
+        below carry no package, and the stage is what tells them apart --
+        without it the issue describes all three as the loop running and
+        finding nothing (:issue:`188`).
 
     """
     packages = list(declared(probe))
@@ -635,8 +666,12 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
         # is reported unattributed with the exercise output that identifies it.
         passed, trace = exercise(probe, baseline)
         if passed:
-            return None, None, f"{output}\n\n{UNREPRODUCED}"
-        return None, None, trace
+            # `output` is the *solve's*, and it succeeded: this probe reproduced
+            # nothing at all, so what is quoted is a success with a note saying
+            # so. Distinct from the branch below for that reason -- there the
+            # trace is a real failure and names the culprit more often than not.
+            return None, None, f"{output}\n\n{UNREPRODUCED_NOTE}", STAGE_UNREPRODUCED
+        return None, None, trace, STAGE_EXERCISE
     # Each probe carries an installed environment, and this loop makes one per
     # declared floor -- twenty-eight for `docs`. Held to the end they would put
     # the tier's whole package count on a runner's disk at once, so a probe is
@@ -648,9 +683,11 @@ def attribute(probe: Probe) -> tuple[str | None, str | None, str]:
         relaxed, _ = solves(probe, root, package)
         if relaxed:
             # Kept, alone of them: `chosen` reads the resolve out of this one.
-            return package, chosen(probe, root, package), output
+            return package, chosen(probe, root, package), output, STAGE_SOLVE
         shutil.rmtree(root, ignore_errors=True)
-    return None, None, output
+    # The loop ran and nothing helped, which is the one unattributed verdict the
+    # issue's long-standing sentence has always described correctly.
+    return None, None, output, STAGE_SOLVE
 
 
 def _copy(probe: Probe, name: str) -> Path:
@@ -907,12 +944,13 @@ def main() -> int:
         python=args.python,
         half=args.half,
     )
-    package, upper, failure = attribute(probe)
+    package, upper, failure, stage = attribute(probe)
     finding = Finding(
         tier=args.tier,
         half=args.half,
         failure=args.failure or failure[-TAIL:],
         package=package,
+        stage=stage,
     )
     # The table the ladder is read from, which the PyPI half reports as the
     # index and the issue then reports as a pixi table -- two different
