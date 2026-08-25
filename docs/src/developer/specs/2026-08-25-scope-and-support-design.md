@@ -97,18 +97,27 @@ for every one of the six:
 
 | non-goal | onward pointer |
 |---|---|
-| TEMP (TTAA/TTBB) and BUFR decoding | the ecCodes recipe of §3.2; {issue}`82` holds the `tephpy[bufr]` extra open, demand-driven |
+| TEMP (TTAA/TTBB) and BUFR decoding | the ecCodes recipe of §3.2, which carries {issue}`82`'s position on a `tephpy[bufr]` extra |
 | skew-T projection | MetPy, which owns that space |
 | hodograph | `metpy.plots.Hodograph`, which composes onto the same figure — and the gallery example that insets one |
 | GUI or interactive dashboard | none; the browser demo is a documentation exhibit, not a product |
-| fog-point and layer-cloud constructions | v1.x candidates |
-| aviation overlays (icing, MINTRA contrail curves) | {issue}`79`, which folds them into the general layer-shading question |
+| fog-point and layer-cloud constructions | named v1.x candidates, with spec §9 and spec §11 carrying the state |
+| aviation overlays (icing, MINTRA contrail curves) | the same, and {issue}`79` folds them into the general layer-shading question |
 
-Two of the six therefore point at an issue rather than at a page. That is deliberate and it
-is the docs spec §3.5 contract read from the user's side: a non-goal that is genuinely
-undecided should say so and name where the decision will be taken, because "not in v1" and
-"never" are different promises and a reader is entitled to know which one they have been
-given.
+**No entry links an issue directly, and that is a constraint rather than a choice.**
+docs spec §3.8 forbids a GitHub reference written as a bare `#82` or as a hardcoded
+`https://github.com/bjlittle/tephpy/issues/82`, and `check_github_references.py` reads
+`README.md` along with every other tracked text file — while Markdown, rendered by GitHub
+and PyPI, has no `:issue:` role to write instead. The rule and the format leave no third
+option, so the README points at pages and the pages carry the issue pointers: the recipe of
+§3.2 states {issue}`82`'s position in reStructuredText, where the role renders, and the
+published specification carries the rest.
+
+The reader loses nothing that matters. A non-goal that is genuinely undecided must still
+*say* it is undecided — that is the docs spec §3.5 contract read from the user's side,
+because "not in v1" and "never" are different promises — and the wording carries that
+whether or not it carries a link. What it must not do is imply a decision has been taken
+when it has not.
 
 **The links obey the README rule, which is not the rule the rest of the documentation
 follows.** docs-style's *Documentation Links* section requires an absolute
@@ -116,7 +125,8 @@ follows.** docs-style's *Documentation Links* section requires an absolute
 link, because `README.md` is rendered by GitHub and by PyPI, neither of which resolves a
 Sphinx role. `check_documentation_links.py` reads the built HTML and fails a URL that names
 a page some other way, so the new recipe page must exist in the build before the README may
-link it — which is why §3.2 and this section land in the same change and not in that order.
+link it — which is why §3.2 and this section land in the same change and not in that order,
+and why the recipe is where {issue}`82` is cited.
 
 The section also makes the README's first mention of `hodograph`, which has a glossary entry.
 docs-style caps README glossary links at the first mention per term, so it takes a reference
