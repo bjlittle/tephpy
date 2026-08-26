@@ -37,6 +37,13 @@ DOCS = REPO / "docs" / "src"
 #: The Diátaxis quadrants written for users (docs spec §3.9).
 QUADRANTS = ("howtos", "tutorials", "explanation")
 
+#: The source suffixes Sphinx reads here that this gate does not. ``source_suffix``
+#: is unset, so Sphinx reads ``.rst``; myst-nb, loaded to parse the published ``.md``
+#: specifications, registers these two as well. A user page written in either would
+#: build and publish like any other while the corpus, scoped to ``.rst``, never saw
+#: it -- the silent exemption docs spec §3.9 declines to allow.
+UNREAD_SUFFIXES = (".md", ".ipynb")
+
 #: The pages known to carry python. Membership, not a count: a count is a figure
 #: that has to be re-measured to stay true. This is what fails when the extractor
 #: stops recognising a directive, instead of every page passing by not being found.
@@ -765,6 +772,22 @@ def test_pages_are_discovered():
     """An empty corpus is a gate failure, not a quiet pass."""
     assert user_pages(), (
         f"no .rst pages found under {DOCS} in {QUADRANTS} (docs spec §3.9)"
+    )
+
+
+def test_no_user_page_is_written_in_a_format_this_gate_cannot_read():
+    """The .rst boundary is a mechanism here rather than an argument elsewhere."""
+    unread = sorted(
+        str(path.relative_to(DOCS))
+        for quadrant in QUADRANTS
+        for suffix in UNREAD_SUFFIXES
+        for path in (DOCS / quadrant).rglob(f"*{suffix}")
+    )
+    assert unread == [], (
+        f"these user pages are in a format this gate does not read: {unread}. "
+        "The user quadrants are reStructuredText (spec §8.6, plots spec §3.1), "
+        "and the corpus is scoped to .rst for that reason (docs spec §3.9). A "
+        "page in another format builds and publishes with nothing executing it"
     )
 
 

@@ -156,6 +156,13 @@ _plot_scratch.mkdir(parents=True, exist_ok=True)
 plot_working_directory = str(_plot_scratch)
 
 # -- myst-nb -----------------------------------------------------------------
+# A guard rather than a policy (docs spec §3.9). myst-nb is loaded to parse the
+# published ``.md`` specifications, and no user quadrant holds a notebook -- the
+# quadrants are reStructuredText (spec §8.6, plots spec §3.1) and
+# ``test_no_user_page_is_written_in_a_format_this_gate_cannot_read`` keeps them
+# that way. Were one to appear, executing it here would publish generated output
+# the snippet gate never saw, and leaving it ``off`` publishes stored output
+# nobody ran. The setting picks the second because the first looks checked.
 nb_execution_mode = "off"
 
 # -- intersphinx -------------------------------------------------------------
