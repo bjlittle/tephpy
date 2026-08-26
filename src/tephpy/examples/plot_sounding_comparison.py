@@ -45,7 +45,9 @@ def main() -> Figure:
     ax.fit(morning, afternoon, pressure=(950.0, 300.0))
     ax.plot_sounding(morning, linestyle="--")
     ax.plot_sounding(afternoon)
-    ax.legend()
+    # The default "best" placement lands on the data where the two traces
+    # converge near the top of the clamped view; the lower left stays open.
+    ax.legend(loc="lower left")
     return fig
 
 

@@ -526,9 +526,13 @@ def test_a_clamp_masks_each_object_by_its_own_levels(
 ):
     """The two samples have different level counts (framing spec §3.2).
 
-    A mask built once and reused across objects, or built from the
-    concatenation, would misalign temperatures against pressures here --
-    silently, because the result is still a plausible view.
+    Pins correct per-object masking. The most literal way to get this
+    wrong -- a mask built once and reused across both objects -- would
+    raise ``IndexError`` here rather than pass quietly, since the two
+    samples' level counts (71 and 68) differ. What this guards against is
+    a subtler regression that stays index-valid, such as truncating every
+    object's temperature array to the shorter object's length before
+    masking.
     """
     band = (950.0, 300.0)
     tephigram_axes.fit(sample_sounding, sample_sounding_b, pressure=band, margin=0.0)
