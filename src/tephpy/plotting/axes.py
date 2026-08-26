@@ -625,22 +625,34 @@ class TephigramAxes(Axes):
     def fit(
         self,
         *objects: Sounding | Profile,
+        pressure: tuple[float, float] | None = None,
         margin: float | None = None,
     ) -> None:
         """Frame the view around the data given.
 
-        Answers "frame this neatly", where :meth:`set_extent` answers
-        "make these figures directly comparable". Takes soundings and
-        parcel paths interchangeably, and frames everything it is given:
-        a parcel is warmer than its environment through the CAPE region,
-        so fitting a sounding alone can clip the path the parcel analysis
-        is drawn to show (framing spec §3.2). Autoscaling is disabled, as
-        for :meth:`set_extent`.
+        Guarantees that nothing you gave it falls outside the frame. It
+        does not guarantee a neat-looking diagram: a radiosonde ascent
+        does not stop at the tropopause, and framing all of one gives a
+        view whose span is dominated by the stratosphere. ``pressure=``
+        is what makes it neat -- it names the layer you care about, and
+        the temperature range is then fitted to the data inside it
+        (framing spec §3.2).
+
+        Takes soundings and parcel paths interchangeably, and frames
+        everything it is given: a parcel is warmer than its environment
+        through the CAPE region, so fitting a sounding alone can clip the
+        path the parcel analysis is drawn to show. Autoscaling is
+        disabled, as for :meth:`set_extent`.
 
         Parameters
         ----------
         *objects : Sounding or Profile
             What to frame. At least one is required.
+        pressure : tuple of float, optional
+            Pressure bounds in hPa, in either order, naming the layer to
+            frame. Levels outside it do not bound the view. When omitted
+            the whole of every object is framed, which is correct and is
+            usually wide.
         margin : float, optional
             Fraction of the fitted span added to each side in the drawn
             plane. Resolves keyword > ``config.diagram.margin`` >
@@ -651,26 +663,55 @@ class TephigramAxes(Axes):
         TephpyValidationError
             If no objects are given, or one is neither a ``Sounding`` nor
             a ``Profile``.
+        ValueError
+            If the ``pressure`` clamp is non-finite, degenerate, or not
+            above zero.
         MissingDataError
-            If the objects carry no finite data to frame.
+            If no finite data survives the clamp.
         """
         if not objects:
             msg = "fit() needs at least one Sounding or Profile to frame"
             raise TephpyValidationError(msg)
+        if pressure is not None:
+            for name, bounds in (("pressure", pressure),):
+                lo, hi = sorted(bounds)
+                if not (math.isfinite(lo) and math.isfinite(hi)):
+                    msg = f"fit {name} clamp bounds must be finite: {bounds!r}"
+                    raise ValueError(msg)
+                if lo == hi:
+                    msg = f"fit {name} clamp must not be degenerate: {bounds!r}"
+                    raise ValueError(msg)
+                if lo <= 0.0:
+                    msg = f"fit pressure clamp bounds must be above 0 hPa: {bounds!r}"
+                    raise ValueError(msg)
         pressures: list[npt.NDArray[np.float64]] = []
         temperatures: list[npt.NDArray[np.float64]] = []
         for obj in objects:
-            pressure, temps = _framing_coordinates(obj)
-            pressures.append(np.asarray(pressure, dtype=np.float64))
-            temperatures.extend(np.asarray(t, dtype=np.float64) for t in temps)
-        all_p = np.concatenate(pressures)
-        all_t = np.concatenate(temperatures)
-        if not (np.isfinite(all_p).any() and np.isfinite(all_t).any()):
+            level, temps = _framing_coordinates(obj)
+            level = np.asarray(level, dtype=np.float64)
+            if pressure is None:
+                inside = np.ones(level.shape, dtype=bool)
+            else:
+                lo, hi = sorted(pressure)
+                inside = (level >= lo) & (level <= hi)
+            pressures.append(level[inside])
+            temperatures.extend(np.asarray(t, dtype=np.float64)[inside] for t in temps)
+        all_p = np.concatenate(pressures) if pressures else np.array([])
+        all_t = np.concatenate(temperatures) if temperatures else np.array([])
+        if not (
+            all_p.size
+            and all_t.size
+            and np.isfinite(all_p).any()
+            and np.isfinite(all_t).any()
+        ):
             msg = "fit() found no finite data to frame"
             raise MissingDataError(msg)
+        if pressure is None:
+            span_p = (float(np.nanmin(all_p)), float(np.nanmax(all_p)))
+        else:
+            span_p = (float(min(pressure)), float(max(pressure)))
         xlo, xhi, ylo, yhi = _limits_from_ranges(
-            (float(np.nanmin(all_p)), float(np.nanmax(all_p))),
-            (float(np.nanmin(all_t)), float(np.nanmax(all_t))),
+            span_p, (float(np.nanmin(all_t)), float(np.nanmax(all_t)))
         )
         if margin is None:
             configured = config.diagram.margin

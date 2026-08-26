@@ -38,7 +38,7 @@ from tephpy._constants import (
     SHADING_ALPHA,
     SHADING_ZORDER,
 )
-from tephpy.exceptions import TephpyUnitsError, TephpyValidationError
+from tephpy.exceptions import MissingDataError, TephpyUnitsError, TephpyValidationError
 from tephpy.plotting import axes
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import EDGES, IsoplethFamily
@@ -459,6 +459,66 @@ def test_margin_resolves_keyword_over_config_over_constant(
 def test_fit_disables_autoscaling(tephigram_axes, sample_sounding):
     tephigram_axes.fit(sample_sounding)
     assert tephigram_axes.get_autoscale_on() is False
+
+
+def test_a_pressure_clamp_sets_the_pressure_range(tephigram_axes, sample_sounding):
+    """The clamp names the layer; temperature is fitted inside it."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    # Measured directly from the norman-17z sample_sounding fixture between
+    # 950 and 300 hPa (temperature and dewpoint combined); not the brief's
+    # (-58.7, 24.1), whose 24.1 turns out to be norman-12z's max in that
+    # band rather than norman-17z's 22.8.
+    (xlo, xhi), (ylo, yhi) = _expected_limits(
+        {"pressure": (950.0, 300.0), "temperature": (-58.7, 22.8)}
+    )
+    assert tephigram_axes.get_xlim() == pytest.approx((xlo, xhi), abs=0.5)
+    assert tephigram_axes.get_ylim() == pytest.approx((ylo, yhi), abs=0.5)
+
+
+def test_a_pressure_clamp_narrows_the_view(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect this parameter exists to fix (framing spec §3.2).
+
+    A radiosonde ascent does not stop at the tropopause; the shipped
+    samples reach about 10 hPa. Framing all of that gives a view whose
+    span is dominated by the stratosphere.
+    """
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    unclamped = tephigram_axes.get_xlim()
+    clamped = tephigram_axes_b.get_xlim()
+    assert (clamped[1] - clamped[0]) < 0.6 * (unclamped[1] - unclamped[0])
+
+
+def test_a_clamp_excludes_data_outside_it(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """Levels outside the band do not bound the view."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    narrow = tephigram_axes.get_ylim()
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 100.0), margin=0.0)
+    wide = tephigram_axes_b.get_ylim()
+    assert (wide[1] - wide[0]) > (narrow[1] - narrow[0])
+
+
+def test_a_clamp_order_carries_no_meaning(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(300.0, 950.0), margin=0.0)
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_a_clamp_containing_no_data_raises(tephigram_axes, sample_sounding):
+    with pytest.raises(MissingDataError, match="no finite data"):
+        tephigram_axes.fit(sample_sounding, pressure=(5.0, 1.0))
+
+
+def test_an_unusable_clamp_is_refused(tephigram_axes, sample_sounding):
+    with pytest.raises(ValueError, match="pressure"):
+        tephigram_axes.fit(sample_sounding, pressure=(0.0, 300.0))
 
 
 def _cursor_xy(pressure, temperature):
