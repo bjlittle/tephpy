@@ -379,5 +379,5 @@ changes which numbers reach them, never what they compute.
 
 **Open items**, tagged per docs spec §3.5.
 
-- **Resolved** (2026-08-25, PR {pull}`NNN`) — **the whole of this specification.**
+- **Resolved** (2026-08-25, PR {pull}`194`) — **the whole of this specification.**
   {issue}`184` closes with it.
