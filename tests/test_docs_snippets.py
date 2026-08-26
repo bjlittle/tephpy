@@ -99,14 +99,39 @@ PYTHON = "python"
 #: rather than skipped: the detector has to be wider than the validator, or a
 #: near-miss reads as compliance instead of as something to look at. ``pycon``
 #: is here too -- a REPL transcript is still code a reader is invited to copy,
-#: and the answer is to rewrite it as a script, not to exempt it. Every spelling
-#: Pygments resolves to the python or the python-console lexer is here, both
-#: names of each. The widest near miss names no language at all and so cannot be
+#: and the answer is to rewrite it as a script, not to exempt it.
+#:
+#: These are the spellings a contributor plausibly reaches for: Pygments' own
+#: ``py``/``py3``/``python3``, its console aliases ``pycon``/``python-console``,
+#: and IPython's ``ipython``/``ipython3``, which no bundled Pygments lexer
+#: claims. It is *not* every alias of Pygments' Python lexer, which also answers
+#: to ``bazel``, ``pyi``, ``sage`` and ``starlark`` -- names of other languages
+#: that happen to share a lexer, and that nobody writes meaning python. A block
+#: spelled one of those four highlights as python and this gate passes over it;
+#: the exposure is left standing deliberately rather than by oversight.
+#:
+#: The widest near miss names no language at all and so cannot be
 #: listed here: a directive that omits one, the bare ``::`` marker
 #: :func:`implicit_blocks` finds, and the ``>>>`` paragraph
 #: :func:`doctest_blocks` finds are reported by their shape instead.
 NEAR_MISS = frozenset(
     {"ipython", "ipython3", "py", "py3", "pycon", "python-console", "python3"}
+)
+
+#: Every spelling that means python on a page, written out rather than derived
+#: from :data:`PYTHON` and :data:`NEAR_MISS`. It is the oracle
+#: :func:`test_the_two_language_checks_compose` is measured against, and an
+#: oracle assembled from the constants it checks would agree with them by
+#: construction rather than by being right.
+PYTHON_SPELLINGS = (
+    "ipython",
+    "ipython3",
+    "py",
+    "py3",
+    "pycon",
+    "python",
+    "python-console",
+    "python3",
 )
 
 #: Opens a doctest block, which needs no directive and no marker to be rendered
@@ -843,6 +868,11 @@ def figure_pages() -> list[Path]:
 
 def test_the_figure_pages_are_recognised():
     """Every check below iterates these pages; unrecognised, they are unasked."""
+    # Proven additive by mutation: `plot_directives` returning `[]` fails this
+    # test and nothing else. Every other figure check then iterates an empty
+    # corpus and passes having been asked nothing -- which is the silence this
+    # test exists to break. `literal_blocks` reads `PLOT` separately, so the
+    # python corpus is untouched and the snippet checks stay green.
     found = {identify(page) for page in figure_pages()}
     assert set(PUBLISHES_FIGURES) <= found, (
         "these pages publish figures and yielded no `.. plot::`: "
@@ -873,6 +903,37 @@ def test_a_page_publishes_figures_or_it_does_not():
     )
 
 
+def test_the_two_language_checks_compose():
+    """Neither check covers the spellings alone, and nothing pinned that they do."""
+    # Proven additive by mutation: dropping `python3` from `NEAR_MISS` fails this
+    # test and nothing else. No page spells a language that way, so the page scan
+    # of `test_no_block_hides_the_language_this_gate_runs` stays green -- which is
+    # the point, the hole opening in the rule rather than in today's corpus.
+    caught_by_mixing = [
+        spelling for spelling in PYTHON_SPELLINGS if spelling.lower() == PYTHON
+    ]
+    caught_by_near_miss = [
+        spelling for spelling in PYTHON_SPELLINGS if spelling.lower() in NEAR_MISS
+    ]
+    uncaught = sorted(
+        set(PYTHON_SPELLINGS) - set(caught_by_mixing) - set(caught_by_near_miss)
+    )
+    assert uncaught == [], (
+        f"these spellings mean python and no check reports them: {uncaught}. "
+        "`test_a_page_publishes_figures_or_it_does_not` compares the language "
+        "for equality with `PYTHON`, so every other spelling reaches "
+        "`test_no_block_hides_the_language_this_gate_runs` through `NEAR_MISS` "
+        "or reaches nothing at all (plots spec §3.2, docs spec §3.9)"
+    )
+    # The division of labour itself, which is the part that was undocumented:
+    # the mixing check on a figure page sees exactly one spelling, and the other
+    # seven are the near-miss check's alone. Tightening either -- narrowing the
+    # equality, or dropping a member of `NEAR_MISS` -- opens a hole that the
+    # `uncaught` assertion above then reports.
+    assert caught_by_mixing == ["python"]
+    assert len(caught_by_near_miss) == len(PYTHON_SPELLINGS) - 1
+
+
 def test_the_first_plot_on_a_page_resets_the_context():
     """A page that opens without `reset` inherits the page built before it."""
     offenders: list[tuple[str, int, str]] = []
@@ -890,6 +951,10 @@ def test_the_first_plot_on_a_page_resets_the_context():
 
 def test_every_later_plot_continues_the_session():
     """A block with no `:context:` runs in a fresh namespace (plots spec §3.2)."""
+    # Proven additive by mutation: dropping `:context:` from the second plot of
+    # `howtos/framing.rst` fails this test and nothing else. The snippet gate
+    # runs a page's blocks as one script whatever they declare, so the failure
+    # this catches is invisible to `test_the_page_runs`.
     offenders: list[tuple[str, int]] = []
     for page in figure_pages():
         for line, _, options in plot_directives(page.read_text(encoding="utf-8"))[1:]:
@@ -921,6 +986,12 @@ def test_every_published_figure_is_named():
 
 def test_a_suppressed_figure_is_not_also_named():
     """A name the build never produces is a baseline that can never match."""
+    # Proven additive by mutation: adding `:nofigs:` to a plot that already
+    # carries `:filename-prefix:` fails this test and nothing else. The
+    # mutation has to run in that direction. Adding a *prefix* to a `:nofigs:`
+    # plot declares a figure with no committed baseline, which fails
+    # `test_docs_figures.py::test_every_committed_baseline_is_claimed_by_a_page`
+    # as well and so proves nothing about this test alone.
     offenders: list[tuple[str, int]] = []
     for page in figure_pages():
         for line, _, options in plot_directives(page.read_text(encoding="utf-8")):
@@ -962,6 +1033,10 @@ def test_a_figure_name_is_unique_across_the_documentation():
 
 def test_no_plot_renders_from_a_file():
     """`.. plot:: script.py` puts the code a reader copies off the page."""
+    # Proven additive by mutation: giving a plot a filename argument fails this
+    # test and nothing else. `PLOT` captures the argument without disturbing the
+    # body, so the block still runs and the page-shape checks around it stay
+    # green -- the defect is in what the page declares, not in what it does.
     offenders: list[tuple[str, int, str]] = []
     for page in figure_pages():
         offenders.extend(
