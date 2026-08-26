@@ -521,6 +521,39 @@ def test_an_unusable_clamp_is_refused(tephigram_axes, sample_sounding):
         tephigram_axes.fit(sample_sounding, pressure=(0.0, 300.0))
 
 
+def test_a_clamp_masks_each_object_by_its_own_levels(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """The two samples have different level counts (framing spec §3.2).
+
+    A mask built once and reused across objects, or built from the
+    concatenation, would misalign temperatures against pressures here --
+    silently, because the result is still a plausible view.
+    """
+    band = (950.0, 300.0)
+    tephigram_axes.fit(sample_sounding, sample_sounding_b, pressure=band, margin=0.0)
+    both = tephigram_axes.get_ylim()
+
+    lo, hi = sorted(band)
+    expected_lo, expected_hi = math.inf, -math.inf
+    for snd in (sample_sounding, sample_sounding_b):
+        levels = snd.pressure.to("hPa").magnitude
+        inside = (levels >= lo) & (levels <= hi)
+        for field in (snd.temperature, snd.dewpoint):
+            if field is None:
+                continue
+            values = field.to("degC").magnitude[inside]
+            values = values[np.isfinite(values)]
+            if values.size:
+                expected_lo = min(expected_lo, float(values.min()))
+                expected_hi = max(expected_hi, float(values.max()))
+
+    (_, _), (ylo, yhi) = _expected_limits(
+        {"pressure": band, "temperature": (expected_lo, expected_hi)}
+    )
+    assert both == pytest.approx((ylo, yhi), abs=0.5)
+
+
 def _cursor_xy(pressure, temperature):
     """Map a (pressure, temperature) point into cursor data-space (x, y)."""
     theta = transforms.theta_from_pressure_temperature(pressure, temperature)
