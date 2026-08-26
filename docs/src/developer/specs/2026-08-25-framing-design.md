@@ -363,5 +363,5 @@ changes which numbers reach them, never what they compute.
 
 **Open items**, tagged per docs spec §3.5.
 
-- **Open** ({issue}`184`) — **the whole of this specification**, until the implementing pull
-  request merges, at which point this entry resolves and {issue}`184` closes.
+- **Resolved** (2026-08-25, PR {pull}`NNN`) — **the whole of this specification.**
+  {issue}`184` closes with it.

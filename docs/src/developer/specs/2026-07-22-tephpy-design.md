@@ -405,10 +405,10 @@ Differences from tephi:
   order is position order; Plan 6 makes call order irrelevant rather than
   enforcing it — a later `plot_barbs` relocates the existing panel outside the
   new gutter (the relayout in the layout contract below).
-- `ax.set_extent(...)` — fixed extents from ((p, T), (p, T)) corners so successive
-  figures are directly comparable; disables autoscaling so overlays don't drift the
-  window. (The cartopy idiom — the earlier `set_anchor` name collided with
-  matplotlib's own `Axes.set_anchor`.)
+- `ax.set_extent(...)` — fixed extents from `pressure=` and `temperature=` ranges so
+  successive figures are directly comparable; disables autoscaling so overlays don't
+  drift the window (the earlier `set_anchor` name collided with matplotlib's own
+  `Axes.set_anchor`). The ranges shape and its reasoning are framing spec §3.1.
 - `ax.format_coord(x, y)` — the interactive cursor readout (the navigation
   toolbar's coordinate text) reports diagram-meaningful values instead of the raw
   rotated data-space (x, y): the cursor position inverts through
@@ -431,15 +431,15 @@ Differences from tephi:
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
 
-`DEFAULT_EXTENT` is `((900.0, -65.0), (200.0, 5.0))` — narrowed 2026-08-21 from the
-`((1050.0, -40.0), (200.0, 40.0))` the projection shipped with, which pushed a real ascent
-into the left third of the view and spent an eighth of the drawing area outside the
-diagram's own temperature domain. Two properties decide the replacement, and both are
-geometric rather than meteorological.
+`DEFAULT_EXTENT` is `pressure=(900.0, 200.0), temperature=(-65.0, 5.0)` — narrowed 2026-08-21
+from `pressure=(1050.0, 200.0), temperature=(-40.0, 40.0)`, the window the projection shipped
+with, which pushed a real ascent into the left third of the view and spent an eighth of the
+drawing area outside the diagram's own temperature domain. Two properties decide the
+replacement, and both are geometric rather than meteorological.
 
 The first is the dead corner. Isopleths exist only where the temperature is inside
-`TEMPERATURE_DOMAIN`, and an extent's two corners become the axis-aligned box between the
-points they map to, so the box's own corners can fall outside the domain: the bottom-right
+`TEMPERATURE_DOMAIN`, and a named extent's four corners map to an axis-aligned box
+(framing spec §3.1), so the box's own corners can fall outside the domain: the bottom-right
 `(x1, y0)` is blank where `x1 - y0 > 120` and the top-left `(x0, y1)` where
 `x0 - y1 < -240`. The old extent spent 13.1% of its area on one such corner, the
 bottom-right; the new one splits the excess evenly between the two and spends 3.1%. Some
@@ -1137,7 +1137,7 @@ and the indices panel in Plan 5 is delivery convenience, not an import dependenc
 | 6 | Wind barbs & data ingest | §3.2 `plot_barbs` (right-hand gutter staff, Met Office symbology); §3.4 `io` (`wyoming`, `igra`) with recorded-fixture tests; `TephpyIOError` (§6); barb baselines | 3, 4 | ✅ complete (PR {pull}`40`; ingest and layout hardening PR {pull}`41`) |
 | 7a | Examples gallery | gallery spec: `src/tephpy/samples` (two shipped IGRA ascents) and `src/tephpy/examples` (five examples — one per §1 use case, plus the §9 hodograph composition); the `tephpy examples` command; the sphinx-gallery build, its registry ordering and its native tags; composed §4-figure baseline (§7 — needed the union of Plans 5 and 6) | 2–6 | ✅ complete (PR {pull}`181`) |
 | 7b | Scope and support statements | scope spec: the §9 README non-goals statement, the ecCodes recipe answering the first of them, the developer packaging guide carrying §8.3's SPEC 0 statement, the lapse rate entry closing §8.6's list, and the disposal of the `doctest` residual (item 15) | 7a | ✅ complete (PR {pull}`191`) |
-| 8 | Framing by ranges and by data | {issue}`184`: `set_extent` keyword ranges in place of corner pairs, and `ax.fit(...)` for data-driven framing — before v0.1, while both are still free | 3 | **next** |
+| 8 | Framing by ranges and by data | {issue}`184`: `set_extent` keyword ranges in place of corner pairs, and `ax.fit(...)` for data-driven framing — before v0.1, while both are still free | 3 | ✅ complete (PR {pull}`NNN`) |
 | 7c | Narrative quadrants | §8.6: tutorials (myst-nb) and explanation content, the glossary sweep around them, and the reader how-to (gallery spec §5) | 7b, 8 | after Plan 8 |
 
 Plan 7b's row was one row describing four unrelated deliverables, and {issue}`184` cuts

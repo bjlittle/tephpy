@@ -466,11 +466,12 @@ example clears them and states the unit once in the inset title.
 `plot_sounding_comparison.py` is where the 12Z/17Z pair earns its place: across five hours
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are
 visibly different and the comparison has a subject. Two arbitrary soundings would show the
-API and teach nothing. Its `EXTENT` is a quarter narrower than the default view and clips
-both ascents near 250 hPa: the difference the example is about is in the lower troposphere,
-far below that, and a frame closer than the default is also what keeps the `set_extent` call
-from restating what `plot_tephigram.py` already shows. The prose says so in those words
-rather than "below the cap", which the same paragraph has just used for the inversion.
+API and teach nothing. `ax.fit(morning, afternoon, pressure=(950.0, 300.0))` clamps the view
+to the lower troposphere, where the difference the example is about lies, and both ascents
+run out the top of the view near 300 hPa. Framing spec §4 records the migration: `fit`
+replaces the literal `EXTENT` and the `set_extent` call this example used before, so the
+frame no longer restates what `plot_tephigram.py` already shows. The prose says so in those
+words rather than "below the cap", which the same paragraph has just used for the inversion.
 
 (gallery-spec-5)=
 ## 5. What belongs in the gallery

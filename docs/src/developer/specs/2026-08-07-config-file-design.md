@@ -30,7 +30,7 @@ preferred extent, a cursor readout — retypes it at the top of every script:
 ```python
 tephpy.config.isotherms.color = "purple"
 tephpy.config.isobars.linewidth = 0.8
-tephpy.config.diagram.extent = ((1000.0, -30.0), (250.0, 35.0))
+tephpy.config.diagram.extent = {"pressure": (1000.0, 250.0), "temperature": (-30.0, 35.0)}
 ```
 
 This specification gives that boilerplate a home on disk:
@@ -139,7 +139,7 @@ sections, 42 options:
 | `isotherms`, `isobars`, `dry_adiabats` | `FamilyOptions` | `color`, `linewidth`, `alpha`, `labels`, `visible`, `emphasis`, `values`, `interval` |
 | `moist_adiabats` | `MoistAdiabatOptions` | the above + `truncation` |
 | `mixing_ratios` | `MixingRatioOptions` | `LineOptions` + `values` — a values ladder only, so **no** `interval` |
-| `diagram` | `DiagramOptions` | `extent` |
+| `diagram` | `DiagramOptions` | `extent`, `margin` |
 | `cursor` | `CursorOptions` | `fields` |
 
 ```yaml
@@ -154,7 +154,8 @@ isotherms:
     0.0: {color: tab:cyan, linewidth: 1.5}
 
 diagram:
-  extent: [[900.0, -65.0], [200.0, 5.0]]
+  extent: {pressure: [900.0, 200.0], temperature: [-65.0, 5.0]}
+  margin: 0.05
 
 cursor:
   fields: [pressure, temperature, theta]
@@ -164,8 +165,8 @@ Four coercions are needed because YAML's type model does not match the dataclass
 
 | YAML gives | Wanted | Note |
 |---|---|---|
-| `list` | `tuple` | `labels`, `values`, `fields`, `extent` |
-| nested `list` | nested `tuple` | `extent` is `((p, T), (p, T))` |
+| `list` | `tuple` | `labels`, `values`, `fields` |
+| `list`, nested in a mapping | `tuple` | `extent`'s `pressure` and `temperature` ranges each coerce independently (framing spec §3.4) |
 | `int` mapping key | `float` | `emphasis` is keyed by member value; `850` and `850.0` must not be two members |
 | scalar `str` | `str` | `labels` accepts a bare edge name as well as a tuple |
 
@@ -289,7 +290,7 @@ validators — the same eight shapes §6's accept/reject matrix runs over. Becau
 `typing.get_type_hints` has resolved them, `str()` alone yields text carrying what a source
 annotation would not: `Mapping` arrives as `collections.abc.Mapping[float,
 collections.abc.Mapping[str, object]]`, and the private `Extent` alias arrives expanded to
-`tuple[tuple[float, float], tuple[float, float]]`. No qualification table is needed, and one
+`collections.abc.Mapping[str, tuple[float, float]]`. No qualification table is needed, and one
 should not be added — it would be a second spelling of what the annotations already say, of
 exactly the kind §3.4's gates exist to catch.
 
@@ -517,7 +518,7 @@ reader writes YAML and has never seen `float`:
 /home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the string 'thick'
 /home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the boolean true
 /home/you/work/tephpyrc.yaml: ignoring isotherms.values, which expects a list of numbers, not the string 'notalist'
-/home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects two [pressure, temperature] corners, not [1, 2]
+/home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects a mapping of pressure and temperature ranges, not [1, 2]
 ```
 
 **One value fails at the conversion rather than at the check.** An integer of 309 or more

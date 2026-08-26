@@ -123,10 +123,10 @@ happen in the type validators, so a domain rule sees a `tuple[float, ...]`, neve
 a member is.
 
 `_DOMAIN_VALIDATORS` is keyed by **option name**, where `_TYPE_VALIDATORS` is keyed by
-annotation. The two tables are shaped by different things: eight annotations cover all 42
+annotation. The two tables are shaped by different things: eight annotations cover all 43
 options because a type is a coarse property, while a domain is a property of what the
-option *means* — `color` and `linewidth` are both scalars and share no domain at all. Ten
-names cover the 42 options bar the five `visible` flags.
+option *means* — `color` and `linewidth` are both scalars and share no domain at all. Eleven
+names cover the 43 options bar the five `visible` flags.
 
 Keying by name alone is sound only because no two sections give one option name different
 domains: `values` is finite numbers whether the family measures °C or g/kg. That is a
@@ -199,7 +199,8 @@ so nothing in configfile spec §3 is bent by naming it.
 | `emphasis` | 5 | see below | `isopleths._normalize_emphasis`, `isopleths._emphasis_number` |
 | `values` | 5 | every member finite | `isopleths._normalize_emphasis`'s member rule |
 | `interval` | 4 | > 0 and finite | `isopleths.IsoplethFamily._resolve` |
-| `extent` | 1 | every corner number finite, both pressures > 0 | `axes.TephigramAxes.set_extent` |
+| `extent` | 1 | every range bound finite, both pressures > 0 | `axes.TephigramAxes.set_extent` |
+| `margin` | 1 | finite and ≥ 0 | framing spec §3.3 |
 | `fields` | 1 | names from `CURSOR_FIELD_NAMES` | `plotting.axes.format_coord` |
 | `truncation` | 1 | finite | **nothing — see below** |
 | `visible` | 5 | — | a bool needs no domain |
