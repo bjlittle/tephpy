@@ -70,7 +70,12 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 #: figure that has to be re-measured to stay true. This is what fails when the
 #: declaration pattern stops matching, instead of the gate finding nothing and
 #: reporting that nothing was wrong.
-PUBLISHES = ("howtos/emphasis.rst", "howtos/logo.rst", "howtos/temp-and-bufr.rst")
+PUBLISHES = (
+    "howtos/emphasis.rst",
+    "howtos/framing.rst",
+    "howtos/logo.rst",
+    "howtos/temp-and-bufr.rst",
+)
 #: A figure declaration: the ``:filename-prefix:`` option of a ``.. plot::``. The
 #: directive line is matched too, so an option of that name under some other
 #: directive is not read as a figure this project publishes.

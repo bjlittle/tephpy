@@ -8,5 +8,6 @@ Task-focused recipes.
 
     configuration
     emphasis
+    framing
     logo
     temp-and-bufr
