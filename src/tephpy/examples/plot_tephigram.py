@@ -10,7 +10,7 @@ on a coordinate system rotated so that :term:`isotherms <isotherm>` and
 :term:`dry adiabats <dry adiabat>` cross at right angles.
 
 The :term:`projection` is registered by importing tephpy, and the extent is
-given as two (pressure, temperature) corners.
+given as a pressure range and a temperature range.
 """
 
 from __future__ import annotations
