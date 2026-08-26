@@ -436,7 +436,7 @@ that already exists:
 | the README's new links | `check_documentation_links.py` over the built HTML — a page named by a URL must exist |
 | the packaging guide's `spec §…` and `floors spec §…` citations | the pre-commit anchor check and `check_rendered_citations.py` |
 | the lapse rate entry and its aliases | the fail-on-warning build; a dangling `:term:` is an error |
-| the new pages' titles | the docs-style review checklist (spec §8.6 CMOS) |
+| the new pages' titles | review, against docs-style's *Reviewing Claims* checklist (spec §8.6 CMOS) |
 
 `pixi run docs` is therefore the whole local check, and `pixi run tests` covers the snippet
 gate. `tests/test_docs_workflow.py` and `.github/workflows/ci-docs.yml` are untouched —

@@ -1,6 +1,8 @@
 Documentation Style
 ====================
 
+.. _title-style:
+
 Title Style
 -----------
 
@@ -15,7 +17,8 @@ symbols (CAPE, CIN, LCL, WMO, SPEC 0). The rule does not apply to
 autoapi-generated API pages, numpydoc section headers, changelog entries, or
 anything that is a full sentence (captions, admonition text, docstring
 summaries), which use sentence case. Bibliography entries reproduce the
-source's published title.
+source's published title. A title is a claim like any other, and
+:ref:`reviewing-claims` is the review that reads it as one.
 
 Glossary
 --------
@@ -282,7 +285,9 @@ Where a snippet's surrounding prose makes a behavioural promise, a test pins the
 promise. Execution and truth fail independently: :pull:`113` fixed a passage whose
 snippet ran perfectly and whose prose was wrong, and the gate would have passed it.
 Name the test in the pull request that adds the prose, so the connection is on the
-record.
+record. Where no test can pin the promise — a claim about an external tool, or one
+that covers a set rather than a case — :ref:`reviewing-claims` carries the questions
+that stand in for one.
 
 Published Figures
 -----------------
@@ -460,3 +465,56 @@ Reserve ``#:`` comments for annotations on private members — the private
 ``_constants`` and ``_config`` modules, and ``_``-prefixed module constants —
 which autoapi excludes from the reference regardless of comment style. There the
 choice is purely stylistic, and ``#:`` reads naturally above a constant.
+
+.. _reviewing-claims:
+
+Reviewing Claims
+----------------
+
+Four of this project's gates execute something and ask whether *an* answer came
+back: ``tests/test_docs_snippets.py`` runs the python, ``check_docs_figures.py``
+compares the images, ``check_citations.py`` resolves the section anchors, and
+``check_documentation_links.py`` resolves the URLs. None of the four asks
+whether the answer is the *intended* one, and a sentence that executes nothing
+is read by nobody but a reviewer. The three questions below are that review, and
+each is written to have a name for an answer, because "did you verify this?"
+does not (:issue:`193`).
+
+**Which member did you check?** A sentence covering a set is checked against
+every member of it, not against the first. *Each*, *both*, *all* and *every*
+announce such a sentence; the commonest form announces nothing and simply names
+two things. The review of :pull:`191` found four in one branch — a page proposed
+as "Decode TEMP and BUFR with ecCodes", where ``bufr_dump`` will not read a TTAA
+bulletin; a specification saying the recipe points at ecCodes, which is true of
+one of its two formats; "six entries, each with an onward pointer", where two of
+the six carry none; and "the page registers in ``docs/src/howtos/index.rst``
+and in ``tests/test_docs_snippets.py::DOCUMENTED``", where four membership lists
+take the entry and the sentence named two. The set is routinely larger than the
+sentence admits, so count it before writing *each*. Spec §9 now reads "most of
+them naming what to reach for instead", which is what counting produced. Say in
+the pull request which member you counted.
+
+**Does the title survive that?** A page title is a claim, and the least-reviewed
+sentence on the page: the ecCodes title above named a format the page's own body
+then said the tool cannot read. Read a title against :ref:`title-style` once the
+page is finished, and against the question above whenever it names more than one
+thing. This is the review spec §8.6 requires of a title, and this section is the
+checklist it names.
+
+**What did you run?** A claim about a tool this project will never install
+cannot be pinned by a gate. ecCodes is the standing case: it is a non-goal, so
+it is never in the ``test`` feature, on any Python, in any tier
+(scope spec §3.2). What can be recorded is what was run — the tool, its version,
+the date, and what the run did *not* establish. The plan of :pull:`191` did this
+before the recipe was written, under the heading "What was verified": ecCodes
+2.48.0 through ``pixi exec --spec eccodes``; the key names and the ``MISSING``
+sentinel read off genuine ``bufr_dump -p`` output; and no transcript, because
+ecCodes ships no sample sounding message and encoding one failed on a
+delayed-replication array-size mismatch. That record is why the page shows an
+invocation and describes its output in prose rather than inventing a session —
+which is what the same branch nearly shipped.
+
+Plans freeze on merge and are not published (docs spec §3.4), so provenance left
+only in one is provenance a reader of the claim cannot reach. Where the claim is
+published, carry the tool, version and date into the living specification beside
+it.

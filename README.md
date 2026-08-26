@@ -31,7 +31,7 @@ Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
 
 ## Non-Goals
 
-Decisions, not omissions — each with somewhere to go instead.
+Decisions, not omissions — most with somewhere to go instead.
 
 - **No TEMP (TTAA/TTBB) or BUFR decoding.** For BUFR, decode with ecCodes and
   build a `Sounding` from the arrays — the [recipe][temp-and-bufr] shows both
