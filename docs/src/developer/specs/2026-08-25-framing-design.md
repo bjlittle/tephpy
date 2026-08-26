@@ -125,9 +125,34 @@ equivalent freedom was the transposition bug of §1 rather than a kindness.
 
 **The implementation changes, and the change is half the fix.** The transforms are the same
 — `theta_from_pressure_temperature` then `xy_from_temperature_theta` — but they are applied
-to all *four* corners of the named region rather than to the two a caller happened to write,
-and the limits are the extremes of those four. That is what makes the view contain the
-region it names, which §1's fourth defect shows the current code does not.
+to the corners of the named region rather than to the two points a caller happened to write.
+That is what makes the view contain the region it names, which §1's fourth defect shows the
+current code does not.
+
+**Four corners are not enough, and assuming they were is the same mistake one layer down.**
+The review of {pull}`194` found it. Writing `y` out at fixed pressure,
+
+> `y = MA·ln(T + 273.15) + MA·κ·ln(P_REF/p) − T`
+
+gives `dy/dT = MA/(T + 273.15) − 1`, which vanishes at `T + 273.15 = MA` — that is
+**T = 26.85 °C** — and `d²y/dT² < 0` there, so it is a *maximum* strictly inside any
+temperature range that spans it. A corner-only search misses it. Measured:
+`set_extent(pressure=(1000, 900), temperature=(-50, 100))` returned `yhi = 1685.63` while
+`(900 hPa, 26.85 °C)` maps to `y = 1693.32`, outside the view that named it.
+
+The extremum is unique and it is the only one. `x = MA·ln(T + 273.15) + MA·κ·ln(P_REF/p) + T`
+has `dx/dT = MA/(T + 273.15) + 1 > 0` for every physical temperature, so `x` is strictly
+increasing in `T`; and pressure enters both coordinates only through `MA·κ·ln(P_REF/p)`,
+monotonic in `p`. So the candidate set is the four corners plus, when
+`T* = MA − 273.15` falls strictly inside the temperature range, the two points
+`(p_lo, T*)` and `(p_hi, T*)`. Verified numerically across the pressure domain: `argmax y`
+sits at `T*` regardless of `p`, and `x` is monotonic throughout.
+
+This is worth stating rather than merely fixing, because it is §1's own error recurring:
+§1 records that mapping two points and taking extremes assumes the extremes live at those
+points, and mapping four corners assumes the same thing about a rectangle whose image is
+not a rectangle. `T*` is a property of the projection — it is `MA` expressed in Celsius —
+so it belongs beside `MA` in `_constants` rather than as a literal in the geometry.
 
 Measured on 2026-08-25, the two agree on the default extent and differ on every one of §1's
 three mis-named cases — the same cases, because both defects have the same cause. So the
@@ -222,7 +247,12 @@ framed is established as a user preference, and a house framing style set once i
 kind of wish as a preferred default view.
 
 `margin=0` is legal and fits exactly. It is the right answer for a caller composing panels
-whose frames must agree to the pixel.
+whose frames must agree to the pixel. A negative or non-finite margin is not legal by any
+route. The configuration file has always refused one; the review of {pull}`194` found that
+the `margin=` keyword and a programmatic `config.diagram.margin` did not, so a negative
+value silently shrank the limits and clipped the data `fit` exists to contain, and a
+non-finite one failed later inside matplotlib with a message about axis limits. The check
+belongs where the value is resolved, so every route reaches it.
 
 Margin is applied after the clamp of §3.2, so `pressure=` names the layer and `margin=`
 decides how tightly it is drawn. A clamp with `margin=0` gives exactly the named band.
@@ -331,6 +361,8 @@ Per spec §7, and weighted towards the defects this change exists to remove.
 |---|---|
 | a range pair yields the window the corner pair used to, where the two agree | equivalence test over the default extent |
 | **the view contains the whole region it names** | the four corners of the named region all fall inside the resulting limits — the §1 case where two of them did not is asserted directly |
+| **the interior temperature extremum is bounded** | a range spanning `T* = MA − 273.15` contains `y(p, T*)` at both pressure bounds — the `(1000, 900) × (−50, 100)` case of §3.1, which a corner-only search excludes |
+| the resolved margin is validated wherever it arrives | keyword and `config.diagram.margin` are checked like a configuration file's, not only at file load |
 | order within a range is irrelevant | property test: `(a, b)` and `(b, a)` give identical limits |
 | the §1 transposition is now unwritable | the old call shape raises `TypeError`, being neither keyword |
 | a degenerate or unphysical range is refused | `ValueError`, message naming the keyword |
