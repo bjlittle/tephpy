@@ -971,9 +971,17 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   tephpy prefers the pydata theme's top-navbar + section layout for an API-reference-heavy
   scientific library)*, sources under `docs/src/`.
 - Four Diátaxis quadrants as real directories with landing `sphinx-design` grid cards:
-  `tutorials/` (myst-nb notebooks), `howtos/`, `explanation/` (tephigram theory, the
+  `tutorials/`, `howtos/`, `explanation/` (tephigram theory, the
   T–ln θ construction, parcel/Normand's-point derivations), `reference/` (autoapi API +
-  glossary — see "Glossary" below).
+  glossary — see "Glossary" below). **All four are reStructuredText.** This section
+  first said `tutorials/` were myst-nb notebooks, written before the machinery existed
+  that would have to read them; plots spec §3.1 rests its choice of `plot_directive` on
+  the user quadrants being reStructuredText, and docs spec §3.9 scopes the snippet gate
+  to `.rst` for the same reason. Nothing executes a notebook — `nb_execution_mode` is
+  `off` and the gate's corpus is `.rst` — so the tutorial quadrant, written for the
+  reader least able to tell a broken snippet from their own mistake, would have been the
+  one quadrant with no execution behind it. myst-nb stays in the extension list: it is
+  what parses the published `.md` specifications.
 - Extensions per geovista: **`sphinx-autoapi`** (API reference generated from `src/`),
   **`numpydoc`**, **`myst-nb`**, **`sphinx-gallery`** (one example per identified use case,
   scraped from `src/tephpy/examples`, tagged with the extension's own

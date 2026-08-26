@@ -738,6 +738,17 @@ to `.rst` above because that is what the user quadrants are written in, and the 
 to reach for Markdown should meet that boundary here rather than discover it as a page the
 gate silently exempts.
 
+That sentence was an argument, and it is now a mechanism.
+`test_no_user_page_is_written_in_a_format_this_gate_cannot_read` fails on any `.md` or
+`.ipynb` under the three quadrants — the two suffixes myst-nb registers beside the `.rst`
+Sphinx reads by default, `source_suffix` being unset. Plan 7c was the first delivery that
+would have reached for one, spec §8.6 having called the tutorials notebooks until it was
+corrected to match plots spec §3.1 and this section. `nb_execution_mode` is `off` in
+`docs/src/conf.py`, and with no notebook source in a user quadrant that setting is a guard
+rather than a policy: were one to appear, the build would render its stored outputs as
+fact, which is a transcript nobody ran. Both halves of that — the format and the execution
+— now fail loudly instead of passing quietly.
+
 (docs-spec-4)=
 ## 4. Canonical usage
 

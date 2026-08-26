@@ -1,0 +1,14 @@
+The tutorial quadrant is reStructuredText, like the other three, and a test now
+holds it there. Spec §8.6 had called the tutorials myst-nb notebooks since before
+any of the machinery that would have to read them existed, while plots spec §3.1
+rests its choice of ``plot_directive`` on the user quadrants being
+reStructuredText and docs spec §3.9 scopes the snippet gate to ``.rst`` for the
+same reason — so Plan 7c would have delivered the one quadrant written for a
+learner as the one quadrant with nothing executing it. Spec §8.6 is corrected to
+match the two sections that already said so. The ``.rst`` boundary docs spec §3.9
+describes in prose is now enforced by
+``test_no_user_page_is_written_in_a_format_this_gate_cannot_read``, which fails on
+any ``.md`` or ``.ipynb`` under the quadrants rather than letting the page build,
+publish and skip the gate in silence; and ``nb_execution_mode`` is recorded with
+its reason, having been set in ``conf.py`` and stated in no specification.
+(:user:`claude`)
