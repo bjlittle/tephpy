@@ -22,7 +22,7 @@
 
 `set_extent` is the only way to choose a view, and it asks for the wrong thing in the wrong
 shape. Five defects follow from one decision — that a view is named by two `(pressure,
-temperature)` corners — and all three are measurable rather than aesthetic. Every number
+temperature)` corners — and all five are measurable rather than aesthetic. Every number
 below was produced by running the code on 2026-08-25, not inferred.
 
 **The corner naming is false for ordinary input.** `axes.py` documents the two points as
@@ -77,9 +77,10 @@ the default extent the view's other two corners work out to 84.9 hPa / −137.9 
 of corners implies it delivers the corners it was given and no others, and it does not.
 
 Separately, `set_extent` answers "make these figures directly comparable". It does not
-answer "frame this neatly", which is what a reader reaches for first, and there is no API
-for that at all. `plot_sounding_comparison.py` meets that need today by hand-picking a
-literal `EXTENT` — a worked example demonstrating the absence of the thing it needs.
+answer "frame this neatly" — which is what a reader reaches for first — and, without a
+pressure clamp beside it, there is no API for that at all. `plot_sounding_comparison.py`
+meets that need today by hand-picking a literal `EXTENT` — a worked example demonstrating
+the absence of the thing it needs.
 
 Nothing has been released. Both changes are free now and cost a deprecation cycle later,
 which is the whole reason this plan sits before v0.1 and before the narrative documentation
@@ -99,7 +100,7 @@ of Plan 7c that would otherwise teach the shape being replaced.
    keyword > `config.diagram.margin` > `_constants`.
 5. **The configuration follows the API.** One concept, one shape, everywhere.
 6. **Both methods disable autoscaling**, because a caller who fixed a window meant it.
-7. **The docstrings state what the caller also gets**, since §1's fourth problem survives
+7. **The docstrings state what the caller also gets**, since §1's fifth problem survives
    every signature.
 
 (framing-spec-3)=
@@ -139,7 +140,7 @@ today; the message names the offending keyword rather than reprinting a nested t
 range whose two bounds are equal is degenerate and refused, as the current
 `x[0] == x[1] or y[0] == y[1]` test refuses its equivalent.
 
-**The docstring carries §1's fourth problem.** It says outright that the view is an
+**The docstring carries §1's fifth problem.** It says outright that the view is an
 axis-aligned rectangle in a rotated space, so the pressures and temperatures reachable
 inside it exceed those named, and it gives the default extent's other two corners — 84.9 hPa
 / −137.9 °C and 1058.4 hPa / +77.9 °C — as the worked instance. An API that stopped claiming
@@ -186,8 +187,13 @@ exists.
 
 **The reduction is nan-aware.** Spec §3.4 makes NaN gaps data everywhere except pressure, so
 a level with no dewpoint is a level whose dewpoint does not bound anything, not a level that
-poisons the result. An argument contributing no finite values at all is a caller error, not
-a silent no-op, and raises.
+poisons the result. That rule is about *finiteness*, not about the clamp, and the two are
+not the same failure. **An argument carrying no finite data at all is a caller error**,
+checked per argument before any clamp is applied, and raises `MissingDataError` naming which
+one. **An argument whose finite data simply falls outside the `pressure=` clamp is
+different**: it contributes nothing, silently, and that is fine — a caller framing a layer
+may legitimately pass a sounding that does not reach it. Only when nothing survives the
+clamp across every argument does `fit` raise, exactly as it does with no clamp at all.
 
 **The type dispatch is one small internal function** rather than `isinstance` chains at each
 use, and it is the only place `fit` knows what a `Sounding` or a `Profile` is. Adding a
@@ -269,15 +275,19 @@ identically to `fit`. A `fit` that left autoscaling on would be undone by the ne
 Nothing is released, so there is no deprecation path, no alias and no shim. Every caller
 moves in the same change.
 
-- **29 `set_extent` call sites** across `src/` and `tests/`, counted 2026-08-25.
+- **29 `set_extent` occurrences** across `src/` and `tests/`, counted 2026-08-25.
 - **`src/tephpy/examples/plot_tephigram.py`** takes the new keywords.
 - **`src/tephpy/examples/plot_sounding_comparison.py`** drops its literal `EXTENT` for
   `ax.fit(...)` over both soundings. {issue}`184` names this example as exactly what `fit`
   is for, and an example that hand-picks a window to demonstrate comparison is evidence the
-  API was missing. Its gallery figure and its baseline change with it.
-- **Five design specifications** mention `set_extent` — spec §3.2 and §3.4, domain spec
-  §3.3, plots spec, gallery spec and scope spec. {issue}`184` counted four; the scope
-  specification landed after it was written. Each is corrected in place, the frozen
+  API was missing. Its gallery figure changes with it; it carries no baseline of its own
+  (§6).
+- **Five design specifications** mention `set_extent` — spec §3.2 and spec §3.4,
+  domain spec §3.3, plots spec, gallery spec and scope spec. {issue}`184` counted
+  four; the scope specification landed after it was written. The parent, domain and
+  gallery specs are corrected in place, alongside the config-file spec's template,
+  which this count does not name; the plots spec needs no correction, and the scope
+  spec's own stale count and quotation are corrected in place with it. The frozen
   implementation plans are not (docs spec §3.1).
 - **The generated configuration reference** re-renders from the reshaped template.
 
@@ -293,8 +303,9 @@ moves in the same change.
   the signature, but it privileges one composition, has no reading for two parcels, and
   needs a second rule the moment several soundings arrive. Rejected in favour of decision 3.
 - **`fit` fitting the environment only, documented** — simplest to specify and to test, and
-  rejected because it ships the clipping defect of §3.2 in the API whose stated purpose is
-  framing things neatly. Documenting a footgun is not the same as not having one.
+  rejected because it ships the clipping defect of §3.2 in the API whose one promise is that
+  nothing given to it falls outside the frame. Documenting a footgun is not the same as not
+  having one.
 - **Absolute margin in pressure and temperature** — domain-meaningful and predictable, but
   two numbers for one idea, anisotropic once transformed, and needing revision every time
   the fitted span changes. Rejected in favour of §3.3.
@@ -326,14 +337,19 @@ Per spec §7, and weighted towards the defects this change exists to remove.
 | `fit` over one sounding, over several, over sounding-plus-parcel | limits contain every finite datum of every argument |
 | **the parcel-clipping case** | `fit(snd)` clips a parcel that `fit(snd, parcel)` contains — asserted directly, because it is the defect `fit` exists to prevent |
 | a NaN-gapped dewpoint bounds nothing and poisons nothing | fit over a sounding whose dewpoint is partly NaN |
-| an argument with no finite data raises | rather than silently contributing nothing |
+| an argument with no finite data at all raises, naming it | checked per argument, before any clamp is applied |
+| an argument whose finite data falls entirely outside the `pressure=` clamp | contributes nothing, silently — not an error |
+| nothing survives the clamp across every argument | raises `MissingDataError`, as with no clamp at all |
 | `margin` resolution order | keyword beats config beats constant; `margin=0` fits exactly |
 | autoscaling is off after both calls | and a later `plot_sounding` does not move the window |
 | the reshaped configuration round-trips | file → `config.diagram.extent` → applied view |
 | the framing how-to's figures | `docs/baseline`, via the published-figure gate (plots spec §3.5) |
 
-One new image baseline for a fitted view, plus the changed
-`plot_sounding_comparison` baseline.
+Five new image baselines, one per figure the how-to of §7 publishes:
+`framing-fit-unclamped`, `framing-fit-clamped`, `framing-fit-parcel`, `framing-set-extent`
+and `framing-margin`. `plot_sounding_comparison` carries no baseline of its own — the only
+`mpl_image_compare` in `tests/examples/` covers `plot_parcel_analysis`, which this change
+does not touch — so its gallery figure changes with no baseline to update.
 
 (framing-spec-7)=
 ## 7. Documentation

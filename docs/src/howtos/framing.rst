@@ -43,7 +43,7 @@ Same call, same data, one argument. Levels outside the band no longer
 bound the view.
 
 Include the Parcel
--------------------
+------------------
 
 A lifted :term:`parcel` is warmer than its environment through the
 :term:`CAPE` region, so a view fitted to the :term:`sounding` alone can
@@ -64,7 +64,7 @@ clip the :term:`parcel ascent` the analysis exists to show. Pass it too:
 one window is ``ax.fit(*ascents, pressure=(950.0, 300.0))``.
 
 Fix the View by Ranges
------------------------
+----------------------
 
 When two figures must be directly comparable, name the window outright:
 
@@ -83,7 +83,7 @@ it always reaches a little further than the ranges name — see
 what the default extent actually spans.
 
 Leave Room, or None
----------------------
+-------------------
 
 ``margin`` is a fraction of the fitted span, added to each side. Set it
 per call, or once in a configuration file as ``diagram.margin``:

@@ -667,7 +667,9 @@ class TephigramAxes(Axes):
             If the ``pressure`` clamp is non-finite, degenerate, or not
             above zero.
         MissingDataError
-            If no finite data survives the clamp.
+            If an argument carries no finite data at all, naming which one
+            -- checked before any clamp is applied -- or if nothing
+            survives the ``pressure`` clamp across every argument.
         """
         if not objects:
             msg = "fit() needs at least one Sounding or Profile to frame"
@@ -686,16 +688,31 @@ class TephigramAxes(Axes):
                     raise ValueError(msg)
         pressures: list[npt.NDArray[np.float64]] = []
         temperatures: list[npt.NDArray[np.float64]] = []
-        for obj in objects:
+        for index, obj in enumerate(objects, start=1):
             level, temps = _framing_coordinates(obj)
             level = np.asarray(level, dtype=np.float64)
+            temp_arrays = [np.asarray(t, dtype=np.float64) for t in temps]
+            # A per-argument check, made before the clamp below is applied:
+            # data that simply falls outside `pressure=` is a legitimate
+            # silent no-op (a caller framing a layer may pass a sounding
+            # that does not reach it), but no finite temperature-like data
+            # at all is the caller error framing spec §3.2 forbids. Pressure
+            # itself is never the tell -- `Sounding` and `Profile` both
+            # require it finite at construction -- so only the
+            # temperature-like arrays are checked here.
+            if not any(np.isfinite(t).any() for t in temp_arrays):
+                msg = (
+                    f"fit() argument {index} ({type(obj).__name__}) has no "
+                    "finite data to frame"
+                )
+                raise MissingDataError(msg)
             if pressure is None:
                 inside = np.ones(level.shape, dtype=bool)
             else:
                 lo, hi = sorted(pressure)
                 inside = (level >= lo) & (level <= hi)
             pressures.append(level[inside])
-            temperatures.extend(np.asarray(t, dtype=np.float64)[inside] for t in temps)
+            temperatures.extend(t[inside] for t in temp_arrays)
         all_p = np.concatenate(pressures) if pressures else np.array([])
         all_t = np.concatenate(temperatures) if temperatures else np.array([])
         if not (

@@ -558,6 +558,68 @@ def test_a_clamp_masks_each_object_by_its_own_levels(
     assert both == pytest.approx((ylo, yhi), abs=0.5)
 
 
+def test_an_argument_with_no_finite_data_raises_naming_it(
+    tephigram_axes, sample_sounding
+):
+    """Per-argument, before any clamp (framing spec §3.2).
+
+    An argument carrying no finite data at all is a caller error distinct
+    from data that merely falls outside a clamp -- checked here with no
+    ``pressure=`` in play at all, so the clamp cannot be what triggers it.
+    """
+    nan_temperature = np.full_like(sample_sounding.temperature.magnitude, float("nan"))
+    empty = dataclasses.replace(
+        sample_sounding,
+        temperature=nan_temperature * sample_sounding.temperature.units,
+        dewpoint=None,
+    )
+    with pytest.raises(MissingDataError, match="argument 2"):
+        tephigram_axes.fit(sample_sounding, empty)
+
+
+def test_an_argument_entirely_outside_the_clamp_contributes_nothing(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect ``fit`` exists to prevent, from the other side (framing spec §3.2).
+
+    Finite data that simply falls outside the ``pressure=`` clamp is not a
+    caller error: a stratospheric profile passed alongside a
+    tropospheric sounding contributes nothing to a lower-troposphere
+    frame, silently, and the frame is identical to fitting the sounding
+    alone.
+    """
+    stratospheric = calc.Profile(
+        [150.0, 100.0],
+        [-60.0, -70.0],
+        125.0,
+        -65.0,
+        units={
+            "pressure": "hPa",
+            "temperature": "degC",
+            "lcl_pressure": "hPa",
+            "lcl_temperature": "degC",
+        },
+    )
+    band = (950.0, 300.0)
+    tephigram_axes.fit(sample_sounding, pressure=band, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, stratospheric, pressure=band, margin=0.0)
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_fit_raises_when_nothing_survives_the_clamp_across_every_argument(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """The aggregate check still holds with several arguments (framing spec §3.2).
+
+    Both soundings carry finite data -- neither is the per-argument
+    caller error of the test above -- but a clamp outside every level of
+    both still leaves nothing to frame.
+    """
+    with pytest.raises(MissingDataError, match="no finite data"):
+        tephigram_axes.fit(sample_sounding, sample_sounding_b, pressure=(5.0, 1.0))
+
+
 def _cursor_xy(pressure, temperature):
     """Map a (pressure, temperature) point into cursor data-space (x, y)."""
     theta = transforms.theta_from_pressure_temperature(pressure, temperature)

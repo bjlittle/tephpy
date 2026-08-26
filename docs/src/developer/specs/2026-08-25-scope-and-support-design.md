@@ -352,23 +352,27 @@ cuts through the middle of it.
 That issue replaces `set_extent`'s `((p, T), (p, T))` corner pairs with keyword ranges and
 adds `ax.fit(...)` for data-driven framing, before v0.1, on the argument that nothing has
 been released so both are free now and cost a deprecation cycle later. It counts its own
-migration at twenty-nine call sites across `src/` and `tests/` plus a line in four
+migration at twenty-nine occurrences across `src/` and `tests/` plus a line in four
 specifications.
 
 **Narrative documentation is what makes that count grow, and grow in the most expensive
-place.** Measured on 2026-08-25, `set_extent` appears in zero pages of the four user
-quadrants; the two examples that frame a view are the whole of its user-facing surface. The
-tutorials and explanation quadrants are where framing is taught, so writing them first means
-writing new call sites into prose, into the published-figure baselines behind that prose,
-and into the sessions the docs spec §3.9 gate executes. Prose is the worst of those to migrate,
-because a signature change there is not a mechanical edit: the sentence around the call
-explains the argument.
+place.** Measured on 2026-08-25, `set_extent` appeared in zero pages of the four user
+quadrants; the two examples that frame a view were the whole of its user-facing surface.
+That count is no longer zero — the how-to of framing spec §7 shipped alongside this
+section and calls both `set_extent` and `fit` — but it is the how-to quadrant that grew,
+on purpose and early, for exactly the reason this section gives. The tutorials and
+explanation quadrants are still where framing is taught next, so writing them first would
+mean writing new call sites into prose, into the published-figure baselines behind that
+prose, and into the sessions the docs spec §3.9 gate executes. Prose is the worst of those
+to migrate, because a signature change there is not a mechanical edit: the sentence around
+the call explains the argument.
 
 **It is also the wrong lesson.** {issue}`184` says of `fit` that it answers "frame this
 neatly", "which is what a reader reaches for first, and there is no API for that at all
-today". A tutorial written now would teach corner pairs — a shape the issue shows is
-misnamed for ordinary input and silently order-ambiguous — and would not mention the API its
-reader actually wants.
+today" — a promise framing spec §3.2 later qualifies with a pressure clamp, not the
+unclamped method itself. A tutorial written now would teach corner pairs — a shape the issue
+shows is misnamed for ordinary input and silently order-ambiguous — and would not mention
+the API its reader actually wants.
 
 **So the row splits on that seam**, and the split falls cleanly because the dependency does:
 
