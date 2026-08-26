@@ -36,6 +36,12 @@ P_REF: Final[float] = 1000.0
 #: Rotation scale of the tephigram mapping: x = MA ln(theta_K) + T.
 MA: Final[float] = 300.0
 
+#: Temperature at which the tephigram y-coordinate has an interior maximum
+#: at fixed pressure -- MA expressed in Celsius. A temperature range that
+#: spans this value needs its y-limit checked at this temperature, not only
+#: at its own two ends (framing spec §3.1).
+Y_MAXIMUM_TEMPERATURE: Final[float] = MA - KELVIN_ZERO
+
 #: Default diagram extent as pressure and temperature ranges in hPa and
 #: degrees Celsius (see ``TephigramAxes.set_extent``). Chosen to frame a
 #: mid-latitude ascent from the surface to 200 hPa, centred and near 2:1

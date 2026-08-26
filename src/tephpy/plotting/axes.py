@@ -66,6 +66,7 @@ from tephpy._constants import (
     PROFILE_ZORDER,
     SHADING_ALPHA,
     SHADING_ZORDER,
+    Y_MAXIMUM_TEMPERATURE,
 )
 from tephpy._units import as_quantity, check_units_mapping
 from tephpy.exceptions import MissingDataError, TephpyValidationError
@@ -261,7 +262,11 @@ def _limits_from_ranges(
     All four corners of the region are mapped, not the two a caller
     happens to write: the view is an axis-aligned rectangle in a rotated
     space, so the bounding box of two *points* need not contain the
-    region they delimit (framing spec §1, §3.1).
+    region they delimit (framing spec §1, §3.1). The four corners are not
+    enough either: at fixed pressure the y-coordinate has an interior
+    maximum at ``Y_MAXIMUM_TEMPERATURE``, so whenever the temperature
+    range spans it strictly, the two points at that temperature and each
+    pressure bound join the candidate set (framing spec §3.1).
 
     Parameters
     ----------
@@ -277,10 +282,15 @@ def _limits_from_ranges(
     """
     p_lo, p_hi = sorted(pressure)
     t_lo, t_hi = sorted(temperature)
-    pressures = np.array([p_lo, p_lo, p_hi, p_hi], dtype=np.float64)
-    temperatures = np.array([t_lo, t_hi, t_lo, t_hi], dtype=np.float64)
-    thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
-    x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
+    pressures = [p_lo, p_lo, p_hi, p_hi]
+    temperatures = [t_lo, t_hi, t_lo, t_hi]
+    if t_lo < Y_MAXIMUM_TEMPERATURE < t_hi:
+        pressures.extend([p_lo, p_hi])
+        temperatures.extend([Y_MAXIMUM_TEMPERATURE, Y_MAXIMUM_TEMPERATURE])
+    pressure_arr = np.array(pressures, dtype=np.float64)
+    temperature_arr = np.array(temperatures, dtype=np.float64)
+    thetas = transforms.theta_from_pressure_temperature(pressure_arr, temperature_arr)
+    x, y = transforms.xy_from_temperature_theta(temperature_arr, thetas)
     return float(np.min(x)), float(np.max(x)), float(np.min(y)), float(np.max(y))
 
 
@@ -656,7 +666,8 @@ class TephigramAxes(Axes):
         margin : float, optional
             Fraction of the fitted span added to each side in the drawn
             plane. Resolves keyword > ``config.diagram.margin`` >
-            ``DEFAULT_FIT_MARGIN``. Zero fits exactly.
+            ``DEFAULT_FIT_MARGIN``. Zero fits exactly. Whichever route it
+            arrives by, the resolved value must be finite and 0 or more.
 
         Raises
         ------
@@ -665,7 +676,8 @@ class TephigramAxes(Axes):
             a ``Profile``.
         ValueError
             If the ``pressure`` clamp is non-finite, degenerate, or not
-            above zero.
+            above zero, or if the resolved ``margin`` is negative or not
+            finite (framing spec §3.3).
         MissingDataError
             If an argument carries no finite data at all, naming which one
             -- checked before any clamp is applied -- or if nothing
@@ -733,6 +745,9 @@ class TephigramAxes(Axes):
         if margin is None:
             configured = config.diagram.margin
             margin = DEFAULT_FIT_MARGIN if configured is None else configured
+        if not (math.isfinite(margin) and margin >= 0.0):
+            msg = f"fit margin must be finite and 0 or more: {margin!r}"
+            raise ValueError(msg)
         pad_x = (xhi - xlo) * margin
         pad_y = (yhi - ylo) * margin
         self.set_xlim(xlo - pad_x, xhi + pad_x)

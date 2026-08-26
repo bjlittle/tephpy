@@ -37,6 +37,7 @@ from tephpy._constants import (
     PROFILE_ZORDER,
     SHADING_ALPHA,
     SHADING_ZORDER,
+    Y_MAXIMUM_TEMPERATURE,
 )
 from tephpy.exceptions import MissingDataError, TephpyUnitsError, TephpyValidationError
 from tephpy.plotting import axes
@@ -270,7 +271,10 @@ def test_default_extent_applied(tephigram_axes):
 
 
 def test_set_extent_moves_the_view(tephigram_axes):
-    extent = {"pressure": (1050.0, 700.0), "temperature": (-10.0, 30.0)}
+    # Temperature range chosen not to span Y_MAXIMUM_TEMPERATURE (26.85 degC),
+    # so the plain four-corner comparison in `_expected_limits` applies
+    # unchanged (framing spec §3.1).
+    extent = {"pressure": (1050.0, 700.0), "temperature": (-10.0, 20.0)}
     tephigram_axes.set_extent(**extent)
     (x0, x1), (y0, y1) = _expected_limits(extent)
     assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
@@ -333,6 +337,44 @@ def test_the_view_contains_the_whole_region_it_names(tephigram_axes):
             x, y = transforms.xy_from_temperature_theta(np.array([t]), theta)
             assert xlo <= float(x[0]) <= xhi, f"({p}, {t}) outside x"
             assert ylo <= float(y[0]) <= yhi, f"({p}, {t}) outside y"
+
+
+def test_the_view_contains_the_interior_y_extremum(tephigram_axes):
+    """A range spanning ``T*`` is bounded there too, not only at its corners.
+
+    Four corners are not enough: at fixed pressure the y-coordinate has an
+    interior maximum at ``Y_MAXIMUM_TEMPERATURE``. Measured 2026-08-25, the
+    corner-only search returned ``yhi = 1685.63`` for this exact range while
+    ``(900 hPa, Y_MAXIMUM_TEMPERATURE)`` maps to ``y = 1693.32`` -- outside
+    the view that named it (framing spec §3.1). Computed independently
+    through ``transforms``, not through ``axes._limits_from_ranges``.
+    """
+    tephigram_axes.set_extent(pressure=(1000.0, 900.0), temperature=(-50.0, 100.0))
+    ylo, yhi = tephigram_axes.get_ylim()
+    for p in (1000.0, 900.0):
+        theta = transforms.theta_from_pressure_temperature(
+            np.array([p]), np.array([Y_MAXIMUM_TEMPERATURE])
+        )
+        _, y = transforms.xy_from_temperature_theta(
+            np.array([Y_MAXIMUM_TEMPERATURE]), theta
+        )
+        assert ylo <= float(y[0]) <= yhi, f"({p}, {Y_MAXIMUM_TEMPERATURE}) outside y"
+
+
+def test_a_range_not_spanning_the_extremum_keeps_the_four_corner_limits(
+    tephigram_axes,
+):
+    """The new candidates cannot silently widen a view that does not need them.
+
+    ``DEFAULT_EXTENT``'s temperature range, (-65, 5), does not reach
+    ``Y_MAXIMUM_TEMPERATURE`` (26.85 degC), so the limits must match the
+    plain four-corner result exactly (framing spec §3.1).
+    """
+    extent = {"pressure": (900.0, 200.0), "temperature": (-65.0, 5.0)}
+    tephigram_axes.set_extent(**extent)
+    (x0, x1), (y0, y1) = _expected_limits(extent)
+    assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
+    assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
 
 
 def test_the_old_corner_call_is_now_unwritable(tephigram_axes):
@@ -454,6 +496,63 @@ def test_margin_resolves_keyword_over_config_over_constant(
         tephigram_axes_b.fit(sample_sounding)
     loose = tephigram_axes_b.get_xlim()
     assert loose[1] - loose[0] > tight[1] - tight[0]
+
+
+def test_fit_rejects_a_negative_margin(tephigram_axes, sample_sounding):
+    """A negative margin would silently shrink the limits it is meant to pad.
+
+    The configuration file has always refused this; the keyword route did
+    not (framing spec §3.3).
+    """
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=-0.2)
+
+
+def test_fit_rejects_a_non_finite_margin(tephigram_axes, sample_sounding):
+    """A non-finite margin is refused here, not left to fail inside matplotlib.
+
+    Unvalidated, this used to reach ``set_xlim``/``set_ylim`` and fail with
+    matplotlib's "Axis limits cannot be NaN or Inf", which names nothing
+    useful (framing spec §3.3).
+    """
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=float("nan"))
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=float("inf"))
+
+
+def test_fit_margin_zero_still_fits_exactly(tephigram_axes, sample_sounding):
+    """Zero stays legal: the caller composing panels wants an exact fit.
+
+    Compares against the unpadded bounding box computed independently from
+    the sounding's pressure and combined temperature/dewpoint span -- the
+    same quantity ``fit`` derives internally before padding by ``margin`` --
+    including the interior y-extremum candidate, since this sounding's
+    combined span (up to 27.5 degC) reaches past ``Y_MAXIMUM_TEMPERATURE``
+    (framing spec §3.1, §3.3).
+    """
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    p = sample_sounding.pressure.to("hPa").magnitude
+    t = sample_sounding.temperature.to("degC").magnitude
+    d = sample_sounding.dewpoint.to("degC").magnitude
+    p_lo, p_hi = float(np.nanmin(p)), float(np.nanmax(p))
+    combined = np.concatenate([t, d])
+    t_lo, t_hi = float(np.nanmin(combined)), float(np.nanmax(combined))
+    pressures = [p_lo, p_lo, p_hi, p_hi]
+    temperatures = [t_lo, t_hi, t_lo, t_hi]
+    if t_lo < Y_MAXIMUM_TEMPERATURE < t_hi:
+        pressures.extend([p_lo, p_hi])
+        temperatures.extend([Y_MAXIMUM_TEMPERATURE, Y_MAXIMUM_TEMPERATURE])
+    pressures_arr = np.array(pressures)
+    temperatures_arr = np.array(temperatures)
+    theta = transforms.theta_from_pressure_temperature(pressures_arr, temperatures_arr)
+    x, y = transforms.xy_from_temperature_theta(temperatures_arr, theta)
+    assert tephigram_axes.get_xlim() == pytest.approx(
+        (float(np.min(x)), float(np.max(x)))
+    )
+    assert tephigram_axes.get_ylim() == pytest.approx(
+        (float(np.min(y)), float(np.max(y)))
+    )
 
 
 def test_fit_disables_autoscaling(tephigram_axes, sample_sounding):

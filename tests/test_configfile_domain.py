@@ -404,7 +404,7 @@ def test_the_accepted_table_reaches_every_rule():
     ) | {"visible"}
 
 
-#: The six values the draw accepts in silence. Four are domain spec §1
+#: The five values the draw accepts in silence. Four are domain spec §1
 #: rows, and each draws a diagram that is simply not the one the file
 #: asked for, which is the worst outcome available and the reason this work
 #: exists. Their rules are lifted from the *emphasis* checks on the same
@@ -421,11 +421,11 @@ def test_the_accepted_table_reaches_every_rule():
 #: working configuration the load stage refuses anyway (domain spec §3.3),
 #: which is why domain spec §1 has no row for it. ``visible: false`` is the
 #: supported spelling, and the warning names the option rather than
-#: dropping it in silence. The sixth, a negative ``diagram.margin``, is
-#: outside domain spec §1 entirely -- ``margin`` postdates that table
-#: (framing spec §3.3) -- and it draws because ``fit`` applies the padding
-#: with no range check of its own, halving or inverting the fitted span
-#: instead of refusing it.
+#: dropping it in silence. A negative ``diagram.margin`` used to be here too
+#: -- ``margin`` postdates domain spec §1's table, and ``fit`` applied the
+#: padding with no range check of its own, halving or inverting the fitted
+#: span instead of refusing it. It now raises at the draw like every other
+#: refusal (framing spec §3.3), so it moved to ``RAISES_AT_THE_DRAW`` below.
 #:
 #: A list, and a separate one, rather than an exemption set consulted by
 #: membership: seven of the refused values below are dicts, which are
@@ -439,10 +439,9 @@ DRAWS_IN_SILENCE = [
     ("isotherms", "linewidth", float("inf")),
     ("isotherms", "values", (0.0, float("nan"))),
     ("moist_adiabats", "truncation", float("nan")),
-    ("diagram", "margin", -1.0),
 ]
 
-#: The seventeen the draw refuses loudly, in one of the three exception types
+#: The eighteen the draw refuses loudly, in one of the three exception types
 #: the gate below accepts.
 RAISES_AT_THE_DRAW = [
     ("isotherms", "color", "notacolour"),
@@ -464,6 +463,7 @@ RAISES_AT_THE_DRAW = [
         "extent",
         {"pressure": (float("inf"), 300.0), "temperature": (-80.0, 40.0)},
     ),
+    ("diagram", "margin", -1.0),
     ("isotherms", "emphasis", {700.0: {"lw": 2.0}}),
     ("isotherms", "emphasis", {0.0: {"linewidth": "thick"}}),
     ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
@@ -526,7 +526,7 @@ def test_what_the_load_refuses_the_draw_refuses_too(section, option, value, outc
     """Makes "lifted, not invented" a checked property (domain spec §5).
 
     The Python API is unguarded by design (domain spec §2), so setting the
-    value there and drawing asks the draw-time rule directly. Seventeen of these
+    value there and drawing asks the draw-time rule directly. Eighteen of these
     raise; the five in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
     is the point — a later change that makes one of them raise is a change to
     a diagram a user already has, and this is where it surfaces.
@@ -582,5 +582,5 @@ def test_the_draw_table_covers_every_refusal():
     # the other keeps the total that the assertion above checks. That is how the
     # docstring came to say sixteen and four of a table that had held seventeen
     # and five since the pull request introducing both (:pull:`126`).
-    assert len(RAISES_AT_THE_DRAW) == 17
-    assert len(DRAWS_IN_SILENCE) == 6
+    assert len(RAISES_AT_THE_DRAW) == 18
+    assert len(DRAWS_IN_SILENCE) == 5
