@@ -124,6 +124,12 @@ NEAR_MISS = frozenset(
 #: oracle assembled from the constants it checks would agree with them by
 #: construction rather than by being right.
 PYTHON_SPELLINGS = (
+    # Both predicates fold case, and a page may write any of these in any case.
+    # `Python` is here as the witness for that: without it the oracle exercises
+    # only the folded forms, and a predicate that stopped folding would keep
+    # passing while `code-block:: Python` escaped every check on a real page.
+    "PYCON",
+    "Python",
     "ipython",
     "ipython3",
     "py",
@@ -151,6 +157,49 @@ import matplotlib.pyplot as _tephpy_pyplot
 for _tephpy_number in _tephpy_pyplot.get_fignums():
     _tephpy_pyplot.figure(_tephpy_number).canvas.draw()
 """
+
+
+def runs_here(language: str) -> bool:
+    """Whether a block in this language is one this gate executes.
+
+    Written once and called from every place that asks, rather than spelled out
+    at each: the corpus selector, the figure-page mixing check and the oracle of
+    :func:`test_the_two_language_checks_compose` all have to agree, and three
+    copies of a comparison agree only until one of them is edited. Dropping the
+    fold below would let ``Python`` past the mixing check while the oracle, doing
+    its own folding, went on reporting that nothing escapes.
+
+    Parameters
+    ----------
+    language : str
+        The language a directive names, as written on the page.
+
+    Returns
+    -------
+    bool
+        ``True`` when it names the language this gate runs.
+
+    """
+    return language.lower() == PYTHON
+
+
+def near_misses(language: str) -> bool:
+    """Whether a block in this language means python and is spelled otherwise.
+
+    The companion to :func:`runs_here`, and shared for the same reason.
+
+    Parameters
+    ----------
+    language : str
+        The language a directive names, as written on the page.
+
+    Returns
+    -------
+    bool
+        ``True`` when it is one of :data:`NEAR_MISS`.
+
+    """
+    return language.lower() in NEAR_MISS
 
 
 def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
@@ -365,7 +414,7 @@ def python_blocks(text: str) -> list[tuple[int, list[str]]]:
     return [
         (line, code)
         for line, language, code in literal_blocks(text)
-        if language.lower() == PYTHON
+        if runs_here(language)
     ]
 
 
@@ -834,7 +883,7 @@ def test_no_block_hides_the_language_this_gate_runs():
         offenders.extend(
             (identify(page), line, language)
             for line, language, _ in literal_blocks(text)
-            if language.lower() in NEAR_MISS or not language
+            if near_misses(language) or not language
         )
         offenders.extend((identify(page), line, "") for line in implicit_blocks(text))
         offenders.extend(
@@ -892,7 +941,7 @@ def test_a_page_publishes_figures_or_it_does_not():
             for number, line in enumerate(text.splitlines(), start=1)
             if number not in inside
             and (match := DIRECTIVE.match(line)) is not None
-            and match["language"].lower() == PYTHON
+            and runs_here(match["language"])
         )
     assert offenders == [], (
         "these pages publish figures and still carry a plain python block: "
@@ -909,29 +958,38 @@ def test_the_two_language_checks_compose():
     # test and nothing else. No page spells a language that way, so the page scan
     # of `test_no_block_hides_the_language_this_gate_runs` stays green -- which is
     # the point, the hole opening in the rule rather than in today's corpus.
+    #
+    # Dropping the case fold from `runs_here` fails this test *and*
+    # `test_the_language_is_matched_without_regard_to_case`, and that pair is the
+    # design rather than a blunt mutation. That test reaches `python_blocks`
+    # alone; before the two predicates were shared, the figure-page mixing check
+    # folded case on its own account with nothing pinning that it did, so
+    # `code-block:: Python` could have escaped every check at once.
     caught_by_mixing = [
-        spelling for spelling in PYTHON_SPELLINGS if spelling.lower() == PYTHON
+        spelling for spelling in PYTHON_SPELLINGS if runs_here(spelling)
     ]
     caught_by_near_miss = [
-        spelling for spelling in PYTHON_SPELLINGS if spelling.lower() in NEAR_MISS
+        spelling for spelling in PYTHON_SPELLINGS if near_misses(spelling)
     ]
     uncaught = sorted(
         set(PYTHON_SPELLINGS) - set(caught_by_mixing) - set(caught_by_near_miss)
     )
     assert uncaught == [], (
         f"these spellings mean python and no check reports them: {uncaught}. "
-        "`test_a_page_publishes_figures_or_it_does_not` compares the language "
-        "for equality with `PYTHON`, so every other spelling reaches "
-        "`test_no_block_hides_the_language_this_gate_runs` through `NEAR_MISS` "
-        "or reaches nothing at all (plots spec §3.2, docs spec §3.9)"
+        "`test_a_page_publishes_figures_or_it_does_not` asks `runs_here`, so "
+        "every other spelling reaches "
+        "`test_no_block_hides_the_language_this_gate_runs` through "
+        "`near_misses` or reaches nothing at all "
+        "(plots spec §3.2, docs spec §3.9)"
     )
     # The division of labour itself, which is the part that was undocumented:
-    # the mixing check on a figure page sees exactly one spelling, and the other
-    # seven are the near-miss check's alone. Tightening either -- narrowing the
-    # equality, or dropping a member of `NEAR_MISS` -- opens a hole that the
-    # `uncaught` assertion above then reports.
-    assert caught_by_mixing == ["python"]
-    assert len(caught_by_near_miss) == len(PYTHON_SPELLINGS) - 1
+    # the mixing check on a figure page sees the spellings of the word `python`
+    # and no others, and the rest are the near-miss check's alone. Stated as a
+    # partition rather than a count, so that adding a spelling above cannot
+    # quietly land in neither half.
+    assert {spelling.lower() for spelling in caught_by_mixing} == {PYTHON}
+    assert not set(caught_by_mixing) & set(caught_by_near_miss)
+    assert set(caught_by_mixing) | set(caught_by_near_miss) == set(PYTHON_SPELLINGS)
 
 
 def test_the_first_plot_on_a_page_resets_the_context():
