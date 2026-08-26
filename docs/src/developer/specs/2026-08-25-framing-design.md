@@ -149,13 +149,34 @@ false corners without saying what it does produce would have traded one silence 
 ### 3.2 `fit` by data
 
 ```python
-ax.fit(sounding)                          # one ascent, framed neatly
-ax.fit(sounding, parcel)                  # environment and the path it is read against
-ax.fit(*ascents, margin=0.08)             # a station's day, every panel framed alike
+ax.fit(sounding, pressure=(950, 300))     # one ascent, over the layer of interest
+ax.fit(sounding, parcel, pressure=(950, 300))   # environment and the path it is read against
+ax.fit(*ascents, pressure=(1000, 200))    # a station's day, every panel framed alike
 ```
 
 Variadic over anything the diagram plots — `Sounding` and `Profile` today — with one rule:
 frame everything you were given. The alternative shapes were considered and rejected in §5.
+
+**What `fit` promises, stated exactly.** *Nothing you gave it falls outside the frame.* It
+does **not** promise a neat-looking diagram, and an earlier draft of this section said it
+did. That was written without rendering a single figure, and rendering one falsifies it: a
+radiosonde ascent does not stop at the tropopause. Measured over the two shipped samples,
+an unclamped fit spans `pressure=(966.4, 10.2)` — into the mid-stratosphere — and θ grows
+fast enough up there that the resulting view is a narrow diagonal band of isopleths in a
+mostly empty rectangle. The temperature range is barely implicated: clamping to
+`(1000, 200)` hPa changes the fitted temperature only from `(-79.4, 27.5)` to
+`(-72.3, 27.5)`, and turns an unusable figure into a conventional one.
+
+**So `fit` takes a `pressure=` clamp**, and it is the parameter that makes the method
+useful rather than merely correct. Given one, the view's pressure range is the clamp and the
+temperature range is fitted to the data *inside* it. This is the meteorological selection a
+reader actually makes — a layer — and it is why `pressure` is clamped and temperature is
+not: a pressure band names a part of the atmosphere, a temperature band names nothing.
+
+**There is deliberately no default clamp.** `fit(sounding)` frames the whole ascent, which
+is wide and is *correct* — it is the honest answer to "frame all of this". A default would
+have to pick a pressure silently, and silently discarding the stratospheric half of an
+ascent is a worse failure than a wide view, because it is invisible. §5 records this.
 
 **What bounds the view.** Pressure, temperature and dewpoint. Those are the diagram's
 coordinates; wind is not, because `plot_barbs` draws into the right-hand gutter rather than
@@ -196,6 +217,9 @@ kind of wish as a preferred default view.
 
 `margin=0` is legal and fits exactly. It is the right answer for a caller composing panels
 whose frames must agree to the pixel.
+
+Margin is applied after the clamp of §3.2, so `pressure=` names the layer and `margin=`
+decides how tightly it is drawn. A clamp with `margin=0` gives exactly the named band.
 
 (framing-spec-3-4)=
 ### 3.4 The configuration, reshaped
@@ -274,6 +298,15 @@ moves in the same change.
 - **Absolute margin in pressure and temperature** — domain-meaningful and predictable, but
   two numbers for one idea, anisotropic once transformed, and needing revision every time
   the fitted span changes. Rejected in favour of §3.3.
+- **A default `pressure` clamp on `fit`** — tempting, because the unclamped view is poor for
+  every real radiosonde and `fit(snd)` is the first thing anyone types. Rejected: any default
+  is an arbitrary number that silently drops the data above it, and an invisible omission is
+  worse than a visibly wide view. The how-to of §7 carries the burden instead, by making the
+  clamp the second thing a reader meets.
+- **A `temperature=` clamp beside `pressure=`, for symmetry with `set_extent`** — rejected as
+  speculative. A pressure band selects a layer of the atmosphere; a temperature band selects
+  nothing a reader is thinking in. Symmetry with a method that *names* a view is not a
+  reason for a method that *derives* one.
 - **Dropping `config.diagram.extent` once `fit` exists** — considered because `fit` answers
   the common case. Rejected: a preferred default view is a legitimate standing preference,
   and `fit` needs data, which a freshly created axes does not have.
@@ -305,9 +338,11 @@ One new image baseline for a fitted view, plus the changed
 (framing-spec-7)=
 ## 7. Documentation
 
-A framing how-to under `docs/src/howtos/`, publishing figures: `set_extent` for "make these
-directly comparable", `fit` for "frame this neatly", and the parcel case as the reason `fit`
-takes more than a sounding. It ships here rather than waiting for Plan 7c because 7c owns
+A framing how-to under `docs/src/howtos/`, publishing figures. Its spine is the contrast of
+§3.2: `ax.fit(sounding)` unclamped, which frames a whole ascent into the stratosphere and
+looks it, beside the same call with `pressure=` — the defect that shaped this section, used
+as the thing it teaches. Then the parcel case as the reason `fit` takes more than a
+sounding, and `set_extent` for "make these figures directly comparable". It ships here rather than waiting for Plan 7c because 7c owns
 tutorials and explanation, and because shipping new API undocumented until a later plan is
 how the gaps Plan 7b spent itself closing came to exist.
 

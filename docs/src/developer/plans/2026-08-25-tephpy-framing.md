@@ -770,89 +770,310 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: The Comparison Example Uses `fit`
+### Task 3: The `pressure` Clamp
 
-Implements framing spec §4. {issue}`184` names this example as exactly what `fit` is for, and an example that hand-picks a window to demonstrate comparison is evidence the API was missing.
+Implements framing spec §3.2's clamp. **This task exists because execution falsified the specification.** An earlier draft claimed `fit` "answers *frame this neatly*"; rendering it showed otherwise. Measured over the two shipped samples, an unclamped fit spans `pressure=(966.4, 10.2)` — into the mid-stratosphere — and the view becomes a narrow diagonal band of isopleths in a mostly empty rectangle. Clamping to `(1000, 200)` hPa moves the fitted temperature only from `(-79.4, 27.5)` to `(-72.3, 27.5)` and turns an unusable figure into a conventional one. The pressure span is the whole problem.
 
 **Files:**
-- Modify: `src/tephpy/examples/plot_sounding_comparison.py`
-- Modify: `tests/baseline/` — the example's composed baseline, if the test suite pins one
-- Test: `tests/examples/test_examples.py`
+- Modify: `src/tephpy/plotting/axes.py` (`TephigramAxes.fit`)
+- Test: `tests/plotting/test_axes.py`
 
-- [ ] **Step 1: Read the example and its test**
+**Interfaces:**
+- Consumes: `_limits_from_ranges`, `_framing_coordinates` from Tasks 1 and 2.
+- Produces: `TephigramAxes.fit(*objects, pressure: tuple[float, float] | None = None, margin: float | None = None) -> None`.
 
-```bash
-cat src/tephpy/examples/plot_sounding_comparison.py
-grep -n "comparison" tests/examples/test_examples.py
-```
+- [ ] **Step 1: Write the failing tests**
 
-Note what `EXTENT` is used for besides the `set_extent` call — if the module docstring quotes it, the prose changes too.
-
-- [ ] **Step 2: Replace the literal extent**
-
-Delete the `EXTENT` constant and replace the `ax.set_extent(**EXTENT)` call with:
+Add to `tests/plotting/test_axes.py`:
 
 ```python
-    ax.fit(first, second)
+def test_a_pressure_clamp_sets_the_pressure_range(tephigram_axes, sample_sounding):
+    """The clamp names the layer; temperature is fitted inside it."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    xlo, xhi, ylo, yhi = _expected_limits(
+        {"pressure": (950.0, 300.0), "temperature": (-58.7, 24.1)}
+    )
+    assert tephigram_axes.get_xlim() == pytest.approx((xlo, xhi), abs=0.5)
+    assert tephigram_axes.get_ylim() == pytest.approx((ylo, yhi), abs=0.5)
+
+
+def test_a_pressure_clamp_narrows_the_view(tephigram_axes, tephigram_axes_b, sample_sounding):
+    """The defect this parameter exists to fix (framing spec §3.2).
+
+    A radiosonde ascent does not stop at the tropopause; the shipped
+    samples reach about 10 hPa. Framing all of that gives a view whose
+    span is dominated by the stratosphere.
+    """
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    unclamped = tephigram_axes.get_xlim()
+    clamped = tephigram_axes_b.get_xlim()
+    assert (clamped[1] - clamped[0]) < 0.6 * (unclamped[1] - unclamped[0])
+
+
+def test_a_clamp_excludes_data_outside_it(tephigram_axes, tephigram_axes_b, sample_sounding):
+    """Levels outside the band do not bound the view."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    narrow = tephigram_axes.get_ylim()
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 100.0), margin=0.0)
+    wide = tephigram_axes_b.get_ylim()
+    assert (wide[1] - wide[0]) > (narrow[1] - narrow[0])
+
+
+def test_a_clamp_order_carries_no_meaning(tephigram_axes, tephigram_axes_b, sample_sounding):
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(300.0, 950.0), margin=0.0)
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_a_clamp_containing_no_data_raises(tephigram_axes, sample_sounding):
+    with pytest.raises(MissingDataError, match="no finite data"):
+        tephigram_axes.fit(sample_sounding, pressure=(5.0, 1.0))
+
+
+def test_an_unusable_clamp_is_refused(tephigram_axes, sample_sounding):
+    with pytest.raises(ValueError, match="pressure"):
+        tephigram_axes.fit(sample_sounding, pressure=(0.0, 300.0))
 ```
 
-using whatever the two sounding variables are actually named in that file. Update the module docstring: it currently justifies a hand-picked window, and the justification is now that `fit` frames both ascents together so the comparison is the only thing the reader has to think about.
+The temperature values `(-58.7, 24.1)` are what the shipped samples actually occupy between 950 and 300 hPa — measured, not chosen. If `sample_sounding` is not `norman-17z`, recompute them rather than adjusting the tolerance.
 
-- [ ] **Step 3: Run the example tests and the gallery build**
+- [ ] **Step 2: Run them and watch them fail**
 
 ```bash
-pixi run --frozen tests -- tests/examples/ -v
-pixi run --frozen --environment docs docs
+pixi run --frozen tests -- tests/plotting/test_axes.py -k "clamp or pressure_clamp" -v
 ```
 
-The gallery figure changes — the fitted view is not the hand-picked one. Expect the figure gate to report it if the example's figure is among the published baselines.
+Expected: `TypeError: fit() got an unexpected keyword argument 'pressure'` on all six.
 
-- [ ] **Step 4: Look at the new figure before blessing anything**
+- [ ] **Step 3: Add the parameter**
 
-```bash
-ls docs/_build/html/_images/sphx_glr_plot_sounding_comparison*.png
+`fit`'s signature gains `pressure`, between the varargs and `margin`:
+
+```python
+    def fit(
+        self,
+        *objects: Sounding | Profile,
+        pressure: tuple[float, float] | None = None,
+        margin: float | None = None,
+    ) -> None:
 ```
 
-Open it. Both ascents must be fully inside the frame, with visible margin, and the two profiles still distinguishable. A fitted view that is worse than the hand-picked one is a finding about `fit`, not a baseline to bless — report it.
+- [ ] **Step 4: Apply the clamp in the reduction**
 
-- [ ] **Step 5: Re-bless only what legitimately moved**
+Inside `fit`, the per-object loop currently collects every pressure and every temperature. It becomes: when a clamp is given, each object's temperature arrays are masked to the levels inside the band, and the view's pressure range is the clamp rather than the data.
 
-If a pytest-mpl baseline pins this example, regenerate it with the project's `baselines` task; if the published-figure gate flags it, use `pixi run --frozen --environment docs docs-figures`. Read the diff before committing either.
+Replace the reduction with:
 
-- [ ] **Step 6: Commit**
+```python
+        if pressure is not None:
+            for name, bounds in (("pressure", pressure),):
+                lo, hi = sorted(bounds)
+                if not (math.isfinite(lo) and math.isfinite(hi)):
+                    msg = f"fit {name} clamp bounds must be finite: {bounds!r}"
+                    raise ValueError(msg)
+                if lo == hi:
+                    msg = f"fit {name} clamp must not be degenerate: {bounds!r}"
+                    raise ValueError(msg)
+                if lo <= 0.0:
+                    msg = f"fit pressure clamp bounds must be above 0 hPa: {bounds!r}"
+                    raise ValueError(msg)
+        pressures: list[npt.NDArray[np.float64]] = []
+        temperatures: list[npt.NDArray[np.float64]] = []
+        for obj in objects:
+            level, temps = _framing_coordinates(obj)
+            level = np.asarray(level, dtype=np.float64)
+            if pressure is None:
+                inside = np.ones(level.shape, dtype=bool)
+            else:
+                lo, hi = sorted(pressure)
+                inside = (level >= lo) & (level <= hi)
+            pressures.append(level[inside])
+            temperatures.extend(np.asarray(t, dtype=np.float64)[inside] for t in temps)
+        all_p = np.concatenate(pressures) if pressures else np.array([])
+        all_t = np.concatenate(temperatures) if temperatures else np.array([])
+        if not (
+            all_p.size
+            and all_t.size
+            and np.isfinite(all_p).any()
+            and np.isfinite(all_t).any()
+        ):
+            msg = "fit() found no finite data to frame"
+            raise MissingDataError(msg)
+        if pressure is None:
+            span_p = (float(np.nanmin(all_p)), float(np.nanmax(all_p)))
+        else:
+            span_p = (float(min(pressure)), float(max(pressure)))
+        xlo, xhi, ylo, yhi = _limits_from_ranges(
+            span_p, (float(np.nanmin(all_t)), float(np.nanmax(all_t)))
+        )
+```
+
+Everything below that — the margin resolution, the padded `set_xlim`/`set_ylim`, and `set_autoscale_on(False)` — is unchanged.
+
+- [ ] **Step 5: Rewrite the docstring's promise**
+
+`fit`'s docstring currently says it answers "frame this neatly". It does not, and the specification no longer claims it does. Replace the opening paragraph and add `pressure` to Parameters:
+
+```python
+        """Frame the view around the data given.
+
+        Guarantees that nothing you gave it falls outside the frame. It
+        does not guarantee a neat-looking diagram: a radiosonde ascent
+        does not stop at the tropopause, and framing all of one gives a
+        view whose span is dominated by the stratosphere. ``pressure=``
+        is what makes it neat -- it names the layer you care about, and
+        the temperature range is then fitted to the data inside it
+        (framing spec §3.2).
+
+        Takes soundings and parcel paths interchangeably, and frames
+        everything it is given: a parcel is warmer than its environment
+        through the CAPE region, so fitting a sounding alone can clip the
+        path the parcel analysis is drawn to show. Autoscaling is
+        disabled, as for :meth:`set_extent`.
+
+        Parameters
+        ----------
+        *objects : Sounding or Profile
+            What to frame. At least one is required.
+        pressure : tuple of float, optional
+            Pressure bounds in hPa, in either order, naming the layer to
+            frame. Levels outside it do not bound the view. When omitted
+            the whole of every object is framed, which is correct and is
+            usually wide.
+        margin : float, optional
+            Fraction of the fitted span added to each side in the drawn
+            plane. Resolves keyword > ``config.diagram.margin`` >
+            ``DEFAULT_FIT_MARGIN``. Zero fits exactly.
+
+        Raises
+        ------
+        TephpyValidationError
+            If no objects are given, or one is neither a ``Sounding`` nor
+            a ``Profile``.
+        ValueError
+            If the ``pressure`` clamp is non-finite, degenerate, or not
+            above zero.
+        MissingDataError
+            If no finite data survives the clamp.
+        """
+```
+
+- [ ] **Step 6: Run the tests, then the suite**
 
 ```bash
-git add -A src tests docs
-git commit -m "Frame the comparison example with fit
+pixi run --frozen tests -- tests/plotting/test_axes.py -v
+pixi run --frozen tests
+```
 
-The example hand-picked a literal EXTENT to make two ascents directly
-comparable -- which issue #184 names as exactly what fit is for, and
-which was evidence the API was missing rather than a choice.
+Expected: all pass, including every `fit` test from Task 2 — the clamp is additive and the unclamped path is unchanged.
 
-Implements framing spec §4.
+- [ ] **Step 7: Lint and commit**
+
+```bash
+pixi run --frozen lint
+git add src tests
+git commit -m "Give fit a pressure clamp, and stop promising neatness
+
+An earlier draft of the specification claimed fit answers 'frame this
+neatly'. Rendering it falsified that: a radiosonde ascent does not stop
+at the tropopause, the shipped samples reach 10.2 hPa, and framing all of
+one gives a narrow diagonal band of isopleths in a mostly empty
+rectangle. The temperature span is barely implicated -- clamping to
+(1000, 200) hPa moves the fitted temperature only from (-79.4, 27.5) to
+(-72.3, 27.5), and turns an unusable figure into a conventional one.
+
+So fit takes a pressure clamp, which names the layer and fits temperature
+to the data inside it, and its docstring now promises what it actually
+delivers: nothing you gave it falls outside the frame. There is no
+default clamp -- any value would be arbitrary and would silently discard
+the data above it, which is worse than a visibly wide view.
+
+Implements framing spec §3.2.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 4: The Framing How-To
+### Task 4: The Comparison Example Uses the Clamped `fit`
 
-Implements framing spec §7.
+Implements framing spec §4. {issue}`184` names this example as what `fit` is for, and its hand-picked `EXTENT` was evidence the API was missing.
+
+An earlier attempt at this task used an unclamped `fit` and produced a figure markedly worse than the hand-picked view; it was reverted. Task 3's clamp is what makes it work.
+
+**Files:**
+- Modify: `src/tephpy/examples/plot_sounding_comparison.py`
+- Test: `tests/examples/test_examples.py`
+
+- [ ] **Step 1: Read the example**
+
+```bash
+cat src/tephpy/examples/plot_sounding_comparison.py
+```
+
+Note the two sounding variable names and what the module docstring says about `EXTENT`.
+
+- [ ] **Step 2: Replace the literal extent with a clamped fit**
+
+Delete the `EXTENT` constant. Replace `ax.set_extent(**EXTENT)` with a clamped fit over both soundings, using the file's actual variable names:
+
+```python
+    ax.fit(first, second, pressure=(950.0, 300.0))
+```
+
+The band is the one the hand-picked extent used, and it is the layer the comparison is about.
+
+Rewrite the module docstring: it currently justifies a hand-picked window. What is true now is that `fit` frames both ascents over the named layer, so the two are directly comparable without anyone choosing a temperature range by eye.
+
+- [ ] **Step 3: Build and look at the figure**
+
+```bash
+pixi run --frozen tests -- tests/examples/ -v
+pixi run --frozen --environment docs docs-html
+```
+
+Then **open** `docs/_build/html/_images/sphx_glr_plot_sounding_comparison_001.png`.
+
+You are checking for the conventional tephigram look: the isopleth grid filling the frame, both profiles legible, no large empty corners, and the legend not sitting on the data. **If it does not look like that, stop and report** — an earlier attempt at this task produced exactly that failure and it was reverted rather than blessed.
+
+- [ ] **Step 4: Run everything and commit**
+
+```bash
+pixi run --frozen tests
+pixi run --frozen lint
+git add src tests
+git commit -m "Frame the comparison example with a clamped fit
+
+The example hand-picked a literal EXTENT to make two ascents comparable,
+which issue #184 names as what fit is for. Clamped to the layer the
+comparison is about, fit derives the same kind of view without anyone
+choosing a temperature range by eye.
+
+Implements framing spec §4.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+Do not use `git add -A`: an unrelated untracked directory sits in this tree.
+
+---
+
+### Task 5: The Framing How-To
+
+Implements framing spec §7. Its spine is the contrast Task 3 exists because of.
 
 **Files:**
 - Create: `docs/src/howtos/framing.rst`
-- Create: `docs/baseline/framing-*.png` (generated by blessing, not hand-written)
+- Create: `docs/baseline/framing-*.png` (generated by blessing)
 - Modify: `docs/src/howtos/index.rst`
 - Modify: `tests/test_docs_snippets.py` (`DOCUMENTED`, `PUBLISHES_FIGURES`)
 - Modify: `.github/scripts/check_docs_figures.py` (`PUBLISHES`)
 
-**Interfaces:**
-- Consumes: `set_extent(pressure=..., temperature=...)` and `fit(*objects, margin=...)` from Tasks 1 and 2.
-
 - [ ] **Step 1: Write the page**
 
-Create `docs/src/howtos/framing.rst`. This page publishes figures, so **every** python block is a `.. plot::` (plots spec §3.2).
+This page publishes figures, so **every** python block is a `.. plot::` (plots spec §3.2).
 
 ```rst
 .. _howto-framing:
@@ -861,19 +1082,19 @@ Frame the View
 ==============
 
 Two questions, two answers. *Frame this neatly* is :meth:`ax.fit(...)
-<tephpy.plotting.axes.TephigramAxes.fit>`; *make these figures directly
-comparable* is :meth:`ax.set_extent(...)
-<tephpy.plotting.axes.TephigramAxes.set_extent>`. Reach for the first
-unless you have a reason for the second.
+<tephpy.plotting.axes.TephigramAxes.fit>` with a pressure clamp; *make
+these figures directly comparable* is :meth:`ax.set_extent(...)
+<tephpy.plotting.axes.TephigramAxes.set_extent>`.
 
-Fit to the Data
----------------
+Fit to the Data, and Say Which Layer
+------------------------------------
 
-``fit`` takes whatever you are about to draw and frames it:
+``fit`` guarantees that nothing you give it falls outside the frame. On a
+whole :term:`radiosonde` ascent that is not what you want:
 
 .. plot::
     :context: reset
-    :filename-prefix: framing-fit
+    :filename-prefix: framing-fit-unclamped
 
     import matplotlib.pyplot as plt
 
@@ -883,6 +1104,21 @@ Fit to the Data
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     ax.fit(sounding)
     ax.plot_sounding(sounding)
+
+The ascent reaches about 10 hPa, and potential temperature climbs steeply
+through the stratosphere, so framing all of it spends the diagram on air
+nobody was asking about. Name the layer instead:
+
+.. plot::
+    :context: close-figs
+    :filename-prefix: framing-fit-clamped
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    ax.fit(sounding, pressure=(950.0, 300.0))
+    ax.plot_sounding(sounding)
+
+Same call, same data, one argument. Levels outside the band no longer
+bound the view.
 
 Include the Parcel
 ------------------
@@ -898,17 +1134,17 @@ clip the :term:`parcel ascent` the analysis exists to show. Pass it too:
     parcel = tephpy.calc.parcel_path(sounding)
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-    ax.fit(sounding, parcel)
+    ax.fit(sounding, parcel, pressure=(950.0, 300.0))
     ax.plot_sounding(sounding)
     ax.plot_profile(parcel)
 
 ``fit`` is variadic, so several ascents frame alike — a station's day in
-one window is ``ax.fit(*ascents)``.
+one window is ``ax.fit(*ascents, pressure=(950.0, 300.0))``.
 
 Fix the View by Ranges
 ----------------------
 
-When two figures must be directly comparable, name the window instead:
+When two figures must be directly comparable, name the window outright:
 
 .. plot::
     :context: close-figs
@@ -935,21 +1171,16 @@ per call, or once in a configuration file as ``diagram.margin``:
     :filename-prefix: framing-margin
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-    ax.fit(sounding, margin=0.0)
+    ax.fit(sounding, pressure=(950.0, 300.0), margin=0.0)
     ax.plot_sounding(sounding)
 
 ``margin=0`` fits exactly, which is what composing panels whose frames
 must agree to the pixel wants.
 ```
 
-The sample accessor is `tephpy.samples.sounding(name)` and
-`tephpy.samples.available()` returns `("norman-12z", "norman-17z")` — verified 2026-08-25.
-`norman-17z` is the special ascent three hours before the Moore tornado, so it has the CAPE
-the parcel section needs.
-
 - [ ] **Step 2: Register the page**
 
-Add `framing` to the `docs/src/howtos/index.rst` toctree. Add `"howtos/framing.rst"` to **both** `DOCUMENTED` and `PUBLISHES_FIGURES` in `tests/test_docs_snippets.py`, and to `PUBLISHES` in `.github/scripts/check_docs_figures.py`. Three lists, all three required — a page in some but not all is the silent-fail case they exist to prevent.
+Add `framing` to `docs/src/howtos/index.rst`'s toctree. Add `"howtos/framing.rst"` to **both** `DOCUMENTED` and `PUBLISHES_FIGURES` in `tests/test_docs_snippets.py`, and to `PUBLISHES` in `.github/scripts/check_docs_figures.py`. Three lists — a page in some but not all is the silent-fail case they exist to prevent.
 
 - [ ] **Step 3: Run the snippet gate before any figure exists**
 
@@ -959,33 +1190,28 @@ pixi run --frozen tests -- tests/test_docs_snippets.py -v
 
 Expected: PASS. This runs the page as one script and catches a broken call before the slow build does.
 
-- [ ] **Step 4: Build, expect the figure gate to fail, then bless and look**
+- [ ] **Step 4: Build, bless, and look**
 
 ```bash
 pixi run --frozen --environment docs docs          # figure gate fails: no baselines
 pixi run --frozen --environment docs docs-figures  # writes docs/baseline/framing-*.png
 ```
 
-**Open all four PNGs.** Check specifically that `framing-fit` clips the parcel where `framing-fit-parcel` does not — that contrast is the page's argument, and if the two look identical the page is teaching something the figures do not show.
+**Open all five PNGs.** The page's argument is the first two: `framing-fit-unclamped` must visibly be the poor one — narrow band of isopleths, empty corners — and `framing-fit-clamped` must visibly be the conventional one. If they look alike the page is teaching something its figures do not show; stop and report.
 
-- [ ] **Step 5: Re-run everything**
+- [ ] **Step 5: Re-run everything and commit**
 
 ```bash
 pixi run --frozen --environment docs docs
 pixi run --frozen tests
 pixi run --frozen lint
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add -A docs tests .github
+git add docs tests .github
 git commit -m "Add the framing how-to
 
-New API shipped undocumented until a later plan is how the gaps Plan 7b
-spent itself closing came to exist, so the how-to lands with the methods
-it describes. Its second figure is the argument for fit being variadic:
-the same sounding framed without the parcel, and with it.
+Its spine is the contrast that shaped the API: fit on a whole ascent,
+which reaches the stratosphere and looks it, beside the same call with a
+pressure clamp. The defect found in execution is the thing the page
+teaches.
 
 Implements framing spec §7.
 
@@ -994,47 +1220,50 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Specifications, Changelog, and the Pull Request
+### Task 6: Specifications, Changelog, and the Pull Request
 
 Implements framing spec §4's specification migration and §8's open item.
 
 **Files:**
 - Modify: `docs/src/developer/specs/2026-07-22-tephpy-design.md` (§3.2, §3.4, §10 row 8)
-- Modify: `docs/src/developer/specs/2026-08-12-config-domain-validation-design.md` (§3.3 table row)
+- Modify: `docs/src/developer/specs/2026-08-12-config-domain-validation-design.md` (§3.3 table)
 - Modify: `docs/src/developer/specs/2026-08-17-published-figures-design.md`
 - Modify: `docs/src/developer/specs/2026-08-20-examples-gallery-design.md`
+- Modify: `docs/src/developer/specs/2026-08-07-config-file-design.md`
 - Modify: `docs/src/developer/specs/2026-08-25-scope-and-support-design.md`
 - Modify: `docs/src/developer/specs/2026-08-25-framing-design.md` (§8's open item)
 - Create: `changelog/<PR>.feature.rst`
 
-- [ ] **Step 1: Find every specification sentence that describes the old shape**
+- [ ] **Step 1: Find every specification sentence describing the old shape**
 
 ```bash
 grep -rn "set_extent\|corner" docs/src/developer/specs/*.md | grep -v 2026-08-25-framing
 ```
 
-Work the list. Each is prose describing corner pairs; rewrite to ranges, citing `framing spec §3.1` where the reasoning belongs elsewhere rather than restating it. **Do not put a citation in a section heading** (docs spec §3.7).
+Work the list, rewriting corner-pair prose to ranges and citing `framing spec §3.1` rather than restating its reasoning. **Never put a citation in a section heading** (docs spec §3.7).
 
-Two need particular care:
-- **spec §3.2** calls this "the cartopy idiom" (line ~410). That claim is now doubly wrong — cartopy takes flat ranges, and this takes named ones. Say what the API is rather than whose it resembles.
+Four need particular care:
+- **spec §3.2** calls this "the cartopy idiom" (line ~410). That is now doubly wrong — cartopy takes flat ranges and this takes named ones. Say what the API is rather than whose it resembles.
 - **domain spec §3.3**'s table row reads `| extent | 1 | every corner number finite, both pressures > 0 | axes.TephigramAxes.set_extent |`. Update the rule to ranges and add a `margin` row.
+- **configfile spec** (`2026-08-07-config-file-design.md:520`) quotes a worked example error, `"...expects two [pressure, temperature] corners, not [1, 2]"`, which no longer matches the message the code produces. Quote the real one.
+- **scope spec §5**'s testing table cites "the docs-style review checklist", which does not exist ({issue}`193`). Leave it — that is #193's business, not this plan's.
 
 - [ ] **Step 2: Mark the roadmap row complete**
 
-In spec §10's table, Plan 8's row status becomes `✅ complete (PR {pull}`NNN`)`. Substitute the real number in Step 5.
+In spec §10's table, Plan 8's row status becomes `✅ complete (PR {pull}`NNN`)`. Substitute the real number in Step 4.
 
 - [ ] **Step 3: Resolve the framing spec's own open item**
 
-`framing spec §8`'s single open item currently reads **Open** ({issue}`184`). Retag it:
+`framing spec §8`'s open item becomes:
 
 ```
 - **Resolved** (2026-08-25, PR {pull}`NNN`) — **the whole of this specification.**
   {issue}`184` closes with it.
 ```
 
-Note the status vocabulary requires a `Resolved` entry to carry "date, and the PR or plan that settled it" (docs spec §3.5) — a specification section is neither, so the `{pull}` reference is required, not decorative.
+**Keep the date 2026-08-25.** docs spec §3.5 dates a decision when it was *taken*, not when its pull request merged, and these decisions were taken on the 25th.
 
-- [ ] **Step 4: Open the pull request**
+- [ ] **Step 4: Open the pull request, then fill in its number**
 
 ```bash
 git push -u origin framing
@@ -1042,27 +1271,36 @@ gh pr create --title "Frame the tephigram by ranges and by data" --body "$(cat <
 Plan 8 of the roadmap. Closes #184.
 
 `set_extent` documented its argument as bottom-left and top-right corners,
-then mapped those two points and took the extremes on each axis. That is
-the bounding box of two *points* in a rotated space, and it need not
-contain the region they delimit — measured, `set_extent(((1000, 30), (900,
--10)))` produced a view excluding `(1000, -10)` and `(900, 30)`, half the
-region the caller named. #184 found the corner naming false for three of
-four ordinary inputs and the `(T, p)` transposition silently accepted; it
-did not find this one.
+then mapped those two points and took the extremes on each axis. That is the
+bounding box of two *points* in a rotated space, and it need not contain the
+region they delimit — measured, `set_extent(((1000, 30), (900, -10)))`
+produced a view excluding `(1000, -10)` and `(900, 30)`, half the region the
+caller named. #184 found the corner naming false for three of four ordinary
+inputs and the `(T, p)` transposition silently accepted; it did not find this
+one.
 
-Ranges fix all three, and mapping all four corners of the named region is
-what makes the view contain it. Nothing is released, so there is no
-deprecation cycle — every caller moves here.
+`ax.fit(...)` is the API that was missing. It frames the view around
+soundings and parcel paths directly, with a `pressure=` clamp naming the
+layer of interest.
 
-`ax.fit(...)` is the API that was missing. It takes soundings and parcel
-paths interchangeably and frames everything it is given, which dissolves
-the clipping problem rather than documenting it.
+Nothing is released, so there is no deprecation cycle — every caller moves
+here.
+
+## What execution changed about the design
+
+The specification originally claimed `fit` "answers *frame this neatly*".
+Rendering it falsified that: a radiosonde ascent does not stop at the
+tropopause, the shipped samples reach 10.2 hPa, and framing all of one gives
+a narrow band of isopleths in a mostly empty rectangle. The `pressure=` clamp
+is the fix, `fit` now promises only what it delivers — nothing you gave it
+falls outside the frame — and the how-to teaches the contrast rather than
+hiding it.
 
 ## Verification
 
 `pixi run tests`, `pixi run docs` and `pixi run lint`, all green. No image
-baseline moved under Task 1 — the default extent maps identically both
-ways, which is the specification's claim and the suite's evidence.
+baseline moved under the `set_extent` change — the default extent maps
+identically under two-corner and four-corner mapping.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -1071,35 +1309,37 @@ BODY
 )"
 ```
 
-- [ ] **Step 5: Substitute the PR number and write the fragment**
-
-With `195` as an example — **use the real number**:
+Then, with `196` as an example — **use the real number**:
 
 ```bash
-sed -i 's/{pull}`NNN`/{pull}`195`/g' docs/src/developer/specs/*.md
+sed -i 's/{pull}`NNN`/{pull}`196`/g' docs/src/developer/specs/*.md
 grep -rn "NNN" docs/src/developer/specs/ && echo "PLACEHOLDER SURVIVED" || echo "clean"
 ```
 
-Create `changelog/195.feature.rst`:
+- [ ] **Step 5: Write the changelog fragment**
+
+`changelog/196.feature.rst`:
 
 ```rst
 :meth:`ax.set_extent(...) <tephpy.plotting.axes.TephigramAxes.set_extent>`
 now takes a ``pressure`` range and a ``temperature`` range as keywords, in
-place of two ``(pressure, temperature)`` corners, and frames the whole
-region it is given rather than the bounding box of the two corners named.
-The new :meth:`ax.fit(...) <tephpy.plotting.axes.TephigramAxes.fit>` frames
-the view around soundings and parcel paths directly, with a ``margin``
-defaulting to ``diagram.margin``. Configuration files spell an extent as
-``{pressure: [...], temperature: [...]}``. (:user:`bjlittle`)
+place of two ``(pressure, temperature)`` corners, and frames the whole region
+it is given rather than the bounding box of the two corners named. The new
+:meth:`ax.fit(...) <tephpy.plotting.axes.TephigramAxes.fit>` frames the view
+around soundings and parcel paths, with ``pressure=`` naming the layer of
+interest and ``margin=`` defaulting to ``diagram.margin``. Configuration files
+spell an extent as ``{pressure: [...], temperature: [...]}``.
+(:user:`bjlittle`)
 ```
 
-- [ ] **Step 6: Verify everything, then push**
+- [ ] **Step 6: Verify, commit, push, watch**
 
 ```bash
 pixi run --frozen tests
 pixi run --frozen --environment docs docs
 pixi run --frozen lint
-git add -A && git commit -m "Update the specifications, and add the changelog fragment
+git add changelog docs
+git commit -m "Update the specifications, and add the changelog fragment
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 git push
@@ -1110,8 +1350,10 @@ gh pr checks --watch
 
 ## Self-Review Record
 
-**Spec coverage.** framing spec §3.1 → Task 1; §3.2 → Task 2; §3.3 → Task 2 Steps 3–5, 7; §3.4 → Task 1 Steps 3–4, 8–9; §3.5 → Tasks 1 and 2 (both assert autoscaling); §4 → Task 1 Step 10, Task 3, Task 5 Step 1; §5 alternatives → no task, correctly, since it records what is *not* built; §6 testing → the test steps of Tasks 1 and 2 plus Task 4's baselines; §7 → Task 4; §8's open item → Task 5 Step 3. No gap.
+**Spec coverage.** framing spec §3.1 → Task 1; §3.2's reduction → Task 2, its clamp and its corrected promise → Task 3; §3.3 → Task 2, with the clamp interaction in Task 3; §3.4 → Task 1; §3.5 → Tasks 1 and 2; §4 → Task 1 Step 10, Task 4, Task 6 Step 1; §5's alternatives → no task, correctly, since it records what is *not* built; §6 testing → the test steps of Tasks 1, 2 and 3 plus Task 5's baselines; §7 → Task 5; §8's open item → Task 6 Step 3. No gap.
 
-**Placeholder scan.** Three deliberate substitutions, each with a verifying command: the PR number (Task 5 Step 5, greps for survivors), the sample accessor name (Task 4 Step 1, says to check it), and the two sounding variable names in the comparison example (Task 3 Step 2, says to read the file). Task 2 Step 5 says "find how another float-valued option is declared and add `margin` the same way" rather than quoting a table this plan has not read — that is a direction to a pattern in the codebase, not a placeholder, and the surrounding steps give the exact converter and domain function to write.
+**Placeholder scan.** Two deliberate substitutions, each with a verifying command: the PR number (Task 6 Step 4, greps for survivors) and the two sounding variable names in the comparison example (Task 4 Step 1, says to read the file).
 
-**Type consistency.** `_limits_from_ranges` returns `(xlo, xhi, ylo, yhi)` in Task 1 and is unpacked in that order in Task 2 Step 7. `_framing_coordinates` returns `(pressures, [temperatures])` — a list in the second slot, consumed with `extend` rather than `append` in `fit`. `Extent` is `Mapping[str, tuple[float, float]]` in Task 1 Step 4 and `DEFAULT_EXTENT` is a `MappingProxyType` of that shape in Step 3, unpacked with `**` in Step 6. `DEFAULT_FIT_MARGIN` is a bare `float`, and `DiagramOptions.margin` is `float | None` whose `None` means "fall through", matching `extent`'s existing convention.
+**Type consistency.** `_limits_from_ranges` returns `(xlo, xhi, ylo, yhi)` in Task 1 and is unpacked in that order in Tasks 2 and 3. `_framing_coordinates` returns `(pressures, [temperatures])`, and Task 3's clamp masks both by the same boolean, which requires the temperature arrays to be the same length as the pressure array — true for both `Sounding` and `Profile`, whose fields are per-level. `fit`'s signature is `(*objects, pressure=None, margin=None)` in Task 3 and is called with `pressure=` in Tasks 4 and 5.
+
+**One thing this plan now records that it did not before.** Task 3 exists because execution falsified the specification, and its text says so. A plan is a point-in-time record; the record should show that the design was wrong and how it was found, not present the clamp as though it had been the intention all along.
