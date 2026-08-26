@@ -15,10 +15,12 @@ import re
 import warnings
 
 import matplotlib.pyplot as plt
+from metpy.units import units
+import numpy as np
 import pytest
 
 import tephpy
-from tephpy import _configfile
+from tephpy import Sounding, _configfile
 from tephpy._constants import (
     CONFIG_DEFAULTS,
     CURSOR_FIELD_NAMES,
@@ -26,6 +28,15 @@ from tephpy._constants import (
     EMPHASIS_STYLE_KEYS,
 )
 from tephpy.exceptions import TephpyConfigWarning
+
+#: A minimal sounding, just to give ``fit`` something to frame: ``margin`` is
+#: consumed only there, never at axes creation, so ``_draw_with`` cannot reach
+#: it through ``fig.add_subplot`` and ``canvas.draw`` the way ``diagram.extent``
+#: and the isopleth options are (framing spec §3.2/§3.3).
+_PROBE_SOUNDING = Sounding(
+    units.Quantity(np.array([1000.0, 900.0, 800.0]), "hPa"),
+    units.Quantity(np.array([20.0, 10.0, 0.0]), "degC"),
+)
 
 
 def _write(tmp_path, text):
@@ -42,13 +53,14 @@ _HUGE_INT = "9" * 320
 
 #: Eighteen of the domain spec §1 table's nineteen rows -- the gate drops
 #: ``color: 'b0b0b0'``, which has its own named test for the ``#`` hint --
-#: plus four cases that table does not tabulate: a ``diagram.extent``
-#: corner with a non-finite temperature rather than a non-finite pressure,
+#: plus five cases that table does not tabulate: a ``diagram.extent``
+#: range with a non-finite temperature rather than a non-finite pressure,
 #: an ``emphasis`` member key that is itself non-finite (a member key, not
 #: a style key), an ``emphasis`` ``linewidth`` override carrying the huge
-#: integer above rather than an ordinary bad number, and ``linewidth: 0``,
+#: integer above rather than an ordinary bad number, ``linewidth: 0``,
 #: which that table cannot hold because it drew the diagram it was asked
-#: for. Each is
+#: for, and a negative ``diagram.margin`` (framing spec §3.3, added after
+#: the table). Each is
 #: ``(section, option, yaml, expected message tail)``, the tail picking up
 #: after "which expects". Where the tail names a closed vocabulary it is
 #: built from the constant rather than written out: the message is built
@@ -108,14 +120,14 @@ REFUSED = [
     (
         "diagram",
         "extent",
-        "[[0.0, -80.0], [1050.0, 40.0]]",
-        "corner pressures above 0 hPa, not the number 0.0",
+        "{pressure: [0.0, 1050.0], temperature: [-80.0, 40.0]}",
+        "extent pressures above 0 hPa, not the number 0.0",
     ),
     (
         "diagram",
         "extent",
-        "[[1050.0, .nan], [300.0, 40.0]]",
-        "finite corner numbers, not the number nan",
+        "{pressure: [1050.0, 300.0], temperature: [.nan, 40.0]}",
+        "finite extent bounds, not the number nan",
     ),
     (
         "isotherms",
@@ -159,8 +171,14 @@ REFUSED = [
     (
         "diagram",
         "extent",
-        "[[.inf, -80.0], [300.0, 40.0]]",
-        "corner pressures above 0 hPa, not the number inf",
+        "{pressure: [.inf, 300.0], temperature: [-80.0, 40.0]}",
+        "extent pressures above 0 hPa, not the number inf",
+    ),
+    (
+        "diagram",
+        "margin",
+        "-1.0",
+        "a finite margin of 0 or more, not the number -1.0",
     ),
 ]
 
@@ -196,7 +214,7 @@ def test_the_refused_table_covers_every_rule():
     Pinning the count and the option set is what stops a rule being deleted
     from ``REFUSED`` along with the bug report that motivated it.
     """
-    assert len(REFUSED) == 22
+    assert len(REFUSED) == 23
     covered = {option for _, option, _, _ in REFUSED}
     assert covered == set(_configfile._DOMAIN_VALIDATORS)
 
@@ -268,7 +286,7 @@ def test_every_option_bar_the_flags_has_a_domain_rule():
         for option in defaults
     }
     assert options
-    assert len(options) == 42
+    assert len(options) == 43
     assert len(UNDOMAINED) == 5
     missing = sorted(
         key
@@ -351,7 +369,8 @@ ACCEPTED = [
     ("isotherms", "emphasis", "{850.0: {color: red, linewidth: 2.0, alpha: 1.0}}"),
     ("isobars", "interval", "10.0"),
     ("moist_adiabats", "truncation", "-40"),
-    ("diagram", "extent", "[[1050.0, -80.0], [300.0, 40.0]]"),
+    ("diagram", "extent", "{pressure: [1050.0, 300.0], temperature: [-80.0, 40.0]}"),
+    ("diagram", "margin", "0"),
     ("cursor", "fields", "[pressure, theta_w]"),
 ]
 
@@ -379,7 +398,7 @@ def test_a_legitimate_value_is_not_refused(tmp_path, section, option, yaml):
 
 def test_the_accepted_table_reaches_every_rule():
     """An emptied table would pass the gate above having checked nothing."""
-    assert len(ACCEPTED) == 26
+    assert len(ACCEPTED) == 27
     assert {option for _, option, _ in ACCEPTED} == set(
         _configfile._DOMAIN_VALIDATORS
     ) | {"visible"}
@@ -402,7 +421,11 @@ def test_the_accepted_table_reaches_every_rule():
 #: working configuration the load stage refuses anyway (domain spec §3.3),
 #: which is why domain spec §1 has no row for it. ``visible: false`` is the
 #: supported spelling, and the warning names the option rather than
-#: dropping it in silence.
+#: dropping it in silence. A negative ``diagram.margin`` used to be here too
+#: -- ``margin`` postdates domain spec §1's table, and ``fit`` applied the
+#: padding with no range check of its own, halving or inverting the fitted
+#: span instead of refusing it. It now raises at the draw like every other
+#: refusal (framing spec §3.3), so it moved to ``RAISES_AT_THE_DRAW`` below.
 #:
 #: A list, and a separate one, rather than an exemption set consulted by
 #: membership: seven of the refused values below are dicts, which are
@@ -418,7 +441,7 @@ DRAWS_IN_SILENCE = [
     ("moist_adiabats", "truncation", float("nan")),
 ]
 
-#: The seventeen the draw refuses loudly, in one of the three exception types
+#: The eighteen the draw refuses loudly, in one of the three exception types
 #: the gate below accepts.
 RAISES_AT_THE_DRAW = [
     ("isotherms", "color", "notacolour"),
@@ -429,9 +452,18 @@ RAISES_AT_THE_DRAW = [
     ("isotherms", "labels", ("botom",)),
     ("isobars", "interval", 0.0),
     ("isobars", "interval", float("inf")),
-    ("diagram", "extent", ((0.0, -80.0), (1050.0, 40.0))),
-    ("diagram", "extent", ((1050.0, float("nan")), (300.0, 40.0))),
-    ("diagram", "extent", ((float("inf"), -80.0), (300.0, 40.0))),
+    ("diagram", "extent", {"pressure": (0.0, 1050.0), "temperature": (-80.0, 40.0)}),
+    (
+        "diagram",
+        "extent",
+        {"pressure": (1050.0, 300.0), "temperature": (float("nan"), 40.0)},
+    ),
+    (
+        "diagram",
+        "extent",
+        {"pressure": (float("inf"), 300.0), "temperature": (-80.0, 40.0)},
+    ),
+    ("diagram", "margin", -1.0),
     ("isotherms", "emphasis", {700.0: {"lw": 2.0}}),
     ("isotherms", "emphasis", {0.0: {"linewidth": "thick"}}),
     ("isotherms", "emphasis", {0.0: {"alpha": 5.0}}),
@@ -462,6 +494,12 @@ def _draw_with(section, option, value):
     why its mistake reaches an interactive user and nobody else
     (domain spec §1).
 
+    A fourth action just for ``diagram.margin``: it is read only by ``fit``,
+    never by axes creation or the canvas draw, so nothing above would ever
+    consume it (framing spec §3.3) -- the call is added here rather than
+    given its own helper so this one function stays the single place "the
+    draw" is defined.
+
     The draw itself runs with ``RuntimeWarning`` suppressed: the
     ``isotherms.linewidth: .inf`` row in ``DRAWS_IN_SILENCE`` emits two from
     a numpy scalar multiply during the render, and the suite's
@@ -477,6 +515,8 @@ def _draw_with(section, option, value):
                 warnings.simplefilter("ignore", RuntimeWarning)
                 fig.canvas.draw()
                 ax.format_coord(0.0, 0.0)
+                if (section, option) == ("diagram", "margin"):
+                    ax.fit(_PROBE_SOUNDING)
         finally:
             plt.close(fig)
 
@@ -486,7 +526,7 @@ def test_what_the_load_refuses_the_draw_refuses_too(section, option, value, outc
     """Makes "lifted, not invented" a checked property (domain spec §5).
 
     The Python API is unguarded by design (domain spec §2), so setting the
-    value there and drawing asks the draw-time rule directly. Seventeen of these
+    value there and drawing asks the draw-time rule directly. Eighteen of these
     raise; the five in ``DRAWS_IN_SILENCE`` do not, and pinning that silence
     is the point — a later change that makes one of them raise is a change to
     a diagram a user already has, and this is where it surfaces.
@@ -542,5 +582,5 @@ def test_the_draw_table_covers_every_refusal():
     # the other keeps the total that the assertion above checks. That is how the
     # docstring came to say sixteen and four of a table that had held seventeen
     # and five since the pull request introducing both (:pull:`126`).
-    assert len(RAISES_AT_THE_DRAW) == 17
+    assert len(RAISES_AT_THE_DRAW) == 18
     assert len(DRAWS_IN_SILENCE) == 5

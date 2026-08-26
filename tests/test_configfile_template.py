@@ -31,9 +31,9 @@ def _description_cases():
 def test_the_description_gate_covers_every_option():
     """A gate over an empty list passes by checking nothing.
 
-    Forty-two, the option count of configfile spec §3.3.
+    Forty-three, the option count of configfile spec §3.3.
     """
-    assert len(_description_cases()) == 42
+    assert len(_description_cases()) == 43
 
 
 def test_descriptions_cover_exactly_the_config_sections():
@@ -133,15 +133,21 @@ def test_save_writes_only_what_was_set(tmp_path):
 
 
 def test_save_round_trips_the_tuple_valued_options(tmp_path):
-    """PyYAML has no tuple representer; extent nests them two deep."""
+    """PyYAML has no tuple representer; extent nests a tuple inside a mapping."""
     path = tmp_path / "saved.yaml"
     tephpy.config.cursor.fields = ("pressure",)
-    tephpy.config.diagram.extent = ((1000.0, -30.0), (300.0, 30.0))
+    tephpy.config.diagram.extent = {
+        "pressure": (1000.0, 300.0),
+        "temperature": (-30.0, 30.0),
+    }
     tephpy.config.save(path)
     tephpy.config.reset()
     tephpy.config.load(path)
     assert tephpy.config.cursor.fields == ("pressure",)
-    assert tephpy.config.diagram.extent == ((1000.0, -30.0), (300.0, 30.0))
+    assert tephpy.config.diagram.extent == {
+        "pressure": (1000.0, 300.0),
+        "temperature": (-30.0, 30.0),
+    }
 
 
 def test_save_normalises_a_non_dict_emphasis_mapping(tmp_path):

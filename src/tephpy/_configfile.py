@@ -420,8 +420,8 @@ def _as_number_tuple(value: object) -> tuple[float, ...]:
     return tuple(_as_number(entry) for entry in value)
 
 
-def _as_corner(value: object) -> tuple[float, float]:
-    """Check a value is one [pressure, temperature] corner.
+def _as_range(value: object) -> tuple[float, float]:
+    """Check a value is one [bound, bound] range.
 
     Parameters
     ----------
@@ -431,7 +431,7 @@ def _as_corner(value: object) -> tuple[float, float]:
     Returns
     -------
     tuple of float
-        The corner as a two-tuple of floats.
+        The range as a two-tuple of floats.
 
     Raises
     ------
@@ -444,8 +444,8 @@ def _as_corner(value: object) -> tuple[float, float]:
     return (_as_number(first), _as_number(second))
 
 
-def _as_extent(value: object) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Check a value is two [pressure, temperature] corners.
+def _as_extent(value: object) -> dict[str, tuple[float, float]]:
+    """Check a value is a mapping of pressure and temperature ranges.
 
     Parameters
     ----------
@@ -454,18 +454,18 @@ def _as_extent(value: object) -> tuple[tuple[float, float], tuple[float, float]]
 
     Returns
     -------
-    tuple of tuple of float
-        The extent as nested tuples of floats (configfile spec §3.3).
+    dict of str to tuple of float
+        The extent as named ranges (framing spec §3.4).
 
     Raises
     ------
     _MismatchError
-        If the value is not a list of exactly two corners.
+        If the value is not a mapping carrying exactly ``pressure`` and
+        ``temperature``, each a pair of numbers.
     """
-    if not isinstance(value, list) or len(value) != 2:
+    if not isinstance(value, dict) or set(value) != {"pressure", "temperature"}:
         raise _MismatchError
-    first, second = value
-    return (_as_corner(first), _as_corner(second))
+    return {name: _as_range(value[name]) for name in ("pressure", "temperature")}
 
 
 def _as_emphasis(value: object) -> dict[float, dict[str, object]]:
@@ -503,7 +503,7 @@ def _as_emphasis(value: object) -> dict[float, dict[str, object]]:
 
 
 #: One ``(description, converter)`` per distinct annotation in ``Config``:
-#: eight entries covering all 42 options. The keys are evaluated
+#: eight entries covering all 43 options. The keys are evaluated
 #: annotations, which compare equal to the ones ``typing.get_type_hints``
 #: returns for ``_config``'s dataclasses — so the expected types are read
 #: from the declarations rather than written out a second time. Each
@@ -522,8 +522,8 @@ _TYPE_VALIDATORS: Final[Mapping[object, tuple[str, Callable[[object], object]]]]
             ),
             tuple[float, ...] | None: ("a list of numbers", _as_number_tuple),
             tuple[str, ...] | None: ("a list of strings", _as_string_tuple),
-            tuple[tuple[float, float], tuple[float, float]] | None: (
-                "two [pressure, temperature] corners",
+            Mapping[str, tuple[float, float]] | None: (
+                "a mapping of pressure and temperature ranges",
                 _as_extent,
             ),
             Mapping[float, Mapping[str, object]] | None: (
@@ -861,29 +861,53 @@ def _domain_fields(value: object) -> None:
 
 
 def _domain_extent(value: object) -> None:
-    """Check both view corners are physical.
+    """Check both view ranges are physical.
 
     Parameters
     ----------
     value : object
-        The converted ``extent``, as two ``(pressure, temperature)`` pairs.
+        The converted ``extent``, as named ``pressure`` and
+        ``temperature`` ranges.
 
     Raises
     ------
     _DomainError
-        If a corner number is not finite, or a pressure is not above zero.
+        If a bound is not finite, or a pressure bound is not above zero.
         Lifted from ``axes.TephigramAxes.set_extent``, whose message names
-        the pressure but whose test is finiteness after the transform — so a
-        non-finite temperature is refused there too (domain spec §3.3).
+        the pressure but whose test is finiteness after the transform -- so
+        a non-finite temperature is refused there too (domain spec §3.3,
+        framing spec §3.4).
     """
-    corners = cast("tuple[tuple[float, float], tuple[float, float]]", value)
-    finite = "finite corner numbers"
-    positive = "corner pressures above 0 hPa"
-    for pressure, temperature in corners:
-        if not math.isfinite(temperature):
-            raise _DomainError(finite, _describe(temperature))
-        if not (pressure > 0.0 and math.isfinite(pressure)):
-            raise _DomainError(positive, _describe(pressure))
+    ranges = cast("dict[str, tuple[float, float]]", value)
+    finite = "finite extent bounds"
+    positive = "extent pressures above 0 hPa"
+    for bound in ranges["temperature"]:
+        if not math.isfinite(bound):
+            raise _DomainError(finite, _describe(bound))
+    for bound in ranges["pressure"]:
+        if not (bound > 0.0 and math.isfinite(bound)):
+            raise _DomainError(positive, _describe(bound))
+
+
+def _domain_margin(value: object) -> None:
+    """Check the fit margin is a usable fraction.
+
+    Parameters
+    ----------
+    value : object
+        The converted ``margin``.
+
+    Raises
+    ------
+    _DomainError
+        If the margin is negative or not finite. Zero is legal and fits
+        exactly, which is what a caller composing panels wants
+        (framing spec §3.3).
+    """
+    expects = "a finite margin of 0 or more"
+    margin = cast("float", value)
+    if not (math.isfinite(margin) and margin >= 0.0):
+        raise _DomainError(expects, _describe(margin))
 
 
 #: The rule for each ``emphasis`` style override, keyed by style key. A key
@@ -941,10 +965,10 @@ def _domain_emphasis(value: object) -> None:
 
 #: The domain rule for each option that has one, keyed by **option name**
 #: where ``_TYPE_VALIDATORS`` is keyed by annotation. The two tables are
-#: shaped by different things: eight annotations cover all 42 options because
+#: shaped by different things: eight annotations cover all 43 options because
 #: a type is a coarse property, while a domain is a property of what the
 #: option *means* -- ``color`` and ``linewidth`` are both scalars and share no
-#: domain at all. Ten names cover the 42 options bar the five ``visible``
+#: domain at all. Eleven names cover the 43 options bar the five ``visible``
 #: flags, which are bools and need no domain (domain spec §3.1).
 #:
 #: Keying by name alone is sound only because no two sections give one option
@@ -962,6 +986,7 @@ _DOMAIN_VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = MappingProxy
         "values": _domain_values,
         "interval": _domain_positive,
         "extent": _domain_extent,
+        "margin": _domain_margin,
         "fields": _domain_fields,
         "truncation": _domain_finite,
     }
@@ -1303,8 +1328,12 @@ CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
         "diagram": MappingProxyType(
             {
                 "extent": (
-                    "Default view corners as ``[[pressure, temperature], "
-                    "[pressure, temperature]]``, in hPa and degrees Celsius."
+                    "Default view as ``{pressure: [hPa, hPa], temperature: "
+                    "[degC, degC]}``; order within a range does not matter."
+                ),
+                "margin": (
+                    "Default ``fit`` margin, as a fraction of the fitted "
+                    "span added to each side; ``0`` fits exactly."
                 ),
             }
         ),

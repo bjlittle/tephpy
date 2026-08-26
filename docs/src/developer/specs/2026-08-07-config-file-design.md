@@ -30,7 +30,7 @@ preferred extent, a cursor readout — retypes it at the top of every script:
 ```python
 tephpy.config.isotherms.color = "purple"
 tephpy.config.isobars.linewidth = 0.8
-tephpy.config.diagram.extent = ((1000.0, -30.0), (250.0, 35.0))
+tephpy.config.diagram.extent = {"pressure": (1000.0, 250.0), "temperature": (-30.0, 35.0)}
 ```
 
 This specification gives that boilerplate a home on disk:
@@ -132,14 +132,14 @@ existence and the file returned were two different files.
 ### 3.3 File format
 
 One top-level mapping per configuration section, mirroring `Config` exactly — seven
-sections, 42 options:
+sections, 43 options:
 
 | Section | Type | Options |
 |---|---|---|
 | `isotherms`, `isobars`, `dry_adiabats` | `FamilyOptions` | `color`, `linewidth`, `alpha`, `labels`, `visible`, `emphasis`, `values`, `interval` |
 | `moist_adiabats` | `MoistAdiabatOptions` | the above + `truncation` |
 | `mixing_ratios` | `MixingRatioOptions` | `LineOptions` + `values` — a values ladder only, so **no** `interval` |
-| `diagram` | `DiagramOptions` | `extent` |
+| `diagram` | `DiagramOptions` | `extent`, `margin` |
 | `cursor` | `CursorOptions` | `fields` |
 
 ```yaml
@@ -154,7 +154,8 @@ isotherms:
     0.0: {color: tab:cyan, linewidth: 1.5}
 
 diagram:
-  extent: [[900.0, -65.0], [200.0, 5.0]]
+  extent: {pressure: [900.0, 200.0], temperature: [-65.0, 5.0]}
+  margin: 0.05
 
 cursor:
   fields: [pressure, temperature, theta]
@@ -164,8 +165,8 @@ Four coercions are needed because YAML's type model does not match the dataclass
 
 | YAML gives | Wanted | Note |
 |---|---|---|
-| `list` | `tuple` | `labels`, `values`, `fields`, `extent` |
-| nested `list` | nested `tuple` | `extent` is `((p, T), (p, T))` |
+| `list` | `tuple` | `labels`, `values`, `fields` |
+| `list`, nested in a mapping | `tuple` | `extent`'s `pressure` and `temperature` ranges each coerce independently (framing spec §3.4) |
 | `int` mapping key | `float` | `emphasis` is keyed by member value; `850` and `850.0` must not be two members |
 | scalar `str` | `str` | `labels` accepts a bare edge name as well as a tuple |
 
@@ -289,7 +290,7 @@ validators — the same eight shapes §6's accept/reject matrix runs over. Becau
 `typing.get_type_hints` has resolved them, `str()` alone yields text carrying what a source
 annotation would not: `Mapping` arrives as `collections.abc.Mapping[float,
 collections.abc.Mapping[str, object]]`, and the private `Extent` alias arrives expanded to
-`tuple[tuple[float, float], tuple[float, float]]`. No qualification table is needed, and one
+`collections.abc.Mapping[str, tuple[float, float]]`. No qualification table is needed, and one
 should not be added — it would be a second spelling of what the annotations already say, of
 exactly the kind §3.4's gates exist to catch.
 
@@ -497,16 +498,16 @@ from the annotations that already exist:
   A module-level `{(section, option): annotation}` table is not available: `_configfile`
   cannot import `_config` at runtime without reversing the §3 dependency arrow, and a
   lazily-built one would leave a direct `coerce` caller checking against an empty table.
-  **Measured:** 42 options over 8 distinct annotation shapes.
+  **Measured:** 43 options over 8 distinct annotation shapes.
 - `_TYPE_VALIDATORS` — one `(description, converter)` per distinct shape, so eight entries
-  cover all 42 options. Each converter both checks and converts, which makes it the natural
+  cover all 43 options. Each converter both checks and converts, which makes it the natural
   home for the §3.3 coercions rather than a second pass over the same value.
 - `coerce` consults them and raises `TephpyConfigError` on a mismatch; `apply` catches it,
   warns through `_warn_from_caller` (§5.1), and moves to the next option. That single
   `except` is what delivers the rule and what ends the escalation.
 - A completeness gate asserts every `(section, option)` in `Config` has a validator, and
   asserts its own option set, built from `dataclasses.fields`, is non-empty and the same
-  size as the 42 that `CONFIG_DEFAULTS` holds — two independently written tables made to
+  size as the 43 that `CONFIG_DEFAULTS` holds — two independently written tables made to
   agree, which is the same self-check the two gates in §3.4 carry, for the same reason.
 
 **The message** names the file, the option, what was expected and what was found, in the
@@ -517,7 +518,7 @@ reader writes YAML and has never seen `float`:
 /home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the string 'thick'
 /home/you/work/tephpyrc.yaml: ignoring isotherms.linewidth, which expects a number, not the boolean true
 /home/you/work/tephpyrc.yaml: ignoring isotherms.values, which expects a list of numbers, not the string 'notalist'
-/home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects two [pressure, temperature] corners, not [1, 2]
+/home/you/work/tephpyrc.yaml: ignoring diagram.extent, which expects a mapping of pressure and temperature ranges, not [1, 2]
 ```
 
 **One value fails at the conversion rather than at the check.** An integer of 309 or more

@@ -49,6 +49,7 @@ from tephpy._constants import (
     CIN_COLOR,
     CURSOR_FIELDS,
     DEFAULT_EXTENT,
+    DEFAULT_FIT_MARGIN,
     EDGE_AXIS_TITLES,
     EDGE_LABEL_GUTTER_PAD,
     EDGE_TICK_LENGTH,
@@ -65,9 +66,10 @@ from tephpy._constants import (
     PROFILE_ZORDER,
     SHADING_ALPHA,
     SHADING_ZORDER,
+    Y_MAXIMUM_TEMPERATURE,
 )
 from tephpy._units import as_quantity, check_units_mapping
-from tephpy.exceptions import MissingDataError
+from tephpy.exceptions import MissingDataError, TephpyValidationError
 from tephpy.plotting import shading
 from tephpy.plotting.barbs import BarbStaff
 from tephpy.plotting.isopleths import (
@@ -250,6 +252,93 @@ _CURSOR_FORMATTERS: Final[dict[str, Callable[[float, float, float], str]]] = {
     "mixing_ratio": _cursor_mixing_ratio,
     "theta_w": _cursor_theta_w,
 }
+
+
+def _limits_from_ranges(
+    pressure: tuple[float, float], temperature: tuple[float, float]
+) -> tuple[float, float, float, float]:
+    """Map a named (pressure, temperature) region to x/y limits.
+
+    All four corners of the region are mapped, not the two a caller
+    happens to write: the view is an axis-aligned rectangle in a rotated
+    space, so the bounding box of two *points* need not contain the
+    region they delimit (framing spec §1, §3.1). The four corners are not
+    enough either: at fixed pressure the y-coordinate has an interior
+    maximum at ``Y_MAXIMUM_TEMPERATURE``, so whenever the temperature
+    range spans it strictly, the two points at that temperature and each
+    pressure bound join the candidate set (framing spec §3.1).
+
+    Parameters
+    ----------
+    pressure : tuple of float
+        Pressure bounds in hPa, in either order.
+    temperature : tuple of float
+        Temperature bounds in degrees Celsius, in either order.
+
+    Returns
+    -------
+    tuple of float
+        ``(xlo, xhi, ylo, yhi)`` in data space.
+    """
+    p_lo, p_hi = sorted(pressure)
+    t_lo, t_hi = sorted(temperature)
+    pressures = [p_lo, p_lo, p_hi, p_hi]
+    temperatures = [t_lo, t_hi, t_lo, t_hi]
+    if t_lo < Y_MAXIMUM_TEMPERATURE < t_hi:
+        pressures.extend([p_lo, p_hi])
+        temperatures.extend([Y_MAXIMUM_TEMPERATURE, Y_MAXIMUM_TEMPERATURE])
+    pressure_arr = np.array(pressures, dtype=np.float64)
+    temperature_arr = np.array(temperatures, dtype=np.float64)
+    thetas = transforms.theta_from_pressure_temperature(pressure_arr, temperature_arr)
+    x, y = transforms.xy_from_temperature_theta(temperature_arr, thetas)
+    return float(np.min(x)), float(np.max(x)), float(np.min(y)), float(np.max(y))
+
+
+def _framing_coordinates(
+    obj: object,
+) -> tuple[npt.NDArray[np.float64], list[npt.NDArray[np.float64]]]:
+    """Pressure and the temperature-like values that bound a view.
+
+    The only place ``fit`` knows what a ``Sounding`` or a ``Profile`` is,
+    so a third plottable is taught here rather than inside ``fit``
+    (framing spec §3.2). Wind is absent by design: ``plot_barbs`` draws
+    into the gutter, so it is not a coordinate of the plane.
+
+    Parameters
+    ----------
+    obj : object
+        A ``Sounding`` or a ``calc.Profile``.
+
+    Returns
+    -------
+    tuple
+        Pressures in hPa, and a list of temperature-like arrays in
+        degrees Celsius.
+
+    Raises
+    ------
+    TephpyValidationError
+        If the object is neither.
+    """
+    # ``Sounding`` and ``Profile`` are TYPE_CHECKING-only imports in this
+    # module, so they are not bound at runtime; import them here rather than
+    # widening the module's import graph for one isinstance check. Neither
+    # imports ``plotting``, so this cannot cycle -- verified 2026-08-25.
+    from tephpy.calc import Profile  # noqa: PLC0415
+    from tephpy.sounding import Sounding  # noqa: PLC0415
+
+    if isinstance(obj, Sounding):
+        temperatures = [obj.temperature.to("degC").magnitude]
+        if obj.dewpoint is not None:
+            temperatures.append(obj.dewpoint.to("degC").magnitude)
+        return obj.pressure.to("hPa").magnitude, temperatures
+    if isinstance(obj, Profile):
+        return (
+            obj.pressure.to("hPa").magnitude,
+            [obj.temperature.to("degC").magnitude],
+        )
+    msg = f"fit() takes a Sounding or Profile, not {type(obj).__name__}"
+    raise TephpyValidationError(msg)
 
 
 class TephigramTransform(mtransforms.Transform):
@@ -453,7 +542,7 @@ class TephigramAxes(Axes):
             self._families[name] = family
         self._sync_edge_labels()
         extent = config.diagram.extent
-        self.set_extent(DEFAULT_EXTENT if extent is None else extent)
+        self.set_extent(**(DEFAULT_EXTENT if extent is None else extent))
 
     def _figure_is_clearing(self) -> bool:
         """Whether the enclosing figure is the caller of :meth:`clear`.
@@ -490,40 +579,179 @@ class TephigramAxes(Axes):
         return False
 
     def set_extent(
-        self, extent: tuple[tuple[float, float], tuple[float, float]]
+        self,
+        *,
+        pressure: tuple[float, float],
+        temperature: tuple[float, float],
     ) -> None:
-        """Fix the view from ((pressure, temperature), ...) corners.
+        """Fix the view to a pressure range and a temperature range.
 
-        The cartopy-style idiom for directly comparable figures
-        (spec §3.2): the two corners are mapped through the tephigram
-        transforms to x/y limits, and autoscaling is disabled so later
-        overlays never drift the window.
+        For directly comparable figures (spec §3.2). Both ranges are
+        keyword-only and both are required: two positional sequences that
+        cannot be told apart is the defect this replaces, and fixing one
+        axis while leaving the other is a different operation
+        (framing spec §3.1). Order within a range carries no meaning and is
+        normalised. Autoscaling is disabled, so later overlays never drift
+        a window the caller fixed.
+
+        The view is an axis-aligned rectangle and pressure is not an axis,
+        so it always reaches further than the ranges name. For the default
+        extent the view's other two corners are 84.9 hPa / -137.9 degC and
+        1058.4 hPa / +77.9 degC. Nothing draws there because it is
+        unphysical, but the region is reachable and the ranges do not say
+        so (framing spec §1).
 
         Parameters
         ----------
-        extent : tuple
-            ``((pressure, temperature), (pressure, temperature))``
-            bottom-left and top-right corners in hPa / degrees Celsius.
+        pressure : tuple of float
+            Pressure bounds in hPa, in either order, both finite and above
+            zero.
+        temperature : tuple of float
+            Temperature bounds in degrees Celsius, in either order, both
+            finite.
 
         Raises
         ------
         ValueError
-            If a corner is unphysical (non-positive pressure) or the
-            corners are degenerate.
+            If either range is non-finite, degenerate, or -- for pressure
+            -- not above zero. The message names the keyword at fault.
         """
-        (p0, t0), (p1, t1) = extent
-        pressures = np.array([p0, p1], dtype=np.float64)
-        temperatures = np.array([t0, t1], dtype=np.float64)
-        thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
-        x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
-        if not (np.isfinite(x).all() and np.isfinite(y).all()):
-            msg = f"extent corners must be physical (pressure > 0 hPa): {extent!r}"
+        for name, bounds in (("pressure", pressure), ("temperature", temperature)):
+            lo, hi = sorted(bounds)
+            if not (math.isfinite(lo) and math.isfinite(hi)):
+                msg = f"set_extent {name} bounds must be finite: {bounds!r}"
+                raise ValueError(msg)
+            if lo == hi:
+                msg = f"set_extent {name} range must not be degenerate: {bounds!r}"
+                raise ValueError(msg)
+            if name == "pressure" and lo <= 0.0:
+                msg = f"set_extent pressure bounds must be above 0 hPa: {bounds!r}"
+                raise ValueError(msg)
+        xlo, xhi, ylo, yhi = _limits_from_ranges(pressure, temperature)
+        self.set_xlim(xlo, xhi)
+        self.set_ylim(ylo, yhi)
+        self.set_autoscale_on(False)
+
+    def fit(
+        self,
+        *objects: Sounding | Profile,
+        pressure: tuple[float, float] | None = None,
+        margin: float | None = None,
+    ) -> None:
+        """Frame the view around the data given.
+
+        Guarantees that nothing you gave it falls outside the frame. It
+        does not guarantee a neat-looking diagram: a radiosonde ascent
+        does not stop at the tropopause, and framing all of one gives a
+        view whose span is dominated by the stratosphere. ``pressure=``
+        is what makes it neat -- it names the layer you care about, and
+        the temperature range is then fitted to the data inside it
+        (framing spec §3.2).
+
+        Takes soundings and parcel paths interchangeably, and frames
+        everything it is given: a parcel is warmer than its environment
+        through the CAPE region, so fitting a sounding alone can clip the
+        path the parcel analysis is drawn to show. Autoscaling is
+        disabled, as for :meth:`set_extent`.
+
+        Parameters
+        ----------
+        *objects : Sounding or Profile
+            What to frame. At least one is required.
+        pressure : tuple of float, optional
+            Pressure bounds in hPa, in either order, naming the layer to
+            frame. Levels outside it do not bound the view. When omitted
+            the whole of every object is framed, which is correct and is
+            usually wide.
+        margin : float, optional
+            Fraction of the fitted span added to each side in the drawn
+            plane. Resolves keyword > ``config.diagram.margin`` >
+            ``DEFAULT_FIT_MARGIN``. Zero fits exactly. Whichever route it
+            arrives by, the resolved value must be finite and 0 or more.
+
+        Raises
+        ------
+        TephpyValidationError
+            If no objects are given, or one is neither a ``Sounding`` nor
+            a ``Profile``.
+        ValueError
+            If the ``pressure`` clamp is non-finite, degenerate, or not
+            above zero, or if the resolved ``margin`` is negative or not
+            finite (framing spec §3.3).
+        MissingDataError
+            If an argument carries no finite data at all, naming which one
+            -- checked before any clamp is applied -- or if nothing
+            survives the ``pressure`` clamp across every argument.
+        """
+        if not objects:
+            msg = "fit() needs at least one Sounding or Profile to frame"
+            raise TephpyValidationError(msg)
+        if pressure is not None:
+            for name, bounds in (("pressure", pressure),):
+                lo, hi = sorted(bounds)
+                if not (math.isfinite(lo) and math.isfinite(hi)):
+                    msg = f"fit {name} clamp bounds must be finite: {bounds!r}"
+                    raise ValueError(msg)
+                if lo == hi:
+                    msg = f"fit {name} clamp must not be degenerate: {bounds!r}"
+                    raise ValueError(msg)
+                if lo <= 0.0:
+                    msg = f"fit pressure clamp bounds must be above 0 hPa: {bounds!r}"
+                    raise ValueError(msg)
+        pressures: list[npt.NDArray[np.float64]] = []
+        temperatures: list[npt.NDArray[np.float64]] = []
+        for index, obj in enumerate(objects, start=1):
+            level, temps = _framing_coordinates(obj)
+            level = np.asarray(level, dtype=np.float64)
+            temp_arrays = [np.asarray(t, dtype=np.float64) for t in temps]
+            # A per-argument check, made before the clamp below is applied:
+            # data that simply falls outside `pressure=` is a legitimate
+            # silent no-op (a caller framing a layer may pass a sounding
+            # that does not reach it), but no finite temperature-like data
+            # at all is the caller error framing spec §3.2 forbids. Pressure
+            # itself is never the tell -- `Sounding` and `Profile` both
+            # require it finite at construction -- so only the
+            # temperature-like arrays are checked here.
+            if not any(np.isfinite(t).any() for t in temp_arrays):
+                msg = (
+                    f"fit() argument {index} ({type(obj).__name__}) has no "
+                    "finite data to frame"
+                )
+                raise MissingDataError(msg)
+            if pressure is None:
+                inside = np.ones(level.shape, dtype=bool)
+            else:
+                lo, hi = sorted(pressure)
+                inside = (level >= lo) & (level <= hi)
+            pressures.append(level[inside])
+            temperatures.extend(t[inside] for t in temp_arrays)
+        all_p = np.concatenate(pressures) if pressures else np.array([])
+        all_t = np.concatenate(temperatures) if temperatures else np.array([])
+        if not (
+            all_p.size
+            and all_t.size
+            and np.isfinite(all_p).any()
+            and np.isfinite(all_t).any()
+        ):
+            msg = "fit() found no finite data to frame"
+            raise MissingDataError(msg)
+        if pressure is None:
+            span_p = (float(np.nanmin(all_p)), float(np.nanmax(all_p)))
+        else:
+            span_p = (float(min(pressure)), float(max(pressure)))
+        xlo, xhi, ylo, yhi = _limits_from_ranges(
+            span_p, (float(np.nanmin(all_t)), float(np.nanmax(all_t)))
+        )
+        if margin is None:
+            configured = config.diagram.margin
+            margin = DEFAULT_FIT_MARGIN if configured is None else configured
+        if not (math.isfinite(margin) and margin >= 0.0):
+            msg = f"fit margin must be finite and 0 or more: {margin!r}"
             raise ValueError(msg)
-        if x[0] == x[1] or y[0] == y[1]:
-            msg = f"extent corners must span a non-degenerate view: {extent!r}"
-            raise ValueError(msg)
-        self.set_xlim(float(np.min(x)), float(np.max(x)))
-        self.set_ylim(float(np.min(y)), float(np.max(y)))
+        pad_x = (xhi - xlo) * margin
+        pad_y = (yhi - ylo) * margin
+        self.set_xlim(xlo - pad_x, xhi + pad_x)
+        self.set_ylim(ylo - pad_y, yhi + pad_y)
         self.set_autoscale_on(False)
 
     def format_coord(self, x: float, y: float) -> str:

@@ -64,8 +64,8 @@ def test_the_gate_covers_every_family_option():
     Forty: eight ``FamilyOptions`` each for isotherms, isobars and dry
     adiabats, nine for moist adiabats (plus ``truncation``), and seven for
     mixing ratios (``LineOptions`` plus ``values``, with no ``interval``).
-    With ``diagram.extent`` and ``cursor.fields`` below, that is the 42
-    options of configfile spec §3.3.
+    With ``diagram.extent``, ``diagram.margin`` and ``cursor.fields``
+    below, that is the 43 options of configfile spec §3.3.
     """
     assert len(_family_cases()) == 40
 
@@ -89,7 +89,7 @@ def test_diagram_default_is_the_extent_an_untouched_axes_lands_in():
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         untouched = (ax.get_xlim(), ax.get_ylim())
-        ax.set_extent(CONFIG_DEFAULTS["diagram"]["extent"])
+        ax.set_extent(**CONFIG_DEFAULTS["diagram"]["extent"])
         assert (ax.get_xlim(), ax.get_ylim()) == untouched
     finally:
         plt.close(fig)

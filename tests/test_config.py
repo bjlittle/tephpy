@@ -143,7 +143,10 @@ def test_source_is_read_only():
 
 def test_reset_restores_the_pristine_configuration():
     tephpy.config.isotherms.color = "purple"
-    tephpy.config.diagram.extent = ((900.0, -20.0), (300.0, 30.0))
+    tephpy.config.diagram.extent = {
+        "pressure": (900.0, 300.0),
+        "temperature": (-20.0, 30.0),
+    }
     tephpy.config.reset()
     assert tephpy.config.isotherms.color is None
     assert tephpy.config.diagram.extent is None

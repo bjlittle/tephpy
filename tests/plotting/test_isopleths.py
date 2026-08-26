@@ -901,20 +901,28 @@ def test_edge_locator_matches_the_coverage_table():
 
 
 def test_edge_locator_ticks_every_crossing():
-    """200 hPa leaves and re-enters the view across the top edge.
+    """750 hPa leaves and re-enters the view across the bottom edge.
 
     The extent is given rather than defaulted: no member double-crosses an
     edge at ``DEFAULT_EXTENT``, so a test that took the view it is handed
     would assert the ordinary single-crossing case under a name promising
     the doubled one (spec §3.2).
+
+    750 hPa sits just outside the named pressure range, (50, 700): the view
+    is an axis-aligned rectangle in a rotated space and so always reaches
+    further than the ranges that named it (framing spec §1), and it is
+    exactly that overreach a member outside the range can double-cross. The
+    temperature range, (-30, 20), does not span ``Y_MAXIMUM_TEMPERATURE``
+    (framing spec §3.1), so the case is unrelated to that fix -- verified
+    directly, the same three values come back for a range that does span it.
     """
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
-        ax.set_extent(((1050.0, -40.0), (200.0, 40.0)))
+        ax.set_extent(pressure=(700.0, 50.0), temperature=(-30.0, 20.0))
         fig.canvas.draw()
-        locator = isopleths._EdgeLocator(ax.isobars(), "top")
+        locator = isopleths._EdgeLocator(ax.isobars(), "bottom")
         locator()
-        assert locator.values == [150.0, 200.0, 200.0]
+        assert locator.values == [700.0, 750.0, 750.0]
     finally:
         plt.close(fig)
 
@@ -926,7 +934,7 @@ def test_edge_locator_tracks_the_view():
         fig.canvas.draw()
         locator = isopleths._EdgeLocator(ax.isobars(), "left")
         wide = locator()
-        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        ax.set_extent(pressure=(900.0, 500.0), temperature=(-10.0, 20.0))
         fig.canvas.draw()
         zoomed = locator()
         assert zoomed != wide

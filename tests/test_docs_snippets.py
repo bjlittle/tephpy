@@ -43,6 +43,7 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 DOCUMENTED = (
     "howtos/configuration.rst",
     "howtos/emphasis.rst",
+    "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
 )
@@ -53,6 +54,7 @@ DOCUMENTED = (
 #: -- it would pass all of them, having been asked nothing.
 PUBLISHES_FIGURES = (
     "howtos/emphasis.rst",
+    "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
 )

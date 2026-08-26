@@ -10,7 +10,7 @@ on a coordinate system rotated so that :term:`isotherms <isotherm>` and
 :term:`dry adiabats <dry adiabat>` cross at right angles.
 
 The :term:`projection` is registered by importing tephpy, and the extent is
-given as two (pressure, temperature) corners.
+given as a pressure range and a temperature range.
 """
 
 from __future__ import annotations
@@ -36,10 +36,10 @@ def main() -> Figure:
         The composed figure.
     """
     fig, ax = plt.subplots(figsize=(8.0, 4.0), subplot_kw={"projection": "tephigram"})
-    # The corners the diagram already frames itself with, restated so the
+    # The ranges the diagram already frames itself with, restated so the
     # example shows how to reframe it. `tests/examples` pins them to the
     # default, so a change to that default cannot leave this figure behind.
-    ax.set_extent(((900.0, -65.0), (200.0, 5.0)))
+    ax.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
     ax.set_title("Tephigram")
     return fig
 

@@ -36,9 +36,9 @@ __all__ = [
     "config",
 ]
 
-#: A diagram extent: ((pressure, temperature), (pressure, temperature))
-#: corners in hPa / degrees Celsius.
-Extent = tuple[tuple[float, float], tuple[float, float]]
+#: A diagram extent: pressure and temperature ranges in hPa / degrees
+#: Celsius, keyed ``"pressure"`` and ``"temperature"`` (framing spec §3.4).
+Extent = Mapping[str, tuple[float, float]]
 
 
 @dataclasses.dataclass
@@ -117,6 +117,9 @@ class DiagramOptions:
 
     #: Default view extent applied to new tephigram axes.
     extent: Extent | None = None
+    #: Default ``fit`` margin, as a fraction of the fitted span
+    #: (framing spec §3.3).
+    margin: float | None = None
 
 
 @dataclasses.dataclass

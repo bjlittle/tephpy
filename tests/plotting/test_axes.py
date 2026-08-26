@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import dataclasses
+import math
+
 import matplotlib.colors as mcolors
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
@@ -15,7 +18,7 @@ from metpy.units import units
 import numpy as np
 import pytest
 
-from tephpy import Sounding, calc, transforms
+from tephpy import Sounding, calc, samples, transforms
 from tephpy._config import config
 from tephpy._constants import (
     BARB_GUTTER_PAD,
@@ -34,8 +37,9 @@ from tephpy._constants import (
     PROFILE_ZORDER,
     SHADING_ALPHA,
     SHADING_ZORDER,
+    Y_MAXIMUM_TEMPERATURE,
 )
-from tephpy.exceptions import TephpyUnitsError
+from tephpy.exceptions import MissingDataError, TephpyUnitsError, TephpyValidationError
 from tephpy.plotting import axes
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import EDGES, IsoplethFamily
@@ -119,6 +123,25 @@ def tephigram_axes():
     plt.close(fig)
 
 
+@pytest.fixture
+def tephigram_axes_b():
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    yield ax
+    plt.close(fig)
+
+
+@pytest.fixture
+def sample_sounding():
+    """Build the 17Z Norman ascent -- the one with CAPE (gallery spec §3.1)."""
+    return samples.sounding("norman-17z")
+
+
+@pytest.fixture
+def sample_sounding_b():
+    """Build the 12Z Norman ascent, a second sounding from the same station day."""
+    return samples.sounding("norman-12z")
+
+
 def test_projection_registered_by_package_import(tephigram_axes):
     """`import tephpy` registers the projection for stock matplotlib idioms."""
     assert isinstance(tephigram_axes, TephigramAxes)
@@ -180,12 +203,19 @@ FAMILY_NAMES = (
 
 
 def _expected_limits(extent):
-    """Map extent corners through the transforms to expected x/y limits."""
-    (p0, t0), (p1, t1) = extent
-    thetas = transforms.theta_from_pressure_temperature(
-        np.array([p0, p1]), np.array([t0, t1])
-    )
-    x, y = transforms.xy_from_temperature_theta(np.array([t0, t1]), thetas)
+    """Map all four corners of an extent to expected x/y limits.
+
+    Independent of ``axes._limits_from_ranges``: it computes the same four
+    corners from scratch rather than calling the implementation under test,
+    so a regression there (e.g. back to mapping only the two positionally
+    paired corners) is still caught here (framing spec §1, §3.1).
+    """
+    p0, p1 = extent["pressure"]
+    t0, t1 = extent["temperature"]
+    pressures = np.array([p0, p0, p1, p1])
+    temperatures = np.array([t0, t1, t0, t1])
+    thetas = transforms.theta_from_pressure_temperature(pressures, temperatures)
+    x, y = transforms.xy_from_temperature_theta(temperatures, thetas)
     return (float(np.min(x)), float(np.max(x))), (float(np.min(y)), float(np.max(y)))
 
 
@@ -241,15 +271,18 @@ def test_default_extent_applied(tephigram_axes):
 
 
 def test_set_extent_moves_the_view(tephigram_axes):
-    extent = ((1050.0, -10.0), (700.0, 30.0))
-    tephigram_axes.set_extent(extent)
+    # Temperature range chosen not to span Y_MAXIMUM_TEMPERATURE (26.85 degC),
+    # so the plain four-corner comparison in `_expected_limits` applies
+    # unchanged (framing spec §3.1).
+    extent = {"pressure": (1050.0, 700.0), "temperature": (-10.0, 20.0)}
+    tephigram_axes.set_extent(**extent)
     (x0, x1), (y0, y1) = _expected_limits(extent)
     assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
     assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
 
 
 def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
-    tephigram_axes.set_extent(DEFAULT_EXTENT)
+    tephigram_axes.set_extent(**DEFAULT_EXTENT)
     before = (tephigram_axes.get_xlim(), tephigram_axes.get_ylim())
     assert not tephigram_axes.get_autoscale_on()
     tephigram_axes.plot(
@@ -262,10 +295,428 @@ def test_set_extent_disables_autoscale_so_overlays_do_not_drift(tephigram_axes):
 
 
 def test_set_extent_rejects_unphysical_corners(tephigram_axes):
-    with pytest.raises(ValueError, match="physical"):
-        tephigram_axes.set_extent(((0.0, -40.0), (200.0, 40.0)))
+    with pytest.raises(ValueError, match="above 0 hPa"):
+        tephigram_axes.set_extent(pressure=(0.0, 200.0), temperature=(-40.0, 40.0))
     with pytest.raises(ValueError, match="degenerate"):
-        tephigram_axes.set_extent(((850.0, 10.0), (850.0, 10.0)))
+        tephigram_axes.set_extent(pressure=(850.0, 850.0), temperature=(10.0, 10.0))
+
+
+def test_set_extent_takes_keyword_ranges(tephigram_axes):
+    """The view is named by a pressure range and a temperature range."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    assert tephigram_axes.get_xlim() == pytest.approx((1545.51, 1831.40), abs=0.01)
+    assert tephigram_axes.get_ylim() == pytest.approx((1675.51, 1821.40), abs=0.01)
+
+
+def test_order_within_a_range_carries_no_meaning(tephigram_axes, tephigram_axes_b):
+    """(a, b) and (b, a) name the same window (framing spec §3.1)."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    tephigram_axes_b.set_extent(pressure=(200.0, 900.0), temperature=(5.0, -65.0))
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_the_view_contains_the_whole_region_it_names(tephigram_axes):
+    """Every corner of the named region falls inside the view.
+
+    The defect this replaces mapped two corners and took the extremes,
+    which is the bounding box of two *points* rather than of the region
+    they delimit. Measured 2026-08-25, the old code placed
+    (1000 hPa, -10 degC) and (900 hPa, 30 degC) outside the view that
+    ``((1000, 30), (900, -10))`` asked for -- half the named region
+    (framing spec §1).
+    """
+    tephigram_axes.set_extent(pressure=(1000.0, 900.0), temperature=(30.0, -10.0))
+    xlo, xhi = tephigram_axes.get_xlim()
+    ylo, yhi = tephigram_axes.get_ylim()
+    for p in (1000.0, 900.0):
+        for t in (30.0, -10.0):
+            theta = transforms.theta_from_pressure_temperature(
+                np.array([p]), np.array([t])
+            )
+            x, y = transforms.xy_from_temperature_theta(np.array([t]), theta)
+            assert xlo <= float(x[0]) <= xhi, f"({p}, {t}) outside x"
+            assert ylo <= float(y[0]) <= yhi, f"({p}, {t}) outside y"
+
+
+def test_the_view_contains_the_interior_y_extremum(tephigram_axes):
+    """A range spanning ``T*`` is bounded there too, not only at its corners.
+
+    Four corners are not enough: at fixed pressure the y-coordinate has an
+    interior maximum at ``Y_MAXIMUM_TEMPERATURE``. Measured 2026-08-25, the
+    corner-only search returned ``yhi = 1685.63`` for this exact range while
+    ``(900 hPa, Y_MAXIMUM_TEMPERATURE)`` maps to ``y = 1693.32`` -- outside
+    the view that named it (framing spec §3.1). Computed independently
+    through ``transforms``, not through ``axes._limits_from_ranges``.
+    """
+    tephigram_axes.set_extent(pressure=(1000.0, 900.0), temperature=(-50.0, 100.0))
+    ylo, yhi = tephigram_axes.get_ylim()
+    for p in (1000.0, 900.0):
+        theta = transforms.theta_from_pressure_temperature(
+            np.array([p]), np.array([Y_MAXIMUM_TEMPERATURE])
+        )
+        _, y = transforms.xy_from_temperature_theta(
+            np.array([Y_MAXIMUM_TEMPERATURE]), theta
+        )
+        assert ylo <= float(y[0]) <= yhi, f"({p}, {Y_MAXIMUM_TEMPERATURE}) outside y"
+
+
+def test_a_range_not_spanning_the_extremum_keeps_the_four_corner_limits(
+    tephigram_axes,
+):
+    """The new candidates cannot silently widen a view that does not need them.
+
+    ``DEFAULT_EXTENT``'s temperature range, (-65, 5), does not reach
+    ``Y_MAXIMUM_TEMPERATURE`` (26.85 degC), so the limits must match the
+    plain four-corner result exactly (framing spec §3.1).
+    """
+    extent = {"pressure": (900.0, 200.0), "temperature": (-65.0, 5.0)}
+    tephigram_axes.set_extent(**extent)
+    (x0, x1), (y0, y1) = _expected_limits(extent)
+    assert tephigram_axes.get_xlim() == pytest.approx((x0, x1))
+    assert tephigram_axes.get_ylim() == pytest.approx((y0, y1))
+
+
+def test_the_old_corner_call_is_now_unwritable(tephigram_axes):
+    """The transposition of framing spec §1 cannot be expressed."""
+    with pytest.raises(TypeError):
+        tephigram_axes.set_extent(((900.0, -65.0), (200.0, 5.0)))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({"pressure": (0.0, 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (-5.0, 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (float("nan"), 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        ({"pressure": (900.0, 900.0), "temperature": (-65.0, 5.0)}, "pressure"),
+        (
+            {"pressure": (900.0, 200.0), "temperature": (float("inf"), 5.0)},
+            "temperature",
+        ),
+        ({"pressure": (900.0, 200.0), "temperature": (5.0, 5.0)}, "temperature"),
+    ],
+)
+def test_an_unusable_range_is_refused_by_name(tephigram_axes, kwargs, expected):
+    """The message names the offending keyword, not a nested tuple."""
+    with pytest.raises(ValueError, match=expected):
+        tephigram_axes.set_extent(**kwargs)
+
+
+def test_set_extent_disables_autoscaling(tephigram_axes):
+    """A caller who fixed a window meant it (framing spec §3.5)."""
+    tephigram_axes.set_extent(pressure=(900.0, 200.0), temperature=(-65.0, 5.0))
+    assert tephigram_axes.get_autoscale_on() is False
+
+
+# --- fit (framing spec §3.2, §3.3, §3.5) -----------------------------------
+
+
+def test_fit_frames_one_sounding(tephigram_axes, sample_sounding):
+    """Every finite datum falls inside the fitted view."""
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    xlo, xhi = tephigram_axes.get_xlim()
+    ylo, yhi = tephigram_axes.get_ylim()
+    p = sample_sounding.pressure.to("hPa").magnitude
+    t = sample_sounding.temperature.to("degC").magnitude
+    theta = transforms.theta_from_pressure_temperature(p, t)
+    x, y = transforms.xy_from_temperature_theta(t, theta)
+    assert xlo <= float(np.nanmin(x))
+    assert float(np.nanmax(x)) <= xhi
+    assert ylo <= float(np.nanmin(y))
+    assert float(np.nanmax(y)) <= yhi
+
+
+def test_fit_without_the_parcel_clips_the_path_it_is_read_against(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect ``fit`` exists to prevent (framing spec §3.2).
+
+    A parcel is warmer than its environment through the CAPE region, so
+    fitting the sounding alone can clip the very path the parcel analysis
+    is drawn to show. Passing the parcel is what dissolves it.
+    """
+    parcel = calc.parcel_path(sample_sounding)
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, parcel, margin=0.0)
+    without = tephigram_axes.get_xlim()
+    with_parcel = tephigram_axes_b.get_xlim()
+    assert with_parcel[1] > without[1] or with_parcel[0] < without[0]
+
+
+def test_fit_takes_several_soundings(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """A station's day, framed alike."""
+    tephigram_axes.fit(sample_sounding, sample_sounding_b, margin=0.0)
+    xlo, xhi = tephigram_axes.get_xlim()
+    for snd in (sample_sounding, sample_sounding_b):
+        p = snd.pressure.to("hPa").magnitude
+        t = snd.temperature.to("degC").magnitude
+        theta = transforms.theta_from_pressure_temperature(p, t)
+        x, _ = transforms.xy_from_temperature_theta(t, theta)
+        assert xlo <= float(np.nanmin(x))
+        assert float(np.nanmax(x)) <= xhi
+
+
+def test_a_nan_dewpoint_bounds_nothing_and_poisons_nothing(
+    tephigram_axes, sample_sounding
+):
+    """NaN gaps are data everywhere except pressure (spec §3.4)."""
+    dewpoint = sample_sounding.dewpoint.magnitude.copy()
+    dewpoint[1] = float("nan")
+    gapped = dataclasses.replace(
+        sample_sounding,
+        dewpoint=dewpoint * sample_sounding.dewpoint.units,
+    )
+    tephigram_axes.fit(gapped, margin=0.0)
+    assert all(
+        math.isfinite(v)
+        for v in (*tephigram_axes.get_xlim(), *tephigram_axes.get_ylim())
+    )
+
+
+def test_fit_needs_something_to_frame(tephigram_axes):
+    with pytest.raises(TephpyValidationError, match="at least one"):
+        tephigram_axes.fit()
+
+
+def test_fit_refuses_what_it_cannot_frame(tephigram_axes):
+    with pytest.raises(TephpyValidationError, match="Sounding or Profile"):
+        tephigram_axes.fit(object())
+
+
+def test_margin_resolves_keyword_over_config_over_constant(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The resolution order every tunable here uses (framing spec §3.3)."""
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tight = tephigram_axes.get_xlim()
+    with config.context(diagram={"margin": 0.5}):
+        tephigram_axes_b.fit(sample_sounding)
+    loose = tephigram_axes_b.get_xlim()
+    assert loose[1] - loose[0] > tight[1] - tight[0]
+
+
+def test_fit_rejects_a_negative_margin(tephigram_axes, sample_sounding):
+    """A negative margin would silently shrink the limits it is meant to pad.
+
+    The configuration file has always refused this; the keyword route did
+    not (framing spec §3.3).
+    """
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=-0.2)
+
+
+def test_fit_rejects_a_non_finite_margin(tephigram_axes, sample_sounding):
+    """A non-finite margin is refused here, not left to fail inside matplotlib.
+
+    Unvalidated, this used to reach ``set_xlim``/``set_ylim`` and fail with
+    matplotlib's "Axis limits cannot be NaN or Inf", which names nothing
+    useful (framing spec §3.3).
+    """
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=float("nan"))
+    with pytest.raises(ValueError, match="margin"):
+        tephigram_axes.fit(sample_sounding, margin=float("inf"))
+
+
+def test_fit_margin_zero_still_fits_exactly(tephigram_axes, sample_sounding):
+    """Zero stays legal: the caller composing panels wants an exact fit.
+
+    Compares against the unpadded bounding box computed independently from
+    the sounding's pressure and combined temperature/dewpoint span -- the
+    same quantity ``fit`` derives internally before padding by ``margin`` --
+    including the interior y-extremum candidate, since this sounding's
+    combined span (up to 27.5 degC) reaches past ``Y_MAXIMUM_TEMPERATURE``
+    (framing spec §3.1, §3.3).
+    """
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    p = sample_sounding.pressure.to("hPa").magnitude
+    t = sample_sounding.temperature.to("degC").magnitude
+    d = sample_sounding.dewpoint.to("degC").magnitude
+    p_lo, p_hi = float(np.nanmin(p)), float(np.nanmax(p))
+    combined = np.concatenate([t, d])
+    t_lo, t_hi = float(np.nanmin(combined)), float(np.nanmax(combined))
+    pressures = [p_lo, p_lo, p_hi, p_hi]
+    temperatures = [t_lo, t_hi, t_lo, t_hi]
+    if t_lo < Y_MAXIMUM_TEMPERATURE < t_hi:
+        pressures.extend([p_lo, p_hi])
+        temperatures.extend([Y_MAXIMUM_TEMPERATURE, Y_MAXIMUM_TEMPERATURE])
+    pressures_arr = np.array(pressures)
+    temperatures_arr = np.array(temperatures)
+    theta = transforms.theta_from_pressure_temperature(pressures_arr, temperatures_arr)
+    x, y = transforms.xy_from_temperature_theta(temperatures_arr, theta)
+    assert tephigram_axes.get_xlim() == pytest.approx(
+        (float(np.min(x)), float(np.max(x)))
+    )
+    assert tephigram_axes.get_ylim() == pytest.approx(
+        (float(np.min(y)), float(np.max(y)))
+    )
+
+
+def test_fit_disables_autoscaling(tephigram_axes, sample_sounding):
+    tephigram_axes.fit(sample_sounding)
+    assert tephigram_axes.get_autoscale_on() is False
+
+
+def test_a_pressure_clamp_sets_the_pressure_range(tephigram_axes, sample_sounding):
+    """The clamp names the layer; temperature is fitted inside it."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    # Measured directly from the norman-17z sample_sounding fixture between
+    # 950 and 300 hPa (temperature and dewpoint combined); not the brief's
+    # (-58.7, 24.1), whose 24.1 turns out to be norman-12z's max in that
+    # band rather than norman-17z's 22.8.
+    (xlo, xhi), (ylo, yhi) = _expected_limits(
+        {"pressure": (950.0, 300.0), "temperature": (-58.7, 22.8)}
+    )
+    assert tephigram_axes.get_xlim() == pytest.approx((xlo, xhi), abs=0.5)
+    assert tephigram_axes.get_ylim() == pytest.approx((ylo, yhi), abs=0.5)
+
+
+def test_a_pressure_clamp_narrows_the_view(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect this parameter exists to fix (framing spec §3.2).
+
+    A radiosonde ascent does not stop at the tropopause; the shipped
+    samples reach about 10 hPa. Framing all of that gives a view whose
+    span is dominated by the stratosphere.
+    """
+    tephigram_axes.fit(sample_sounding, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    unclamped = tephigram_axes.get_xlim()
+    clamped = tephigram_axes_b.get_xlim()
+    assert (clamped[1] - clamped[0]) < 0.6 * (unclamped[1] - unclamped[0])
+
+
+def test_a_clamp_excludes_data_outside_it(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """Levels outside the band do not bound the view."""
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    narrow = tephigram_axes.get_ylim()
+    tephigram_axes_b.fit(sample_sounding, pressure=(950.0, 100.0), margin=0.0)
+    wide = tephigram_axes_b.get_ylim()
+    assert (wide[1] - wide[0]) > (narrow[1] - narrow[0])
+
+
+def test_a_clamp_order_carries_no_meaning(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, pressure=(300.0, 950.0), margin=0.0)
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_a_clamp_containing_no_data_raises(tephigram_axes, sample_sounding):
+    with pytest.raises(MissingDataError, match="no finite data"):
+        tephigram_axes.fit(sample_sounding, pressure=(5.0, 1.0))
+
+
+def test_an_unusable_clamp_is_refused(tephigram_axes, sample_sounding):
+    with pytest.raises(ValueError, match="pressure"):
+        tephigram_axes.fit(sample_sounding, pressure=(0.0, 300.0))
+
+
+def test_a_clamp_masks_each_object_by_its_own_levels(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """The two samples have different level counts (framing spec §3.2).
+
+    Pins correct per-object masking. The most literal way to get this
+    wrong -- a mask built once and reused across both objects -- would
+    raise ``IndexError`` here rather than pass quietly, since the two
+    samples' level counts (71 and 68) differ. What this guards against is
+    a subtler regression that stays index-valid, such as truncating every
+    object's temperature array to the shorter object's length before
+    masking.
+    """
+    band = (950.0, 300.0)
+    tephigram_axes.fit(sample_sounding, sample_sounding_b, pressure=band, margin=0.0)
+    both = tephigram_axes.get_ylim()
+
+    lo, hi = sorted(band)
+    expected_lo, expected_hi = math.inf, -math.inf
+    for snd in (sample_sounding, sample_sounding_b):
+        levels = snd.pressure.to("hPa").magnitude
+        inside = (levels >= lo) & (levels <= hi)
+        for field in (snd.temperature, snd.dewpoint):
+            if field is None:
+                continue
+            values = field.to("degC").magnitude[inside]
+            values = values[np.isfinite(values)]
+            if values.size:
+                expected_lo = min(expected_lo, float(values.min()))
+                expected_hi = max(expected_hi, float(values.max()))
+
+    (_, _), (ylo, yhi) = _expected_limits(
+        {"pressure": band, "temperature": (expected_lo, expected_hi)}
+    )
+    assert both == pytest.approx((ylo, yhi), abs=0.5)
+
+
+def test_an_argument_with_no_finite_data_raises_naming_it(
+    tephigram_axes, sample_sounding
+):
+    """Per-argument, before any clamp (framing spec §3.2).
+
+    An argument carrying no finite data at all is a caller error distinct
+    from data that merely falls outside a clamp -- checked here with no
+    ``pressure=`` in play at all, so the clamp cannot be what triggers it.
+    """
+    nan_temperature = np.full_like(sample_sounding.temperature.magnitude, float("nan"))
+    empty = dataclasses.replace(
+        sample_sounding,
+        temperature=nan_temperature * sample_sounding.temperature.units,
+        dewpoint=None,
+    )
+    with pytest.raises(MissingDataError, match="argument 2"):
+        tephigram_axes.fit(sample_sounding, empty)
+
+
+def test_an_argument_entirely_outside_the_clamp_contributes_nothing(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
+    """The defect ``fit`` exists to prevent, from the other side (framing spec §3.2).
+
+    Finite data that simply falls outside the ``pressure=`` clamp is not a
+    caller error: a stratospheric profile passed alongside a
+    tropospheric sounding contributes nothing to a lower-troposphere
+    frame, silently, and the frame is identical to fitting the sounding
+    alone.
+    """
+    stratospheric = calc.Profile(
+        [150.0, 100.0],
+        [-60.0, -70.0],
+        125.0,
+        -65.0,
+        units={
+            "pressure": "hPa",
+            "temperature": "degC",
+            "lcl_pressure": "hPa",
+            "lcl_temperature": "degC",
+        },
+    )
+    band = (950.0, 300.0)
+    tephigram_axes.fit(sample_sounding, pressure=band, margin=0.0)
+    tephigram_axes_b.fit(sample_sounding, stratospheric, pressure=band, margin=0.0)
+    assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
+    assert tephigram_axes.get_ylim() == tephigram_axes_b.get_ylim()
+
+
+def test_fit_raises_when_nothing_survives_the_clamp_across_every_argument(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
+    """The aggregate check still holds with several arguments (framing spec §3.2).
+
+    Both soundings carry finite data -- neither is the per-argument
+    caller error of the test above -- but a clamp outside every level of
+    both still leaves nothing to frame.
+    """
+    with pytest.raises(MissingDataError, match="no finite data"):
+        tephigram_axes.fit(sample_sounding, sample_sounding_b, pressure=(5.0, 1.0))
 
 
 def _cursor_xy(pressure, temperature):
@@ -367,7 +818,7 @@ def test_clear_restores_projection_defaults(tephigram_axes):
 
 
 def test_config_diagram_extent_honoured_at_creation():
-    extent = ((1000.0, -20.0), (500.0, 20.0))
+    extent = {"pressure": (1000.0, 500.0), "temperature": (-20.0, 20.0)}
     with config.context(diagram={"extent": extent}):
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
@@ -1114,7 +1565,7 @@ def test_edge_ticks_follow_set_extent():
         ax.isobars(labels="left")
         fig.canvas.draw()
         wide = _ticks(ax.yaxis)
-        ax.set_extent(((900.0, -10.0), (500.0, 20.0)))
+        ax.set_extent(pressure=(900.0, 500.0), temperature=(-10.0, 20.0))
         fig.canvas.draw()
         zoomed = _ticks(ax.yaxis)
         assert zoomed != wide
@@ -1426,7 +1877,7 @@ def test_a_cleared_axis_title_stays_cleared():
         ax.set_ylabel("")
         ax.isotherms(color="grey")
         ax.isobars(color="blue")
-        ax.set_extent(DEFAULT_EXTENT)
+        ax.set_extent(**DEFAULT_EXTENT)
         fig.canvas.draw()
         assert ax.get_ylabel() == ""
         # Dropping the labels and re-adding them is a fresh claim.

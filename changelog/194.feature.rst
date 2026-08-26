@@ -1,0 +1,9 @@
+:meth:`ax.set_extent(...) <tephpy.plotting.axes.TephigramAxes.set_extent>`
+now takes a ``pressure`` range and a ``temperature`` range as keywords, in
+place of two ``(pressure, temperature)`` corners, and frames the whole region
+it is given rather than the bounding box of the two corners named. The new
+:meth:`ax.fit(...) <tephpy.plotting.axes.TephigramAxes.fit>` frames the view
+around soundings and parcel paths, with ``pressure=`` naming the layer of
+interest and ``margin=`` defaulting to ``diagram.margin``. Configuration files
+spell an extent as ``{pressure: [...], temperature: [...]}``.
+(:user:`bjlittle`)

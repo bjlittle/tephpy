@@ -46,7 +46,9 @@ def test_default_diagram():
 @pytest.mark.mpl_image_compare
 def test_zoomed_diagram():
     fig, ax = _tephigram_figure()
-    ax.set_extent(((1050.0, -10.0), (700.0, 30.0)))
+    # temperature spans Y_MAXIMUM_TEMPERATURE (26.85 degC): the view's yhi is
+    # set by the interior extremum, not the (-10, 30) corners (framing spec §3.1).
+    ax.set_extent(pressure=(1050.0, 700.0), temperature=(-10.0, 30.0))
     return fig
 
 
@@ -170,7 +172,9 @@ def test_shading_cape_cin():
 def test_indices_panel():
     """The indices panel beside the diagram (the axes_grid1 divider)."""
     fig, ax = plt.subplots(figsize=(5.0, 3.5), subplot_kw={"projection": "tephigram"})
-    ax.set_extent(((1050.0, -30.0), (200.0, 40.0)))
+    # temperature spans Y_MAXIMUM_TEMPERATURE (26.85 degC): the view's yhi is
+    # set by the interior extremum, not the (-30, 40) corners (framing spec §3.1).
+    ax.set_extent(pressure=(1050.0, 200.0), temperature=(-30.0, 40.0))
     snd = _capped_sounding()
     ax.plot_sounding(snd)
     ax.annotate_indices(calc.indices(snd))
@@ -213,7 +217,9 @@ def test_barbs_staff():
 def test_barbs_with_indices_panel():
     """Both side panels composed inside-out: gutter, then indices panel."""
     fig, ax = plt.subplots(figsize=(5.0, 3.5), subplot_kw={"projection": "tephigram"})
-    ax.set_extent(((1050.0, -30.0), (200.0, 40.0)))
+    # temperature spans Y_MAXIMUM_TEMPERATURE (26.85 degC): the view's yhi is
+    # set by the interior extremum, not the (-30, 40) corners (framing spec §3.1).
+    ax.set_extent(pressure=(1050.0, 200.0), temperature=(-30.0, 40.0))
     snd = _windy_sounding()
     ax.plot_sounding(snd)
     ax.plot_barbs(snd)

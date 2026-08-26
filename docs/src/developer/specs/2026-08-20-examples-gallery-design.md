@@ -434,7 +434,7 @@ scope. Four of the five draw from `tephpy.samples`; `plot_tephigram.py` needs no
 | `plot_tephigram.py` | `tephigram` | The bare diagram: five isopleth families, the default extent, `set_extent` | 1 | diagram, isopleths |
 | `plot_sounding.py` | `sounding` | 12Z temperature and dewpoint, wind barbs on the gutter staff | 2 | sounding, barbs |
 | `plot_parcel_analysis.py` | `parcel-analysis` | spec §4's figure: parcel path, CAPE and CIN shading, the indices panel (which reports the LCL) | 3 | analysis, shading, indices, sounding |
-| `plot_sounding_comparison.py` | `sounding-comparison` | 12Z against 17Z on fixed extents, distinguishable styles, legends carrying station and time; the vector-output line in prose (§3.3) | 4 | overlay, sounding |
+| `plot_sounding_comparison.py` | `sounding-comparison` | 12Z against 17Z, framed with a clamped `fit`, distinguishable styles, legends carrying station and time; the vector-output line in prose (§3.3) | 4 | overlay, sounding |
 | `plot_hodograph.py` | `hodograph` | MetPy's `Hodograph` inset on a tephigram from the same `Sounding` | spec §9 | metpy, barbs, sounding |
 
 `plot_parcel_analysis.py` leads the gallery (§3.5) and is the baseline of §3.7. It is the
@@ -466,11 +466,12 @@ example clears them and states the unit once in the inset title.
 `plot_sounding_comparison.py` is where the 12Z/17Z pair earns its place: across five hours
 the cap erodes from −271 J/kg to nothing while CAPE nearly triples, so the two profiles are
 visibly different and the comparison has a subject. Two arbitrary soundings would show the
-API and teach nothing. Its `EXTENT` is a quarter narrower than the default view and clips
-both ascents near 250 hPa: the difference the example is about is in the lower troposphere,
-far below that, and a frame closer than the default is also what keeps the `set_extent` call
-from restating what `plot_tephigram.py` already shows. The prose says so in those words
-rather than "below the cap", which the same paragraph has just used for the inversion.
+API and teach nothing. `ax.fit(morning, afternoon, pressure=(950.0, 300.0))` clamps the view
+to the lower troposphere, where the difference the example is about lies, and both ascents
+run out the top of the view near 300 hPa. Framing spec §4 records the migration: `fit`
+replaces the literal `EXTENT` and the `set_extent` call this example used before, so the
+frame no longer restates what `plot_tephigram.py` already shows. The prose says so in those
+words rather than "below the cap", which the same paragraph has just used for the inversion.
 
 (gallery-spec-5)=
 ## 5. What belongs in the gallery
@@ -566,9 +567,9 @@ question.
   owns the tutorials and explanation quadrants that would be tagged.
 
 - **Deferred** (7c — {issue}`66`) — **the reader how-to.** §5 sends the `io` example there.
-  The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to did
-  not, because it is where `ax.fit(...)` would be taught and {issue}`184` has not landed
-  yet (scope spec §3.6).
+  The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to
+  belongs to 7c's tutorials and explanation quadrants regardless (scope spec §3.6), so it
+  waits on that plan rather than on any one API landing.
 
 - **Rejected** (2026-08-20) — **a sixth, `io` example.** §5 gives the reasoning: its
   subject is not a picture, and the network constraint makes the misfit mechanical as well
