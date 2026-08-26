@@ -1,0 +1,14 @@
+The developer-docs review checklist that spec §8.6 has claimed since the design
+specification was written now exists (:issue:`193`). ``docs-style.rst`` gains a
+*Reviewing Claims* section carrying the three questions that stand in for the
+gates this class of defect escapes: which member of a set did you check, does
+the page title survive that question, and what tool did you actually run. Each
+is phrased to have a name for an answer, because "did you verify this?" does
+not. The section widens the rule that a snippet's behavioural promise is pinned
+by a test to cover the promises no test can pin, and makes the provenance of a
+claim about an external tool — its version and what the run did not establish —
+belong in the living specification rather than only in the frozen plan. Both
+spec §8.6 and scope spec §5 stop citing a checklist that did not exist; the README's
+non-goals lead sentence stops saying *each* where spec §9 says *most*; and the
+pull request template points a reviewer at the checklist, over a link
+``check_documentation_links.py`` now resolves. (:user:`claude`)

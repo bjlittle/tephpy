@@ -457,6 +457,11 @@ def test_sources_names_the_deliverables_of_this_gate():
     # only source, or losing the script it added -- must.
     assert "README.md" in gate.SOURCES
     assert ".github/scripts/changelog.py" in gate.SOURCES
+    # The pull request template points a reviewer at docs-style's *Reviewing
+    # Claims* checklist by absolute URL, GitHub rendering the template outside
+    # any Sphinx build. An unchecked link to a review checklist is the defect
+    # that checklist exists to stop (:issue:`193`).
+    assert ".github/pull_request_template.md" in gate.SOURCES
 
 
 def test_an_empty_sources_fails(tmp_path, monkeypatch, capsys):

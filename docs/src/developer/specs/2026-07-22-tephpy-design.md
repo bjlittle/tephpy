@@ -1010,8 +1010,10 @@ Fully exempt from the rule: sphinx-autoapi-generated API pages (titles are objec
 numpydoc section headers ("Parameters", "Returns", …), towncrier changelog category and
 fragment titles, and anything that is a full sentence — figure captions, admonition body
 text, tooltips, alt text, and docstring summary lines — which use sentence case. Bibliography
-entries reproduce each source's published title. Enforced by a developer-docs review
-checklist; an optional, **non-blocking** `titlecase` wordlist check (encoding the identifier
+entries reproduce each source's published title. Enforced by review, against the
+*Reviewing Claims* checklist of `docs/src/developer/docs-style.rst`, whose first two
+questions read a title as a claim ({issue}`193`); an optional, **non-blocking**
+`titlecase` wordlist check (encoding the identifier
 and project-name exceptions) may assist over hand-authored `.rst`/`.md` headings, but must not
 gate the build given the volume of legitimate exceptions.
 
