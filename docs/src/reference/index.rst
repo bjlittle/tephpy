@@ -8,4 +8,5 @@ Reference
     cli
     config
     glossary
+    references
     changelog

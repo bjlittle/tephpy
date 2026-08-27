@@ -466,6 +466,33 @@ Reserve ``#:`` comments for annotations on private members — the private
 which autoapi excludes from the reference regardless of comment style. There the
 choice is purely stylistic, and ``#:`` reads naturally above a constant.
 
+.. _bibliography:
+
+Bibliography
+------------
+
+A published source is cited with ``:cite:`` against a key in ``docs/src/refs.bib``,
+and renders in :ref:`references`, which lists the file with ``:all:``. That is the
+fifth referencing mechanism this page describes, and the narrowest: it is for
+sources outside this project that are *published* — a printed chart, a textbook, a
+standards document. A web page with no edition is a
+:ref:`documentation link <documentation-links>` or an inline URL; another tephpy
+page is a :ref:`cross-reference <cross-references>`; a specification section is a
+:ref:`citation <specification-citations>`.
+
+Reach for it where a convention needs an authority. ``tephpy`` emphasises the 0 °C
+isotherm because Met Office Factsheet 13 draws it distinctively, and a reader who
+doubts that is entitled to the edition and the page rather than to a sentence
+saying somebody checked.
+
+An entry reproduces the source's published title, which means bracing it —
+``title = {{Upper air observations & the tephigram}}`` — because pybtex lowercases
+an unbraced one and would publish a title its source does not carry. Record the
+edition or year and the date the source was consulted, in ``note``: a citation is
+provenance, and provenance without a date ages into a claim about a document that
+may since have changed. ``:all:`` on the directive means an entry added and never
+cited still renders, so the file cannot quietly accumulate sources nothing uses.
+
 .. _reviewing-claims:
 
 Reviewing Claims

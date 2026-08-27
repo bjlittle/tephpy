@@ -13,12 +13,10 @@ The Freezing Level, Already Drawn
 
 One member arrives emphasised. The Met Office draws its printed tephigram's
 isotherms at 10 °C intervals and, in the next breath, records that "the line
-representing the 0 °C isotherm is coloured red on the diagram" — `Factsheet 13,
-Upper air observations & the tephigram
-<https://www.metoffice.gov.uk/binaries/content/assets/metofficegovuk/pdf/research/library-and-archive/library/publications/factsheets/factsheet_13-upper-air-measurements_2023.pdf>`__.
-``tephpy`` follows the first half in its isotherm interval and now the second
-half too, so a fresh diagram distinguishes the freezing level with no argument
-at all:
+representing the 0 °C isotherm is coloured red on the diagram"
+:cite:`metoffice_factsheet13`. ``tephpy`` follows the first half in its isotherm
+interval and now the second half too, so a fresh diagram distinguishes the
+freezing level with no argument at all:
 
 .. plot::
     :context: reset

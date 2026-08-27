@@ -4,7 +4,9 @@ Glossary
 Terms are written for scientific software engineers rather than
 meteorologists. Each entry states the concept plainly, then how it appears in
 ``tephpy``. See :doc:`../developer/docs-style` for the entry and
-cross-reference rules.
+cross-reference rules. Where a definition is the discipline's rather than this
+package's, the American Meteorological Society's *Glossary of Meteorology*
+:cite:`amsglossary` is the authority.
 
 .. glossary::
 
