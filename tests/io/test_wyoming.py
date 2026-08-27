@@ -41,7 +41,35 @@ HEADER = (
 
 
 def _parse_fixture():
-    return wyoming._parse(FIXTURE.read_text(), station="03808", time=WHEN)
+    return wyoming.parse(FIXTURE.read_text(), station="03808", time=WHEN)
+
+
+def test_parse_is_public():
+    """A caller holding the text has a documented way in (spec §3.4)."""
+    assert "parse" in wyoming.__all__
+    assert wyoming.parse is not None
+
+
+def test_public_parse_reads_a_recorded_body():
+    """The route `fetch` cannot serve: text the caller already has."""
+    snd = wyoming.parse(FIXTURE.read_text(), station="03808", time=WHEN)
+    assert snd.pressure.size == 61
+    assert snd.label == "03808 2026-07-21 12Z"
+
+
+def test_public_parse_reads_a_time_string():
+    """`time=` is coerced the way `fetch` coerces it, not a second rule."""
+    snd = wyoming.parse(FIXTURE.read_text(), station="03808", time="2026-07-21 12:00")
+    assert snd.time == WHEN
+    assert snd.label == "03808 2026-07-21 12Z"
+
+
+def test_public_parse_needs_no_metadata():
+    """A body is readable without knowing what was asked for to get it."""
+    snd = wyoming.parse(FIXTURE.read_text())
+    assert snd.pressure.size == 61
+    assert snd.station is None
+    assert snd.label is None
 
 
 def test_parse_carries_the_fixture_profile():
@@ -61,25 +89,25 @@ def test_parse_derives_the_label_from_metadata():
 def test_parse_missing_column_raises():
     text = "time,latitude\n2026-07-21 11:17:10,50.2184\n"
     with pytest.raises(TephpyIOError, match=r"column.*pressure_hPa"):
-        wyoming._parse(text, station="03808", time=WHEN)
+        wyoming.parse(text, station="03808", time=WHEN)
 
 
 def test_parse_empty_response_raises():
-    with pytest.raises(TephpyIOError, match="empty response"):
-        wyoming._parse("", station="03808", time=WHEN)
+    with pytest.raises(TephpyIOError, match="the body is empty"):
+        wyoming.parse("", station="03808", time=WHEN)
 
 
 def test_parse_non_numeric_cell_raises():
     text = f"{HEADER}\n2026,1,2,oops,4,5,6,7,8,9,10,11,12\n"
     with pytest.raises(TephpyIOError, match="'oops' is not numeric"):
-        wyoming._parse(text, station="03808", time=WHEN)
+        wyoming.parse(text, station="03808", time=WHEN)
 
 
 def test_parse_unreadable_csv_raises():
     # A 200 body that is not CSV: an unterminated field past the limit.
     text = '"' + "a" * 200000 + "\n"
     with pytest.raises(TephpyIOError, match="unexpected Wyoming response format"):
-        wyoming._parse(text, station=None, time=None)
+        wyoming.parse(text, station=None, time=None)
 
 
 def test_parse_short_row_raises():
@@ -89,7 +117,7 @@ def test_parse_short_row_raises():
     ]
     text = "\n".join([HEADER, *rows])
     with pytest.raises(TephpyIOError, match=r"row 3 has 4 cell\(s\), expected at"):
-        wyoming._parse(text, station=None, time=None)
+        wyoming.parse(text, station=None, time=None)
 
 
 def test_parse_extra_trailing_cells_are_ignored():
@@ -97,24 +125,24 @@ def test_parse_extra_trailing_cells_are_ignored():
         "2026,1,2,1000.0,4,15.0,5.0,7,8,9,10,360,5.0,99",
         "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,350,6.0,99",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     np.testing.assert_array_equal(snd.pressure.m_as("hPa"), [1000.0, 900.0])
 
 
 def test_parse_header_without_data_rows_raises():
     with pytest.raises(TephpyIOError, match="no data rows after the header"):
-        wyoming._parse(f"{HEADER}\n", station=None, time=None)
+        wyoming.parse(f"{HEADER}\n", station=None, time=None)
 
 
 def test_parse_blank_data_rows_only_raises():
     with pytest.raises(TephpyIOError, match="no data rows after the header"):
-        wyoming._parse(f"{HEADER}\n\n\n", station=None, time=None)
+        wyoming.parse(f"{HEADER}\n\n\n", station=None, time=None)
 
 
 def test_parse_single_data_row_raises_validation():
     row = "2026,1,2,1000.0,4,15.0,5.0,7,8,9,10,360,5.0"
     with pytest.raises(TephpyValidationError, match="needs at least 2 levels"):
-        wyoming._parse(f"{HEADER}\n{row}\n", station=None, time=None)
+        wyoming.parse(f"{HEADER}\n{row}\n", station=None, time=None)
 
 
 def test_parse_blank_cells_read_as_nan_gaps():
@@ -122,7 +150,7 @@ def test_parse_blank_cells_read_as_nan_gaps():
         "2026,1,2,1000.0,4,15.0,,7,8,9,10,360,5.0",
         "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,,",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert np.isnan(snd.dewpoint[0].magnitude)
     assert np.isnan(snd.wind_speed[1].magnitude)
     assert np.isnan(snd.wind_direction[1].magnitude)
@@ -133,7 +161,7 @@ def test_parse_all_nan_optional_fields_are_absent():
         "2026,1,2,1000.0,4,15.0,,7,8,9,10,,",
         "2026,1,2,900.0,4,10.0,,7,8,9,10,,",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert snd.dewpoint is None
     assert snd.wind_speed is None
     assert snd.wind_direction is None
@@ -144,7 +172,7 @@ def test_parse_all_blank_speed_column_drops_the_wind_pair():
         "2026,1,2,1000.0,4,15.0,10.0,7,8,9,10,360,",
         "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,350,",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert snd.wind_speed is None
     assert snd.wind_direction is None
     assert snd.dewpoint is not None
@@ -155,7 +183,7 @@ def test_parse_all_blank_direction_column_drops_the_wind_pair():
         "2026,1,2,1000.0,4,15.0,10.0,7,8,9,10,,4.1",
         "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,,6.2",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     assert snd.wind_speed is None
     assert snd.wind_direction is None
 
@@ -166,7 +194,7 @@ def test_parse_drops_non_decreasing_pressure_rows():
         "2026,1,2,1000.0,4,14.0,5.0,7,8,9,10,350,6.0",
         "2026,1,2,900.0,4,10.0,4.0,7,8,9,10,340,7.0",
     ]
-    snd = wyoming._parse("\n".join([HEADER, *rows]), station=None, time=None)
+    snd = wyoming.parse("\n".join([HEADER, *rows]), station=None, time=None)
     np.testing.assert_array_equal(snd.pressure.m_as("hPa"), [1000.0, 900.0])
     np.testing.assert_array_equal(snd.temperature.m_as("degC"), [15.0, 10.0])
 

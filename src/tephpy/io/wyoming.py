@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     import numpy.typing as npt
 
-__all__ = ["fetch"]
+__all__ = ["fetch", "parse"]
 
 #: Archive CSV column → (sounding field, pint unit) for the carried fields.
 _COLUMNS: dict[str, tuple[str, str]] = {
@@ -84,7 +84,7 @@ def fetch(
         datetime=quote(f"{when:%Y-%m-%d %H:%M:%S}"), station=quote(station)
     )
     text = _request(url, WYOMING_TIMEOUT if timeout is None else timeout)
-    return _parse(text, station=station, time=when)
+    return parse(text, station=station, time=when)
 
 
 def _request(url: str, timeout: float) -> str:
@@ -135,8 +135,24 @@ def _request(url: str, timeout: float) -> str:
         raise TephpyIOError(msg) from error
 
 
-def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding:
-    """Parse one ``TEXT:CSV`` archive body into a sounding.
+def parse(
+    text: str, *, station: str | None = None, time: datetime | str | None = None
+) -> Sounding:
+    """Read one ``TEXT:CSV`` archive body into a sounding.
+
+    The route :func:`fetch` cannot serve: a body the caller already has.
+    A response cached against a rate limit, one pulled through a proxy that
+    this package's ``urlopen`` call cannot reach, or a bulk archive dump
+    someone else downloaded -- each is the same text over the same format,
+    with only the retrieval differing, and :func:`fetch` is retrieval. The
+    two share this parser rather than agreeing by inspection, so a body read
+    here and a body fetched become the same ``Sounding``.
+
+    `station` and `time` are metadata rather than parsing input: the archive
+    body carries neither the identifier that was asked for nor the nominal
+    hour it was asked for, so a caller who knows them says so and gets the
+    legend label derived (spec §3.4). A caller who does not gets a sounding
+    without one, which is a sounding all the same.
 
     Blank cells read as NaN (NaN gaps are data, spec §3.4); rows whose
     pressure does not strictly decrease on the running minimum are
@@ -157,12 +173,13 @@ def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding
     ----------
     text : str
         The response body.
-    station : str or None
-        The WMO station identifier, carried as metadata; ``None``
-        derives no legend label.
-    time : datetime.datetime or None
-        The nominal launch time, carried as metadata; ``None`` derives
-        no legend label.
+    station : str, optional
+        The WMO station identifier, carried as metadata; omitted, no
+        legend label derives.
+    time : datetime.datetime or str, optional
+        The nominal launch time, carried as metadata; a string is read
+        the way :func:`fetch` reads one, so the two do not diverge.
+        Omitted, no legend label derives.
 
     Returns
     -------
@@ -176,6 +193,7 @@ def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding
         missing, a row is shorter than the header, the header carries no
         data rows, or a cell is not numeric.
     """
+    when = None if time is None else coerce_time(time)
     try:
         rows = list(csv.reader(io.StringIO(text)))
     except csv.Error as error:
@@ -183,7 +201,7 @@ def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding
         msg = f"unexpected Wyoming response format: {error}"
         raise TephpyIOError(msg) from error
     if not rows:
-        msg = "the Wyoming archive returned an empty response"
+        msg = "unexpected Wyoming response format: the body is empty"
         raise TephpyIOError(msg)
     header = [column.strip() for column in rows[0]]
     missing = sorted(set(_COLUMNS) - set(header))
@@ -242,5 +260,5 @@ def _parse(text: str, *, station: str | None, time: datetime | None) -> Sounding
         wind_direction=fields["wind_direction"],
         units=dict(_COLUMNS.values()),
         station=station,
-        time=time,
+        time=when,
     )

@@ -1,0 +1,13 @@
+``wyoming.parse`` is public: the ``TEXT:CSV`` parser that
+:func:`~tephpy.io.wyoming.fetch` already used, exposed for a body the caller
+already holds — cached against a rate limit, pulled through a proxy this
+package's ``urlopen`` call cannot reach, or lifted from a bulk archive dump. The
+format is identical and only the retrieval differs, so without it every such
+caller writes a second reader that agrees with this one by inspection; sharing
+the parser is what makes a body read and a body fetched the same
+:class:`~tephpy.sounding.Sounding`. ``station`` and ``time`` are optional
+metadata rather than parsing input, the body carrying neither, and a ``time``
+string is coerced the way ``fetch`` coerces one so the two entry points cannot
+disagree about what a time string means. It does not make the archive reachable
+offline: parsing needs a body, and whether one may ship is :issue:`202`.
+(:user:`claude`)
