@@ -1,0 +1,10 @@
+The design specification for Plan 7c — the narrative quadrants — is published
+(:issue:`66`). It settles the shape of the last plan before release execution:
+two tutorials, each paired with the one explanation page that answers the
+question it raises; a reader how-to for the supported routes into a
+:class:`~tephpy.sounding.Sounding`; and the glossary sweep around all five. It
+also closes two questions this plan inherited rather than deferring them again —
+no doctested ``Examples`` sections (:issue:`189`), most of the public surface
+returning artists that a doctest would assert nothing about, and no site-wide tag
+index, an eleven-page narrative corpus not being one that needs filtering.
+(:user:`claude`)
