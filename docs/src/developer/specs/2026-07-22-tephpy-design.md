@@ -641,15 +641,15 @@ xarray are declared runtime dependencies, but tephpy never imports either at
 runtime — the constructors are duck-typed over the objects handed to them, with
 `TYPE_CHECKING`-only annotation imports (item 9). `Sounding` re-exports eagerly
 at the top level — `from tephpy import
-Sounding` (item 10). Readers (`io.wyoming.fetch`, `io.igra.read`) return
+Sounding` (item 10). Readers (`io.wyoming.fetch`, `io.wyoming.parse`, `io.igra.read`) return
 `Sounding` objects, so the §6 ingest validation applies to fetched data unchanged;
 both keep their network/archive imports function-local (the established idiom,
 policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 10).
 
 - `wyoming.fetch(station, time, *, timeout=None)` fetches one ascent from the
   University of Wyoming archive over stdlib `urllib` — no new dependency; the
-  timeout default lives in `_constants` — and hands the `TEXT:CSV` body to a
-  pure, transport-free parser. (`TEXT:CSV` is the post-2024 wsgi interface's
+  timeout default lives in `_constants` — and hands the `TEXT:CSV` body to
+  `wyoming.parse`, a pure, transport-free parser that is public in its own right. (`TEXT:CSV` is the post-2024 wsgi interface's
   machine-readable form, bare self-describing CSV; the classic `cgi-bin`
   TEXT:LIST endpoint is gone — probed live 2026-07-27.) The parser reads the
   pressure/temperature/dew-point/wind columns in the header's units (hPa, °C,
@@ -666,6 +666,20 @@ policed by the import-cost guard test) and `tephpy.io` re-exports eagerly (item 
   Network failures and HTTP errors — the archive replies 400 "no data at that
   time" / 404 "unknown station" with a one-line plain-text body — raise
   `TephpyIOError` summarising the upstream reply (§6).
+- `wyoming.parse(text, *, station=None, time=None)` is that parser, exposed. It
+  serves the case `fetch` structurally cannot: a body the caller already holds —
+  cached against a rate limit, pulled through a proxy this package's `urlopen`
+  call cannot reach, or lifted from a bulk archive dump. The format is identical
+  and only the retrieval differs, so the alternative to exposing it is every such
+  caller writing a second reader that agrees with this one by inspection. Sharing
+  the parser is what makes a body read and a body fetched the same `Sounding`.
+  `station` and `time` are metadata rather than parsing input — the body carries
+  neither — so they are optional, and a `time` string is coerced through the same
+  `coerce_time` as `fetch`'s so the two entry points cannot diverge on what a time
+  string means. Exposing it does not make the archive reachable offline: without a
+  body there is nothing to parse, and shipping one is a redistribution question
+  ({issue}`202`), not an API one.
+
 - `igra.read(path, *, time=None)` reads one ascent from an IGRA v2 per-station
   file — the as-distributed `.zip` or the extracted `.txt`, sniffed with
   `zipfile.is_zipfile` rather than by suffix. The fixed-width records parse
