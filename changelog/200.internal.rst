@@ -1,0 +1,23 @@
+The four page-shape checks of ``tests/test_docs_snippets.py`` that were traced by
+hand when :pull:`172` added them are now proven additive by mutation
+(:issue:`175`): each was made to fail on its own, and the mutation that isolates
+it is recorded beside it, so the next reader inherits evidence rather than an
+argument. One of the four had to be mutated in the opposite direction from the
+obvious one — adding a ``:filename-prefix:`` to a suppressed plot declares a
+figure with no baseline and fails a second test, which proves nothing about the
+first.
+
+The undocumented composition in the same module is pinned too. A figure page's
+mixing check compares the language for equality, so every other spelling of
+python reaches the near-miss check instead, and nothing held the two together;
+``test_the_two_language_checks_compose`` now measures both against a literal list
+of the spellings that mean python. Both classifications are shared helpers rather
+than a comparison written out at each site, so the oracle asks the predicates the
+page scans ask: reimplementing them would have let the figure-page check stop
+folding case while the oracle, folding on its own account, went on reporting that
+nothing escapes. Writing that oracle showed the ``NEAR_MISS``
+docstring's claim to cover "every spelling Pygments resolves to the python or the
+python-console lexer" to be false in both directions — Pygments' Python lexer also
+answers to ``bazel``, ``pyi``, ``sage`` and ``starlark``, while ``ipython`` and
+``ipython3`` belong to no bundled lexer at all. The docstring now says what the
+set is and which exposure is left standing on purpose. (:user:`claude`)
