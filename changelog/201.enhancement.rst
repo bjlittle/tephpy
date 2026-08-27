@@ -1,0 +1,22 @@
+The 0 °C isotherm is now emphasised by default — drawn at
+``EMPHASIS_LINEWIDTH`` in the isotherm family's own ink — and it is the only
+member ``tephpy`` emphasises out of the box (:issue:`80`). Spec §3.2 had ruled
+that nothing would be emphasised, because every other tephpy default cites a
+printed-chart convention and this one could not: the evidence was operational
+software, and Factsheet 13's published URL returned 404. The current edition is
+published, and beside the sentence giving the 10 °C isotherm interval that
+``tephpy`` already follows, it records that the 0 °C isotherm "is coloured red
+on the diagram". The distinction is cited and the means is not — red is the
+temperature profile's colour, and the factsheet gives none for the plotted
+ascent — so the member is distinguished by weight rather than by colour, which
+invents no convention. Pass ``emphasis={}`` to any accessor to opt out.
+
+The citation gave the documentation its first one, so the bibliography exists
+now too. ``sphinxcontrib-bibtex`` had been loaded and configured since the
+foundation plan with ``refs.bib`` seeded beside it, and in all that time nothing
+rendered a bibliography and no page wrote a ``:cite:`` — an installed extension
+doing nothing. A ``References`` page in the reference quadrant lists the file,
+the emphasis how-to cites Factsheet 13 through it, the glossary cites the AMS
+*Glossary of Meteorology* entry that had sat unused, and ``docs-style`` gains the
+rule for adding a source: reproduce the published title, brace it so pybtex
+cannot lowercase it, and record the date it was consulted. (:user:`claude`)

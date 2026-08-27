@@ -984,12 +984,6 @@ def test_edge_locator_without_axes_is_empty():
     assert locator.values == []
 
 
-def test_emphasis_defaults_to_empty():
-    """A family emphasises nothing until asked (spec §3.2)."""
-    family = _make_family("isotherms")
-    assert family.options.emphasis == {}
-
-
 def test_emphasis_normalizes_keys_to_float():
     family = _make_family("isotherms")
     family.configure(emphasis={0: {}, -20: {"color": "tab:cyan"}})
@@ -1043,8 +1037,8 @@ def test_emphasis_snapshot_rejects_mutation():
 
 def test_emphasis_empty_snapshot_rejects_mutation():
     """A family with nothing emphasised shares one read-only empty snapshot."""
-    family = _make_family("isotherms")
-    other = _make_family("isobars")
+    family = _make_family("isobars")
+    other = _make_family("dry_adiabats")
     with pytest.raises(TypeError, match="mappingproxy"):
         family.options.emphasis[0.0] = {}  # type: ignore[index]
     assert family.options.emphasis == {}
@@ -1052,7 +1046,7 @@ def test_emphasis_empty_snapshot_rejects_mutation():
 
 
 def test_emphasis_none_resets_to_config():
-    family = _make_family("isotherms")
+    family = _make_family("isobars")
     family.configure(emphasis={0.0: {}})
     family.configure(emphasis=None)
     assert family.options.emphasis == {}
@@ -1133,7 +1127,7 @@ def test_emphasis_failure_leaves_family_unchanged():
 
 def test_emphasis_is_a_geometry_key():
     """Changing emphasis invalidates the cached member geometry (spec §3.2)."""
-    family = _make_family("isotherms")
+    family = _make_family("isobars")
     family._build()
     assert family._members is not None
     family.configure(emphasis={0.0: {}})
@@ -1305,6 +1299,30 @@ def test_member_style_defaults_to_the_family_style():
     }
 
 
+def test_the_zero_isotherm_is_emphasised_by_default():
+    """Factsheet 13 draws it distinctively, so tephpy does (spec §3.2)."""
+    assert set(_make_family("isotherms").options.emphasis) == {0.0}
+
+
+@pytest.mark.parametrize(
+    "name", ["isobars", "dry_adiabats", "moist_adiabats", "mixing_ratios"]
+)
+def test_no_other_family_emphasises_anything_by_default(name):
+    """One cited convention, not a house style applied across the grid."""
+    assert _make_family(name).options.emphasis == {}
+
+
+def test_the_default_zero_isotherm_draws_in_the_family_ink(plain_axes):
+    """The cited convention is red; red is the temperature profile's."""
+    family = _make_family("isotherms")
+    plain_axes.add_artist(family)
+    plain_axes.figure.canvas.draw()
+    widths = family._lines.get_linewidth()
+    assert widths[-1] == EMPHASIS_LINEWIDTH
+    assert set(widths[:-1]) == {ISOPLETH_LINEWIDTH}
+    assert family.options.color == ISOTHERM_COLOR
+
+
 def test_member_style_empty_emphasis_only_thickens():
     """`{}` is the printed-chart idiom: same ink, heavier line (spec §3.2)."""
     family = _make_family("isotherms")
@@ -1357,8 +1375,11 @@ def test_plain_family_still_draws_one_colour(plain_axes):
     un-emphasised family carries one linewidth and a scalar alpha rather than
     an N-long sequence of each. Pixels are the same either way; vector output
     and the per-draw cost are not (spec §3.2).
+
+    Isobars rather than isotherms: the isotherm family emphasises its 0 °C
+    member out of the box, so it is no longer an example of this path.
     """
-    family = _make_family("isotherms")
+    family = _make_family("isobars")
     plain_axes.add_artist(family)
     plain_axes.figure.canvas.draw()
     colors = family._lines.get_color()

@@ -146,6 +146,20 @@ _DEFAULT_LINESTYLE: Final = "solid"
 #: into the snapshot of a family that has none.
 _NO_EMPHASIS: Final[Mapping[float, Mapping[str, object]]] = MappingProxyType({})
 
+#: The one member tephpy emphasises out of the box (spec §3.2). Met Office
+#: Factsheet 13 draws the isotherm grid at 10 °C intervals -- which tephpy
+#: already follows -- and states in the next sentence that "the line
+#: representing the 0°C isotherm is coloured red on the diagram". The
+#: distinction is cited; the means is not. Red is
+#: :data:`~tephpy._constants.PROFILE_TEMPERATURE_COLOR`, so drawing this member
+#: red would clash with the temperature profile on the commonest figure the
+#: package makes, and the factsheet states no colour for the plotted ascent to
+#: resolve that against. An empty style is the monochrome idiom instead: same
+#: ink, heavier line, no colour invented.
+_ZERO_ISOTHERM_EMPHASIS: Final[Mapping[float, Mapping[str, object]]] = MappingProxyType(
+    {0.0: MappingProxyType({})}
+)
+
 
 def edge_crossings(
     xy: npt.NDArray[np.float64], edge: str, view: mtransforms.Bbox
@@ -663,6 +677,9 @@ class FamilySpec:
     strides: tuple[tuple[float, int], ...] | None = None
     values: tuple[float, ...] | None = None
     truncation: float | None = None
+    #: What ``emphasis`` resolves to when no tier sets one. Only isotherms
+    #: carry a non-empty default, and only because one is published.
+    emphasis: Mapping[float, Mapping[str, object]] = _NO_EMPHASIS
 
 
 def _build_isotherms(
@@ -777,6 +794,7 @@ _FAMILY_SPECS: Final[dict[str, FamilySpec]] = {
         zorder=ISOTHERM_ZORDER,
         domain=TEMPERATURE_DOMAIN,
         steps=ISOTHERM_STEPS,
+        emphasis=_ZERO_ISOTHERM_EMPHASIS,
     ),
     "dry_adiabats": FamilySpec(
         name="dry_adiabats",
@@ -1169,7 +1187,7 @@ class IsoplethFamily(martist.Artist):
         visible = True if raw_visible is None else bool(raw_visible)
         raw_emphasis = pick("emphasis")
         emphasis = (
-            _NO_EMPHASIS
+            spec.emphasis
             if raw_emphasis is None
             else _normalize_emphasis(raw_emphasis, spec.name)
         )

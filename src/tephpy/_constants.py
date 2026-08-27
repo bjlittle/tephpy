@@ -418,7 +418,10 @@ CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType(
                 "alpha": ISOPLETH_ALPHA,
                 "labels": True,
                 "visible": True,
-                "emphasis": {},
+                # The one shipped emphasis, and the only family with one
+                # (spec §3.2): Factsheet 13 draws the 0 °C isotherm
+                # distinctively, so tephpy does too.
+                "emphasis": {0.0: {}},
                 "values": None,
                 "interval": None,
             }
