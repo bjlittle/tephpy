@@ -270,11 +270,26 @@ Differences from tephi:
   supported way at all; tephi's documented customisation is whole-family and does not cover
   isotherms at all. It is deliberately **not** a "zero isotherm" feature: −20 °C bounds the
   airframe icing band, a mandatory isobar is the same gesture on another family, and one
-  option on the shared `LineOptions` beats five special cases. **Nothing is emphasised by
-  default** — every other tephpy default cites a printed-chart convention, and the evidence
-  found is operational software rather than Factsheet 13, whose published URL now 404s
-  (2026-07-30); defaulting it on would be inventing a convention, and flipping that decision
-  later is a one-line change. `EMPHASIS_LINEWIDTH` is the single new constant, because
+  option on the shared `LineOptions` beats five special cases. **The 0 °C isotherm is
+  emphasised by default, and nothing else is.** This reverses the original decision — that
+  nothing is emphasised, because "every other tephpy default cites a printed-chart
+  convention" while the evidence found was operational software rather than Factsheet 13,
+  "whose published URL now 404s (2026-07-30)" — which recorded that flipping it later is a
+  one-line change. Both premises are gone. **Provenance:** the current edition, *National
+  Meteorological Library and Archive Factsheet 13 — Upper air observations & the
+  tephigram*, © Crown copyright 2023, retrieved 2026-08-27 from
+  [metoffice.gov.uk](https://www.metoffice.gov.uk/binaries/content/assets/metofficegovuk/pdf/research/library-and-archive/library/publications/factsheets/factsheet_13-upper-air-measurements_2023.pdf)
+  and read with `pdftotext -layout` (poppler through `pixi exec`), states in its *Isotherms*
+  section beside Figure 5 that isotherms "are drawn at 10°C intervals" and that "the line
+  representing the 0°C isotherm is coloured red on the diagram". Searched across the whole
+  document, that is the *only* colour convention it gives for any isopleth family, and it
+  gives none for the plotted ascent. tephpy already took the 10 °C interval from that same
+  sentence pair (`ISOTHERM_STEPS`), so taking the emphasis is consistency rather than
+  novelty. **The distinction is cited; the means is not.** Red is
+  `PROFILE_TEMPERATURE_COLOR`, so drawing this member red would clash with the temperature
+  profile on the commonest figure the package makes, and the factsheet offers nothing to
+  settle that against. The shipped default is therefore an empty style, resolved through
+  `FamilySpec.emphasis`. `EMPHASIS_LINEWIDTH` is the single new constant, because
   emphasis defaults to the monochrome printed-chart idiom — same ink, heavier line — so no
   colour convention is invented and the SHARPpy look stays one keyword away. `linestyle` is
   accepted per member though the family has no family-level `linestyle`: dashing is the
@@ -1379,10 +1394,11 @@ them, ordered by owning plan.
   emphasis (§3.2) gives the icing band's 0 °C and −20 °C bounds as isotherms, so
   what remains open is whether the *shaded layer* between them is wanted, which
   belongs with the layer highlights already deferred to v1.x (§10 item 12).
-- **Blocked** (on a citable published chart — {issue}`80`) — Whether a current Met Office Factsheet 13 — or a University of Reading blank
-  tephigram — shows the 0 °C isotherm drawn distinctively on the printed chart.
-  Its published URL 404s (2026-07-30), so member emphasis ships off by default;
-  a citation would justify revisiting that.
+- **Resolved** (2026-08-27, {issue}`80`) — Whether a current Met Office Factsheet 13 shows
+  the 0 °C isotherm drawn distinctively on the printed chart. It does: the 2023 edition
+  is published and states that the 0 °C isotherm "is coloured red on the diagram". The
+  0 °C isotherm is now emphasised by default, in tephpy's own ink rather than in red;
+  §3.2 carries the provenance and the reasoning.
 - **Open** ({issue}`81`) — Which named stability indices beyond the v1 set (Showalter, K-index, Total Totals)
   are worth wrapping, given all are one-line `metpy.calc` calls for users?
 - **Deferred** (post-v1, demand-driven — {issue}`82`) — Whether BUFR ingest demand justifies an optional `tephpy[bufr]` extra later.

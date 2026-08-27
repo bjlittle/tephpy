@@ -8,12 +8,17 @@ isotherm for the freezing level, −20 °C for the cold limit of the airframe
 icing band, a mandatory pressure level. The ``emphasis`` option distinguishes
 any member of any isopleth family.
 
-The Freezing Level
-------------------
+The Freezing Level, Already Drawn
+---------------------------------
 
-Map the member value to an empty style. The member keeps its family's colour and
-draws at 1.5 pt instead of the usual 0.5 pt — the printed-chart idiom of same
-ink, heavier line:
+One member arrives emphasised. The Met Office draws its printed tephigram's
+isotherms at 10 °C intervals and, in the next breath, records that "the line
+representing the 0 °C isotherm is coloured red on the diagram" — `Factsheet 13,
+Upper air observations & the tephigram
+<https://www.metoffice.gov.uk/binaries/content/assets/metofficegovuk/pdf/research/library-and-archive/library/publications/factsheets/factsheet_13-upper-air-measurements_2023.pdf>`__.
+``tephpy`` follows the first half in its isotherm interval and now the second
+half too, so a fresh diagram distinguishes the freezing level with no argument
+at all:
 
 .. plot::
     :context: reset
@@ -24,7 +29,17 @@ ink, heavier line:
     import tephpy  # registers the "tephigram" projection
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
-    ax.isotherms(emphasis={0.0: {}})
+
+The distinction is cited; the means is not. Red is the temperature profile's
+colour, so a red isotherm would clash with the ascent on the commonest figure
+the package draws, and the factsheet gives no colour for the plotted ascent to
+settle that against. The member keeps its family's ink and draws at 1.5 pt
+instead of the usual 0.5 pt — the printed-chart idiom of same ink, heavier
+line — which is what an empty style means anywhere, and what
+``ax.isotherms(emphasis={0.0: {}})`` would ask for explicitly.
+
+It is the only member ``tephpy`` emphasises out of the box, and the only one
+with a published convention behind it. Everything below is how to change it.
 
 Colour and Dashes
 -----------------
@@ -109,7 +124,7 @@ Reach for that where a house style is the point — a configuration file
 diagram prefer the accessor keyword the sections above use.
 
 Passing an empty mapping at the accessor emphasises nothing, which is how one
-diagram opts out of a configured emphasis:
+diagram opts out — of a configured emphasis, and of the shipped 0 °C one:
 
 .. plot::
     :context:

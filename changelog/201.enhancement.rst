@@ -1,0 +1,13 @@
+The 0 °C isotherm is now emphasised by default — drawn at
+``EMPHASIS_LINEWIDTH`` in the isotherm family's own ink — and it is the only
+member ``tephpy`` emphasises out of the box (:issue:`80`). Spec §3.2 had ruled
+that nothing would be emphasised, because every other tephpy default cites a
+printed-chart convention and this one could not: the evidence was operational
+software, and Factsheet 13's published URL returned 404. The current edition is
+published, and beside the sentence giving the 10 °C isotherm interval that
+``tephpy`` already follows, it records that the 0 °C isotherm "is coloured red
+on the diagram". The distinction is cited and the means is not — red is the
+temperature profile's colour, and the factsheet gives none for the plotted
+ascent — so the member is distinguished by weight rather than by colour, which
+invents no convention. Pass ``emphasis={}`` to any accessor to opt out.
+(:user:`claude`)
