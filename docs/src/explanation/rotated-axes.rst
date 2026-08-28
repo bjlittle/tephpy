@@ -122,3 +122,9 @@ printed chart by colouring it red :cite:`metoffice_factsheet13`. ``tephpy``
 follows both, drawing that one member heavier rather than red, because red is
 already the temperature profile's colour. :ref:`howto-emphasis` shows how to
 change or extend it.
+
+Where to Go Next
+----------------
+
+:ref:`explanation-parcel-ascent` picks up the other half of the construction —
+what happens when a parcel is lifted through the grid this page describes.

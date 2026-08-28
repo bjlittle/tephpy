@@ -8,3 +8,4 @@ parcel ascent is doing when ``tephpy`` draws one.
     :maxdepth: 1
 
     rotated-axes
+    parcel-ascent
