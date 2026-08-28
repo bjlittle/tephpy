@@ -53,11 +53,17 @@ further lifting condenses water. That height is the
 **Normand's point**.
 
 The construction is the whole reason this diagram is drawn: two straight lines
-crossing, read off with a ruler.
-:func:`calc.normand_point(...) <tephpy.calc.normand_point>` does exactly what a
-forecaster does with a pencil — takes the dry adiabat through the parcel's
-temperature and the mixing-ratio line through its dewpoint, and returns where they
-meet. Nothing is iterated and nothing is fitted; the answer is geometric.
+crossing, read off with a ruler. That is what a forecaster does with a pencil, and
+what the tephigram exists to make possible.
+
+:func:`calc.normand_point(...) <tephpy.calc.normand_point>` returns that point —
+but it does not get there that way. It does not intersect the lines the diagram
+draws; it asks `MetPy <https://unidata.github.io/MetPy/latest/>`__ for the
+:term:`lifting condensation level`, which is the same quantity reached by a
+different route. The geometry is the meaning; MetPy's is the arithmetic. How MetPy
+arrives at it is MetPy's business, and has already changed once — its ``lcl``
+still accepts ``max_iters`` and ``eps``, deprecated and ignored, the fossil of an
+iterative solver it no longer uses.
 
 Above Normand's point the parcel is saturated, and condensation releases latent
 heat. It still cools as it rises, but more slowly, so it follows a

@@ -106,13 +106,23 @@ that domain there is no pressure to have — which is why a wide view has corner
 the grid does not reach.
 
 That is why an :term:`isobar` is a gently curved line rather than a horizontal
-rule, and why ``tephpy`` computes the isobars rather than drawing a grid — see
-:func:`pressure_from_temperature_theta
-<tephpy.transforms.pressure_from_temperature_theta>`. It is also why a tephigram
-cannot be read like a graph with two rulers. The diagram's own extent is stated
-in pressure and temperature, because those are what a user thinks in, and
-:meth:`ax.set_extent(...) <tephpy.plotting.axes.TephigramAxes.set_extent>`
-converts.
+rule. ``tephpy`` computes each one rather than ruling a grid: it sweeps
+temperature along the member's pressure and takes the potential temperature at
+each step, through :func:`theta_from_pressure_temperature
+<tephpy.transforms.theta_from_pressure_temperature>`, and the curve is where those
+points land.
+
+The inverse direction is the clearest demonstration that pressure is really
+derived. Hover anywhere on the diagram and the cursor readout names a pressure,
+because :meth:`format_coord <tephpy.plotting.axes.TephigramAxes.format_coord>`
+converts the position back through :func:`pressure_from_temperature_theta
+<tephpy.transforms.pressure_from_temperature_theta>`. There is a pressure at every
+point of the domain, and no axis anywhere carrying it.
+
+It is also why a tephigram cannot be read like a graph with two rulers. The
+diagram's own extent is stated in pressure and temperature, because those are what
+a user thinks in, and :meth:`ax.set_extent(...)
+<tephpy.plotting.axes.TephigramAxes.set_extent>` converts.
 
 What the Printed Chart Adds
 ---------------------------
