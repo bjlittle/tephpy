@@ -176,12 +176,19 @@ rejected an `io` gallery example partly on this same ground and sent the subject
 the how-to quadrant executes python under the same rule: the move changed which gate applies
 and nothing else.
 
-**So the body ships.** {pull}`203` made `wyoming.parse` public, which reaches the format
-without the network; what it lacked was something to parse. `tephpy.samples` gains the
-recorded Wyoming ascent, and the page shows both routes as running blocks — `igra.read` over
-the IGRA file and `wyoming.parse` over the Wyoming body — converging on the same
-`Sounding` and the same diagram. That convergence is the page's actual subject: two formats,
-two readers, one type downstream.
+**So the body ships — and its IGRA twin with it.** {pull}`203` made `wyoming.parse` public,
+which reaches the format without the network; what it lacked was something to parse. The
+recorded fixtures already hold the *same physical ascent* in both formats — Camborne,
+2026-07-21 12Z — captured that way so the two readers could cross-validate against each
+other in the tests. Shipping the pair makes the page's point literally true rather than
+rhetorical: `igra.read` over one file and `wyoming.parse` over the other converge on the
+same `Sounding` and draw the same diagram. That convergence is the page's actual subject —
+two formats, two readers, one type downstream — and it does not survive shipping only the
+Wyoming half, because the sample already in the package is a different station in a
+different decade.
+
+The IGRA half of the pair carries no redistribution question: NOAA/NCEI, a U.S. Government
+work in the public domain, which is the footing the existing sample already stands on.
 
 **The redistribution position, stated rather than assumed.** The University of Wyoming
 publishes no terms of use, copyright, licence or redistribution statement for the archive
@@ -251,9 +258,10 @@ filtering.
   Four membership lists per page, which {issue}`193` records the cost of getting wrong.
 - A baseline in `docs/baseline/` per published figure, generated rather than hand-written.
 - `refs.bib` gains the sources §3.4 and §3.5 cite.
-- `tephpy.samples` gains the recorded Wyoming ascent of §3.6, with its attribution, and
-  `[tool.setuptools.package-data]` gains whatever glob carries it — `samples/*.txt` names
-  the IGRA file alone today.
+- `tephpy.samples` gains the Camborne pair of §3.6 — the Wyoming body and its IGRA twin —
+  with the attribution the fixtures already record, and
+  `[tool.setuptools.package-data]` gains the glob that carries the second format:
+  `samples/*.txt` names text alone today.
 
 (narrative-spec-5)=
 ## 5. Testing
