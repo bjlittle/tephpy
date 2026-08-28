@@ -1,5 +1,11 @@
 Explanation
 ===========
 
-Background on the :term:`tephigram`, its rotated temperature-entropy coordinate
-system, and parcel analysis will appear here as the package grows.
+Background on the :term:`tephigram` — why its axes are what they are, and what a
+parcel ascent is doing when ``tephpy`` draws one.
+
+.. toctree::
+    :maxdepth: 1
+
+    rotated-axes
+    parcel-ascent

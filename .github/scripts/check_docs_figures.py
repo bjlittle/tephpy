@@ -71,6 +71,8 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 #: declaration pattern stops matching, instead of the gate finding nothing and
 #: reporting that nothing was wrong.
 PUBLISHES = (
+    "explanation/parcel-ascent.rst",
+    "explanation/rotated-axes.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",
