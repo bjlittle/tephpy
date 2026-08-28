@@ -563,13 +563,19 @@ question.
   committed to it before sphinx-gallery had tags of its own. It now does, with the filter
   UI that was the whole reason to want them (§3.6), so adopting sphinx-tags would add a
   dependency to duplicate a feature already installed. What it offers beyond that — a
-  site-wide tag index spanning the narrative documentation — is a question for 7c, which
-  owns the tutorials and explanation quadrants that would be tagged.
+  site-wide tag index spanning the narrative documentation — was left as a question for 7c,
+  which owns the tutorials and explanation quadrants that would be tagged. *Answered
+  2026-08-27:* rejected there too, narrative spec §3.8 — after that plan the narrative
+  corpus is about eleven pages across three quadrants, each with a landing page and a
+  toctree, and a tag index is navigation for a corpus too large to browse.
 
 - **Deferred** (7c — {issue}`66`) — **the reader how-to.** §5 sends the `io` example there.
   The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to
   belongs to 7c's tutorials and explanation quadrants regardless (scope spec §3.6), so it
-  waits on that plan rather than on any one API landing.
+  waits on that plan rather than on any one API landing. *Specified 2026-08-27:* narrative
+  spec §3.6, which records that sending it here moved the network constraint rather than
+  solving it — the how-to quadrant executes python under the same rule — so the page shows
+  one runnable route and says so.
 
 - **Rejected** (2026-08-20) — **a sixth, `io` example.** §5 gives the reasoning: its
   subject is not a picture, and the network constraint makes the misfit mechanical as well
