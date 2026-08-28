@@ -48,6 +48,7 @@ UNREAD_SUFFIXES = (".md", ".ipynb")
 #: that has to be re-measured to stay true. This is what fails when the extractor
 #: stops recognising a directive, instead of every page passing by not being found.
 DOCUMENTED = (
+    "explanation/rotated-axes.rst",
     "howtos/configuration.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
@@ -60,6 +61,7 @@ DOCUMENTED = (
 #: so a converted page that stopped being recognised would not fail those checks
 #: -- it would pass all of them, having been asked nothing.
 PUBLISHES_FIGURES = (
+    "explanation/rotated-axes.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",

@@ -50,6 +50,14 @@ package's, the American Meteorological Society's *Glossary of Meteorology*
         :meth:`ax.plot_profile(...) <tephpy.plotting.axes.TephigramAxes.plot_profile>`
         draws it through the tephigram transform machinery.
 
+    entropy
+        The thermodynamic quantity whose defining property, for reading a
+        chart, is that area on a temperature–entropy diagram is energy. For
+        dry air the specific entropy is :math:`c_p \ln \theta` plus a
+        constant, so :term:`potential temperature` carries it: ``tephpy``
+        plots :math:`\ln \theta` and never computes entropy itself, which is
+        why the diagram is called T–ln θ rather than T–s.
+
     potential temperature
         The temperature an air parcel would have if moved dry-adiabatically
         to the 1000 hPa reference pressure; written θ (theta). In ``tephpy``
