@@ -100,8 +100,10 @@ Where the Pressure Axis Went
 ----------------------------
 
 There is not one. Pressure is *derived*, not plotted: given a temperature and a
-potential temperature, Poisson's relation fixes the pressure, so every point on
-the diagram already has one without an axis to carry it.
+potential temperature, Poisson's relation fixes the pressure, so every point of
+the diagram's physical domain already has one without an axis to carry it. Outside
+that domain there is no pressure to have — which is why a wide view has corners
+the grid does not reach.
 
 That is why an :term:`isobar` is a gently curved line rather than a horizontal
 rule, and why ``tephpy`` computes the isobars rather than drawing a grid — see
@@ -119,8 +121,9 @@ Two conventions on the diagram are not consequences of the mathematics but
 decisions somebody made and everybody kept. The isotherms are drawn every 10 °C,
 and the 0 °C isotherm is distinguished from its neighbours — on the Met Office's
 printed chart by colouring it red :cite:`metoffice_factsheet13`. ``tephpy``
-follows both, drawing that one member heavier rather than red, because red is
-already the temperature profile's colour. :ref:`howto-emphasis` shows how to
+follows both: 10 °C at the default view width, on a ladder that selects finer
+intervals as you zoom in, and that one member drawn heavier rather than red,
+because red is already the temperature profile's colour. :ref:`howto-emphasis` shows how to
 change or extend it.
 
 Where to Go Next

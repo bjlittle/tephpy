@@ -1,0 +1,21 @@
+The explanation quadrant exists. It had been a placeholder promising that
+background would appear as the package grew, and it now carries the two pages
+spec §8.6 asked for (:issue:`66`, narrative spec §3.4 and narrative spec §3.5).
+
+*Why the Axes Are Rotated* answers the question a tephigram provokes on sight, in
+the order the construction goes: temperature against :term:`entropy`, because area
+is then energy; ``ln θ`` standing in for entropy; isotherms and dry adiabats
+straight and exactly perpendicular, which is what the coordinates were chosen to
+produce; the forty-five degree rotation, which preserves that right angle and puts
+the ground at the foot of the page; and pressure as a derived quantity, which is
+why isobars curve and why there is no vertical axis to read against. Met Office
+Factsheet 13 is cited for the printed chart's conventions, through the
+bibliography.
+
+*Parcel Ascent and Normand's Point* follows the parcel rather than the API, and
+closes the loop the first page opens: the buoyancy integral between a parcel and
+its environment is an area on these axes because of the coordinate choice, which
+is why :meth:`~tephpy.plotting.axes.TephigramAxes.shade_cape` shades a region
+rather than annotating a number. It also names two things that were implicit —
+that ``tephpy`` draws while MetPy computes, and that the operational −25 mb
+cloud-base shift is a convention applied only when asked. (:user:`claude`)
