@@ -72,9 +72,11 @@ Three obligations converge here, and one constraint arrives with them:
    package renders is taken from a chart somebody printed, and the reader is entitled to the
    edition rather than to a sentence saying somebody checked. The machinery landed with
    {pull}`201`; this is the work that uses it.
-5. **The reader how-to shows one runnable route and says so.** {issue}`202` is unresolved,
-   so the Wyoming half cannot execute. §3.6 records why, and the page states the asymmetry
-   rather than letting it read as an oversight.
+5. **Both routes run, and the body that makes the second one possible ships.** The
+   alternative was a page demonstrating one of the two things it is about. {issue}`202`
+   stays open as a question worth answering and not as a gate: the redistribution risk is
+   accepted knowingly, with attribution carried in the package, and §3.6 specifies the
+   withdrawal if the answer comes back no.
 6. **No doctested `Examples` sections, and no site-wide tag index.** Both were live
    questions this plan inherited; §3.8 closes both, and neither is a deferral.
 
@@ -160,32 +162,50 @@ computes it. The −25 mb operational correction of spec §1 is named here as a 
 a reason, not a magic number.
 
 (narrative-spec-3-6)=
-### 3.6 The reader how-to, and the route it cannot run
+### 3.6 The reader how-to, and the body that makes it whole
 
 `docs/src/howtos/read-a-sounding.rst`. The two supported routes into a `Sounding`:
 {func}`igra.read <tephpy.io.igra.read>` and {func}`wyoming.fetch <tephpy.io.wyoming.fetch>`.
 
-**One of them executes and the other cannot.** docs spec §3.9 runs every python block in
-this quadrant, and spec §8.5 forbids live network in CI. `igra.read` reads the file
-`tephpy.samples` ships, so it runs. `wyoming.fetch` opens a URL, so it cannot. {pull}`203`
-made `wyoming.parse` public, which reaches the format offline — but a block that parses
-needs a body to parse, and no Wyoming body ships. Whether one may is {issue}`202`, which
-turns on a redistribution question the University of Wyoming publishes no answer to.
+**The constraint, and why relocating the subject did not lift it.** docs spec §3.9 runs
+every python block in this quadrant, and spec §8.5 forbids live network in CI — a rule this
+specification endorses rather than works around, because a documentation build that reaches
+the network fails for reasons that have nothing to do with the documentation. `igra.read`
+reads a file, so it runs. `wyoming.fetch` opens a URL, so it never can. gallery spec §5
+rejected an `io` gallery example partly on this same ground and sent the subject here, but
+the how-to quadrant executes python under the same rule: the move changed which gate applies
+and nothing else.
 
-**This is not a new constraint but a relocated one.** gallery spec §5 rejected an `io`
-gallery example partly because "spec §7 forbids live network in CI while sphinx-gallery
-executes examples during the build", and sent the subject here. The how-to quadrant executes
-python under the same rule, so the move changed which gate applies and nothing else.
+**So the body ships.** {pull}`203` made `wyoming.parse` public, which reaches the format
+without the network; what it lacked was something to parse. `tephpy.samples` gains the
+recorded Wyoming ascent, and the page shows both routes as running blocks — `igra.read` over
+the IGRA file and `wyoming.parse` over the Wyoming body — converging on the same
+`Sounding` and the same diagram. That convergence is the page's actual subject: two formats,
+two readers, one type downstream.
 
-**The page states the asymmetry.** It shows `igra.read` as a running block ending in a
-drawn sounding, and presents the Wyoming route as prose naming `fetch` and `parse` by role,
-with the reason the call is not shown as a block — the same idiom the ecCodes recipe uses
-for the same function (scope spec §3.2). What it does not do is present the two routes as
-though equally demonstrated. A page that shows one of two things and implies both is the
-quantifier defect docs-style's *Reviewing Claims* was written for ({issue}`193`).
+**The redistribution position, stated rather than assumed.** The University of Wyoming
+publishes no terms of use, copyright, licence or redistribution statement for the archive
+(checked 2026-08-27), and absence of a stated licence is not a grant of one. Shipping the
+body is therefore a considered risk rather than a permission: the data are numeric
+measurements rather than authorship, the volume is one thinned ascent, and the attribution
+the fixtures already record travels with it into the package. {issue}`202` remains open —
+the question is worth an answer, and the archive names a contact — but it does not gate this
+plan.
 
-If {issue}`202` resolves in favour of shipping, this section is superseded and the page
-gains a second running block. That is a change to this specification, not a defect in it.
+**The withdrawal, specified now so it is cheap later.** If the answer comes back no, the
+sample is removed from `tephpy.samples` and the page's Wyoming block reverts to prose naming
+`fetch` and `parse` by role, which is the idiom the ecCodes recipe already uses for the same
+function (scope spec §3.2). The page must then say plainly that it demonstrates one of the
+two routes: showing one of two things while implying both is the quantifier defect
+docs-style's *Reviewing Claims* was written for ({issue}`193`).
+
+**What this costs `tephpy.samples`.** The module today is one IGRA station file, and
+`sounding()` routes every sample through `igra.read` — "the same documented route a user's
+own file takes" (gallery spec §3.1). A second source in a second format ends both
+invariants: `path()` is documented as taking no argument *because* there is one file, and
+that reasoning expires. The module's shape is the plan's to settle; what this specification
+fixes is that a shipped sample keeps routing through a public reader, so that
+`samples.sounding(...)` never becomes a private path a user cannot reproduce.
 
 (narrative-spec-3-7)=
 ### 3.7 The glossary sweep
@@ -231,6 +251,9 @@ filtering.
   Four membership lists per page, which {issue}`193` records the cost of getting wrong.
 - A baseline in `docs/baseline/` per published figure, generated rather than hand-written.
 - `refs.bib` gains the sources §3.4 and §3.5 cite.
+- `tephpy.samples` gains the recorded Wyoming ascent of §3.6, with its attribution, and
+  `[tool.setuptools.package-data]` gains whatever glob carries it — `samples/*.txt` names
+  the IGRA file alone today.
 
 (narrative-spec-5)=
 ## 5. Testing
@@ -243,6 +266,7 @@ filtering.
 | the pages being reStructuredText | `test_no_user_page_is_written_in_a_format_this_gate_cannot_read` ({pull}`199`) |
 | every new `:term:` | the fail-on-warning build; a dangling reference is an error |
 | every `narrative spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
+| the shipped Wyoming sample | `tests/test_samples.py` — it reads through a public reader and yields a `Sounding`, like every other sample |
 | the prose | review, against docs-style's *Reviewing Claims* ({pull}`195`) |
 
 No new gate. The machinery that holds this plan's output was built by the four plans before
@@ -253,7 +277,8 @@ it, and needing none is the evidence that those plans were the right shape.
 
 **In scope.** The five pages of §3.2–§3.6, their figures and baselines, the glossary entries
 they seed, the bibliography entries they cite, the index and membership-list registrations
-of §4, and the two closures of §3.8.
+of §4, the shipped Wyoming sample and the `tephpy.samples` changes it forces, and the two
+closures of §3.8.
 
 **Out of scope.** The developer and contributor guide half of {issue}`66`, which is a
 different audience and a different quadrant. Release execution, which follows this plan.
@@ -263,17 +288,19 @@ this plan started rather than inside it.
 
 **Tranches.** Explanation first — it has the fewest gate surfaces, no session continuity to
 maintain, and the tutorials link into it. Tutorials second, on top of pages they can cite.
-The reader how-to last, by which time {issue}`202` may have an answer and §3.6 may be
-superseded before it is ever written.
+The reader how-to last, carrying the shipped Wyoming sample and the `tephpy.samples`
+changes §3.6 describes, so the package change and the page that justifies it land together.
 
 (narrative-spec-7)=
 ## 7. Open items
 
 Tagged per docs spec §3.5.
 
-- **Blocked** (on a redistribution answer — {issue}`202`) — whether the reader how-to's
-  Wyoming half becomes a running block. §3.6 specifies the page either way; this decides
-  which of the two it is.
+- **Open, not blocking** ({issue}`202`) — whether the recorded Wyoming ascent may be
+  redistributed in the wheel. Decided 2026-08-28 to ship on accepted risk rather than wait,
+  the alternative being a page that demonstrates one of the two things it is about. §3.6
+  states the position and specifies the withdrawal, so an answer of no costs a sample and a
+  paragraph rather than a redesign.
 - **Open** ({issue}`66`) — the developer and contributor guide. This plan closes the user
   half of that issue and leaves the developer half open, which is the honest split: the two
   share an issue and not an audience.
