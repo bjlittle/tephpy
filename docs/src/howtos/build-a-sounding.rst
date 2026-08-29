@@ -171,4 +171,6 @@ downstream can tell it was built rather than read:
 Where to Go Next
 ----------------
 
-:ref:`howto-read-a-sounding` is the other route in, for data still in a file.
+:ref:`howto-units` covers what those unit strings may say, and what you get
+back. :ref:`howto-read-a-sounding` is the other route in, for data still in a
+file.
