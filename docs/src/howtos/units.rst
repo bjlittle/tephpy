@@ -53,19 +53,16 @@ stored in that unit rather than converted on the way in:
     )
 
 The field is tagged, not rewritten: ``imperial.pressure`` reads back
-``[29.5 26.0] inch_Hg``, the numbers you gave. That :term:`sounding` plots
-exactly like any other, and where a calculation derives a new quantity it
-comes back in ``tephpy``'s own units — ``calc.parcel_path`` on a °F sounding
-returns a °C :term:`profile`.
+``[29.5 26.0] inch_Hg``, the numbers you gave. That :term:`sounding` plots and
+analyses exactly like any other, and where a calculation derives a new quantity
+it comes back in ``tephpy``'s own units — ``calc.parcel_path`` on a °F sounding
+returns a °C :term:`profile`, whatever the pressure was spelled in.
 
-.. note::
-
-    Plotting works in any unit pint accepts. Analysis does not, yet:
-    ``calc.parcel_path`` raises ``DimensionalityError`` when a sounding's
-    pressure is in ``inHg`` or ``mmHg`` — every other pressure unit checked
-    here (``hPa``, ``Pa``, ``kPa``, ``mbar``, ``bar``, ``atm``, ``psi``,
-    ``torr``) works. This is a bug in ``tephpy``, not a design decision, and
-    it is tracked as :issue:`214`.
+That last part is pinned rather than asserted. ``tests/test_calc.py`` runs the
+:term:`parcel ascent` and every stability index over ten pressure units — ``hPa``,
+``Pa``, ``kPa``, ``mbar``, ``bar``, ``atm``, ``psi``, ``torr``, ``inHg`` and
+``mmHg`` — and requires the answers to agree, not merely the calls to succeed
+(:issue:`214`).
 
 What Comes Back Is pint
 -----------------------

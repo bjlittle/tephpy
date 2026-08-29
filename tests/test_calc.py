@@ -12,6 +12,8 @@ composes.
 
 from __future__ import annotations
 
+import dataclasses
+
 import metpy.calc as mpcalc
 from metpy.units import units
 import numpy as np
@@ -729,3 +731,85 @@ def test_worked_example_cape_against_stull_equation_14_5():
     cape = result.cape.m_as("J/kg")
     assert cape >= cape_stull
     assert cape == pytest.approx(cape_stull, rel=0.2)
+
+
+# --- Unit independence (spec §5) -------------------------------------------
+
+#: Pressure units a caller may plausibly hold a profile in, spanning the two
+#: pint defines as a height of a fluid column (:issue:`214`). Every existing
+#: test in this module builds in hPa, so nothing here pinned that the analysis
+#: path is independent of the unit the sounding arrived in.
+PRESSURE_UNITS = (
+    "hPa",
+    "Pa",
+    "kPa",
+    "mbar",
+    "bar",
+    "atm",
+    "psi",
+    "torr",
+    "inHg",
+    "mmHg",
+)
+
+#: Levels the parcel curve is compared at, well inside the profile so the
+#: comparison never extrapolates.
+_SAMPLE_HPA = np.array([950.0, 800.0, 600.0, 400.0])
+
+
+def _sounding_in(unit):
+    """Build the reference sounding with its pressure expressed in `unit`."""
+    return Sounding(PRESSURE.to(unit), TEMPERATURE, dewpoint=DEWPOINT)
+
+
+def _curve_at_samples(profile):
+    """Sample the parcel temperature at `_SAMPLE_HPA`, in °C.
+
+    Sampled rather than compared element-wise: the parcel grid is built by
+    ``np.arange`` from the start pressure, so a unit round-trip can shift the
+    grid by one level without the physics differing at all.
+    """
+    pressure = profile.pressure.m_as("hPa")
+    temperature = profile.temperature.m_as("degC")
+    return np.interp(_SAMPLE_HPA, pressure[::-1], temperature[::-1])
+
+
+@pytest.mark.parametrize("unit", PRESSURE_UNITS)
+def test_parcel_path_is_independent_of_the_pressure_unit(unit):
+    """The ascent is the same atmosphere however the pressure was spelled."""
+    baseline = _curve_at_samples(parcel_path(_sounding()))
+    np.testing.assert_allclose(
+        _curve_at_samples(parcel_path(_sounding_in(unit))), baseline, atol=1e-6
+    )
+
+
+@pytest.mark.parametrize("unit", PRESSURE_UNITS)
+def test_indices_are_independent_of_the_pressure_unit(unit):
+    """Every field of the panel agrees, not merely the call not raising."""
+    baseline = indices(_sounding())
+    result = indices(_sounding_in(unit))
+    for field in dataclasses.fields(SoundingIndices):
+        expected = getattr(baseline, field.name)
+        actual = getattr(result, field.name).to(expected.units)
+        np.testing.assert_allclose(
+            actual.magnitude, expected.magnitude, rtol=1e-6, err_msg=field.name
+        )
+
+
+@pytest.mark.parametrize("unit", PRESSURE_UNITS)
+def test_a_corrected_cloud_base_is_independent_of_the_pressure_unit(unit):
+    """The corrected path takes a different branch, and needs its own case.
+
+    Without ``cloud_base_correction`` the parcel curve is delegated whole to
+    ``metpy.calc.parcel_profile``; the correction is what routes it through
+    tephpy's own dry and moist legs (:issue:`214`).
+    """
+    correction = Q(10.0, "hPa")
+    baseline = indices(_sounding(), cloud_base_correction=correction)
+    result = indices(_sounding_in(unit), cloud_base_correction=correction)
+    for field in dataclasses.fields(SoundingIndices):
+        expected = getattr(baseline, field.name)
+        actual = getattr(result, field.name).to(expected.units)
+        np.testing.assert_allclose(
+            actual.magnitude, expected.magnitude, rtol=1e-6, err_msg=field.name
+        )

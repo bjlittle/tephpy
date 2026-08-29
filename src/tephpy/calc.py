@@ -445,7 +445,11 @@ def parcel_path(
         dry_temperature = dry_lapse(
             registry.Quantity(dry_pressure, "hPa"),
             start_temperature,
-            reference_pressure=start_pressure,
+            # In hPa, to match the array above: `dry_lapse` forms
+            # `(p / p_ref) ** kappa`, and pint leaves a residual unit on a
+            # fractional power of hPa/inHg rather than cancelling it
+            # (:issue:`214`).
+            reference_pressure=start_pressure.to("hPa"),
         ).m_as("degC")
     else:  # A saturated parcel: Normand's point is the parcel start.
         dry_temperature = np.empty(0, dtype=np.float64)
@@ -622,7 +626,7 @@ def _lcl_used(
     from metpy.calc import dry_lapse  # noqa: PLC0415
 
     corrected_temperature = dry_lapse(
-        corrected, start_temperature, reference_pressure=start_pressure
+        corrected, start_temperature, reference_pressure=start_pressure.to("hPa")
     )
     return corrected, corrected_temperature.to("degC")
 
@@ -813,7 +817,7 @@ def _parcel_curve(  # noqa: PLR0913
         curve[below] = dry_lapse(
             registry.Quantity(pressure[below], "hPa"),
             start_temperature,
-            reference_pressure=start_pressure,
+            reference_pressure=start_pressure.to("hPa"),
         ).m_as("degC")
     curve[~below] = moist_lapse(
         registry.Quantity(pressure[~below], "hPa"),
