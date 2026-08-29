@@ -1,0 +1,31 @@
+A how-to covers getting data in, and demonstrates both routes rather than one
+(:issue:`66`, narrative spec §3.6). *Read a Sounding From an Archive* reads the
+same balloon flight twice — through :func:`~tephpy.io.igra.read` and through the
+:func:`~tephpy.io.wyoming.parse` exposed by :pull:`203` — and draws both on one
+diagram, where they cannot be told apart. That is the page's subject: two
+archives, two readers, one :class:`~tephpy.sounding.Sounding` downstream.
+
+Showing it needed the same physical ascent in both formats, so ``tephpy.samples``
+now ships the Camborne 2026-07-21 12Z pair beside the two Norman ascents.
+Every sample still reads through a public reader — a sample reached by a private
+path would demonstrate nothing a reader could repeat. Carrying a second format
+changed ``samples.path``, which the breaking-change entry above records.
+
+The page also states what it does not run.
+:func:`~tephpy.io.wyoming.fetch` is described rather than shown as a block,
+because every python block in these guides is executed by the test suite on every
+supported Python version — and again by the documentation build where it publishes
+a figure — so one reaching the University of Wyoming would fail for reasons that
+have nothing to do with ``tephpy``. Little is lost in the reading: ``fetch`` is
+``parse`` with a download in front, so a fetched sounding and a parsed one are
+built by identical code.
+
+Each Diátaxis landing page now introduces its quadrant. Two of the four had no
+prose at all and a third had four words, so a reader arriving at one met a bare
+list of links and had to infer what kind of material it held and whether it was
+addressed to them. Each now says who it is for, what is in it, and where to go
+instead — the tutorials pointing a reader who is not new to the how-tos, the
+how-tos pointing one who is to the tutorials. A line beneath the landing page's
+four cards names the `Diátaxis <https://diataxis.fr/>`__ framework they follow and
+links it, for a reader curious why the documentation is divided that way rather
+than by subject. (:user:`claude`)

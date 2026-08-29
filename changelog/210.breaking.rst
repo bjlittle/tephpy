@@ -1,0 +1,8 @@
+``samples.path()`` now takes the name of the sample whose file you want —
+``samples.path("norman-12z")`` — and raises :class:`TypeError` if called with no
+argument. It took none while the package shipped a single IGRA station file
+holding every sample; it now ships two formats (see the documentation entry
+below), and there is no file to return without being asked which. One file may
+still hold several samples, so two names can give the same path and differ only in
+the ascent selected from it. ``samples.available()`` reports the names, and
+``samples.sounding()`` is unchanged. (:user:`claude`)

@@ -33,6 +33,11 @@ Plot and analyse :term:`tephigrams <tephigram>`.
 
         Information-oriented API and glossary.
 
+.. rst-class:: center
+
+    :octicon:`mortar-board` Four quadrants, because learning, working and
+    understanding are different needs (`Diátaxis <https://diataxis.fr/>`__)
+
 .. toctree::
     :hidden:
 

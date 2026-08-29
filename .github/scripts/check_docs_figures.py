@@ -76,6 +76,7 @@ PUBLISHES = (
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",
+    "howtos/read-a-sounding.rst",
     "howtos/temp-and-bufr.rst",
     "tutorials/analyse-a-sounding.rst",
     "tutorials/first-tephigram.rst",

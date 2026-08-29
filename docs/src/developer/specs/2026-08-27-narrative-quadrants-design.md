@@ -308,7 +308,9 @@ Tagged per docs spec §3.5.
   redistributed in the wheel. Decided 2026-08-28 to ship on accepted risk rather than wait,
   the alternative being a page that demonstrates one of the two things it is about. §3.6
   states the position and specifies the withdrawal, so an answer of no costs a sample and a
-  paragraph rather than a redesign.
+  paragraph rather than a redesign. *Shipped 2026-08-29* ({pull}`210`): the sample is in
+  `tephpy.samples` and in the wheel, with its attribution, so the question is now live
+  rather than hypothetical.
 - **Open** ({issue}`66`) — the developer and contributor guide. This plan closes the user
   half of that issue and leaves the developer half open, which is the honest split: the two
   share an issue and not an audience.

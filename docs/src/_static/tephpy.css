@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2026, tephpy Contributors.
+ *
+ * This file is part of tephpy and is distributed under the 3-Clause BSD license.
+ * See the LICENSE file in the package root directory for licensing details.
+ */
+
+/*
+ * Site-wide styling, as against the page-specific `browser-toolbar.css`.
+ *
+ * `.. rst-class:: center` sets this class on a paragraph and nothing else
+ * centres it: neither Sphinx's `basic.css` nor `pydata-sphinx-theme` defines
+ * a `.center` rule, so the directive is inert without this.
+ */
+.center {
+  text-align: center;
+}

@@ -57,7 +57,11 @@ tephpy = [
   # `MANIFEST.in` is what carries it there. It is listed here so the installed
   # `tephpy.examples` is whole, every file of it the gallery offers for download
   # (gallery spec §3.7).
+  # Two globs because two formats ship: the IGRA station records and the
+  # University of Wyoming `TEXT:CSV` body that lets the reader how-to
+  # demonstrate both routes into a `Sounding` offline (narrative spec §3.6).
   "samples/*.txt",
+  "samples/*.csv",
   "examples/GALLERY_HEADER.rst",
 ]
 
