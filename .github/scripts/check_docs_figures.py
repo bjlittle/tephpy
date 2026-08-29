@@ -74,6 +74,7 @@ PUBLISHES = (
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
     "howtos/build-a-sounding.rst",
+    "howtos/label-and-compose.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",
