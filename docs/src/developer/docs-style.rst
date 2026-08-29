@@ -38,6 +38,15 @@ documentation build is fail-on-warning, so a ``:term:`` whose entry does not
 exist yet breaks it: a pull request that reaches for a new term adds the entry
 in the same change.
 
+The first-mention half is checked by ``.github/scripts/check_glossary_links.py``,
+a pre-commit hook over the user quadrants. It reads the glossary into alias
+groups, so linking ``CAPE`` satisfies ``convective available potential energy``
+too, and it reports the line rather than only the page. What it deliberately
+passes over is what this rule already excludes — titles, directive bodies and
+options, role targets, inline literals — and emphasis spans besides, because a
+page quoting another page's title in italics is citing it rather than using the
+concept.
+
 When a definition names a documented API, cross-reference it with the matching
 Sphinx domain role — ``:class:``, ``:func:``, ``:meth:``, ``:mod:``, or
 ``:obj:`` — so the reader can follow the link straight into the API
