@@ -2,8 +2,9 @@ How-To Guides
 =============
 
 Recipes for a reader who already knows what they want. Each page answers one
-question and stops there: getting data in from an archive, or out of a format
-``tephpy`` does not read; framing the view on the region you care about; marking
+question and stops there: getting data in from an archive, out of a format
+``tephpy`` does not read, or straight out of a :class:`pandas.DataFrame` or an
+:class:`xarray.Dataset`; framing the view on the region you care about; marking
 a reference :term:`isopleth`; setting your own defaults from a configuration
 file; and branding a figure with the project logo.
 
@@ -17,6 +18,7 @@ page and on every supported Python version, so what you copy is what ran.
 .. toctree::
     :maxdepth: 1
 
+    build-a-sounding
     configuration
     emphasis
     framing

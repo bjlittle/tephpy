@@ -31,7 +31,10 @@ time that selects an ascent from it — a station file holds many:
     )
 
 For your own data, that path is wherever you downloaded the station file to.
-``samples.path(...)`` is only how this page gets hold of one.
+``samples.path(...)`` is only how this page gets hold of one;
+:func:`samples.available() <tephpy.samples.available>` lists the names it
+accepts. If your data is already in Python rather than in a file,
+:ref:`howto-build-a-sounding` is the page you want.
 
 From a Wyoming Body
 -------------------

@@ -1,0 +1,10 @@
+Added :ref:`howto-build-a-sounding`, a how-to for the
+:meth:`Sounding.from_dataframe <tephpy.sounding.Sounding.from_dataframe>` and
+:meth:`Sounding.from_dataset <tephpy.sounding.Sounding.from_dataset>`
+constructors, which the user documentation had never shown despite pandas and
+xarray both being hard runtime dependencies (:issue:`212`). Records the
+asymmetry between them: a DataFrame carries no units, so ``units=`` is
+required, while a Dataset is read through each variable's ``attrs["units"]``
+and ``units=`` is the override. Also documents
+:func:`samples.available() <tephpy.samples.available>` on
+:ref:`howto-read-a-sounding`. (:user:`bjlittle`)
