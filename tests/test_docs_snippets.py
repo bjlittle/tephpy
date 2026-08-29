@@ -1124,3 +1124,57 @@ def test_no_plot_renders_from_a_file():
         "that agrees with the prose until someone edits one of them "
         "(plots spec §2)"
     )
+
+
+# --- Exception signposting (:issue:`213`) -----------------------------------
+
+#: A public tephpy exception named in prose. The hierarchy is documented in
+#: ``tephpy.exceptions``' module docstring and published by autoapi, but a
+#: reader only reaches it by already knowing to look; a page that names one of
+#: these is where a caller meets the subject, and so is where the signpost
+#: belongs (:issue:`213`).
+NAMES_AN_EXCEPTION = re.compile(r"\bTephpy[A-Za-z]*(?:Error|Warning)\b")
+
+#: The cross-reference that discharges it. Any role targeting the module
+#: counts, so a page may link it as `:mod:` or reach a member through
+#: `tephpy.exceptions.X`.
+SIGNPOSTS = "tephpy.exceptions"
+
+
+def test_a_page_naming_an_exception_points_at_the_hierarchy():
+    """Naming one exception is where a caller learns there is a hierarchy.
+
+    ``except TephpyError`` catches everything tephpy raises for correctable
+    input, and that is the fact a caller wants at the moment they first meet
+    a named exception. The module docstring says it; this check is that the
+    pages naming an exception send the reader there (:issue:`213`).
+    """
+    offenders = [
+        identify(page)
+        for page in user_pages()
+        if NAMES_AN_EXCEPTION.search(text := page.read_text(encoding="utf-8"))
+        and SIGNPOSTS not in text
+    ]
+    assert offenders == [], (
+        f"these pages name a tephpy exception and never point at the "
+        f"hierarchy it belongs to: {offenders}. A reader meeting one error "
+        "learns nothing about catching the rest; link "
+        "`:mod:`tephpy.exceptions`` where the exception is named "
+        "(:issue:`213`)"
+    )
+
+
+def test_the_reference_index_sends_a_caller_to_the_hierarchy():
+    """The quadrant's own description otherwise omits the subject entirely.
+
+    The index enumerates what the reference holds — the command line, the
+    configuration options, the glossary, the citations, the changelog — and
+    named no exception at all, so a reader deciding what to catch had nothing
+    to follow (:issue:`213`).
+    """
+    index = (DOCS / "reference" / "index.rst").read_text(encoding="utf-8")
+    assert SIGNPOSTS in index, (
+        "the reference index does not mention `tephpy.exceptions`, so the "
+        "quadrant describes itself without the one page a caller deciding "
+        "what to catch needs (:issue:`213`)"
+    )
