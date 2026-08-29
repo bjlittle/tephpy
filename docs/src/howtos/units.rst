@@ -106,9 +106,9 @@ When the Units Are Wrong
 of this subject — units missing, ambiguous, unparsable, or in the wrong
 dimension. It subclasses
 :class:`TephpyError <tephpy.exceptions.TephpyError>`, the root of ``tephpy``'s
-hierarchy, so a caller who wants everything can catch that instead.
-:mod:`tephpy.exceptions` documents the whole hierarchy, and is the page to read
-if you are deciding what to catch.
+hierarchy, so a caller who wants every error ``tephpy`` raises about the data
+itself can catch that instead. :mod:`tephpy.exceptions` documents the hierarchy,
+and says which mistakes fall outside it and raise a builtin exception instead.
 
 Where to Go Next
 ----------------

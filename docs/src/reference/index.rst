@@ -8,11 +8,13 @@ you have installed. Beside it sit the command line, every configuration option a
 its default, a glossary, the published sources this documentation cites, and the
 changelog.
 
-If you are deciding what to catch, read :mod:`tephpy.exceptions`. Every error
-``tephpy`` raises for input you can correct derives from
+If you are deciding what to catch, read :mod:`tephpy.exceptions`. What
+``tephpy`` raises about your data — its units, its physical consistency, the
+source it came from, the configuration file in force — derives from
 :class:`TephpyError <tephpy.exceptions.TephpyError>`, so one ``except`` clause
-covers the lot, and the module sets out the narrower classes for when that is
-too broad.
+covers that subject, and the module sets out the narrower classes for when it
+is too broad. Ordinary argument mistakes stay outside the hierarchy and raise
+the builtin exceptions instead.
 
 The glossary is worth knowing about before you need it. ``tephpy``'s audience is
 scientific software engineers rather than meteorologists, so each entry gives the

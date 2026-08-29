@@ -99,7 +99,8 @@ give it a station identifier and a time — ``wyoming.fetch("03808",
 body. It takes an optional ``timeout``, and raises
 :class:`TephpyIOError <tephpy.exceptions.TephpyIOError>` for a network failure, an
 HTTP error, or a body it cannot read — one of the hierarchy
-:mod:`tephpy.exceptions` describes, all of which ``except TephpyError`` catches.
+:mod:`tephpy.exceptions` describes, which ``except TephpyError`` catches
+whole.
 
 **That call is described here rather than shown as a block, and the reason is a
 feature of these pages.** Every python block in the how-to, tutorial and
