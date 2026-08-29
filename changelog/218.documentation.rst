@@ -1,0 +1,7 @@
+Corrected the title-style rule in the documentation style guide, which
+specified Chicago Manual of Style headline style while the corpus followed a
+length threshold — capitalising a medial preposition of four letters or more
+and lowercasing shorter ones (:issue:`217`). The rule now states that, and
+names its deviation from CMOS rather than claiming conformance. Retitled
+:ref:`howto-temp-and-bufr` to "Decode BUFR With ecCodes", the one title that
+did not already follow it. (:user:`bjlittle`)
