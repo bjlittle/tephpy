@@ -138,8 +138,9 @@ where a correction below says otherwise.
    it.** `units={"pressure": "inHg", "temperature": "degF"}` is accepted, and the field is
    *tagged* rather than converted: `sounding.pressure` reads back `[29.5 26.0] inch_Hg`,
    the magnitudes unchanged. Conversion is on demand — `.to("hPa")` gives 998.98 hPa and
-   `.to("degC")` gives 20.0 °C. A sounding in those units plots without complaint, and
-   derived quantities come back in tephpy's canonical units rather than the input's:
+   `.to("degC")` gives 20.0 °C. A sounding in those units plots and analyses without
+   complaint, and derived quantities come back in tephpy's canonical units rather than the
+   input's:
    `calc.parcel_path` on a degF *sounding* returns a degree_Celsius `Profile`. (The
    input is a `Sounding`; "profile" names what comes back, and §3.3's page was corrected
    for the same confusion.)
@@ -150,12 +151,17 @@ where a correction below says otherwise.
    Task 2's implementer caught it. The rule this cost is worth restating: a claim about what
    a value *is* must be checked by reading the value, not by reading a conversion of it.
 
-   **Corrected again 2026-08-29, in final review.** This section also said the sounding
-   "plots and analyses without complaint" in those units. The "analyses" half was never
-   executed and is false: `calc.parcel_path` raises `DimensionalityError` when pressure is
-   `inHg` or `mmHg`, though every other pressure unit checked (`hPa`, `Pa`, `kPa`, `mbar`,
-   `bar`, `atm`, `psi`, `torr`) works. This is a `tephpy` bug, not a design decision, filed
-   as {issue}`214`; the page now says so.
+   **Corrected again 2026-08-29, in final review, and restored once the bug behind it was
+   fixed.** This section said the sounding "plots and analyses without complaint"; the
+   "analyses" half was never executed and was false at the time, because `calc.parcel_path`
+   raised `DimensionalityError` when pressure was `inHg` or `mmHg`. That was a `tephpy` bug
+   rather than a design decision — three `dry_lapse` call sites passed a reference pressure
+   in the sounding's own unit while the array beside it had been rebuilt in hPa — and it is
+   fixed ({issue}`214`). The claim is restored, and is now pinned by a parametrised test over
+   ten pressure units that requires the *answers* to agree rather than the calls to succeed.
+   The episode is left recorded rather than tidied away: the false half survived because the
+   sentence was written from the section's gist, and the narrower claim beside it
+   (`parcel_path` returning degC) was true, which is what made the wider one look safe.
 3. **What comes back is pint, on MetPy's registry.** So `.to("hPa")` works, and the
    quantities feed MetPy's own calc functions without conversion. `metpy.units.units` is an
    `ApplicationRegistry` proxy — a plain literal, because pint's inventory publishes
