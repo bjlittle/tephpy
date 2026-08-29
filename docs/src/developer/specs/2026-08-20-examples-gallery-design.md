@@ -87,22 +87,29 @@ Three functions, name-keyed, matching the way `tephpy.config` and the command li
 address things:
 
 ```python
-samples.available()             # ("norman-12z", "norman-17z")
-samples.sounding("norman-12z")  # -> Sounding
-samples.path()                  # -> the shipped IGRA file
+samples.available()                    # the shipped sample names
+samples.sounding("norman-12z")         # -> Sounding
+samples.path("camborne-wyoming-12z")   # -> the file that sample is read from
 ```
 
-`sounding` reads through the public `tephpy.io.igra.read(path, time=...)`, so the sample
-accessor is a caller of the documented reader rather than a second way in. An unknown name
-raises `ValueError` quoting `available()`. A new exception type was rejected: nothing has
-failed to read, and a bad literal argument is what `ValueError` is for.
+`sounding` reads through a public reader — `tephpy.io.igra.read(path, time=...)` or
+`tephpy.io.wyoming.parse(body, ...)` — so the sample accessor is a caller of the documented
+route rather than a second way in. An unknown name raises `ValueError` quoting
+`available()`, from both `sounding` and `path`. A new exception type was rejected: nothing
+has failed to read, and a bad literal argument is what `ValueError` is for.
 
-`path` takes no argument because there is one file, and it exists so the reader how-to of
-§5 has something local to open.
+*Amended 2026-08-29 (narrative spec §3.6).* `path` originally took no argument, because one
+IGRA station file held every sample. Plan 7c ships the Camborne ascent in both supported
+formats so the reader how-to can demonstrate both routes converging, and with two files
+there is no default to return: `path` takes the sample name. One file may still hold several
+samples — both Norman ascents share a station record — so two names can give the same path
+and differ only in the ascent selected from it.
 
 **The data.** `USM00072357-data-trimmed.txt` — Norman, Oklahoma, 2013-05-20, both ascents
 as whole byte-faithful blocks, in the shape `tests/fixtures/io/UKM00003808-data-trimmed.txt`
-already established. 17 KB.
+already established. 17 KB. Joined 2026-08-29 by the Camborne pair of narrative spec §3.6 —
+that same IGRA capture and the University of Wyoming `TEXT:CSV` body of the same ascent,
+29 KB and 6 KB.
 
 IGRA holds no 00Z ascent for that date; Norman ran a 12Z and a 17Z special, released
 16:51 UTC, about three hours before the Moore EF5 touched down at 19:56 UTC. That is a
