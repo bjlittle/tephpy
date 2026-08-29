@@ -6,9 +6,28 @@ Documentation Style
 Title Style
 -----------
 
-Hand-authored page and section titles use Chicago Manual of Style headline
-style: capitalize the first and last words and all major words; lowercase
-articles, coordinating conjunctions, prepositions, and the infinitive "to".
+Hand-authored page and section titles use Chicago Manual of Style headline style
+with one deliberate deviation: capitalize the first and last words, all major
+words, and prepositions of four letters or more; lowercase articles,
+coordinating conjunctions, the infinitive "to", and prepositions of three
+letters or fewer.
+
+The deviation is the length threshold. CMOS lowercases a preposition however
+long it is, and ``tephpy`` capitalizes the longer ones —
+:ref:`howto-read-a-sounding`'s "Read a Sounding From an Archive",
+:ref:`howto-units`'s "Work With Units", :ref:`howto-logo`'s "On the Plot or
+Around It" — while keeping the short ones down, as in
+:ref:`howto-framing`'s "Fix the View by Ranges". The rule is written this way
+because it is what the corpus already did. Every title carrying a medial
+preposition of four letters or more capitalized it bar one, and every title
+carrying a shorter one lowercased it bar an adverbial particle that is not a
+preposition at all (:issue:`217`). Nothing had ever enforced the stricter
+reading, so the rule is matched to the pages rather than imposed on them.
+
+A preposition doing another job keeps that job's case. In
+:ref:`howto-units`'s "Quantities Go In Directly", ``In`` is an adverbial
+particle of "go in" rather than a preposition, and CMOS capitalizes it whatever
+its length.
 
 Preserve literal case for: code and API identifiers, filenames, config keys,
 CLI commands, and paths; project and library names in their own casing

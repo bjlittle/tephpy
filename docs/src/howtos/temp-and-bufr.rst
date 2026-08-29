@@ -1,6 +1,6 @@
 .. _howto-temp-and-bufr:
 
-Decode BUFR with ecCodes
+Decode BUFR With ecCodes
 ========================
 
 ``tephpy`` does not decode TEMP (TTAA/TTBB) bulletins or BUFR messages, and it
