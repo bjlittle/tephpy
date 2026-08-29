@@ -103,6 +103,39 @@ the same gesture:
 and it takes the usual precedence — the accessor keyword over
 ``tephpy.config`` over the convention default.
 
+The Two Least-Shown Families
+----------------------------
+
+``emphasis`` is one of seven options every family answers to — ``values``,
+``color``, ``linewidth``, ``alpha``, ``labels``, ``emphasis`` and ``visible``.
+:meth:`ax.mixing_ratios(...) <tephpy.plotting.axes.TephigramAxes.mixing_ratios>`
+and
+:meth:`ax.moist_adiabats(...) <tephpy.plotting.axes.TephigramAxes.moist_adiabats>`
+take them like the rest:
+
+.. plot::
+    :context: close-figs
+    :filename-prefix: emphasis-least-shown
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
+    ax.mixing_ratios(emphasis={4.0: {"color": "tab:green", "linewidth": 2.0}})
+    ax.moist_adiabats(emphasis={20.0: {"color": "tab:red", "linewidth": 2.0}})
+
+Beyond those seven the five are not interchangeable, and the two differences
+are worth knowing before you go looking for an option that is not there.
+
+``mixing_ratios`` takes no ``interval``
+    The other four do. The ladder runs ``0.05, 0.1, 0.2, 0.5, 1, 1.5, 2, 3, 4,
+    5, 7, 10, 14, 20, 28, 40`` g kg⁻¹ — wider apart the higher it climbs — so
+    there is no single interval that would describe it. Give ``values``
+    instead.
+
+``moist_adiabats`` takes a ``truncation``
+    No other family has one, and it is a *temperature* rather than a pressure:
+    the value in °C below which the curves stop being drawn, because below it
+    they have converged onto the dry adiabats. It defaults to −50 °C, which is
+    the Met Office's own convention :cite:`metoffice_factsheet13`.
+
 Configure It Once
 -----------------
 

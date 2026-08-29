@@ -95,6 +95,13 @@ beside the diagram:
     ax.annotate_indices(tephpy.calc.indices(snd))
     ax.legend()
 
+That panel is a rendering of an object you can read yourself.
+:func:`calc.indices(...) <tephpy.calc.indices>` returns a
+:class:`SoundingIndices <tephpy.calc.SoundingIndices>`, whose ten fields —
+``cape``, ``cin``, the pressure and temperature of each of the three levels,
+``theta_w`` and ``lifted_index`` — are pint quantities you can pull out and use
+like any other number.
+
 The panel names the two shaded areas in joules per kilogram, and the levels the
 construction passed through on its way: cloud base (the
 :term:`LCL <lifting condensation level>`), the

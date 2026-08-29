@@ -211,3 +211,33 @@ preserved, because PyYAML cannot round-trip them. ``tephpy config generate``
 is the command that produces the annotated file — reach for
 :meth:`tephpy.config.save` to capture a configuration you arrived at
 interactively, not to edit one you already have.
+
+Which File Is in Force
+----------------------
+
+``tephpy.config.source`` names the file the current configuration came from, as
+a :class:`pathlib.Path`. It is ``None`` when no file was found, when none was
+loaded, and when a load failed — so it answers "did my file take effect?"
+without your having to guess from the options:
+
+.. code-block:: python
+
+    import tephpy
+
+    tephpy.config.load()
+    print(tephpy.config.source)
+
+Back to the Defaults
+--------------------
+
+:meth:`tephpy.config.reset` puts every option in every section back to ``None``,
+falling through to the shipped conventions, and clears
+``tephpy.config.source`` with them:
+
+.. code-block:: python
+
+    tephpy.config.reset()
+
+Reach for it in a notebook that has drifted, or between tests. Remember that a
+family reads the configuration when its axes is created, so a ``reset`` applies
+to diagrams you draw after it and not to one already on screen.
