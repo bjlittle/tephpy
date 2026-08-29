@@ -47,8 +47,10 @@ Five families of lines, drawn for you. Each is a set of :term:`isopleths
   pressure, labelled in hPa, and the closest thing here to a height scale.
 - :term:`Moist adiabats <moist adiabat>`, in orange. The path a *saturated*
   parcel follows, which differs because condensing water releases heat.
-- :term:`Humidity mixing-ratio <humidity mixing ratio>` lines, in green. Equal
-  water content, in grams of vapour per kilogram of air.
+- :term:`Humidity mixing-ratio <humidity mixing ratio>` lines, in green. Each
+  marks where air of one moisture content — grams of water vapour per kilogram of
+  *dry* air — would saturate, so they are lines of constant *saturation* mixing
+  ratio rather than a reading of what is there.
 
 You do not need to memorise those. Draw a :term:`sounding` on top and they become
 scenery — the grid you read a :term:`profile` against.
@@ -101,8 +103,12 @@ The Line That Was Already There
 -------------------------------
 
 Look at the isotherms again and one of them is drawn heavier than its neighbours.
-That is 0 °C, and where the red temperature line crosses it is the freezing level
-— the height above which the atmosphere is below freezing.
+That is 0 °C, and where the red temperature line crosses it is a *freezing level*.
+On this ascent there is one crossing, a little above 600 hPa, and the air stays
+below freezing all the way to the top of the flight. That is the common case
+rather than the rule: a warm layer aloft makes the temperature line cross 0 °C
+again, and a sounding can have several freezing levels — which is exactly what a
+forecaster is looking for when they expect freezing rain.
 
 It needed no code. ``tephpy`` emphasises that one member by default, because the
 printed charts this diagram descends from distinguish it too. If you would rather

@@ -99,8 +99,11 @@ The panel names the two shaded areas in joules per kilogram, and the levels the
 construction passed through on its way: cloud base (the
 :term:`LCL <lifting condensation level>`), the
 :term:`level of free convection` where the parcel finally became buoyant, and the
-:term:`equilibrium level` where it ran out. A field can be NaN, and that is an answer rather than a
-failure — a sounding with no positive-buoyancy region has no CAPE to report.
+:term:`equilibrium level` where it ran out. Some of those fields can be NaN, and that is an answer rather
+than a failure: a parcel that never becomes buoyant has no level of free
+convection, so the LFC and EL rows report NaN rather than a number. The two
+energies are different — CAPE and CIN are ``0 J/kg`` when there is nothing to
+report, never NaN, so a zero there means a real absence rather than a gap.
 
 You now have the whole analysis on one figure: the environment, the parcel, the
 energies as areas, and the numbers.
