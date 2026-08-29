@@ -6,4 +6,4 @@ being interchangeable: ``mixing_ratios`` takes no ``interval`` and
 :ref:`configure-from-a-file`, and said in :ref:`tutorial-analyse-a-sounding`
 that :func:`calc.indices(...) <tephpy.calc.indices>` returns a readable
 :class:`SoundingIndices <tephpy.calc.SoundingIndices>` rather than only a
-panel. (:user:`bjlittle`)
+panel. (:user:`claude`)

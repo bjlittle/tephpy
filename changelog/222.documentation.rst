@@ -2,4 +2,4 @@ Pointed readers at :mod:`tephpy.exceptions`, whose module docstring already
 sets out the exception hierarchy and what ``except TephpyError`` catches, from
 the reference index and from each user page that names an error
 (:issue:`213`). The hierarchy was documented and published; nothing led a
-caller to it. (:user:`bjlittle`)
+caller to it. (:user:`claude`)
