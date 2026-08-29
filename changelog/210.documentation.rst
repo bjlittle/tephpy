@@ -7,15 +7,16 @@ archives, two readers, one :class:`~tephpy.sounding.Sounding` downstream.
 
 Showing it needed the same physical ascent in both formats, so ``tephpy.samples``
 now ships the Camborne 2026-07-21 12Z pair beside the two Norman ascents.
-``samples.path()`` becomes ``samples.path(name)`` with a second format in the
-package, and every sample still reads through a public reader — a sample reached
-by a private path would demonstrate nothing a reader could repeat.
+Every sample still reads through a public reader — a sample reached by a private
+path would demonstrate nothing a reader could repeat. Carrying a second format
+changed ``samples.path``, which the breaking-change entry above records.
 
 The page also states what it does not run.
 :func:`~tephpy.io.wyoming.fetch` is described rather than shown as a block,
-because every python block in these guides is executed on every documentation
-build, and one reaching the University of Wyoming would fail for reasons that have
-nothing to do with ``tephpy``. Little is lost in the reading: ``fetch`` is
+because every python block in these guides is executed by the test suite on every
+supported Python version — and again by the documentation build where it publishes
+a figure — so one reaching the University of Wyoming would fail for reasons that
+have nothing to do with ``tephpy``. Little is lost in the reading: ``fetch`` is
 ``parse`` with a download in front, so a fetched sounding and a parsed one are
 built by identical code.
 

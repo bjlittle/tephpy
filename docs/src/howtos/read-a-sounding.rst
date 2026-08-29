@@ -98,11 +98,13 @@ HTTP error, or a body it cannot read.
 
 **That call is described here rather than shown as a block, and the reason is a
 feature of these pages.** Every python block in the how-to, tutorial and
-explanation guides is executed when the documentation is built, on every supported
-Python — which is why you can trust the ones above. A block calling ``fetch``
-would reach the University of Wyoming on every build, and would then fail for
-reasons that have nothing to do with ``tephpy``: a rate limit, an outage, a proxy.
-So this page runs what it can and says plainly what it cannot.
+explanation guides is executed by the test suite, as one script per page and on
+every supported Python version; the blocks that publish a figure, which is all of
+them on this page, run again when the documentation is built. That is why you can
+trust the ones above. A block calling ``fetch`` would reach the University of
+Wyoming in both places — on every test run and every build — and would then fail
+for reasons that have nothing to do with ``tephpy``: a rate limit, an outage, a
+proxy. So this page runs what it can and says plainly what it cannot.
 
 You lose little by reading it rather than running it. ``fetch`` is ``parse`` with
 a download in front: it requests the body and hands it to the same parser the
