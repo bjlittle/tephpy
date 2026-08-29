@@ -1,0 +1,11 @@
+A pre-commit hook checks that a page links a glossary term the first time it
+names it (:issue:`209`). docs-style has asked for that since the glossary was
+written, and nothing enforced it: the fail-on-warning build rejects a
+``:term:`` whose entry is missing, but says nothing about the link nobody
+wrote, so a page could name every term in the glossary in plain text and build
+green. Sixteen such mentions across eight pages are linked in the same change,
+including three in the opening two sentences of the how-to whose whole subject
+is isopleth members. The check reads source rather than the built HTML, so it
+needs no documentation build, and it groups a glossary entry's aliases —
+linking ``CAPE`` satisfies ``convective available potential energy`` too.
+(:user:`claude`)

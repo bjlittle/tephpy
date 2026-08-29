@@ -26,7 +26,8 @@ absence of anything you could call a vertical axis — follows from that choice.
     )
     ax.dry_adiabats(emphasis={20.0: {"color": "tab:blue", "linewidth": 2.0}})
 
-One isotherm and one dry adiabat, picked out of the grid: they cross at a right
+One :term:`isotherm` and one :term:`dry adiabat`, picked out of the grid: they
+cross at a right
 angle, and every other pair in those two families does the same. The rest of this
 page is why.
 
@@ -53,9 +54,9 @@ Why the Grid Is Square
 On those coordinates two of the five :term:`isopleth` families are trivially
 straight, and exactly perpendicular to each other.
 
-An :term:`isotherm` is a line of constant temperature, so on a T–ln θ plane it
+An isotherm is a line of constant temperature, so on a T–ln θ plane it
 is a line of constant T: straight, and parallel to the entropy axis. A
-:term:`dry adiabat` is a line of constant potential temperature — a :term:`parcel` moved
+dry adiabat is a line of constant potential temperature — a :term:`parcel` moved
 without exchanging heat conserves :math:`\theta` — so it is a line of constant
 :math:`\ln \theta`: straight, and parallel to the temperature axis.
 
@@ -94,7 +95,7 @@ entire reason it is safe to turn the diagram at all.
 **Pressure increases downward.** This is what the rotation buys. Cooling and
 descending both move a parcel down and left, so the ground is at the bottom of
 the page and the tropopause at the top, which is how anyone thinks about a
-vertical profile. Unrotated, the same information reads sideways.
+vertical :term:`profile`. Unrotated, the same information reads sideways.
 
 Where the Pressure Axis Went
 ----------------------------
@@ -133,7 +134,8 @@ and the 0 °C isotherm is distinguished from its neighbours — on the Met Offic
 printed chart by colouring it red :cite:`metoffice_factsheet13`. ``tephpy``
 follows both: 10 °C at the default view width, on a ladder that selects finer
 intervals as you zoom in, and that one member drawn heavier rather than red,
-because red is already the temperature :term:`profile`'s colour. :ref:`howto-emphasis` shows how to
+because red is already the temperature profile's colour. :ref:`howto-emphasis`
+shows how to
 change or extend it.
 
 Where to Go Next

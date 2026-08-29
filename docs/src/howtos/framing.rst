@@ -27,7 +27,8 @@ whole :term:`radiosonde` ascent that is not what you want:
     ax.fit(sounding)
     ax.plot_sounding(sounding)
 
-The ascent reaches about 10 hPa, and potential temperature climbs steeply
+The ascent reaches about 10 hPa, and :term:`potential temperature` climbs
+steeply
 through the stratosphere, so framing all of it spends the diagram on air
 nobody was asking about. Name the layer instead:
 

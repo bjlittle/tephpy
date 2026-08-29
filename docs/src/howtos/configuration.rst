@@ -93,7 +93,8 @@ missing quotes as the likely cause. Named colours such as ``purple`` and
 When the File Takes Effect
 --------------------------
 
-The file is read once, at ``import tephpy``, and an isopleth family reads
+The file is read once, at ``import tephpy``, and an :term:`isopleth` family
+reads
 ``tephpy.config`` when it is created. A configuration file therefore sets the
 starting values for axes you create afterwards; it does not restyle axes that
 already exist. This is the ``rcParams`` behaviour matplotlib users already

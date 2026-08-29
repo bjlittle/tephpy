@@ -140,3 +140,15 @@ repos:
         language: python
         always_run: true
         pass_filenames: false
+
+      # A glossary term named in prose and never linked leaves the reader this
+      # documentation is written for -- an engineer, not a meteorologist --
+      # to look it up elsewhere (:issue:`209`). Editing the glossary changes
+      # what every page should link, so this runs over the whole tree rather
+      # than the staged files.
+      - id: check-glossary-links
+        name: glossary terms are linked on first mention
+        entry: .github/scripts/check_glossary_links.py
+        language: python
+        always_run: true
+        pass_filenames: false

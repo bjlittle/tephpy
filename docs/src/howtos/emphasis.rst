@@ -3,10 +3,10 @@
 Emphasise a Reference Isopleth
 ==============================
 
-Forecasters read a tephigram against a handful of reference lines — the 0 °C
-isotherm for the freezing level, −20 °C for the cold limit of the airframe
-icing band, a mandatory pressure level. The ``emphasis`` option distinguishes
-any member of any isopleth family.
+Forecasters read a :term:`tephigram` against a handful of reference lines — the
+0 °C :term:`isotherm` for the freezing level, −20 °C for the cold limit of the
+airframe icing band, a mandatory pressure level. The ``emphasis`` option
+distinguishes any member of any :term:`isopleth` family.
 
 The Freezing Level, Already Drawn
 ---------------------------------
@@ -28,7 +28,8 @@ freezing level with no argument at all:
 
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
 
-The distinction is cited; the means is not. Red is the temperature profile's
+The distinction is cited; the means is not. Red is the temperature
+:term:`profile`'s
 colour, so a red isotherm would clash with the ascent on the commonest figure
 the package draws, and the factsheet gives no colour for the plotted ascent to
 settle that against. The member keeps its family's ink and draws at 1.5 pt
@@ -79,8 +80,10 @@ isotherm interval includes them:
     )
 
 A value outside the diagram's domain is a no-op — it is simply never in view.
-That is silent on the analytic families (isotherms, dry adiabats and isobars);
-the curved moist adiabats and mixing ratios build through MetPy, which can warn
+That is silent on the analytic families (isotherms, :term:`dry adiabats
+<dry adiabat>` and :term:`isobars <isobar>`); the curved :term:`moist adiabats
+<moist adiabat>` and :term:`mixing ratios <mixing ratio>` build through MetPy,
+which can warn
 about a far-out value before the diagram ever gets to ignore it, so emphasise a
 value those families actually cover.
 

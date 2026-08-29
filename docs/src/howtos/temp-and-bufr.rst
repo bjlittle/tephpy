@@ -23,7 +23,8 @@ prints a message as one ``key=value`` line per key:
 
     $ bufr_dump -p sounding.bufr
 
-A radiosonde message carries the levels as ``pressure``, ``airTemperature`` and
+A :term:`radiosonde` message carries the levels as ``pressure``,
+``airTemperature`` and
 ``dewpointTemperature``, with ``windSpeed`` and ``windDirection`` beside them;
 ``blockNumber`` and ``stationNumber`` identify the station, and ``year`` through
 ``minute`` give the launch time. A value the message does not carry prints as the
@@ -82,7 +83,8 @@ What comes out is arrays. What ``tephpy`` wants is a
     )
 
 Pressure and temperature are required and everything else is optional, so a
-message that carried no humidity still gives a usable sounding — drop the
+message that carried no humidity still gives a usable :term:`sounding` — drop
+the
 ``dewpoint`` argument and its ``units`` entry together.
 
 Two things the decoder will hand you that need a moment. ecCodes reports
