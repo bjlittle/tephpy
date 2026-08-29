@@ -126,7 +126,7 @@ demo reports missing or duplicate headers, a nonnumeric nonblank cell, empty
 data, a row whose cell count differs from its header count, and a one-sided
 wind pair before plotting. tephpy's
 :class:`~tephpy.sounding.Sounding` then performs the usual physical validation,
-including pressure ordering and dewpoint bounds.
+including pressure ordering and :term:`dewpoint` bounds.
 
 Use the matplotlib toolbar below the canvas to pan, zoom, inspect cursor
 coordinates, restore the original view, or download the figure. Uploading an

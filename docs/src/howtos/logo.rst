@@ -72,7 +72,8 @@ without being asked for on a white figure and under a dark style alike:
         fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
         add_logo(ax)  # draws the dark-background variant
 
-The diagram travels with it. Each inline isopleth label sits in a box tinted
+The diagram travels with it. Each inline :term:`isopleth` label sits in a box
+tinted
 from the canvas under it, read the same way ``theme="auto"`` reads it, so the
 label dims the lines beneath its value instead of blotting them out — on a
 black canvas as on a white one.

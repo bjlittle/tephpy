@@ -3,8 +3,9 @@
 Read a Sounding From an Archive
 ===============================
 
-``tephpy`` reads two archive formats: the IGRA records published by NOAA/NCEI, and
-the ``TEXT:CSV`` bodies the University of Wyoming's archive serves. Both hand back
+``tephpy`` reads two archive formats: the :term:`IGRA` records published by
+NOAA/NCEI, and the ``TEXT:CSV`` bodies the University of Wyoming's archive
+serves. Both hand back
 a :class:`Sounding <tephpy.sounding.Sounding>`, and everything downstream — the
 diagram, the analysis, the gallery — takes it from there without caring which
 route it came by.
@@ -108,7 +109,8 @@ proxy. So this page runs what it can and says plainly what it cannot.
 
 You lose little by reading it rather than running it. ``fetch`` is ``parse`` with
 a download in front: it requests the body and hands it to the same parser the
-section above called directly, so a sounding you fetch and a sounding you parse
+section above called directly, so a :term:`sounding` you fetch and a sounding you
+parse
 are built by identical code. If you want to check it against your own network,
 that is a Python prompt away.
 
