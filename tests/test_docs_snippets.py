@@ -55,6 +55,7 @@ DOCUMENTED = (
     "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
+    "tutorials/analyse-a-sounding.rst",
     "tutorials/first-tephigram.rst",
 )
 
@@ -69,6 +70,7 @@ PUBLISHES_FIGURES = (
     "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
+    "tutorials/analyse-a-sounding.rst",
     "tutorials/first-tephigram.rst",
 )
 

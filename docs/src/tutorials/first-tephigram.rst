@@ -112,5 +112,8 @@ it did not, ``ax.isotherms(emphasis={})`` turns it off, and
 Where to Go Next
 ----------------
 
-:ref:`explanation-rotated-axes` explains why the grid looks the way it does —
-why those two families are perpendicular, and where the pressure axis went.
+:ref:`tutorial-analyse-a-sounding` takes this same ascent and does something with
+it — lifting a parcel through it to find out whether that morning's atmosphere
+was capable of a storm. :ref:`explanation-rotated-axes` explains why the grid
+looks the way it does: why those two families are perpendicular, and where the
+pressure axis went.

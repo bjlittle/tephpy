@@ -5,4 +5,5 @@ Tutorials
     :maxdepth: 1
 
     first-tephigram
+    analyse-a-sounding
     browser-demo

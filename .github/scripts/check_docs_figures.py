@@ -77,6 +77,7 @@ PUBLISHES = (
     "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
+    "tutorials/analyse-a-sounding.rst",
     "tutorials/first-tephigram.rst",
 )
 #: A figure declaration: the ``:filename-prefix:`` option of a ``.. plot::``. The
