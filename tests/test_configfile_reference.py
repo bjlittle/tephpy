@@ -146,6 +146,11 @@ def rendered():
     return _configfile.render_reference(tephpy.config)
 
 
+def _preamble(text):
+    """Return the methods section's prose, ahead of the first directive."""
+    return text[text.index("Methods\n-------") : text.index(".. py:method:: ")]
+
+
 def test_the_reference_names_every_option_and_no_others():
     """The page and the template render the same table (configfile spec §3.6)."""
     prefix = ".. py:attribute:: "
@@ -207,8 +212,7 @@ def test_the_how_to_covers_the_methods_the_page_sends_readers_to():
     method dropped from the how-to, or one added to it and not said here.
     Equality catches both (configfile spec §3.6).
     """
-    text = rendered()
-    preamble = text[text.index("Methods\n-------") : text.index(".. py:method:: ")]
+    preamble = _preamble(rendered())
     named = set(CROSS_REFERENCED.findall(preamble))
     assert named, (
         "the methods section sends the reader to the how-to for no method, so "
@@ -223,6 +227,27 @@ def test_the_how_to_covers_the_methods_the_page_sends_readers_to():
     assert named == covered, (
         f"the methods section sends readers to {HOWTO.name} for {sorted(named)}, "
         f"but that page names {sorted(covered)}"
+    )
+
+
+def test_the_methods_the_how_to_covers_are_listed_as_a_sentence():
+    """Three or more names need commas, not a chain of "and".
+
+    ``_HOWTO_METHODS`` grew from two entries to three when the how-to took on
+    :meth:`tephpy.config.reset`, and a two-element join reads "load and save
+    and reset" at three. The separator is therefore part of the rendering
+    rather than an accident of the tuple's length (configfile spec §3.6).
+    """
+    preamble = _preamble(rendered())
+    names = CROSS_REFERENCED.findall(preamble)
+    assert len(names) >= 3, (
+        "fewer than three methods are named, so this test no longer exercises "
+        "the separator it exists to pin"
+    )
+    listed = ", ".join(f":meth:`tephpy.config.{name}`" for name in names[:-1])
+    assert f"{listed} and :meth:`tephpy.config.{names[-1]}`" in preamble
+    assert "` and :meth:" not in preamble.replace(
+        f"` and :meth:`tephpy.config.{names[-1]}`", "", 1
     )
 
 

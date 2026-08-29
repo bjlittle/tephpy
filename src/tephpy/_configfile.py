@@ -1542,13 +1542,12 @@ def render_template() -> str:
 #: second, hand-maintained one (configfile spec §3.6, §9).
 _REFERENCE_METHODS: Final[tuple[str, ...]] = ("load", "save", "reset", "context")
 
-#: Those of ``_REFERENCE_METHODS`` the configuration how-to puts to work, which
-#: are the ones a configuration file involves. The methods section names them
-#: rather than sending the reader there for all four, and
-#: ``tests/test_configfile_reference.py`` checks the how-to still covers these
-#: and only these — a claim one page makes about another is otherwise nobody's
-#: to keep (configfile spec §3.6).
-_HOWTO_METHODS: Final[tuple[str, ...]] = ("load", "save")
+#: Those of ``_REFERENCE_METHODS`` the configuration how-to puts to work. The
+#: methods section names them rather than sending the reader there for all
+#: four, and ``tests/test_configfile_reference.py`` checks the how-to still
+#: covers these and only these — a claim one page makes about another is
+#: otherwise nobody's to keep (configfile spec §3.6).
+_HOWTO_METHODS: Final[tuple[str, ...]] = ("load", "save", "reset")
 
 #: A worked example per method, the page's only hand-written content and so its
 #: only content that can drift. ``tests/test_configfile_reference.py`` runs each
@@ -1643,6 +1642,29 @@ def _reference_default(value: object) -> str:
     return f"``{_format_default(value) or '{}'}``"
 
 
+def _sentence_list(names: Iterable[str]) -> str:
+    """Join names as English prose: ``a``, ``a and b``, ``a, b and c``.
+
+    A plain ``" and ".join`` reads "a and b and c" from three entries, which
+    is why the separator is rendered rather than left to the tuple's length
+    (configfile spec §3.6).
+
+    Parameters
+    ----------
+    names : iterable of str
+        The already-rendered names, in the order they should read.
+
+    Returns
+    -------
+    str
+        The joined list.
+    """
+    listed = list(names)
+    if len(listed) < 2:
+        return "".join(listed)
+    return f"{', '.join(listed[:-1])} and {listed[-1]}"
+
+
 def render_reference(config: Config) -> str:
     """Render the options reference page as reStructuredText.
 
@@ -1689,12 +1711,12 @@ def render_reference(config: Config) -> str:
     lines.append("Methods")
     lines.append("-------")
     lines.append("")
-    covered = " and ".join(f":meth:`tephpy.config.{name}`" for name in _HOWTO_METHODS)
+    covered = _sentence_list(f":meth:`tephpy.config.{name}`" for name in _HOWTO_METHODS)
     lines.append(
         "These entries exist so that prose can cross-reference them. The "
-        f"how-to :ref:`configure-from-a-file` covers {covered}, the methods a "
-        "configuration file involves; the rest act on the configuration "
-        "already in memory."
+        f"how-to :ref:`configure-from-a-file` covers {covered} — reading a "
+        "configuration file, writing one, and putting the options back. The "
+        "rest scope a change rather than set one."
     )
     lines.append("")
     for name in _REFERENCE_METHODS:

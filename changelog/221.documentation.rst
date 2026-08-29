@@ -1,0 +1,9 @@
+Documented the two :term:`isopleth` families no user page had drawn, on
+:ref:`howto-emphasis`, together with the two places the family accessors stop
+being interchangeable: ``mixing_ratios`` takes no ``interval`` and
+``moist_adiabats`` takes a ``truncation`` (:issue:`212`). Added
+``tephpy.config.source`` and :meth:`tephpy.config.reset` to
+:ref:`configure-from-a-file`, and said in :ref:`tutorial-analyse-a-sounding`
+that :func:`calc.indices(...) <tephpy.calc.indices>` returns a readable
+:class:`SoundingIndices <tephpy.calc.SoundingIndices>` rather than only a
+panel. (:user:`bjlittle`)

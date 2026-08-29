@@ -173,8 +173,11 @@ class Config:
         Returns
         -------
         pathlib.Path or None
-            The file this configuration was loaded from, or ``None`` when
-            no file was found, none was loaded, or the load failed.
+            The file this configuration was last *successfully* loaded from,
+            or ``None`` if none has been. A failed :meth:`load` leaves this
+            alone, along with the options it rolled back, so a rejected
+            replacement leaves the file it replaced still named here.
+            :meth:`reset` clears it.
         """
         return self._source
 

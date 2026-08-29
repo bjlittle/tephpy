@@ -750,8 +750,16 @@ there:
     to name. Give ``values`` instead.
 
 ``moist_adiabats`` takes a ``truncation``
-    No other family has one. It sets the pressure below which a
-    :term:`moist adiabat` stops being drawn.
+    No other family has one, and it is a *temperature* rather than a pressure:
+    the value in °C below which the curves stop being drawn, because below it
+    they have converged onto the dry adiabats. It defaults to −50 °C, the Met
+    Office's own convention.
+
+    **Corrected during implementation.** This paragraph said "the pressure
+    below which". `MOIST_ADIABAT_TRUNCATION` is `-50.0` °C and the accessor's
+    own docstring reads "Temperature (°C) below which the curves are
+    truncated". Written from the option's name rather than from its
+    definition.
 ```
 
 - [ ] **Step 2: Run the page**
