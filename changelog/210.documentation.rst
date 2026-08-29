@@ -24,4 +24,7 @@ prose at all and a third had four words, so a reader arriving at one met a bare
 list of links and had to infer what kind of material it held and whether it was
 addressed to them. Each now says who it is for, what is in it, and where to go
 instead — the tutorials pointing a reader who is not new to the how-tos, the
-how-tos pointing one who is to the tutorials. (:user:`claude`)
+how-tos pointing one who is to the tutorials. A line beneath the landing page's
+four cards names the `Diátaxis <https://diataxis.fr/>`__ framework they follow and
+links it, for a reader curious why the documentation is divided that way rather
+than by subject. (:user:`claude`)

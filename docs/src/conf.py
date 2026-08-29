@@ -179,7 +179,7 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
-html_css_files = ["browser-toolbar.css"]
+html_css_files = ["tephpy.css", "browser-toolbar.css"]
 # The docs Makefile builds the current checkout's wheel and stages the complete
 # browser application one directory above the Sphinx source tree. Sphinx copies
 # that staging root verbatim, making its ``browser`` child available at
