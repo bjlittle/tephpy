@@ -1,0 +1,7 @@
+Added :ref:`howto-label-and-compose`, covering the ``labels=`` edge option and
+:meth:`ax.edge_axis(...) <tephpy.plotting.axes.TephigramAxes.edge_axis>`,
+setting a :term:`tephigram` beside another axes without it shrinking in its
+slot, and vector output for publication (:issue:`212`). A fresh diagram carries
+no axis titles because no :term:`isopleth` family has claimed an edge, and
+claiming one supplies its title — neither of which the documentation had said.
+(:user:`bjlittle`)
