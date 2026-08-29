@@ -57,6 +57,7 @@ DOCUMENTED = (
     "howtos/logo.rst",
     "howtos/read-a-sounding.rst",
     "howtos/temp-and-bufr.rst",
+    "howtos/units.rst",
     "tutorials/analyse-a-sounding.rst",
     "tutorials/first-tephigram.rst",
 )

@@ -6,7 +6,8 @@ question and stops there: getting data in from an archive, out of a format
 ``tephpy`` does not read, or straight out of a :class:`pandas.DataFrame` or an
 :class:`xarray.Dataset`; framing the view on the region you care about; marking
 a reference :term:`isopleth`; setting your own defaults from a configuration
-file; and branding a figure with the project logo.
+file; branding a figure with the project logo; and what units it takes and what
+it hands back.
 
 They assume you can already draw a :term:`tephigram`. If you cannot yet, the
 :doc:`tutorials <../tutorials/index>` are the shorter way in, and the
@@ -25,3 +26,4 @@ page and on every supported Python version, so what you copy is what ran.
     logo
     read-a-sounding
     temp-and-bufr
+    units
