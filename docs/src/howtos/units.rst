@@ -3,8 +3,13 @@
 Work With Units
 ===============
 
-``tephpy`` takes and returns pint quantities throughout (spec §5). Three things
-follow, in the order they tend to surprise people.
+``tephpy`` takes and returns pint quantities at every boundary carrying
+scientific data (spec §5). Diagram geometry is the documented exception: the
+:mod:`transforms <tephpy.transforms>` layer trades in bare arrays in the
+diagram's native units, and the options that frame or draw a diagram —
+:meth:`ax.set_extent(...) <tephpy.plotting.axes.TephigramAxes.set_extent>`, a
+family's ``interval`` — take plain numbers. Three things follow, in the order
+they tend to surprise people.
 
 Quantities Go In Directly
 -------------------------
@@ -65,8 +70,8 @@ returns a °C :term:`profile`.
 What Comes Back Is pint
 -----------------------
 
-Every field is a :class:`pint.Quantity` on MetPy's registry, so conversion is a
-method call:
+Every profile field — pressure, temperature, :term:`dewpoint` and the winds — is a
+:class:`pint.Quantity` on MetPy's registry, so conversion is a method call:
 
 .. plot::
     :context:
@@ -74,6 +79,9 @@ method call:
 
     hpa = imperial.pressure.to("hPa")
     celsius = imperial.temperature.to("degC")
+
+A sounding's metadata is not quantified and is not meant to be: ``station``,
+``time`` and ``label`` come back as the string and timestamp you gave.
 
 Being on *MetPy's* registry is the part that matters downstream. Quantities out
 of ``tephpy`` go straight into MetPy's own calculations with no conversion step
