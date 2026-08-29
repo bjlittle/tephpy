@@ -193,7 +193,7 @@ figure gate reads. Every list past the toctree is membership rather than a count
 (docs spec §3.9): each is what fails when its extractor stops recognising the page, instead
 of the page passing by never having been found.
 
-**Title.** *Decode BUFR with ecCodes* — CMOS headline style per spec §8.6, with `ecCodes`
+**Title.** *Decode BUFR With ecCodes* — headline style per spec §8.6, with `ecCodes`
 keeping its published casing as a project name, which is the documented exception rather
 than an oversight. It names the format the tool decodes and no other, the whole of the
 defect above having been a title that named two. The file keeps the slug `temp-and-bufr`,
