@@ -1,7 +1,18 @@
 How-To Guides
 =============
 
-Task-focused recipes.
+Recipes for a reader who already knows what they want. Each page answers one
+question and stops there: getting data in from an archive, or out of a format
+``tephpy`` does not read; framing the view on the region you care about; marking
+a reference :term:`isopleth`; setting your own defaults from a configuration
+file; and branding a figure with the project logo.
+
+They assume you can already draw a :term:`tephigram`. If you cannot yet, the
+:doc:`tutorials <../tutorials/index>` are the shorter way in, and the
+:doc:`gallery <../gallery/index>` shows finished examples to work backwards from.
+
+Every python block on these pages is executed by the test suite, as one script per
+page and on every supported Python version, so what you copy is what ran.
 
 .. toctree::
     :maxdepth: 1

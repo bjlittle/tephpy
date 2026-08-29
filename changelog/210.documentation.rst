@@ -17,4 +17,11 @@ because every python block in these guides is executed on every documentation
 build, and one reaching the University of Wyoming would fail for reasons that have
 nothing to do with ``tephpy``. Little is lost in the reading: ``fetch`` is
 ``parse`` with a download in front, so a fetched sounding and a parsed one are
-built by identical code. (:user:`claude`)
+built by identical code.
+
+Each Diátaxis landing page now introduces its quadrant. Two of the four had no
+prose at all and a third had four words, so a reader arriving at one met a bare
+list of links and had to infer what kind of material it held and whether it was
+addressed to them. Each now says who it is for, what is in it, and where to go
+instead — the tutorials pointing a reader who is not new to the how-tos, the
+how-tos pointing one who is to the tutorials. (:user:`claude`)
