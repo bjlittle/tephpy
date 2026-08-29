@@ -48,6 +48,7 @@ Notes
 
 from __future__ import annotations
 
+import bisect
 from pathlib import Path
 import re
 import sys
@@ -157,11 +158,15 @@ def narrative(line: str) -> str:
     Returns
     -------
     str
-        The line with roles, literals, links and emphasis blanked out.
+        The text with roles, literals, links and emphasis blanked out, each
+        span replaced by as many spaces as it occupied. The length is
+        preserved deliberately: :func:`unlinked` orders a bare mention against
+        a link by offset and maps that offset back to a line, and a shortened
+        string would move every later match onto the wrong one.
 
     """
     for pattern in NOT_PROSE:
-        line = pattern.sub(" ", line)
+        line = pattern.sub(lambda match: " " * len(match.group()), line)
     return line
 
 
@@ -182,20 +187,46 @@ def unlinked(text: str, terms: dict[str, str]) -> list[tuple[int, str, str]]:
         first mention and the spelling that matched.
 
     """
-    targets = {(target or display).strip() for display, target in XREF.findall(text)}
-    linked = {terms.get(name, name) for name in targets}
+    # One string rather than a line at a time, because a role may wrap: the
+    # `:term:` opening a line and closing on the next is one link, and a scan
+    # that read each line alone would blank neither half and then report the
+    # display text as a bare mention.
+    numbered = prose(text)
+    joined = "\n".join(line for _, line in numbered)
+    starts, offset = [], 0
+    for number, line in numbered:
+        starts.append((offset, number))
+        offset += len(line) + 1
+
+    def where(position: int) -> tuple[int, str]:
+        """Map an offset back to the line it falls on, and that line."""
+        index = bisect.bisect_right(starts, (position, len(numbered) + 1)) - 1
+        return numbered[index][0], numbered[index][1].strip()
+
+    events: list[tuple[int, bool, str, str]] = []
+    for match in XREF.finditer(joined):
+        display, target = match.group(1), match.group(2)
+        name = " ".join((target or display).split())
+        events.append((match.start(), True, terms.get(name, name), name))
+    text_only = narrative(joined)
+    for spelling, entry in terms.items():
+        # A trailing "s" is the same mention, and a leading word character is a
+        # different word, so `resounding` is not `sounding`. A multi-word term
+        # may wrap, so its spaces match a line break too.
+        pattern = rf"(?<![\w-]){r'\s+'.join(map(re.escape, spelling.split()))}s?\b"
+        events.extend(
+            (match.start(), False, entry, spelling)
+            for match in re.finditer(pattern, text_only, re.IGNORECASE)
+        )
+
+    linked: set[str] = set()
     found: dict[str, tuple[int, str, str]] = {}
-    for number, line in prose(text):
-        text_only = narrative(line)
-        for spelling, entry in terms.items():
-            if entry in linked or entry in found:
-                continue
-            # A trailing "s" is the same mention; a leading word character is
-            # a different word, so `resounding` is not `sounding`.
-            if re.search(
-                rf"(?<![\w-]){re.escape(spelling)}s?\b", text_only, re.IGNORECASE
-            ):
-                found[entry] = (number, spelling, line.strip())
+    for position, is_link, entry, spelling in sorted(events):
+        if is_link:
+            linked.add(entry)
+        elif entry not in linked and entry not in found:
+            number, line = where(position)
+            found[entry] = (number, spelling, line)
     return sorted(found.values())
 
 

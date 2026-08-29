@@ -99,6 +99,47 @@ def test_only_the_first_mention_is_reported():
     assert len(gate.unlinked(text, terms())) == 1
 
 
+def test_a_bare_first_mention_is_reported_though_a_later_one_is_linked():
+    """Report a bare first mention even where a later one is linked.
+
+    The rule is the *first* mention, so a late link cannot excuse an early bare
+    one. Gathering every link on a page before reading its prose passes this
+    text, which is the rule inverted.
+    """
+    text = "A sounding appears.\n\nLater, :term:`sounding`.\n"
+    found = gate.unlinked(text, terms())
+    assert [(number, term) for number, term, _ in found] == [(1, "sounding")]
+
+
+def test_a_linked_first_mention_excuses_a_later_bare_one():
+    """The converse, which is what the rule permits."""
+    text = "A :term:`sounding`.\n\nLater, a sounding.\n"
+    assert gate.unlinked(text, terms()) == []
+
+
+def test_the_two_are_ordered_within_one_line():
+    """Same line, bare first: still a bare first mention."""
+    text = "A sounding, and then :term:`sounding` again.\n"
+    assert [t for _, t, _ in gate.unlinked(text, terms())] == ["sounding"]
+
+
+def test_a_link_before_a_bare_mention_on_one_line_is_enough():
+    text = "A :term:`sounding`, and then a sounding again.\n"
+    assert gate.unlinked(text, terms()) == []
+
+
+def test_a_wrapped_role_is_still_a_link():
+    """ReStructuredText lets a role span lines, and one that does is one link."""
+    text = "Lines of :term:`humidity mixing ratio\n<mixing ratio>` cross here.\n"
+    assert gate.unlinked(text, terms()) == []
+
+
+def test_a_wrapped_term_is_still_a_mention():
+    """A term broken over a line is one mention, which a per-line scan misses."""
+    text = "It rises along a humidity mixing\nratio line.\n"
+    assert [t for _, t, _ in gate.unlinked(text, terms())] == ["humidity mixing ratio"]
+
+
 def test_a_title_is_not_prose():
     text = "Draw a Sounding\n===============\n\nNothing else here.\n"
     assert gate.unlinked(text, terms()) == []

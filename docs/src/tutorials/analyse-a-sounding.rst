@@ -36,8 +36,8 @@ is a storm getting started. :func:`calc.parcel_path(...)
     ax.plot_profile(parcel, color="k", linestyle="--")
     ax.legend()
 
-The dashed black line is the parcel. It leaves the surface along a straight dry
-adiabat and bends where it becomes saturated — cloud base, at 939 hPa for this
+The dashed black line is the parcel. It leaves the surface along a straight
+:term:`dry adiabat` and bends where it becomes saturated — cloud base, at 939 hPa for this
 ascent, which is close enough to the ground that the straight section is short.
 Above the bend the parcel is condensing its water and releasing latent heat, so it
 cools more slowly. That corner is :term:`Normand's point`, and
