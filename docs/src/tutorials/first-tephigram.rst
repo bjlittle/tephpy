@@ -3,8 +3,8 @@
 Your First Tephigram
 ====================
 
-By the end of this page you will have drawn a real radiosonde ascent on a
-tephigram and be able to say what every line on it is. No meteorology is assumed.
+By the end of this page you will have drawn a real :term:`radiosonde` ascent on a
+:term:`tephigram` and be able to say what every line on it is. No meteorology is assumed.
 The only thing you need is ``tephpy`` installed.
 
 A tephigram is a chart for reading the vertical structure of the atmosphere —
@@ -35,14 +35,14 @@ string ``"tephigram"`` mean anything to Matplotlib.
 What You Are Looking At
 -----------------------
 
-Five families of lines, drawn for you. Each is a set of *isopleths* — lines
-joining points where one quantity is equal:
+Five families of lines, drawn for you. Each is a set of :term:`isopleths
+<isopleth>` — lines joining points where one quantity is equal:
 
 - :term:`Isotherms <isotherm>`, in dim grey, run bottom left to top right.
   Equal temperature, every 10 °C at this zoom.
 - :term:`Dry adiabats <dry adiabat>`, in light grey, run at right angles to
-  them. Equal :term:`potential temperature` — the path a dry parcel of air
-  follows as it rises.
+  them. Equal :term:`potential temperature` — the path a dry :term:`parcel` of
+  air follows as it rises.
 - :term:`Isobars <isobar>`, in blue, curve gently across the diagram. Equal
   pressure, labelled in hPa, and the closest thing here to a height scale.
 - :term:`Moist adiabats <moist adiabat>`, in orange. The path a *saturated*
@@ -50,8 +50,8 @@ joining points where one quantity is equal:
 - :term:`Humidity mixing-ratio <humidity mixing ratio>` lines, in green. Equal
   water content, in grams of vapour per kilogram of air.
 
-You do not need to memorise those. Draw a sounding on top and they become
-scenery — the grid you read a profile against.
+You do not need to memorise those. Draw a :term:`sounding` on top and they become
+scenery — the grid you read a :term:`profile` against.
 
 A Real Ascent
 -------------

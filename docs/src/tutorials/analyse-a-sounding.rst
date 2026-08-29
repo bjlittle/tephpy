@@ -5,11 +5,11 @@ Analyse a Sounding
 
 :ref:`tutorial-first-tephigram` drew an ascent and named the lines on it. This
 page asks the question a forecaster asks next: *was this atmosphere capable of a
-storm?* By the end you will have lifted a parcel through it, shaded the two
-energies that answer the question, and put the numbers on the figure.
+storm?* By the end you will have lifted a :term:`parcel` through it, shaded the
+two energies that answer the question, and put the numbers on the figure.
 
 It continues from the same ascent, so if you have just come from that page you
-know this sounding. If you have not, the first block below is all you missed.
+know this :term:`sounding`. If you have not, the first block below is all you missed.
 
 Lift a Parcel
 -------------
@@ -55,8 +55,8 @@ Where the parcel is colder than its environment, lifting it costs energy: that i
 :term:`convective inhibition`, the lid. Where it is warmer, the atmosphere gives
 energy back: that is :term:`convective available potential energy`, the fuel.
 
-Both are *areas* on this diagram — which is a property of the tephigram's axes
-rather than a convention, and :ref:`explanation-rotated-axes` explains why:
+Both are *areas* on this diagram — which is a property of the
+:term:`tephigram`'s axes rather than a convention, and :ref:`explanation-rotated-axes` explains why:
 
 .. plot::
     :context: close-figs
@@ -96,9 +96,10 @@ beside the diagram:
     ax.legend()
 
 The panel names the two shaded areas in joules per kilogram, and the levels the
-construction passed through on its way: cloud base (the LCL), the level of free
-convection where the parcel finally became buoyant, and the equilibrium level
-where it ran out. A field can be NaN, and that is an answer rather than a
+construction passed through on its way: cloud base (the
+:term:`LCL <lifting condensation level>`), the
+:term:`level of free convection` where the parcel finally became buoyant, and the
+:term:`equilibrium level` where it ran out. A field can be NaN, and that is an answer rather than a
 failure — a sounding with no positive-buoyancy region has no CAPE to report.
 
 You now have the whole analysis on one figure: the environment, the parcel, the
