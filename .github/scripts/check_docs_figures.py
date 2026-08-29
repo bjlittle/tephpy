@@ -73,6 +73,7 @@ QUADRANTS = ("howtos", "tutorials", "explanation")
 PUBLISHES = (
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
+    "howtos/build-a-sounding.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",

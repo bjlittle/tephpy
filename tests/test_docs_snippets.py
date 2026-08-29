@@ -50,6 +50,7 @@ UNREAD_SUFFIXES = (".md", ".ipynb")
 DOCUMENTED = (
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
+    "howtos/build-a-sounding.rst",
     "howtos/configuration.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
@@ -67,6 +68,7 @@ DOCUMENTED = (
 PUBLISHES_FIGURES = (
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
+    "howtos/build-a-sounding.rst",
     "howtos/emphasis.rst",
     "howtos/framing.rst",
     "howtos/logo.rst",
