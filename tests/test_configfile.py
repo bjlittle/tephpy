@@ -75,8 +75,8 @@ def test_a_directory_is_not_a_config_file(monkeypatch, tmp_path):
     assert _configfile.discover() is None
 
 
-def _write(tmp_path, text):
-    path = tmp_path / "tephpyrc.yaml"
+def _write(tmp_path, text, name="tephpyrc.yaml"):
+    path = tmp_path / name
     path.write_text(text, encoding="utf-8")
     return path
 
@@ -595,6 +595,29 @@ def test_a_rejected_file_rolls_back_under_warnings_as_errors(tmp_path):
             tephpy.config.load(path)
     assert tephpy.config.isotherms.color is None
     assert tephpy.config.source is None
+
+
+def test_a_rejected_file_leaves_the_previous_source_in_place(tmp_path):
+    """A failed load rolls back to the file before it, source included.
+
+    The cases above reject a file from a *fresh* configuration, where
+    ``source`` is ``None`` either way, so neither of them can tell a
+    rollback from a reset. Loading a good file first is what separates
+    them, and it is the case the property's own documentation had wrong:
+    a failed replacement leaves the file it failed to replace still named,
+    not ``None`` (:issue:`212`).
+    """
+    first = _write(tmp_path, "isotherms:\n  color: chartreuse\n", name="first.yaml")
+    tephpy.config.load(first)
+    assert tephpy.config.source == first
+    assert tephpy.config.isotherms.color == "chartreuse"
+
+    second = _write(tmp_path, "bogus:\n  color: red\n", name="second.yaml")
+    with pytest.raises(TephpyConfigError, match="bogus"):
+        tephpy.config.load(second)
+
+    assert tephpy.config.source == first
+    assert tephpy.config.isotherms.color == "chartreuse"
 
 
 def test_discover_returns_the_path_it_validated(monkeypatch, tmp_path):
