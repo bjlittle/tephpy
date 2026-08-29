@@ -184,6 +184,11 @@ one and decided it is safe to live with — an unknown option you are not
 using yet, say — filter it by category rather than by module: the warning
 is attributed to your own code, not to ``tephpy``, so a filter keyed on the
 module never matches it.
+:class:`TephpyConfigWarning <tephpy.exceptions.TephpyConfigWarning>` is a
+``UserWarning`` rather than a :class:`TephpyError
+<tephpy.exceptions.TephpyError>`, because an unusable file degrades to the
+shipped defaults instead of stopping the import; :mod:`tephpy.exceptions` sets
+out that distinction and the rest of the hierarchy.
 
 .. code-block:: python
 

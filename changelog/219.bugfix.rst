@@ -5,4 +5,4 @@ whose pressure was in ``inHg`` or ``mmHg`` (:issue:`214`). Three
 ``dry_lapse`` call sites rebuilt the pressure array in hPa while passing a
 reference pressure still in the sounding's own unit. The analysis path is now
 pinned by a parametrised test over ten pressure units that requires the
-answers to agree, not merely the calls to succeed. (:user:`bjlittle`)
+answers to agree, not merely the calls to succeed. (:user:`claude`)

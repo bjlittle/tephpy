@@ -4,4 +4,4 @@ and the field stored in that unit rather than converted, and every field comes
 back as a :class:`pint.Quantity` on MetPy's registry (:issue:`212`). Also notes
 that :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` does not yet work
 for every accepted pressure unit — raising ``DimensionalityError`` for ``inHg``
-and ``mmHg`` — a ``tephpy`` bug tracked as :issue:`214`. (:user:`bjlittle`)
+and ``mmHg`` — a ``tephpy`` bug tracked as :issue:`214`. (:user:`claude`)

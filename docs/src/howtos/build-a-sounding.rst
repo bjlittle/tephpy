@@ -120,8 +120,8 @@ just as a missing column does for
     KeyError: "variable 'temperature' (field 'temperature') not in the Dataset"
 
 A field with neither ``attrs["units"]`` nor a ``units=`` entry raises
-:class:`TephpyUnitsError <tephpy.exceptions.TephpyUnitsError>`, and the message
-carries the fix:
+:class:`TephpyUnitsError <tephpy.exceptions.TephpyUnitsError>` — one of
+:mod:`tephpy.exceptions` — and the message carries the fix:
 
 .. code-block:: text
 

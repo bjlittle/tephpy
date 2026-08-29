@@ -4,12 +4,21 @@
 # See the LICENSE file in the package root directory for licensing details.
 """The public tephpy exception hierarchy (spec §6).
 
-Every exception tephpy raises for user-correctable input derives from
-:class:`TephpyError`, so ``except TephpyError`` catches them all. Units
-problems raise :class:`TephpyUnitsError`; physically impossible data raises
-a :class:`TephpyValidationError` subclass carrying the offending level
+What tephpy raises about your data and its surroundings — the units it
+carries, its physical consistency, the source it was read from, the
+configuration file in force — derives from :class:`TephpyError`, so one
+``except TephpyError`` covers that whole subject. Units problems raise
+:class:`TephpyUnitsError`; physically impossible data raises a
+:class:`TephpyValidationError` subclass carrying the offending level
 indices. Validation happens at ingest (``Sounding`` construction), not
 mid-plot.
+
+Ordinary argument mistakes stay outside the hierarchy and raise the builtin
+Python exceptions, because that is the vocabulary a caller already knows: an
+unrecognised sample name is a ``ValueError``, an unknown keyword or
+configuration section a ``TypeError``, a missing DataFrame column a
+``KeyError``. ``except TephpyError`` is therefore the domain net, not a
+catch-all for every way a call can be wrong.
 
 Configuration-file problems are the one place tephpy also warns:
 :class:`TephpyConfigWarning` is a ``UserWarning``, not a
