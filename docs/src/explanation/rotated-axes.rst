@@ -3,8 +3,8 @@
 Why the Axes Are Rotated
 ========================
 
-A tephigram looks like a chart somebody turned forty-five degrees on the way to
-the printer. It is not. The rotation is the last step of a construction that
+A :term:`tephigram` looks like a chart somebody turned forty-five degrees on the
+way to the printer. It is not. The rotation is the last step of a construction that
 starts by choosing two coordinates on physical grounds, and every awkward-looking
 thing about the diagram — the diagonal grid, the curved pressure lines, the
 absence of anything you could call a vertical axis — follows from that choice.
@@ -50,12 +50,12 @@ scale and an offset that no reader ever needs. The diagram plots
 Why the Grid Is Square
 ----------------------
 
-On those coordinates two of the five isopleth families are trivially straight,
-and exactly perpendicular to each other.
+On those coordinates two of the five :term:`isopleth` families are trivially
+straight, and exactly perpendicular to each other.
 
 An :term:`isotherm` is a line of constant temperature, so on a T–ln θ plane it
 is a line of constant T: straight, and parallel to the entropy axis. A
-:term:`dry adiabat` is a line of constant potential temperature — a parcel moved
+:term:`dry adiabat` is a line of constant potential temperature — a :term:`parcel` moved
 without exchanging heat conserves :math:`\theta` — so it is a line of constant
 :math:`\ln \theta`: straight, and parallel to the temperature axis.
 
@@ -133,7 +133,7 @@ and the 0 °C isotherm is distinguished from its neighbours — on the Met Offic
 printed chart by colouring it red :cite:`metoffice_factsheet13`. ``tephpy``
 follows both: 10 °C at the default view width, on a ladder that selects finer
 intervals as you zoom in, and that one member drawn heavier rather than red,
-because red is already the temperature profile's colour. :ref:`howto-emphasis` shows how to
+because red is already the temperature :term:`profile`'s colour. :ref:`howto-emphasis` shows how to
 change or extend it.
 
 Where to Go Next

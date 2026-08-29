@@ -1,0 +1,16 @@
+The tutorial quadrant carries a learning path. It had one page, a browser demo
+with no python in it, and now opens with two tutorials a newcomer can follow start
+to finish (:issue:`66`, narrative spec §3.2 and narrative spec §3.3).
+
+*Your First Tephigram* assumes no meteorology: an empty diagram, what the five
+isopleth families are, a shipped radiosonde ascent drawn on it, and how to read the
+temperature and dewpoint traces apart. It closes on the freezing level, which is
+already marked — the 0 °C isotherm has been drawn heavier since the reader's first
+figure, so naming it costs no code.
+
+*Analyse a Sounding* continues from the same ascent and asks whether that
+atmosphere could produce a storm: a parcel lifted from the surface, the bend at
+cloud base, the two energies shaded as the areas they are, and
+:meth:`~tephpy.plotting.axes.TephigramAxes.annotate_indices` putting ten computed
+values beside the diagram. It hands over to the gallery, where the same analysis
+appears finished. (:user:`claude`)

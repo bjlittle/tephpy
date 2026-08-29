@@ -55,6 +55,8 @@ DOCUMENTED = (
     "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
+    "tutorials/analyse-a-sounding.rst",
+    "tutorials/first-tephigram.rst",
 )
 
 #: The pages that publish figures (plots spec §3.2). Membership again, and for a
@@ -68,6 +70,8 @@ PUBLISHES_FIGURES = (
     "howtos/framing.rst",
     "howtos/logo.rst",
     "howtos/temp-and-bufr.rst",
+    "tutorials/analyse-a-sounding.rst",
+    "tutorials/first-tephigram.rst",
 )
 
 #: Every directive that introduces a literal block carrying a language. The three

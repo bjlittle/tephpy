@@ -4,9 +4,9 @@ Parcel Ascent and Normand's Point
 =================================
 
 :ref:`explanation-rotated-axes` describes the grid. This page describes the one
-thing meteorologists draw *on* it: the path a parcel of air takes when something
-lifts it, and why the answer to "will this sounding produce a storm" is an area on
-that path rather than a number in a table.
+thing meteorologists draw *on* it: the path a :term:`parcel` of air takes when
+something lifts it, and why the answer to "will this :term:`sounding` produce a
+storm" is an area on that path rather than a number in a table.
 
 .. plot::
     :context: reset
@@ -24,8 +24,8 @@ that path rather than a number in a table.
     ax.plot_profile(parcel, color="k", linestyle="--")
     ax.legend()
 
-The dashed black line is the parcel. The red and green lines are the
-:term:`sounding` — the atmosphere it is rising through. Everything below is what
+The dashed black line is the parcel. The red and green lines are the sounding —
+the atmosphere it is rising through. Everything below is what
 the dashed line is doing.
 
 Lifting a Parcel
@@ -46,20 +46,20 @@ Normand's Point
 
 The parcel cools as it rises, but its moisture goes with it. Two quantities
 therefore approach each other: the temperature, falling along the dry adiabat, and
-the dewpoint, which falls much more slowly along a line of constant
+the :term:`dewpoint`, which falls much more slowly along a line of constant
 :term:`humidity mixing ratio`. Where they meet, the parcel is saturated, and any
 further lifting condenses water. That height is the
 :term:`lifting condensation level` — cloud base — and the intersection is
-**Normand's point**.
+:term:`Normand's point`.
 
 The construction is the whole reason this diagram is drawn: two straight lines
 crossing, read off with a ruler. That is what a forecaster does with a pencil, and
-what the tephigram exists to make possible.
+what the :term:`tephigram` exists to make possible.
 
 :func:`calc.normand_point(...) <tephpy.calc.normand_point>` returns that point —
 but it does not get there that way. It does not intersect the lines the diagram
 draws; it asks `MetPy <https://unidata.github.io/MetPy/latest/>`__ for the
-:term:`lifting condensation level`, which is the same quantity reached by a
+lifting condensation level, which is the same quantity reached by a
 different route. The geometry is the meaning; MetPy's is the arithmetic. How MetPy
 arrives at it is MetPy's business, and has already changed once — its ``lcl``
 still accepts ``max_iters`` and ``eps``, deprecated and ignored, the fossil of an
@@ -75,8 +75,8 @@ Where the Numbers Come From
 ``tephpy`` draws the construction; `MetPy <https://unidata.github.io/MetPy/latest/>`__
 computes it. That division is deliberate — spec §3.3 delegates the thermodynamics
 rather than reimplementing them — and it matters to anyone deciding whether to
-trust a value: a CAPE figure from :func:`calc.indices(...) <tephpy.calc.indices>`
-is MetPy's number, drawn here.
+trust a value: a :term:`CAPE <convective available potential energy>` figure from
+:func:`calc.indices(...) <tephpy.calc.indices>` is MetPy's number, drawn here.
 
 :func:`calc.parcel_path(...) <tephpy.calc.parcel_path>` assembles the path from
 the pieces above. It lifts from the surface by default, or from a mixed layer if
@@ -102,8 +102,7 @@ The energy either way is the integral of the buoyancy over the ascent, and on a
 diagram whose coordinates are temperature and :term:`entropy` an integral like
 that *is* an area. That is the property :ref:`explanation-rotated-axes` says the
 coordinates were chosen for, and this is where it pays: the two areas between the
-dashed parcel line and the environment curve are
-:term:`convective available potential energy` and
+dashed parcel line and the environment curve are that CAPE and its counterpart
 :term:`convective inhibition`, in joules per kilogram, readable by eye.
 
 :meth:`ax.shade_cape(...) <tephpy.plotting.axes.TephigramAxes.shade_cape>` and
