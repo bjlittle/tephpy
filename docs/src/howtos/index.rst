@@ -10,4 +10,5 @@ Task-focused recipes.
     emphasis
     framing
     logo
+    read-a-sounding
     temp-and-bufr

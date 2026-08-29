@@ -1,0 +1,20 @@
+A how-to covers getting data in, and demonstrates both routes rather than one
+(:issue:`66`, narrative spec §3.6). *Read a Sounding From an Archive* reads the
+same balloon flight twice — through :func:`~tephpy.io.igra.read` and through the
+:func:`~tephpy.io.wyoming.parse` exposed by :pull:`203` — and draws both on one
+diagram, where they cannot be told apart. That is the page's subject: two
+archives, two readers, one :class:`~tephpy.sounding.Sounding` downstream.
+
+Showing it needed the same physical ascent in both formats, so ``tephpy.samples``
+now ships the Camborne 2026-07-21 12Z pair beside the two Norman ascents.
+``samples.path()`` becomes ``samples.path(name)`` with a second format in the
+package, and every sample still reads through a public reader — a sample reached
+by a private path would demonstrate nothing a reader could repeat.
+
+The page also states what it does not run.
+:func:`~tephpy.io.wyoming.fetch` is described rather than shown as a block,
+because every python block in these guides is executed on every documentation
+build, and one reaching the University of Wyoming would fail for reasons that have
+nothing to do with ``tephpy``. Little is lost in the reading: ``fetch`` is
+``parse`` with a download in front, so a fetched sounding and a parsed one are
+built by identical code. (:user:`claude`)
