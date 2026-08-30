@@ -902,3 +902,35 @@ git commit -m "Enforce the versionadded policy, and write it down"
 **Type consistency.** `PublicObject(name, role, obj)` is defined in Task 1 and used with those field names in Tasks 2, 4 and 5. `published_objects()`, `target_version()`, `cited_version()`, `check_versionadded()` and `main()` keep their signatures across tasks. `STAMPED_ROLES` is defined in Task 1 and consumed by Task 2's `ROLE_OF` mapping.
 
 **Known risk.** Task 1's implementation is a first cut; Task 2 exists precisely because it is expected to disagree with the real inventory on the first run. That is the intended workflow, not a failure — reconcile the enumerator, never the expectation.
+
+---
+
+## Execution notes
+
+Recorded on completion, because a plan is frozen once its implementation merges
+(docs spec §3.4) and two things did not go as written above.
+
+**Task 6: the gate is a test, not a pre-commit hook.** Registered as written, it
+failed immediately — pre-commit builds an isolated environment per hook, and this
+gate imports `tephpy`. The repository's other local hooks (`check_citations`,
+`check_github_references`, `check_glossary_links`) are pure-stdlib text scanners,
+which is why they work there. Listing numpy, matplotlib, MetPy, pandas, xarray
+and pint as `additional_dependencies` would restate `requirements/pypi-core.txt`
+and drift from it, and `pre-commit.ci` has no pixi environment to borrow. So
+enforcement moved to `tests/test_api_docstrings.py`, which runs where the package
+is installed and on every pull request; the script remains the developer-facing
+report. `docs-style.rst` says so.
+
+**Task 2 was load-bearing, exactly as hoped.** The first enumeration found 156
+objects against the published 94. All 62 extra were re-exports, fixed by using
+`vars` rather than `dir` and requiring a module member's `__module__` to be the
+module itself. `tephpy.config` needed a separate walk, and measurement corrected
+the guess: a build publishes its four *methods* and not its `source` property.
+
+**Two adjacent findings, neither in scope.** `version_scheme =
+"release-branch-semver"` is deprecated upstream in favour of
+`semver-pep440-release-branch` ({issue}`228`) — the warning is suppressed where
+the gate reads it rather than renamed here, because version derivation is
+release-critical configuration. And adding a fourth documentation gate meant
+updating four registries, not one: the pixi task, `ci-docs.yml`,
+`tests/test_docs_workflow.py`'s `GATES`, and `floors_diagnose.EXERCISE`.
