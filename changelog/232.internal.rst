@@ -1,0 +1,23 @@
+``setuptools_scm`` deprecates ``release-branch-semver`` in favour of
+``semver-pep440-release-branch``, and :pull:`229` suppressed the warning where
+the API gate reads the configuration rather than renaming release-critical
+configuration as a side effect (:issue:`228`). Measured now, the rename is not
+merely deferred but wrong today: the new name arrives in ``setuptools_scm`` 10,
+while ``[build-system]`` floors the tool at ``>=8``, where it is not registered
+at all — verified against 8.0.0, 8.3.1, 9.0.0, 9.2.0, 9.2.2 and 10.0.2. At the
+floor the old name is canonical and emits no warning, and derives the same
+version, so renaming would raise a build floor two majors to silence a warning
+that never fires there. The suppression stays, and now says that.
+
+What is new is the guard. ``test_the_configured_version_scheme_is_registered``
+checks the scheme ``pyproject.toml`` names against the schemes the installed
+``setuptools_scm`` registers, so a rename made without the floor bump fails
+where it matters: the floors job installs the declared floor and runs this
+suite against it. Left to itself the rename fails there as a bare
+``AssertionError`` from inside ``setuptools_scm``, naming nothing.
+
+The test reads the manifest from the index rather than the working tree, which
+``tests/test_floors.py`` caught it not doing: the conda floors leg rewrites
+``pyproject.toml``, so a test reading the working-tree copy passes everywhere but
+there (:issue:`155`). Floors spec §3.3 quotes how many of the tier's tests stand
+down without an index, and that count moves with it. (:user:`claude`)

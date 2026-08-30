@@ -142,10 +142,14 @@ def _scm_version() -> str:
     with warnings.catch_warnings():
         # `release-branch-semver` is deprecated upstream in favour of
         # `semver-pep440-release-branch` -- the same scheme under a new name,
-        # verified to derive the same version. Renaming it is a deliberate
-        # change to release-critical configuration and not this gate's to
-        # make, and the gate cannot act on the warning either way, so it reads
-        # the number and moves on.
+        # verified to derive the same version. The rename is deferred, and not
+        # merely postponed: the new name arrives in `setuptools_scm` 10, while
+        # `[build-system]` floors the tool at `>=8`, where it is not
+        # registered at all and the old name is canonical and warning-free.
+        # Renaming would raise a build floor two majors to silence a warning
+        # that never fires at that floor (:issue:`228`), so the gate reads the
+        # number and moves on. `test_the_configured_version_scheme_is_
+        # registered` fails if the rename is ever made without the bump.
         warnings.simplefilter("ignore", DeprecationWarning)
         return str(
             get_version(

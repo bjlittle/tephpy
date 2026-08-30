@@ -17,14 +17,43 @@ methods, and that a dataclass field does not.
 from __future__ import annotations
 
 import ast
+from importlib.metadata import entry_points
 from pathlib import Path
+import subprocess
 import textwrap
+import tomllib
 
 import pytest
 
 import tephpy
 
 REPO = Path(__file__).parents[1]
+
+
+def _committed_manifest():
+    """Return the manifest this repository declares, not the one it was given.
+
+    The conda half of ``ci-floors`` runs this suite in a checkout whose
+    ``pyproject.toml`` the floors generator has rewritten, so a test reading it
+    from the working tree passes everywhere but there -- where it fails weekly,
+    hours after the push, and takes the tier's whole verdict down with it
+    (:issue:`155`). ``tests/test_floors.py`` holds every test in the tree to
+    this, which is how it caught the version added here.
+
+    Returns
+    -------
+    str
+        The committed ``pyproject.toml``.
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no index to read the committed manifest from")
+    return subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    ).stdout
 
 
 def test_published_objects_covers_the_documented_modules(gate):
@@ -619,3 +648,33 @@ def test_a_single_entry_is_trivially_ordered(gate):
 
 def test_every_published_raises_section_is_ordered(gate):
     assert gate.check_raises_order(gate.published_objects()) == []
+
+
+def test_the_configured_version_scheme_is_registered():
+    """The scheme ``pyproject.toml`` names must exist in the installed tool.
+
+    ``release-branch-semver`` is deprecated upstream in favour of
+    ``semver-pep440-release-branch``, and the obvious response is to rename it
+    (:issue:`228`). The obvious response would break the build: the new name
+    arrives in ``setuptools_scm`` 10, while ``[build-system]`` floors the tool
+    at ``>=8``, where it is not registered at all. The old name is canonical
+    and warning-free there.
+
+    So the rename needs the floor raised with it, and this is what says so.
+    The floors job installs the declared floor and runs this suite against it,
+    so a rename made without the bump fails there naming the scheme, rather
+    than in a build nobody ran.
+    """
+    registered = {
+        entry.name
+        for entry in entry_points().select(group="setuptools_scm.version_scheme")
+    }
+    assert registered, "no version schemes registered; setuptools_scm is missing"
+
+    configured = tomllib.loads(_committed_manifest())["tool"]["setuptools_scm"][
+        "version_scheme"
+    ]
+    assert configured in registered, (
+        f"pyproject names version_scheme {configured!r}, which the installed "
+        f"setuptools_scm does not register: {sorted(registered)}"
+    )
