@@ -40,6 +40,23 @@ VOCABULARY = frozenset(
 #: environments have no documentation dependencies.
 _TAGS = re.compile(r"^# sphinx_gallery_tags = (?P<value>\[.*\])$", re.MULTILINE)
 
+#: sphinx-gallery's own in-file flag pattern, transcribed from
+#: ``py_source_parser.INFILE_CONFIG_PATTERN`` (0.21.0) -- what
+#: ``remove_config_comments`` strips from the code a gallery page shows.
+#: Transcribed for the reason ``_TAGS`` is read from text at all: sphinx-gallery
+#: is absent from the ``test-py3*`` environments the CI matrix runs, so a test
+#: that imported it to borrow the pattern would skip exactly where it matters.
+#: Unlike ``_TAGS`` this matches every ``sphinx_gallery_*`` flag and an indented
+#: one, because those are stripped too and leave the same gap behind.
+_FLAGS = re.compile(
+    r"^[ \t]*#\s*sphinx_gallery_([A-Za-z0-9_]+)(\s*=\s*(.+))?[ \t]*\n?",
+    re.MULTILINE,
+)
+
+#: The blank lines PEP 8 puts before a module-level ``def``, and so the number
+#: the published example should show once the flags are gone.
+BLANK_LINES = 2
+
 #: The guard of gallery spec §3.3, as ``ast.unparse`` renders its test. The
 #: module-level ``if TYPE_CHECKING:`` block is also an ``ast.If``, so the
 #: comparison has to be against the test rather than against the node kind.
@@ -160,23 +177,29 @@ def test_example_tags_are_declared_and_in_vocabulary(module):
 
 
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])
-def test_the_tag_flag_has_no_blank_line_above_it(module):
-    """The flag sits flush under the imports, for the sake of the render.
+def test_stripping_the_flags_leaves_the_spacing_pep8_wrote(module):
+    """The published example shows two blank lines before ``def main``.
 
-    ``remove_config_comments`` drops the flag line and preserves the blank
-    lines around it (gallery spec §3.6), so a blank line above the flag is
-    one the reader is left looking at: three blank lines before ``def
-    main`` where PEP 8 wrote two. The gap is the only trace the removal
-    leaves, it appears on the published page, and nothing about a blank
-    line fails a build -- which is why the placement is asserted here
-    rather than described in the style guide alone.
+    ``remove_config_comments`` strips the ``# sphinx_gallery_*`` lines and
+    preserves the blank lines around them (gallery spec §3.6), so a flag
+    written with a blank line above it leaves that line on the page: three
+    before ``def main`` where PEP 8 wrote two. This reproduces the removal
+    and reads the result, rather than asserting where the flag sits --
+    that would be a proxy, and one that a second flag, or an indented one,
+    could satisfy while the gap came back. Nothing else catches it: a
+    blank line raises no Sphinx warning for ``--fail-on-warning``, and the
+    removal is silent by design.
     """
-    lines = (EXAMPLES / f"{module}.py").read_text().splitlines()
-    index = next(i for i, line in enumerate(lines) if _TAGS.match(line))
-    assert lines[index - 1].strip(), (
-        f"{module} has a blank line above its sphinx_gallery_tags flag; the "
-        "flag goes flush under the imports, so that removing it from the "
-        "rendered page leaves two blank lines and not three"
+    source = (EXAMPLES / f"{module}.py").read_text()
+    assert _FLAGS.search(source), f"{module} declares no sphinx_gallery flag"
+    rendered = _FLAGS.sub("", source)
+    match = re.search(r"\n(\n*)def main", rendered)
+    assert match, f"{module} has no module-level `def main` to space away from"
+    blanks = len(match.group(1))
+    assert blanks == BLANK_LINES, (
+        f"{module} would publish {blanks} blank lines before `def main`, not "
+        f"{BLANK_LINES}: a flag goes flush under the line above it, so that "
+        "stripping it from the page leaves the spacing PEP 8 wrote"
     )
 
 

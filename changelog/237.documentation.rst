@@ -9,11 +9,19 @@ published page. The five examples now carry it flush under their imports, and
 the rendered block reads ``Figure``, blank, blank, ``def main`` — measured off
 the built pages, all five.
 
-``tests/examples`` asserts the placement, because nothing else could. A blank
-line raises no Sphinx warning, so ``--fail-on-warning`` has nothing to catch;
-the removal is silent by design; and the next example is written by copying the
-one beside it, which is how the shape would have spread. The assertion was
-forced to fail by putting the blank line back, and reports which example and
-what the flag's position is for. Gallery spec §3.6, gallery spec §3.7 and the
+``tests/examples`` asserts it, because nothing else could. A blank line raises no
+Sphinx warning, so ``--fail-on-warning`` has nothing to catch; the removal is
+silent by design; and the next example is written by copying the one beside it,
+which is how the shape would have spread.
+
+What the assertion reads is the spacing, not the placement. It strips the flags
+with sphinx-gallery's own ``INFILE_CONFIG_PATTERN`` -- transcribed for the reason
+the tags are read from source text, that the ``test-py3*`` environments have no
+documentation dependencies -- and counts the blank lines the page would then
+show. Asserting where the flag sits was the first attempt and was a proxy for
+the invariant: a second ``sphinx_gallery_*`` flag added below the tags, with a
+blank line of its own, satisfied it while the page went back to three blank
+lines. Both that shape and a blank line above the flag were forced, and fail
+naming the example and the count. Gallery spec §3.6, gallery spec §3.7 and the
 documentation style guide record the rule rather than leaving it to the diff.
 (:user:`claude`)

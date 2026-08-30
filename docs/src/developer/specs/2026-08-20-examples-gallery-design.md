@@ -384,7 +384,7 @@ The removal preserves the blank lines around what it strips, so the flag sits fl
 the imports with no blank line above it. Written the other way it leaves its own blank line
 on the page — three before `def main` where PEP 8 wrote two, which is the one trace the
 removal would otherwise leave, on the published page, with nothing about a blank line to
-fail `--fail-on-warning`. §3.7 asserts the placement for that reason.
+fail `--fail-on-warning`. §3.7 asserts the spacing the removal leaves, for that reason.
 
 (gallery-spec-3-7)=
 ### 3.7 Packaging and gates
@@ -425,10 +425,13 @@ Three things are asserted, all of them off the registry:
    flag `sphinx_gallery_tag` would be told there are none and could not tell that from an
    example that declared none.
 
-   The same reading asserts *where* the flag sits — flush under the imports, no blank line
-   above it. `remove_config_comments` preserves the blanks around what it strips (§3.6), so
-   the placement is what decides whether the published page carries the removal's trace, and
-   a blank line is not something any build fails on.
+   The same reading also settles the spacing the page will show. `remove_config_comments`
+   preserves the blanks around what it strips (§3.6), so a flag written with a blank line
+   above it leaves that line on the published page — and a blank line is not something any
+   build fails on. The assertion reproduces the removal with sphinx-gallery's own
+   `INFILE_CONFIG_PATTERN` and reads the result, rather than asserting where the flag sits:
+   the placement is a proxy, and one a second flag or an indented one would satisfy while
+   the gap came back.
 3. **The canonical figure is pinned.** `pytest-mpl` over
    `tephpy.examples.plot_parcel_analysis.main`, satisfying spec §7's composed-figure baseline —
    the last outstanding baseline of the roadmap, and the one that has been waiting for
