@@ -17,14 +17,43 @@ methods, and that a dataclass field does not.
 from __future__ import annotations
 
 import ast
+from importlib.metadata import entry_points
 from pathlib import Path
+import subprocess
 import textwrap
+import tomllib
 
 import pytest
 
 import tephpy
 
 REPO = Path(__file__).parents[1]
+
+
+def _committed_manifest():
+    """Return the manifest this repository declares, not the one it was given.
+
+    The conda half of ``ci-floors`` runs this suite in a checkout whose
+    ``pyproject.toml`` the floors generator has rewritten, so a test reading it
+    from the working tree passes everywhere but there -- where it fails weekly,
+    hours after the push, and takes the tier's whole verdict down with it
+    (:issue:`155`). ``tests/test_floors.py`` holds every test in the tree to
+    this, which is how it caught the version added here.
+
+    Returns
+    -------
+    str
+        The committed ``pyproject.toml``.
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no index to read the committed manifest from")
+    return subprocess.run(
+        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    ).stdout
 
 
 def test_published_objects_covers_the_documented_modules(gate):
@@ -117,7 +146,8 @@ def test_target_version_uses_the_project_version_scheme(gate):
 
     ``get_version`` with no configuration reports ``0.1``, not ``0.1.0``,
     because it does not read ``[tool.setuptools_scm]``. Restating
-    ``release-branch-semver`` in the gate would work until someone changed it
+    ``semver-pep440-release-branch`` in the gate would work until someone
+    changed it
     in one place, so the gate reads the file the build reads.
     """
     assert gate.target_version() == "0.1.0"
@@ -619,3 +649,34 @@ def test_a_single_entry_is_trivially_ordered(gate):
 
 def test_every_published_raises_section_is_ordered(gate):
     assert gate.check_raises_order(gate.published_objects()) == []
+
+
+def test_the_configured_version_scheme_is_registered():
+    """The scheme ``pyproject.toml`` names must exist in the installed tool.
+
+    ``release-branch-semver`` was renamed upstream to
+    ``semver-pep440-release-branch``, and the rename is made (:issue:`228`).
+    It could not be made alone: the new name arrives in ``setuptools_scm`` 10,
+    and ``[build-system]`` floored the tool at ``>=8``, where it is not
+    registered at all -- so the floor moved with it, and the two must keep
+    moving together.
+
+    Left to itself the mismatch fails as a bare ``AssertionError`` from inside
+    ``setuptools_scm``, naming nothing. This says which scheme and what is
+    registered instead. It reads whichever version is installed, so
+    ``check_version_scheme.py`` covers the declared floor, which no pull
+    request otherwise installs.
+    """
+    registered = {
+        entry.name
+        for entry in entry_points().select(group="setuptools_scm.version_scheme")
+    }
+    assert registered, "no version schemes registered; setuptools_scm is missing"
+
+    configured = tomllib.loads(_committed_manifest())["tool"]["setuptools_scm"][
+        "version_scheme"
+    ]
+    assert configured in registered, (
+        f"pyproject names version_scheme {configured!r}, which the installed "
+        f"setuptools_scm does not register: {sorted(registered)}"
+    )

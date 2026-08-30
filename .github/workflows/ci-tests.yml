@@ -30,6 +30,16 @@ jobs:
           environments: ${{ matrix.environment }}
           frozen: true
       - run: pixi run --frozen --environment ${{ matrix.environment }} pytest --cov --cov-report=xml --mpl
+      # The declared floor is the one thing no pull request installs: every
+      # environment here comes from the lockfile, and `ci-floors` -- which does
+      # install the floors -- runs weekly, never as a gate. So a version scheme
+      # renamed without the floor raised would merge green and break builds at
+      # a supported dependency version until the scheduled job noticed
+      # (:issue:`228`). One matrix leg is enough: the question is about the
+      # manifest, not the Python.
+      - name: Check the declared floor knows the version scheme
+        if: matrix.environment == 'test-py314'
+        run: pixi run --frozen --environment ${{ matrix.environment }} python .github/scripts/check_version_scheme.py
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
         if: matrix.os == 'ubuntu-latest' && matrix.environment == 'test-py314'
         with:

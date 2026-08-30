@@ -1,0 +1,26 @@
+``setuptools_scm`` deprecates ``release-branch-semver`` in favour of
+``semver-pep440-release-branch``, and :pull:`229` suppressed the warning where the
+API gate reads the configuration rather than renaming release-critical
+configuration as a side effect (:issue:`228`). The rename is made here, with the
+``[build-system]`` floor it requires: the new name arrives in ``setuptools_scm``
+10, and at the previous ``>=8`` floor it is not registered at all. Both move
+together, the suppression is gone, and the derived version is unchanged —
+``0.1.0``, now with the gate's derivation running clean under ``-W error``,
+which is what shows the deprecation is gone rather than hidden.
+
+Two gates keep the pair together, because they were nearly not.
+``test_the_configured_version_scheme_is_registered`` asks whichever
+``setuptools_scm`` is installed, which in a pull request is the lockfile's — so
+it would have passed a rename made at the old floor, and only ``ci-floors``,
+which runs weekly rather than as a gate, would have caught it days later.
+``check_api_docstrings.py``'s sibling ``check_version_scheme.py`` closes that
+window: it resolves the lowest non-yanked release satisfying the declared floor,
+installs it, and reports whether the configured scheme is among the ones it
+registers. ``ci-tests`` runs it on every pull request.
+
+Reading the wheel's ``entry_points.txt`` instead of installing would have been
+faster and wrong in the direction that matters: from ``setuptools_scm`` 10 the
+schemes are registered by its ``vcs-versioning`` dependency, so the wheel's own
+table lists none of them and the check reported every scheme as missing —
+including the one that works. What a floor knows is what it resolves to.
+(:user:`claude`)

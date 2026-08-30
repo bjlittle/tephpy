@@ -904,7 +904,7 @@ called out explicitly).
 ### 8.1 Packaging and layout
 
 - `src/tephpy/` layout; single `pyproject.toml`; `py.typed` shipped.
-- Build backend **`setuptools` + `setuptools_scm`** (`version_scheme = "release-branch-semver"`,
+- Build backend **`setuptools` + `setuptools_scm`** (`version_scheme = "semver-pep440-release-branch"`,
   `local_scheme = "dirty-tag"`, `write_to = "src/tephpy/_version.py"`), matching geovista.
   `.git_archival.txt` + `.gitattributes export-subst` for archive versioning; `MANIFEST.in`
   + `check-manifest` in CI.
