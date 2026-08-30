@@ -1,23 +1,26 @@
 ``setuptools_scm`` deprecates ``release-branch-semver`` in favour of
-``semver-pep440-release-branch``, and :pull:`229` suppressed the warning where
-the API gate reads the configuration rather than renaming release-critical
-configuration as a side effect (:issue:`228`). Measured now, the rename is not
-merely deferred but wrong today: the new name arrives in ``setuptools_scm`` 10,
-while ``[build-system]`` floors the tool at ``>=8``, where it is not registered
-at all — verified against 8.0.0, 8.3.1, 9.0.0, 9.2.0, 9.2.2 and 10.0.2. At the
-floor the old name is canonical and emits no warning, and derives the same
-version, so renaming would raise a build floor two majors to silence a warning
-that never fires there. The suppression stays, and now says that.
+``semver-pep440-release-branch``, and :pull:`229` suppressed the warning where the
+API gate reads the configuration rather than renaming release-critical
+configuration as a side effect (:issue:`228`). The rename is made here, with the
+``[build-system]`` floor it requires: the new name arrives in ``setuptools_scm``
+10, and at the previous ``>=8`` floor it is not registered at all. Both move
+together, the suppression is gone, and the derived version is unchanged —
+``0.1.0``, now with the gate's derivation running clean under ``-W error``,
+which is what shows the deprecation is gone rather than hidden.
 
-What is new is the guard. ``test_the_configured_version_scheme_is_registered``
-checks the scheme ``pyproject.toml`` names against the schemes the installed
-``setuptools_scm`` registers, so a rename made without the floor bump fails
-where it matters: the floors job installs the declared floor and runs this
-suite against it. Left to itself the rename fails there as a bare
-``AssertionError`` from inside ``setuptools_scm``, naming nothing.
+Two gates keep the pair together, because they were nearly not.
+``test_the_configured_version_scheme_is_registered`` asks whichever
+``setuptools_scm`` is installed, which in a pull request is the lockfile's — so
+it would have passed a rename made at the old floor, and only ``ci-floors``,
+which runs weekly rather than as a gate, would have caught it days later.
+``check_api_docstrings.py``'s sibling ``check_version_scheme.py`` closes that
+window: it resolves the lowest non-yanked release satisfying the declared floor,
+installs it, and reports whether the configured scheme is among the ones it
+registers. ``ci-tests`` runs it on every pull request.
 
-The test reads the manifest from the index rather than the working tree, which
-``tests/test_floors.py`` caught it not doing: the conda floors leg rewrites
-``pyproject.toml``, so a test reading the working-tree copy passes everywhere but
-there (:issue:`155`). Floors spec §3.3 quotes how many of the tier's tests stand
-down without an index, and that count moves with it. (:user:`claude`)
+Reading the wheel's ``entry_points.txt`` instead of installing would have been
+faster and wrong in the direction that matters: from ``setuptools_scm`` 10 the
+schemes are registered by its ``vcs-versioning`` dependency, so the wheel's own
+table lists none of them and the check reported every scheme as missing —
+including the one that works. What a floor knows is what it resolves to.
+(:user:`claude`)

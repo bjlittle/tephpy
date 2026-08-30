@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3", "setuptools_scm>=8"]
+requires = ["setuptools>=77.0.3", "setuptools_scm>=10"]
 
 [project]
 authors = [{ name = "tephpy Contributors" }]
@@ -72,7 +72,7 @@ where = ["src"]
 [tool.setuptools_scm]
 local_scheme = "dirty-tag"
 version_file = "src/tephpy/_version.py"
-version_scheme = "release-branch-semver"
+version_scheme = "semver-pep440-release-branch"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -333,7 +333,7 @@ pyyaml = ">=6.0.1"
 # `requirements/pypi-core.txt`: that file is `[project] dependencies`, and neither
 # package is a runtime requirement of the installed wheel (:issue:`152`).
 setuptools = ">=77.0.3"
-setuptools-scm = ">=8"
+setuptools-scm = ">=10"
 xarray = ">=2024.10"
 
 [tool.pixi.environments]

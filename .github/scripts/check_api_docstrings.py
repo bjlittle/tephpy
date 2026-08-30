@@ -125,7 +125,8 @@ def _scm_version() -> str:
 
     The schemes are read from ``pyproject.toml`` rather than restated here.
     ``get_version`` with no configuration reports ``0.1``, not ``0.1.0``,
-    because it never sees ``version_scheme = "release-branch-semver"`` -- and
+    because it never sees ``version_scheme = "semver-pep440-release-branch"``
+    -- and
     a gate comparing against ``0.1`` would fail every correctly stamped
     docstring in the package.
 
@@ -134,30 +135,16 @@ def _scm_version() -> str:
     str
         A PEP 440 version, e.g. ``"0.1.0.dev149"``.
     """
-    import warnings  # noqa: PLC0415
-
     from setuptools_scm import Configuration, get_version  # noqa: PLC0415
 
     config = Configuration.from_file(str(REPO / "pyproject.toml"))
-    with warnings.catch_warnings():
-        # `release-branch-semver` is deprecated upstream in favour of
-        # `semver-pep440-release-branch` -- the same scheme under a new name,
-        # verified to derive the same version. The rename is deferred, and not
-        # merely postponed: the new name arrives in `setuptools_scm` 10, while
-        # `[build-system]` floors the tool at `>=8`, where it is not
-        # registered at all and the old name is canonical and warning-free.
-        # Renaming would raise a build floor two majors to silence a warning
-        # that never fires at that floor (:issue:`228`), so the gate reads the
-        # number and moves on. `test_the_configured_version_scheme_is_
-        # registered` fails if the rename is ever made without the bump.
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return str(
-            get_version(
-                root=str(REPO),
-                version_scheme=config.version_scheme,
-                local_scheme=config.local_scheme,
-            )
+    return str(
+        get_version(
+            root=str(REPO),
+            version_scheme=config.version_scheme,
+            local_scheme=config.local_scheme,
         )
+    )
 
 
 def target_version() -> str | None:

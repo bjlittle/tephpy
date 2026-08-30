@@ -146,7 +146,8 @@ def test_target_version_uses_the_project_version_scheme(gate):
 
     ``get_version`` with no configuration reports ``0.1``, not ``0.1.0``,
     because it does not read ``[tool.setuptools_scm]``. Restating
-    ``release-branch-semver`` in the gate would work until someone changed it
+    ``semver-pep440-release-branch`` in the gate would work until someone
+    changed it
     in one place, so the gate reads the file the build reads.
     """
     assert gate.target_version() == "0.1.0"
@@ -653,17 +654,18 @@ def test_every_published_raises_section_is_ordered(gate):
 def test_the_configured_version_scheme_is_registered():
     """The scheme ``pyproject.toml`` names must exist in the installed tool.
 
-    ``release-branch-semver`` is deprecated upstream in favour of
-    ``semver-pep440-release-branch``, and the obvious response is to rename it
-    (:issue:`228`). The obvious response would break the build: the new name
-    arrives in ``setuptools_scm`` 10, while ``[build-system]`` floors the tool
-    at ``>=8``, where it is not registered at all. The old name is canonical
-    and warning-free there.
+    ``release-branch-semver`` was renamed upstream to
+    ``semver-pep440-release-branch``, and the rename is made (:issue:`228`).
+    It could not be made alone: the new name arrives in ``setuptools_scm`` 10,
+    and ``[build-system]`` floored the tool at ``>=8``, where it is not
+    registered at all -- so the floor moved with it, and the two must keep
+    moving together.
 
-    So the rename needs the floor raised with it, and this is what says so.
-    The floors job installs the declared floor and runs this suite against it,
-    so a rename made without the bump fails there naming the scheme, rather
-    than in a build nobody ran.
+    Left to itself the mismatch fails as a bare ``AssertionError`` from inside
+    ``setuptools_scm``, naming nothing. This says which scheme and what is
+    registered instead. It reads whichever version is installed, so
+    ``check_version_scheme.py`` covers the declared floor, which no pull
+    request otherwise installs.
     """
     registered = {
         entry.name
