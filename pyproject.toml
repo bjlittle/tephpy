@@ -461,6 +461,14 @@ cmd = "python .github/scripts/check_documentation_links.py docs/_build/html"
 depends-on = ["docs-html"]
 description = "Check that every documentation link resolves in the build"
 
+[tool.pixi.feature.docs.tasks.docs-check-api]
+# Reads the inventory the build just wrote, so it belongs here rather than in
+# pre-commit: it is what licenses `check_api_docstrings.py` to enumerate the
+# published API without a build (:issue:`227`).
+cmd = "python -m pytest tests/test_docs_api_inventory.py -q"
+depends-on = ["docs-html"]
+description = "Check the API gate's surface matches the published inventory"
+
 [tool.pixi.feature.docs.tasks.docs-check-figures]
 cmd = "python .github/scripts/check_docs_figures.py docs/_build/html"
 depends-on = ["docs-html"]
@@ -485,7 +493,12 @@ description = "Re-bless the published figure baselines from the build"
 # three, and a contributor reproduces those `ci-docs` failures without pushing.
 # The fourth gate the job runs is the one below.
 [tool.pixi.feature.docs.tasks.docs]
-depends-on = ["docs-check-citations", "docs-check-links", "docs-check-figures"]
+depends-on = [
+  "docs-check-api",
+  "docs-check-citations",
+  "docs-check-figures",
+  "docs-check-links",
+]
 description = "Build the HTML documentation and check its output"
 
 # The fourth gate `ci-docs.yml` runs, and the one `docs` above leaves out on
