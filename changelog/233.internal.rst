@@ -1,0 +1,33 @@
+Audited the three ``AGENTS.md`` files, and fixed what they got wrong about the
+repository they describe.
+
+Two of them were unreachable. The root ``CLAUDE.md`` exists because Claude Code
+reads ``CLAUDE.md`` and not ``AGENTS.md``, and imports its sibling so the one
+file stays the single source of truth — but ``docs/AGENTS.md`` and
+``tests/AGENTS.md`` had no such sibling, so every word of directory-local
+guidance reached only the agents that read ``AGENTS.md`` directly. Each now has
+a ``CLAUDE.md`` importing the file beside it.
+
+The root file's architecture line had an arrow pointing the wrong way:
+``transforms`` ← ``plotting`` ← (``calc``, ``sounding``, ``io``) puts ``calc``,
+``sounding`` and ``io`` above ``plotting``, and nothing in the package imports
+``plotting`` at all. The imports run the other way — ``plotting`` reaches for
+``transforms``, and for ``calc`` and ``sounding`` (``plotting/axes.py``), while
+``io`` builds a ``Sounding`` (``io/igra.py``) — so the line now names
+``sounding`` and ``transforms`` as the base, ``calc`` and ``io`` as building on
+``sounding``, and ``plotting`` as sitting on top.
+
+``tests/AGENTS.md`` claimed "each subpackage has a matching directory", which
+holds for ``examples``, ``io`` and ``plotting`` and fails for ``samples``,
+whose tests are ``tests/test_samples.py`` at the root. The rule is really about
+modules rather than subpackages: ``tephpy.samples`` is a lone ``__init__.py``,
+so its tests sit where a top-level module's tests sit. Stated that way, with
+the case that reads as an exception named.
+
+``docs/AGENTS.md`` warned against hand-writing the autoapi reference but said
+nothing about ``docs/src/gallery/``, which sphinx-gallery generates from
+``src/tephpy/examples`` and which is untracked — the tree most likely to be
+edited by mistake precisely because nothing in git records that it is derived.
+Both generated trees are now named together. The root file also pointed at
+``tests/AGENTS.md`` without ever mentioning ``docs/AGENTS.md``; it points at
+both. (:user:`claude`)
