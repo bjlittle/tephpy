@@ -190,6 +190,11 @@ class Config:
         rebound, because an
         :class:`~tephpy.plotting.isopleths.IsoplethFamily` keeps a reference
         to the section it was created with.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         pristine = Config()
         for field in dataclasses.fields(self):
@@ -232,6 +237,11 @@ class Config:
             value does not match the type the option declares. A caller who
             has filtered this category to an error gets that exception
             instead, and the same all-or-nothing restore.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         chosen = _configfile.discover() if path is None else Path(path)
         if chosen is None:
@@ -281,6 +291,11 @@ class Config:
         ------
         TephpyConfigError
             If a value cannot be serialised, or the file cannot be written.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         chosen = _configfile.user_config_path() if path is None else Path(path)
         _configfile.write_config(self, chosen)
@@ -307,6 +322,11 @@ class Config:
         TypeError
             If a section or option name is unknown, or if a section
             override is not a mapping.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         section_names = {field.name for field in dataclasses.fields(self)}
         snapshots: dict[str, object] = {}

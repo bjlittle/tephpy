@@ -44,6 +44,8 @@ jobs:
         run: pixi run --frozen --environment docs --skip-deps docs-check-links
       - name: Check the published figures
         run: pixi run --frozen --environment docs --skip-deps docs-check-figures
+      - name: Check the API gate's surface
+        run: pixi run --frozen --environment docs --skip-deps docs-check-api
       # Both of the steps below reach the network -- one downloads a browser,
       # the other loads PyScript, Pyodide and the wheels from a CDN -- so both
       # are retried. Each attempt is bounded from inside the shell rather than

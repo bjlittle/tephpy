@@ -28,6 +28,11 @@ integrates the net virtual-temperature difference (Doswell & Rasmussen
 1994), neither of which the plotted temperature curves can show — the
 shading is the drawn-curve region between the same rules' bounds, and the
 annotated J/kg number remains the quantitative truth.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -78,6 +83,11 @@ def cape_polygons(
         uninterrupted positive-buoyancy run — plural when the region is
         interrupted, empty when there is no CAPE (0 is an answer, not an
         error; spec §6).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     p, env, parcel = _merged_curves(
         pressure, temperature, parcel_pressure, parcel_temperature
@@ -129,6 +139,11 @@ def cin_polygons(
         uninterrupted negative-buoyancy run between the parcel start and
         the LFC — empty when there is no LFC (``cape_cin`` reports both
         CAPE and CIN as zero then) or no inhibition below it.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     p, env, parcel = _merged_curves(
         pressure, temperature, parcel_pressure, parcel_temperature

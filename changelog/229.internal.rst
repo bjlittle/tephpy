@@ -1,0 +1,22 @@
+Every object the API reference publishes now records the version it arrived in,
+as a numpydoc ``Notes`` section carrying ``.. versionadded:: 0.1.0`` — the form
+thirteen files under ``.github/scripts`` and ``docs/src/_ext`` already used and
+``src/tephpy`` never did. ``check_api_docstrings.py`` is the gate, enforced by
+``tests/test_api_docstrings.py`` because it imports ``tephpy`` and so cannot run
+in the isolated environment pre-commit builds; numpydoc enforces neither this
+nor ``Raises``, its checks stopping at ``RT05`` and ``SA04`` (:issue:`227`).
+The rule while no tag exists is equality rather than a bound — nothing can
+predate the first release — against the version ``setuptools_scm`` says the next
+tag will carry, read through ``Configuration.from_file`` so the gate cannot
+drift from the build, and declined altogether on a shallow checkout where the
+derivation is untrustworthy.
+
+The gate owns a reusable definition of the published API, which
+``check_api_inventory.py`` holds to the ``objects.inv`` a real build writes. That test earned its place immediately: the first enumeration found 156
+objects against the published 94, every one of the 62 extra a re-export. The
+rule that settles it — an object is published by the module that *defines* it,
+so ``vars`` rather than ``dir`` throughout — is not one the module layout would
+suggest, and neither is ``tephpy.config``, a private module's singleton whose
+methods are published while its property is not. The stamping was generated from
+that enumeration rather than typed, so the gate is green by construction rather
+than by 94 correct guesses. (:user:`claude`)

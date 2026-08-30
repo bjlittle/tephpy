@@ -12,6 +12,11 @@ meets the diagram's right edge (the printed-form staff convention), thins
 the visible levels to the densest subset at least ``BARB_MIN_SEPARATION``
 apart, and renders them through matplotlib's barbs machinery with the Met
 Office increments (flag 50 kt, full 10 kt, half 5 kt, 5 kt binning).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -80,6 +85,11 @@ def staff_y(pressure: npt.ArrayLike, x_edge: float) -> npt.NDArray[np.float64]:
         The float64 crossing ys in tephigram data space; NaN where the
         crossing temperature falls outside ``_STAFF_TEMPERATURE_SPAN``
         (or the pressure is not positive and finite).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     p = np.atleast_1d(np.asarray(pressure, dtype=np.float64))
     grid = np.linspace(
@@ -116,6 +126,11 @@ def select_barbs(
     -------
     numpy.ndarray
         Boolean keep-mask over `y`.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     positions = np.atleast_1d(np.asarray(y, dtype=np.float64))
     keep = np.zeros(positions.shape, dtype=np.bool_)
@@ -155,6 +170,11 @@ class BarbStaff(martist.Artist):
     **kwargs : Any
         Passed through to :class:`matplotlib.quiver.Barbs`, over the
         ``_constants`` conventions (increments, rounding, length).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     def __init__(  # noqa: PLR0913 -- the staff's full geometry contract
@@ -208,6 +228,11 @@ class BarbStaff(martist.Artist):
         -------
         matplotlib.quiver.Barbs or None
             The child collection, or ``None`` before the first draw.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._barbs
 
@@ -218,6 +243,11 @@ class BarbStaff(martist.Artist):
         ----------
         fig : matplotlib.figure.Figure or matplotlib.figure.SubFigure
             The figure the staff belongs to.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         super().set_figure(fig)
         if self._barbs is not None:
@@ -231,6 +261,11 @@ class BarbStaff(martist.Artist):
         ----------
         renderer : matplotlib.backend_bases.RendererBase
             The active renderer.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if not self.get_visible():
             return

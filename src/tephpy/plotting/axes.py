@@ -18,6 +18,11 @@ and shared by every side-panel method; ``_relayout_side_panels`` rebuilds
 the divider's horizontal stack and reassigns every locator whenever a
 panel appears, so the inside-out order holds regardless of the order the
 panel methods are called in (spec §3.2).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -347,6 +352,11 @@ class TephigramTransform(mtransforms.Transform):
     A thin, invertible matplotlib wrapper over
     :func:`tephpy.transforms.xy_from_temperature_theta`; operates on
     ``(N, 2)`` arrays in diagram-native units (degrees Celsius).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     input_dims = 2
@@ -369,6 +379,11 @@ class TephigramTransform(mtransforms.Transform):
             The tephigram x, y coordinates (the axes' data space), with
             the input's dimensionality preserved: shape ``(N, 2)`` for
             ``(N, 2)`` input, shape ``(2,)`` for length-2 input.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         arr = np.asarray(values, dtype=np.float64)
         ndim = arr.ndim
@@ -384,12 +399,23 @@ class TephigramTransform(mtransforms.Transform):
         -------
         TephigramInvertedTransform
             The inverse transform.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return TephigramInvertedTransform()
 
 
 class TephigramInvertedTransform(mtransforms.Transform):
-    """Map tephigram ``(x, y)`` pairs back to ``(temperature, theta)``."""
+    """Map tephigram ``(x, y)`` pairs back to ``(temperature, theta)``.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+    """
 
     input_dims = 2
     output_dims = 2
@@ -411,6 +437,11 @@ class TephigramInvertedTransform(mtransforms.Transform):
             Temperature, theta in degrees Celsius, with the input's
             dimensionality preserved: shape ``(N, 2)`` for ``(N, 2)``
             input, shape ``(2,)`` for length-2 input.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         arr = np.asarray(values, dtype=np.float64)
         ndim = arr.ndim
@@ -426,6 +457,11 @@ class TephigramInvertedTransform(mtransforms.Transform):
         -------
         TephigramTransform
             The forward transform.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return TephigramTransform()
 
@@ -445,6 +481,11 @@ class TephigramAxes(Axes):
     x/y ticks carry no meteorological meaning and are hidden until
     a family claims an edge for its labels — ``labels=("bottom", "left")``
     turns them into that family's scale (spec §3.2).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     name = "tephigram"
@@ -495,6 +536,11 @@ class TephigramAxes(Axes):
             that is not finite, or gives a ``linewidth`` that is not positive
             and finite, or an ``alpha`` outside ``[0, 1]``, or a family
             ``interval`` is not positive and finite.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         super().clear()
         self.tephigram_transform = TephigramTransform()
@@ -615,6 +661,11 @@ class TephigramAxes(Axes):
         ValueError
             If either range is non-finite, degenerate, or -- for pressure
             -- not above zero. The message names the keyword at fault.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         for name, bounds in (("pressure", pressure), ("temperature", temperature)):
             lo, hi = sorted(bounds)
@@ -682,6 +733,11 @@ class TephigramAxes(Axes):
             If an argument carries no finite data at all, naming which one
             -- checked before any clamp is applied -- or if nothing
             survives the ``pressure`` clamp across every argument.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if not objects:
             msg = "fit() needs at least one Sounding or Profile to frame"
@@ -786,6 +842,11 @@ class TephigramAxes(Axes):
         TypeError
             If ``config.cursor.fields`` is a bare string rather than a
             tuple of field names, or names an unknown field.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         fields = config.cursor.fields
         if fields is None:
@@ -895,6 +956,11 @@ class TephigramAxes(Axes):
             `temperature` or ``units=``, or `temperature` omitted when
             the sole argument is not ``Profile``-shaped (a bare pressure
             array, or a ``Sounding`` passed by mistake).
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         profile_shaped = all(
             hasattr(pressure, attr)
@@ -975,6 +1041,11 @@ class TephigramAxes(Axes):
         tuple of matplotlib.lines.Line2D
             ``(temperature_line, dewpoint_line)``; the dewpoint line is
             ``None`` when the sounding has no dewpoint.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         resolved = label if label is not None else snd.label
         defaults: dict[str, object] = {
@@ -1027,6 +1098,11 @@ class TephigramAxes(Axes):
         matplotlib.patches.PathPatch or None
             The shaded patch, or ``None`` for zero area — 0 is an
             answer, not an error (spec §6).
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._shade(snd, parcel, shading.cape_polygons, CAPE_COLOR, kwargs)
 
@@ -1059,6 +1135,11 @@ class TephigramAxes(Axes):
         matplotlib.patches.PathPatch or None
             The shaded patch, or ``None`` for zero area — 0 is an
             answer, not an error (spec §6).
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._shade(snd, parcel, shading.cin_polygons, CIN_COLOR, kwargs)
 
@@ -1232,6 +1313,11 @@ class TephigramAxes(Axes):
             nothing to style — bottom and left are hidden, and top and
             right have no axis yet — and probing one must not build a
             secondary axes nothing is using.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if edge not in EDGES:
             msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
@@ -1518,6 +1604,11 @@ class TephigramAxes(Axes):
         ------
         MissingDataError
             If the sounding has no wind (spec §6).
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if snd.wind_speed is None or snd.wind_direction is None:
             msg = "plot_barbs() needs wind: this sounding has none (spec §3.4)"
@@ -1570,6 +1661,11 @@ class TephigramAxes(Axes):
         -------
         matplotlib.axes.Axes
             The panel axes, for restyling.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if self._indices_panel is None:
             self._indices_panel = self._append_side_axes(
@@ -1709,6 +1805,11 @@ class TephigramAxes(Axes):
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
             not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
             ``interval`` is not positive and finite.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._configure_family(
             "isotherms",
@@ -1788,6 +1889,11 @@ class TephigramAxes(Axes):
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
             not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
             ``interval`` is not positive and finite.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._configure_family(
             "isobars",
@@ -1868,6 +1974,11 @@ class TephigramAxes(Axes):
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
             not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
             ``interval`` is not positive and finite.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._configure_family(
             "dry_adiabats",
@@ -1951,6 +2062,11 @@ class TephigramAxes(Axes):
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
             not positive and finite, an ``alpha`` falls outside ``[0, 1]``, or
             ``interval`` is not positive and finite.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._configure_family(
             "moist_adiabats",
@@ -2028,6 +2144,11 @@ class TephigramAxes(Axes):
         ValueError
             If an ``emphasis`` member value is not finite, a ``linewidth`` is
             not positive and finite, or an ``alpha`` falls outside ``[0, 1]``.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._configure_family(
             "mixing_ratios",

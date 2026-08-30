@@ -249,6 +249,7 @@ def test_the_bounded_steps_fit_inside_the_job():
 #: four tasks, still non-empty, still passing anything looser than this.
 GATES = {
     "docs-html",
+    "docs-check-api",
     "docs-check-citations",
     "docs-check-links",
     "docs-check-figures",

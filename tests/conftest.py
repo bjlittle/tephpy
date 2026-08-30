@@ -19,6 +19,9 @@ unknown key in the file is no longer among those warnings:
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+import sys
 import warnings
 
 import matplotlib as mpl
@@ -45,3 +48,24 @@ def _pristine_config():
     tephpy.config.reset()
     yield
     tephpy.config.reset()
+
+
+@pytest.fixture(scope="session")
+def gate():
+    """Import the API docstring gate, a script rather than an installed module.
+
+    Returns
+    -------
+    module
+        ``.github/scripts/check_api_docstrings.py``, executed.
+    """
+    script = (
+        Path(__file__).parents[1] / ".github" / "scripts" / "check_api_docstrings.py"
+    )
+    spec = importlib.util.spec_from_file_location("check_api_docstrings", script)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module

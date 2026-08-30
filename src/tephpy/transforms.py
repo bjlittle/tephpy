@@ -21,6 +21,11 @@ temperatures in degrees Celsius, x/y dimensionless. Out-of-domain input
 (non-positive pressure, potential temperatures theta at or below absolute
 zero) propagates NaN; exception-carrying validation lives at the
 quantified boundaries above this module (spec §6).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -57,6 +62,11 @@ def theta_from_pressure_temperature(
     numpy.ndarray
         Potential temperature in degrees Celsius, ``float64``, broadcast
         over the inputs.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     p = np.asarray(pressure, dtype=np.float64)
     t = np.asarray(temperature, dtype=np.float64)
@@ -86,6 +96,11 @@ def pressure_from_temperature_theta(
     -------
     numpy.ndarray
         Pressure in hPa, ``float64``, broadcast over the inputs.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
@@ -117,6 +132,11 @@ def xy_from_temperature_theta(
     tuple of numpy.ndarray
         The tephigram ``(x, y)`` coordinates (the axes' data space),
         ``float64``, broadcast over the inputs.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     t = np.asarray(temperature, dtype=np.float64)
     th = np.asarray(theta, dtype=np.float64)
@@ -151,6 +171,11 @@ def temperature_theta_from_xy(
     tuple of numpy.ndarray
         ``(temperature, theta)`` in degrees Celsius, ``float64``,
         broadcast over the inputs.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     x_arr = np.asarray(x, dtype=np.float64)
     y_arr = np.asarray(y, dtype=np.float64)
