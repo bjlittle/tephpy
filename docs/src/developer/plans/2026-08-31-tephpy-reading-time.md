@@ -390,7 +390,7 @@ def parse_argument(argument: str | None) -> Argument:
 
 Run: `pixi run -e test pytest tests/test_docs_readingtime.py -q`
 
-Expected: PASS, 30 tests.
+Expected: PASS, 31 tests.
 
 - [ ] **Step 5: Lint**
 
@@ -906,10 +906,37 @@ def test_a_one_minute_page_is_singular():
     assert "minutes" not in banner.astext()
 
 
-def test_the_placeholder_node_is_not_registered_with_sphinx():
-    """reading spec §3.2: a leaked placeholder must fail the build, not publish blank."""
-    source = (EXT / "tephpy_readingtime.py").read_text(encoding="utf-8")
-    assert "add_node" not in source
+def test_setup_registers_the_directive_and_the_transform_but_not_the_node():
+    """reading spec §3.2: a leaked placeholder must fail the build, not publish blank.
+
+    Asserted against what ``setup`` *does*, not against the source text. The
+    class docstring says ``app.add_node`` in prose to explain why it is absent,
+    so a grep for that name matches the explanation and passes for the wrong
+    reason -- and would keep passing if somebody added the real call.
+    """
+    calls = []
+
+    class FakeApp:
+        """As much of the application as ``setup`` reaches for."""
+
+        def add_directive(self, name, cls):  # noqa: ANN001, ANN202, ARG002
+            calls.append(("add_directive", name))
+
+        def connect(self, event, handler):  # noqa: ANN001, ANN202, ARG002
+            calls.append(("connect", event))
+
+        def add_node(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG002
+            calls.append(("add_node", args))
+
+    metadata = readingtime.setup(FakeApp())
+
+    assert ("add_directive", "readingtime") in calls
+    assert ("connect", "doctree-read") in calls
+    assert not any(call[0] == "add_node" for call in calls), (
+        "the placeholder must stay unregistered: an unknown node type is what "
+        "fails the build if the transform ever stops firing"
+    )
+    assert metadata["parallel_read_safe"] is True
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
