@@ -460,7 +460,13 @@ sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
 discards it in silence, with no warning to fail the build on — which is why the
 test reads the flag out of the source text rather than asking the parser.
 
-Write the flag plainly and leave it in the file: it does not reach the page.
+Write the flag flush under the imports, with no blank line above it — the
+removal preserves the blank lines around what it strips, so a blank line there
+is one the reader is left looking at, three before ``def main`` where PEP 8
+wrote two. ``tests/examples`` reproduces the removal and asserts the spacing it
+leaves, so any flag written the other way fails there.
+
+The flag itself does not reach the page.
 ``remove_config_comments`` strips ``# sphinx_gallery_*`` lines from the rendered
 code once sphinx-gallery has read them, so the tags still render and still drive
 the index filter, and the script the reader downloads still carries the flag.
