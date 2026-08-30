@@ -568,3 +568,54 @@ def test_a_handler_raising_a_different_exception_swallows_the_first(gate):
                 raise TephpyIOError("outer") from err
     ''')
     assert gate.raised_directly(fn) == {"TephpyIOError"}
+
+
+ORDERED = """Summary.
+
+Raises
+------
+TypeError
+    If a thing.
+ValueError
+    If another.
+"""
+
+UNORDERED = """Summary.
+
+Raises
+------
+ValueError
+    If another.
+TypeError
+    If a thing.
+"""
+
+
+def test_raises_entries_are_read_in_document_order(gate):
+    assert gate.raises_order(UNORDERED) == ["ValueError", "TypeError"]
+
+
+def test_ordered_entries_pass(gate):
+    assert gate.check_raises_order([_entry(gate, ORDERED)]) == []
+
+
+def test_unordered_entries_are_reported(gate):
+    """Thirteen docstrings restate the configuration-driven raise set.
+
+    Nothing kept the copies in step, and they drifted -- one of them listed
+    ``ValueError`` before ``TypeError`` while the other twelve did not
+    (:issue:`226`). Alphabetical is what the corpus already followed.
+    """
+    problems = gate.check_raises_order([_entry(gate, UNORDERED)])
+    assert len(problems) == 1
+    assert "alphabetical" in problems[0]
+    assert "ValueError" in problems[0]
+
+
+def test_a_single_entry_is_trivially_ordered(gate):
+    doc = "Summary.\n\nRaises\n------\nTypeError\n    If a thing.\n"
+    assert gate.check_raises_order([_entry(gate, doc)]) == []
+
+
+def test_every_published_raises_section_is_ordered(gate):
+    assert gate.check_raises_order(gate.published_objects()) == []

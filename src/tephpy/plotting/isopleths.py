@@ -1016,8 +1016,9 @@ class IsoplethFamily(martist.Artist):
             an unknown placement, or if the owning axes rejects an edge claim
             already held by another family, or if ``emphasis`` is malformed.
         ValueError
-            If an option value is invalid, e.g. a non-positive
-            ``interval``.
+            If an option value is invalid -- a non-positive ``interval``, or an
+            ``emphasis`` giving a non-finite member value, a ``linewidth`` that
+            is not positive and finite, or an ``alpha`` outside ``[0, 1]``.
 
         Notes
         -----
@@ -1237,14 +1238,14 @@ class IsoplethFamily(martist.Artist):
 
         Raises
         ------
+        TypeError
+            If the resolved ``labels`` names an unknown placement, or
+            ``emphasis`` is malformed.
         ValueError
             If the resolved ``interval`` is not a positive, finite number, or
             the resolved ``emphasis`` gives a non-finite member value, a
             ``linewidth`` that is not positive and finite, or an ``alpha``
             outside ``[0, 1]``.
-        TypeError
-            If the resolved ``labels`` names an unknown placement, or
-            ``emphasis`` is malformed.
         """
         spec = self._spec
         pick = self._pick

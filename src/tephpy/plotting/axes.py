@@ -722,6 +722,10 @@ class TephigramAxes(Axes):
 
         Raises
         ------
+        MissingDataError
+            If an argument carries no finite data at all, naming which one
+            -- checked before any clamp is applied -- or if nothing
+            survives the ``pressure`` clamp across every argument.
         TephpyValidationError
             If no objects are given, or one is neither a ``Sounding`` nor
             a ``Profile``.
@@ -729,10 +733,6 @@ class TephigramAxes(Axes):
             If the ``pressure`` clamp is non-finite, degenerate, or not
             above zero, or if the resolved ``margin`` is negative or not
             finite (framing spec §3.3).
-        MissingDataError
-            If an argument carries no finite data at all, naming which one
-            -- checked before any clamp is applied -- or if nothing
-            survives the ``pressure`` clamp across every argument.
 
         Notes
         -----

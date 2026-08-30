@@ -343,11 +343,11 @@ def normand_point(
 
     Raises
     ------
+    DewpointExceedsTemperatureError
+        If `dewpoint` exceeds `temperature`.
     TephpyUnitsError
         For unit-less bare values, ambiguous or unparsable units, or the
         wrong dimensionality.
-    DewpointExceedsTemperatureError
-        If `dewpoint` exceeds `temperature`.
     TephpyValidationError
         If an argument is not a scalar.
 

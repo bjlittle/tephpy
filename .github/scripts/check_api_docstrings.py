@@ -458,7 +458,7 @@ def main() -> int:
     # into one verdict would let the narrower one argue for switching off the
     # other.
     stamps = check_versionadded(entries, target)
-    raises = check_raises(entries)
+    raises = check_raises(entries) + check_raises_order(entries)
     if stamps:
         print(
             f"{len(stamps)} of {len(entries)} published API objects fail the "
@@ -513,6 +513,58 @@ def documented_raises(doc: str) -> set[str]:
             if bare:
                 names.add(bare.split(".")[-1])
     return names
+
+
+def raises_order(doc: str) -> list[str]:
+    """Return a docstring's ``Raises`` entries in document order.
+
+    Parameters
+    ----------
+    doc : str
+        The docstring, already dedented.
+
+    Returns
+    -------
+    list of str
+        The type lines, unindented ones only, in the order written.
+    """
+    return [
+        line.strip()
+        for line in section(doc, "Raises").splitlines()
+        if line and not line[:1].isspace() and line.strip()
+    ]
+
+
+def check_raises_order(entries: Iterable[PublicObject]) -> list[str]:
+    """Check each ``Raises`` section lists its entries alphabetically.
+
+    The convention the corpus already follows, and the one thing about the
+    configuration-driven raise set that a machine can hold. Thirteen
+    docstrings across ``plotting`` restate that set by hand -- every accessor,
+    ``clear``, ``configure``, ``set_visible``, ``_resolve`` and the emphasis
+    helpers -- and nothing kept the copies in step, so one of them listed
+    ``ValueError`` before ``TypeError`` while the rest did not
+    (:issue:`226`).
+
+    Parameters
+    ----------
+    entries : iterable of PublicObject
+        The published objects to check.
+
+    Returns
+    -------
+    list of str
+        One line per violation, empty when the corpus is clean.
+    """
+    problems = []
+    for entry in entries:
+        listed = raises_order(inspect.getdoc(entry.obj) or "")
+        if listed and listed != sorted(listed):
+            problems.append(
+                f"{entry.name} ({entry.role}): Raises entries are not "
+                f"alphabetical: {listed}"
+            )
+    return problems
 
 
 def _exception_bases() -> dict[str, str]:
