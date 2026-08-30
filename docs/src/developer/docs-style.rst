@@ -500,7 +500,8 @@ API Version Stamps
 Every published API object records the version it arrived in, as a numpydoc
 ``Notes`` section carrying the Sphinx ``versionadded`` directive. It is the
 docstring's **last** section, because numpydoc's section order places ``Notes``
-after ``Raises``:
+after ``Raises``. Sphinx would render the directive anywhere in the docstring;
+the gate accepts it only inside ``Notes``, so the form stays one form:
 
 .. code-block:: rst
 

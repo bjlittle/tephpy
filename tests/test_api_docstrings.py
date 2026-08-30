@@ -240,3 +240,82 @@ def test_the_policy_is_written_down():
     )
     assert "versionadded" in style
     assert "check_api_docstrings" in style
+
+
+MISPLACED = """Summary line.
+
+.. versionadded:: 0.1.0
+
+Parameters
+----------
+x : int
+    A thing.
+"""
+
+WRONG_SECTION = """Summary line.
+
+Parameters
+----------
+x : int
+    A thing.
+
+See Also
+--------
+.. versionadded:: 0.1.0
+"""
+
+NOTES_WITHOUT_DIRECTIVE = """Summary line.
+
+Notes
+-----
+Something else entirely.
+"""
+
+
+def test_a_directive_outside_notes_does_not_count(gate):
+    """Sphinx renders it anywhere; the house form is a ``Notes`` section.
+
+    The policy, the failure message and the thirteen files already using the
+    form all say ``Notes``. A gate that accepted the directive in the
+    extended summary would leave that agreement to chance.
+    """
+    assert gate.cited_version(MISPLACED) is None
+    problems = gate.check_versionadded([_entry(gate, MISPLACED)], "0.1.0")
+    assert len(problems) == 1
+    assert "no versionadded" in problems[0]
+
+
+def test_a_directive_in_another_section_does_not_count(gate):
+    assert gate.cited_version(WRONG_SECTION) is None
+
+
+def test_a_notes_section_without_the_directive_does_not_count(gate):
+    assert gate.cited_version(NOTES_WITHOUT_DIRECTIVE) is None
+
+
+def test_notes_section_body_stops_at_the_next_section(gate):
+    """A section ends at the *title* of the next, not at its rule."""
+    doc = """Summary.
+
+Notes
+-----
+The note.
+
+References
+----------
+Not the note.
+"""
+    body = gate.notes_section(doc)
+    assert "The note." in body
+    assert "References" not in body
+    assert "Not the note." not in body
+
+
+def test_notes_section_is_empty_when_absent(gate):
+    assert gate.notes_section("Summary only.\n") == ""
+    assert gate.notes_section("") == ""
+
+
+def test_notes_section_runs_to_the_end_when_last(gate):
+    """The house form puts ``Notes`` last, which is the common case."""
+    assert ".. versionadded:: 0.1.0" in gate.notes_section(GOOD)

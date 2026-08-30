@@ -323,8 +323,51 @@ def _singleton_methods(owner: type, prefix: str, seen: set[str]) -> list[PublicO
 DIRECTIVE = re.compile(r"^\s*\.\.[ \t]+versionadded::[ \t]*(\S+)[ \t]*$", re.MULTILINE)
 
 
+def notes_section(doc: str) -> str:
+    """Return the body of a docstring's ``Notes`` section.
+
+    Hand-rolled rather than handed to ``numpydoc.docscrape``, because the
+    ``test`` environment carries no numpydoc and this gate is enforced from
+    the test suite. A section is a title line over a rule of dashes, and its
+    body runs to the next such title or to the end.
+
+    Parameters
+    ----------
+    doc : str
+        The docstring, already dedented by :func:`inspect.getdoc`.
+
+    Returns
+    -------
+    str
+        The section body, empty when there is no ``Notes`` section.
+    """
+    lines = (doc or "").splitlines()
+    underlined = [
+        index
+        for index in range(len(lines) - 1)
+        if lines[index].strip()
+        and set(lines[index + 1].strip()) == {"-"}
+        and len(lines[index + 1].strip()) >= len(lines[index].strip())
+    ]
+    for position, index in enumerate(underlined):
+        if lines[index].strip() != "Notes":
+            continue
+        following = underlined[position + 1 :]
+        # A section ends at the *title* of the next one, which sits on the
+        # line above its rule.
+        end = following[0] - 1 if following else len(lines)
+        return "\n".join(lines[index + 2 : end])
+    return ""
+
+
 def cited_version(doc: str) -> str | None:
     """Return the version a docstring's ``versionadded`` cites.
+
+    The directive is only accepted inside the ``Notes`` section. Sphinx would
+    render it anywhere, so this is the gate enforcing the house form rather
+    than a limitation: the policy, the failure message and the thirteen files
+    already using it all say ``Notes``, and a gate that accepted the directive
+    in the summary would leave that agreement to chance.
 
     Parameters
     ----------
@@ -334,10 +377,10 @@ def cited_version(doc: str) -> str | None:
     Returns
     -------
     str or None
-        The cited version, or ``None`` when the directive is absent or
-        malformed.
+        The cited version, or ``None`` when the directive is absent from the
+        ``Notes`` section, malformed, or placed outside it.
     """
-    match = DIRECTIVE.search(doc or "")
+    match = DIRECTIVE.search(notes_section(doc))
     return match.group(1) if match else None
 
 
