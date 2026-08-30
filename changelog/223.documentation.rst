@@ -1,0 +1,26 @@
+Swept the public API for the numpydoc ``Raises`` section, which nothing enforces
+— numpydoc's validation has no ``RS`` check, so a missing or stale entry is
+invisible to ``pixi run lint``. Construction is where this bit hardest: the three
+public dataclasses validate their arguments and documented none of it, so
+:class:`Sounding <tephpy.sounding.Sounding>`,
+:class:`Profile <tephpy.calc.Profile>` and
+:class:`SoundingIndices <tephpy.calc.SoundingIndices>` now carry a ``Raises``
+section, in the class docstring where a reader meets it (``__post_init__`` is not
+rendered). :func:`calc.parcel_path <tephpy.calc.parcel_path>` and
+:func:`calc.indices <tephpy.calc.indices>` now document the
+:class:`DewpointExceedsTemperatureError
+<tephpy.exceptions.DewpointExceedsTemperatureError>` a ``"mixed-layer"`` parcel
+can reach:
+``metpy.calc.mixed_parcel`` averages potential temperature and mixing ratio
+independently, so a saturated layer can yield a mixed dewpoint above its mixed
+temperature — the surface case ``Sounding`` already rejects.
+:func:`wyoming.parse <tephpy.io.wyoming.parse>` now documents the ``time=``
+``TypeError`` and ``ValueError`` its siblings
+:func:`wyoming.fetch <tephpy.io.wyoming.fetch>` and
+:func:`igra.read <tephpy.io.igra.read>` already did,
+:meth:`plot_profile <tephpy.plotting.axes.TephigramAxes.plot_profile>` the
+:class:`TephpyValidationError <tephpy.exceptions.TephpyValidationError>` a
+non-numeric array raises, and
+:meth:`IsoplethFamily.set_visible <tephpy.plotting.isopleths.IsoplethFamily.set_visible>`
+the ``ValueError`` it inherits from being ``configure()``, which re-reads every
+configuration tier. (:user:`claude`)

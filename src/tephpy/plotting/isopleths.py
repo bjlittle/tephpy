@@ -1030,6 +1030,11 @@ class IsoplethFamily(martist.Artist):
             If showing the family would reclaim an edge another family took
             while it was hidden; the family stays hidden (see
             :meth:`configure`).
+        ValueError
+            If a ``tephpy.config`` value the reconfigure re-reads is invalid —
+            a non-positive ``interval``, or an ``emphasis`` giving a non-finite
+            member value, a ``linewidth`` that is not positive and finite, or
+            an ``alpha`` outside ``[0, 1]`` (see :meth:`configure`).
         """
         if bool(b) == bool(self.get_visible()):
             super().set_visible(b)

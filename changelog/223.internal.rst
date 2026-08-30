@@ -1,0 +1,13 @@
+``tests/test_calc.py`` now covers the one route to a supersaturated parcel start
+that a constructed :class:`Sounding <tephpy.sounding.Sounding>` cannot rule out.
+Its dewpoint validation is per level, so a ``"surface"`` parcel — which starts
+from a level — can never reach Normand's point without one; a ``"mixed-layer"``
+parcel is averaged rather than selected, and ``metpy.calc.mixed_parcel`` averages
+potential temperature linearly while mixing ratio averages nonlinearly, so across
+a saturated layer with a cold notch inside the mixed-layer depth the mixed
+dewpoint overshoots the mixed temperature. Both
+:func:`calc.parcel_path <tephpy.calc.parcel_path>` and
+:func:`calc.indices <tephpy.calc.indices>` are covered, the way the neighbouring
+mixed-layer guards are, and the surface parcel is asserted to lift cleanly from
+the same sounding so the test pins the averaging rather than the profile. Both
+were verified by mutation. (:user:`claude`)

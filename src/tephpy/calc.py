@@ -114,6 +114,20 @@ class Profile:
     units : mapping of str to str, optional
         Construction-only (not stored): unit strings for bare-array
         fields, keyed by field name (spec §5).
+
+    Raises
+    ------
+    TephpyUnitsError
+        For a ``units=`` mapping naming an unknown field, unit-less bare
+        arrays, ambiguous or unparsable units, or the wrong
+        dimensionality.
+    TephpyValidationError
+        If a field holds non-numeric elements, `pressure` and
+        `temperature` are not 1-D and equal-length over at least two
+        levels, `pressure` is not strictly decreasing, an ``lcl_*`` field
+        is not a scalar, or `lcl_pressure` falls outside the path's span.
+    ValueError
+        If `parcel` is not a known option.
     """
 
     pressure: pint.Quantity
@@ -233,6 +247,15 @@ class SoundingIndices:
     units : mapping of str to str, optional
         Construction-only (not stored): unit strings for bare scalar
         fields, keyed by field name (spec §5).
+
+    Raises
+    ------
+    TephpyUnitsError
+        For a ``units=`` mapping naming an unknown field, unit-less bare
+        values, ambiguous or unparsable units, or the wrong
+        dimensionality.
+    TephpyValidationError
+        If a field holds a non-numeric value, or is not a scalar.
     """
 
     cape: pint.Quantity
@@ -411,6 +434,13 @@ def parcel_path(
 
     Raises
     ------
+    DewpointExceedsTemperatureError
+        If the parcel start's dewpoint exceeds its temperature, so no
+        Normand's point exists. A ``"mixed-layer"`` parcel only:
+        ``metpy.calc.mixed_parcel`` averages potential temperature and
+        mixing ratio independently, which can overshoot across a
+        saturated layer, and ``Sounding`` already rejects the surface
+        case at construction.
     MissingDataError
         If the sounding has no dewpoint.
     ProfileTooShortError
@@ -602,6 +632,9 @@ def _lcl_used(
 
     Raises
     ------
+    DewpointExceedsTemperatureError
+        If the parcel start's dewpoint exceeds its temperature, so
+        :func:`normand_point` finds no LCL to correct.
     TephpyUnitsError
         If the correction is not a pressure-dimension quantity.
     TephpyValidationError
@@ -696,6 +729,13 @@ def indices(
 
     Raises
     ------
+    DewpointExceedsTemperatureError
+        If the parcel start's dewpoint exceeds its temperature, so no
+        Normand's point exists. A ``"mixed-layer"`` parcel only:
+        ``metpy.calc.mixed_parcel`` averages potential temperature and
+        mixing ratio independently, which can overshoot across a
+        saturated layer, and ``Sounding`` already rejects the surface
+        case at construction.
     MissingDataError
         If the sounding has no dewpoint.
     ProfileTooShortError
