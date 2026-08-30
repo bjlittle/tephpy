@@ -1,0 +1,12 @@
+Added the design specification for documentation reading-time estimates,
+published in the developer guide under the ``reading spec §…`` citation
+prefix. It specifies a custom ``readingtime`` Sphinx directive that
+estimates a page's reading time from the parsed doctree rather than from its
+source, so that directive options, comments and front matter are not counted
+as words a reader reads and generated page bodies are; a default rate of 150
+words per minute, below the floor of the range Brysbaert (2019) reports for
+ordinary non-fiction prose, with per-page overrides for a literal duration or
+a different rate; and a gate requiring every published page to carry the
+directive in its lead, against a named list of twelve exemptions for the pages
+that are navigated rather than read. The specification is not yet implemented.
+(:user:`claude`)
