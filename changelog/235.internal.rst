@@ -1,0 +1,39 @@
+``tephpy.samples`` is now tested from ``tests/samples/`` rather than
+``tests/test_samples.py`` at the tests root, and ``tests/test_layout.py`` holds
+the tree to the mapping so the next subpackage cannot arrive without one
+(:issue:`234`).
+
+The rule had been written down three times and enforced none of them. Design
+spec §8.5 has said "each subpackage gets a matching directory" since
+:pull:`15`, four weeks before ``tephpy.samples`` existed. ``tests/AGENTS.md`` said the same thing until
+:pull:`233`, whose audit found the guidance and the tree disagreeing and
+resolved it towards the tree — on the strength of the examples-gallery plan,
+which had recorded the root placement as though it were the rule when
+``tephpy.samples`` landed in :pull:`181`. That was the wrong authority: plans
+are point-in-time records of what was done and specs are the living statement
+of what should be, so the deviation belonged in the tree, not in the rule.
+Nine days and one audit is what it took to notice, and the guidance is back to
+the spec's wording.
+
+The gate is the part worth keeping. It asserts the mapping in both directions —
+every subpackage has a directory, every mirroring directory has a subpackage —
+and that each one is a package, which is the condition the sibling imports
+through the tests tree depend on (:issue:`185`). Shared ``fixtures/`` and
+``baseline/`` are excused by name, and every other directory takes part whatever
+it happens to hold. The first version of the scan did not manage that: it also
+asked for a ``test_*.py`` beside a directory, which is exactly the inference
+naming ``SHARED`` exists to avoid, and it passed in silence over the three
+shapes worth catching -- a directory holding nothing, one holding only nested
+tests, and one whose subpackage was deleted out from under it. Review caught the
+contradiction, the predicate is gone, and each of the three was then forced and
+watched to fail.
+
+The gate was written before the move and run against the tree as it stood, where
+it failed on ``samples`` alone; the four failure messages were each read from a
+forced failure rather than assumed, since an assertion message is the one part
+of a gate its passing run never exercises.
+
+The declared ``SUBPACKAGES`` set exists for the same reason: every mapping
+assertion is satisfied by finding nothing, so the scan is pinned to a corpus
+that fails loudly when it breaks, the way ``tests/test_pytest_config.py`` pins
+its importers. (:user:`claude`)

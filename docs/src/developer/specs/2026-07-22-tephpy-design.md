@@ -986,7 +986,9 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   and each subpackage gets a matching directory (`tests/plotting/` today;
   `tests/io/` when that layer lands). New test modules are placed at the level of
   the module they exercise. Shared `tests/fixtures/` and `tests/baseline/` stay at
-  the root.
+  the root. `tests/test_layout.py` asserts the mapping in both directions, after
+  `tephpy.samples` spent nine days tested from the root ({issue}`234`): a layout
+  rule that only prose states is one the next subpackage breaks silently.
 - **Image baselines via pytest-mpl** *(deviation: geovista uses pytest-pyvista for VTK
   scenes; pytest-mpl is the matplotlib equivalent)* — small tolerance-tuned PNGs in-repo for
   each isopleth family, profiles, barbs, shading, and the composed §4 figure.
