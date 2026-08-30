@@ -44,11 +44,13 @@ import importlib
 import inspect
 from pathlib import Path
 import pkgutil
+import re
 import subprocess
 import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     import types
 
 REPO = Path(__file__).parents[2]
@@ -310,3 +312,101 @@ def _singleton_methods(owner: type, prefix: str, seen: set[str]) -> list[PublicO
         seen.add(dotted)
         found.append(PublicObject(dotted, "method", child))
     return found
+
+
+#: The house directive. Sphinx 9 added ``version-added`` and keeps this as a
+#: registered alias, but the documentation floor is ``sphinx>=8.0``, where the
+#: hyphenated spelling does not exist -- and numpydoc's ``GL10`` two-colon
+#: check does not fire for it either, because it is not in numpydoc's
+#: ``DIRECTIVES`` list (:issue:`227`). Two colons are required here: a
+#: one-colon directive renders as nothing at all.
+DIRECTIVE = re.compile(r"^\s*\.\.[ \t]+versionadded::[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+
+
+def cited_version(doc: str) -> str | None:
+    """Return the version a docstring's ``versionadded`` cites.
+
+    Parameters
+    ----------
+    doc : str
+        The docstring, already dedented.
+
+    Returns
+    -------
+    str or None
+        The cited version, or ``None`` when the directive is absent or
+        malformed.
+    """
+    match = DIRECTIVE.search(doc or "")
+    return match.group(1) if match else None
+
+
+def check_versionadded(
+    entries: Iterable[PublicObject], target: str | None
+) -> list[str]:
+    """Check each entry carries the directive, citing `target`.
+
+    While no tag exists nothing can predate the first release, so the rule is
+    equality rather than a bound: every published object cites exactly the
+    version the next tag will carry. Once a release exists that stops being
+    right -- objects from earlier releases legitimately cite older versions --
+    and :issue:`227` records the snapshot rules that take over.
+
+    Parameters
+    ----------
+    entries : iterable of PublicObject
+        The published objects to check.
+    target : str or None
+        The base version the next tag will carry, or ``None`` to check
+        presence only (see :func:`target_version`).
+
+    Returns
+    -------
+    list of str
+        One line per violation, empty when the corpus is clean.
+    """
+    problems = []
+    for entry in entries:
+        cited = cited_version(inspect.getdoc(entry.obj) or "")
+        if cited is None:
+            problems.append(
+                f"{entry.name} ({entry.role}): no versionadded directive in a "
+                f"Notes section"
+            )
+        elif target is not None and cited != target:
+            problems.append(
+                f"{entry.name} ({entry.role}): versionadded cites {cited}, "
+                f"expected {target}"
+            )
+    return problems
+
+
+def main() -> int:
+    """Run the gate over the published API.
+
+    Returns
+    -------
+    int
+        ``0`` when clean, ``1`` when any rule reports a violation.
+    """
+    entries = published_objects()
+    target = target_version()
+    problems = check_versionadded(entries, target)
+    if problems:
+        print(
+            f"{len(problems)} of {len(entries)} published API objects fail the "
+            f"versionadded rule (docs-style, :issue:`227`):\n"
+        )
+        for line in problems:
+            print(f"  {line}")
+        print(
+            "\nAdd a Notes section as the docstring's last section:\n\n"
+            f"    Notes\n    -----\n    .. versionadded:: {target or '<version>'}\n"
+        )
+        return 1
+    print(f"versionadded ok: {len(entries)} published API objects")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

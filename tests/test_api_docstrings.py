@@ -113,3 +113,89 @@ def test_target_version_uses_the_project_version_scheme(gate):
     in one place, so the gate reads the file the build reads.
     """
     assert gate.target_version() == "0.1.0"
+
+
+GOOD = """Summary line.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+"""
+
+NO_DIRECTIVE = "Summary line.\n"
+
+WRONG_VERSION = """Summary line.
+
+Notes
+-----
+.. versionadded:: 0.9.9
+"""
+
+ONE_COLON = """Summary line.
+
+Notes
+-----
+.. versionadded: 0.1.0
+"""
+
+
+def _entry(gate, doc):
+    """Build a PublicObject whose docstring is `doc`."""
+    return gate.PublicObject(
+        "tephpy.thing", "function", type("Stub", (), {"__doc__": doc})
+    )
+
+
+def test_cited_version_reads_the_directive(gate):
+    assert gate.cited_version(GOOD) == "0.1.0"
+
+
+def test_cited_version_is_none_without_a_directive(gate):
+    assert gate.cited_version(NO_DIRECTIVE) is None
+
+
+def test_cited_version_rejects_a_single_colon(gate):
+    """A one-colon directive renders as nothing, so it does not count.
+
+    numpydoc's ``GL10`` catches this for ``versionadded``, but the gate must
+    not depend on another tool having run first -- and ``GL10`` never fires
+    for Sphinx 9's ``version-added``, which is not in numpydoc's directive
+    list at all (:issue:`227`).
+    """
+    assert gate.cited_version(ONE_COLON) is None
+
+
+def test_check_reports_a_missing_directive(gate):
+    problems = gate.check_versionadded([_entry(gate, NO_DIRECTIVE)], "0.1.0")
+    assert len(problems) == 1
+    assert "tephpy.thing" in problems[0]
+    assert "no versionadded" in problems[0]
+
+
+def test_check_reports_a_version_that_is_not_the_target(gate):
+    problems = gate.check_versionadded([_entry(gate, WRONG_VERSION)], "0.1.0")
+    assert len(problems) == 1
+    assert "0.9.9" in problems[0]
+    assert "0.1.0" in problems[0]
+
+
+def test_check_accepts_the_target(gate):
+    assert gate.check_versionadded([_entry(gate, GOOD)], "0.1.0") == []
+
+
+def test_check_without_a_target_still_requires_presence(gate):
+    """A shallow checkout drops the value comparison, not the rule.
+
+    The presence half needs no version at all, so it keeps running where the
+    derivation cannot be trusted.
+    """
+    assert gate.check_versionadded([_entry(gate, WRONG_VERSION)], None) == []
+    assert len(gate.check_versionadded([_entry(gate, NO_DIRECTIVE)], None)) == 1
+
+
+def test_main_reports_the_whole_surface(gate, capsys):
+    """The gate runs over the real package and says how many it checked."""
+    code = gate.main()
+    out = capsys.readouterr().out
+    assert code in (0, 1)
+    assert "94" in out
