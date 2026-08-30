@@ -18,6 +18,11 @@ oracle, not ported from tephi (spec §3.1/§10 item 5).
 
 Units are diagram-native (spec §5 exemption): pressure in hPa, temperatures
 and potential temperatures in degrees Celsius, mixing ratios in g/kg.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -195,6 +200,11 @@ def edge_crossings(
     ------
     TypeError
         If `edge` is not one of :data:`EDGES`.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     if edge not in EDGES:
         msg = f"unknown edge {edge!r}; expected one of {list(EDGES)!r}"
@@ -445,6 +455,11 @@ class Member:
 
     ``value`` is the member's isopleth value in the family's native units
     (°C, hPa, or g/kg); ``xy`` is the ``(N, 2)`` float64 polyline.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     value: float
@@ -491,6 +506,11 @@ def isotherm_members(values: npt.ArrayLike) -> list[Member]:
     -------
     list of Member
         One member per value, in input order.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     theta = np.linspace(THETA_DOMAIN[0], THETA_DOMAIN[1], ISOPLETH_SAMPLES)
     vals = np.atleast_1d(np.asarray(values, dtype=np.float64))
@@ -513,6 +533,11 @@ def dry_adiabat_members(values: npt.ArrayLike) -> list[Member]:
     -------
     list of Member
         One member per value, in input order.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     temperature = np.linspace(
         TEMPERATURE_DOMAIN[0], TEMPERATURE_DOMAIN[1], ISOPLETH_SAMPLES
@@ -537,6 +562,11 @@ def isobar_members(values: npt.ArrayLike) -> list[Member]:
     -------
     list of Member
         One member per value, in input order.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     temperature = np.linspace(
         TEMPERATURE_DOMAIN[0], TEMPERATURE_DOMAIN[1], ISOPLETH_SAMPLES
@@ -573,6 +603,11 @@ def moist_adiabat_members(
     -------
     list of Member
         One member per surviving value, in input order.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     # Function-local so `import tephpy` stays light (spec §3.2, §10 item 10).
     from metpy.calc import moist_lapse  # noqa: PLC0415
@@ -615,6 +650,11 @@ def mixing_ratio_members(values: npt.ArrayLike) -> list[Member]:
     -------
     list of Member
         One member per value, in input order.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     # Function-local so `import tephpy` stays light (spec §3.2, §10 item 10).
     from metpy.calc import dewpoint, vapor_pressure  # noqa: PLC0415
@@ -645,6 +685,11 @@ class ResolvedOptions:
     against rebinding, and `emphasis` -- its one field with any container
     depth -- is a read-only proxy at both levels over dicts the family copied
     for itself when it resolved.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     values: tuple[float, ...] | None
@@ -665,6 +710,11 @@ class FamilySpec:
 
     Exactly one of (``domain`` + ``steps``) for interval families or
     (``values`` + ``strides``) for list families is set.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     name: str
@@ -864,6 +914,11 @@ class IsoplethFamily(martist.Artist):
         whichever entry point resolved them. The owning axes passes its
         edge-ownership sync here so a direct :meth:`configure` or
         :meth:`set_visible` reaches it too (spec §3.2).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     def __init__(
@@ -927,6 +982,11 @@ class IsoplethFamily(martist.Artist):
             The snapshot (accessor kwargs > ``tephpy.config`` >
             ``_constants``) taken at creation or the last
             :meth:`configure`.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         return self._options
 
@@ -958,6 +1018,11 @@ class IsoplethFamily(martist.Artist):
         ValueError
             If an option value is invalid, e.g. a non-positive
             ``interval``.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         unknown = set(kwargs) - self._spec.allowed
         if unknown:
@@ -1042,6 +1107,11 @@ class IsoplethFamily(martist.Artist):
             a non-positive ``interval``, or an ``emphasis`` giving a non-finite
             member value, a ``linewidth`` that is not positive and finite, or
             an ``alpha`` outside ``[0, 1]`` (see :meth:`configure`).
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if bool(b) == bool(self.get_visible()):
             super().set_visible(b)
@@ -1055,6 +1125,11 @@ class IsoplethFamily(martist.Artist):
         ----------
         fig : matplotlib.figure.Figure or matplotlib.figure.SubFigure
             The figure the family belongs to.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         super().set_figure(fig)
         self._lines.set_figure(fig)
@@ -1069,6 +1144,11 @@ class IsoplethFamily(martist.Artist):
         ----------
         renderer : matplotlib.backend_bases.RendererBase
             The active renderer.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         if not self.get_visible():
             # A hidden family holds nothing: it gives its pooled labels up on

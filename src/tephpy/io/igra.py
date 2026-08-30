@@ -13,6 +13,11 @@ m s⁻¹, with the missing-value sentinels reading as NaN and dewpoint
 derived as temperature minus depression. Unreadable, malformed, or
 ambiguous input raises :class:`~tephpy.exceptions.TephpyIOError`; the
 returned sounding passes the ordinary ingest validation (spec §6).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -95,6 +100,11 @@ def read(
         If `time` is neither a datetime nor a string.
     ValueError
         If a `time` string is not ISO 8601.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     lines = _text(path).splitlines()
     headers = _headers(lines)

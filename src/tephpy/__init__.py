@@ -6,6 +6,11 @@
 
 ``tephpy`` renders tephigrams on a rotated temperature-entropy coordinate
 system and delegates thermodynamic analysis to MetPy.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations

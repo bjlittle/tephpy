@@ -9,6 +9,11 @@ bundle (logo spec §3.2), kept that way by a drift guard in
 ``tests/plotting/test_logo.py``. Sizing is a height in inches and is
 dpi-independent (logo spec §3.3); placement follows the ``legend`` vocabulary
 (logo spec §3.4).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -388,6 +393,11 @@ def add_logo(  # noqa: PLR0913 -- the placement contract is one flat keyword set
         exist, if `size` is not a positive finite height, if a `loc` pair
         holds a non-finite coordinate, if `pad` or `zorder` is a string, or
         if `pad` or `zorder` is not finite.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     figure, axes = _resolve_target(target)
     height = _resolve_size(size, form)

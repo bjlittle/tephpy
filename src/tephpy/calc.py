@@ -16,6 +16,11 @@ Analysis results distinguish "does not exist" from "zero" (spec §6):
 ``metpy.calc`` returns NaN quantities for a missing LFC/EL and ``0 J/kg``
 — never NaN — for zero CAPE/CIN, and tephpy passes both through,
 documented per :class:`SoundingIndices` field.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -128,6 +133,11 @@ class Profile:
         is not a scalar, or `lcl_pressure` falls outside the path's span.
     ValueError
         If `parcel` is not a known option.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     pressure: pint.Quantity
@@ -256,6 +266,11 @@ class SoundingIndices:
         dimensionality.
     TephpyValidationError
         If a field holds a non-numeric value, or is not a scalar.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     cape: pint.Quantity
@@ -335,6 +350,11 @@ def normand_point(
         If `dewpoint` exceeds `temperature`.
     TephpyValidationError
         If an argument is not a scalar.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     mapping = check_units_mapping(
         units, allowed=("pressure", "temperature", "dewpoint")
@@ -455,6 +475,11 @@ def parcel_path(
         dewpoint, or the correction places the LCL below the parcel start.
     ValueError
         If `parcel` is not a known option.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     start_pressure, start_temperature, start_dewpoint = _parcel_start(snd, parcel)
     lcl_pressure, lcl_temperature = _lcl_used(
@@ -749,6 +774,11 @@ def indices(
         dewpoint, or the correction places the LCL below the parcel start.
     ValueError
         If `parcel` is not a known option.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     start_pressure, start_temperature, start_dewpoint = _parcel_start(snd, parcel)
     lcl_pressure, lcl_temperature = _lcl_used(

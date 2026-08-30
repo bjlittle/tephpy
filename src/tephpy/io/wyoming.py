@@ -12,6 +12,11 @@ failures, HTTP errors, and the archive's "no data" replies raise
 :class:`~tephpy.exceptions.TephpyIOError` summarising the upstream
 response; the parsed sounding passes the ordinary ingest validation
 (spec §6).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -76,6 +81,11 @@ def fetch(
         If `time` is neither a datetime nor a string.
     ValueError
         If a `time` string is not ISO 8601.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     when = coerce_time(time)
     from urllib.parse import quote  # noqa: PLC0415 -- spec §3.4 idiom
@@ -196,6 +206,11 @@ def parse(
         If `time` is neither a datetime nor a string.
     ValueError
         If a `time` string is not ISO 8601.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     when = None if time is None else coerce_time(time)
     try:

@@ -10,6 +10,11 @@ version 2 (:mod:`tephpy.io.igra`). Reader failures raise
 :class:`~tephpy.exceptions.TephpyIOError`; the returned soundings pass the
 ordinary ingest validation (spec §6). TEMP/BUFR decoding is out of scope —
 the documentation points at eccodes.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations

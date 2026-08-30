@@ -46,6 +46,11 @@ the University of Wyoming, College of Engineering, Department of Atmospheric
 Science. That archive publishes no redistribution terms, so it travels here
 as a considered risk rather than a granted permission — narrative spec §3.6
 states the position and :issue:`202` carries the question.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -95,6 +100,11 @@ def available() -> tuple[str, ...]:
     -------
     tuple of str
         The names, in the order the ascents were measured.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     return tuple(_SAMPLES)
 
@@ -153,6 +163,11 @@ def path(name: str) -> Path:
     ------
     ValueError
         If `name` is not a shipped sample.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     return Path(__file__).parent / _select(name).file
 
@@ -180,6 +195,11 @@ def sounding(name: str) -> Sounding:
     ------
     ValueError
         If `name` is not a shipped sample.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
     sample = _select(name)
     if sample.reader == "wyoming":

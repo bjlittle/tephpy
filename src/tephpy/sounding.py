@@ -15,6 +15,11 @@ ingest, not mid-plot (spec §6) — and pressure is normalized to decreasing
 The pandas/xarray constructors consume the objects handed to them —
 neither library is imported at runtime — so ``import tephpy`` stays
 light (spec §10 item 10).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -114,6 +119,11 @@ class Sounding:
     TypeError
         If `pressure` or `temperature` is ``None``, or `time` is neither a
         datetime nor a real ``numpy.datetime64`` (``NaT`` is rejected).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     pressure: pint.Quantity
@@ -311,6 +321,11 @@ class Sounding:
             If a required or explicitly mapped column is missing.
         TypeError
             If `column_map` names an unknown field.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         cls._check_field_map(column_map)
         data: dict[str, np.ndarray] = {}
@@ -373,6 +388,11 @@ class Sounding:
             entry.
         TypeError
             If `var_map` names an unknown field.
+
+        Notes
+        -----
+        .. versionadded:: 0.1.0
+
         """
         cls._check_field_map(var_map)
         mapping = check_units_mapping(units, allowed=_FIELD_DIMENSIONS)

@@ -24,6 +24,11 @@ Configuration-file problems are the one place tephpy also warns:
 :class:`TephpyConfigWarning` is a ``UserWarning``, not a
 :class:`TephpyError`, because an unusable configuration file degrades to
 the hardwired defaults instead of stopping the import (configfile spec §5).
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
 """
 
 from __future__ import annotations
@@ -43,11 +48,23 @@ __all__ = [
 
 
 class TephpyError(Exception):
-    """Root of the tephpy exception hierarchy."""
+    """Root of the tephpy exception hierarchy.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+    """
 
 
 class TephpyUnitsError(TephpyError):
-    """Missing, ambiguous, unparsable, or wrong-dimension units (spec §5)."""
+    """Missing, ambiguous, unparsable, or wrong-dimension units (spec §5).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+    """
 
 
 class TephpyValidationError(TephpyError):
@@ -66,6 +83,11 @@ class TephpyValidationError(TephpyError):
     levels : tuple of int
         Zero-based indices of the offending levels; empty when the failure
         is not attributable to specific levels.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
     def __init__(self, message: str, *, levels: tuple[int, ...] = ()) -> None:
@@ -83,7 +105,13 @@ class TephpyValidationError(TephpyError):
 
 
 class NonMonotonicPressureError(TephpyValidationError):
-    """Pressure is not strictly monotonic (spec §3.4)."""
+    """Pressure is not strictly monotonic (spec §3.4).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+    """
 
 
 class DewpointExceedsTemperatureError(TephpyValidationError):
@@ -91,6 +119,11 @@ class DewpointExceedsTemperatureError(TephpyValidationError):
 
     Equality — saturation — is physical and accepted; only strict excess
     is rejected.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
 
@@ -100,6 +133,11 @@ class MissingDataError(TephpyValidationError):
     Raised at the operation's boundary — the earliest point the need is
     knowable — e.g. parcel analysis without dewpoint, or (in a later
     release) wind barbs without wind.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
 
@@ -110,6 +148,11 @@ class TephpyIOError(TephpyError):
     malformed or unrecognisable file, and an ambiguous read (an IGRA
     station file holding many soundings with no ``time=`` selector) all
     raise this, summarising the upstream response or file state.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
 
@@ -120,6 +163,11 @@ class ProfileTooShortError(TephpyValidationError):
     meaningless; ``calc.parcel_path`` and ``calc.indices`` both raise
     this. The LCL tested is the one the path would use — the corrected
     one when a cloud-base correction is requested.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
 
@@ -131,6 +179,11 @@ class TephpyConfigError(TephpyError):
     does not exist all raise this. Raised only when the file was asked for
     explicitly; the import-time auto-load warns instead
     (configfile spec §5).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
 
 
@@ -141,4 +194,9 @@ class TephpyConfigWarning(UserWarning):
     failure during the import-time auto-load warn rather than raise, so a
     typo in a configuration file cannot make ``tephpy`` unimportable
     (configfile spec §5).
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
     """
