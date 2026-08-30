@@ -42,6 +42,12 @@ TESTS = Path(__file__).parent
 #: holding no test module today.
 SHARED = {"baseline", "fixtures"}
 
+#: Prefixes of the directories nobody wrote -- `__pycache__`, and the dot
+#: directories pytest, coverage and hypothesis leave behind. Excluded by prefix
+#: rather than by name because which tools drop one here is not ours to
+#: enumerate, and a cache is not a claim about the tree's shape.
+GENERATED = (".", "__")
+
 #: The subpackages of `tephpy`, as the scan below should find them. Declared so
 #: that a scan which broke fails here rather than passing over an empty set --
 #: every mapping test below is satisfied vacuously by finding nothing.
@@ -56,17 +62,19 @@ def subpackages():
 def mirrors():
     """Collect the directories under `tests/` that claim to mirror a subpackage.
 
-    A directory qualifies by holding test modules rather than by being a
-    package: the missing `__init__.py` is itself a defect this module reports,
-    and a scan that overlooked such a directory could not report it.
+    Every directory takes part except the shared ones and the caches. Asking
+    also for a `test_*.py` beside them would be the inference `SHARED` exists
+    to avoid, and would excuse the three shapes worth catching: a directory
+    holding nothing, one holding only nested tests, and one whose subpackage
+    was deleted out from under it. Each is a defect this module reports, and a
+    scan reading their contents could report none of them.
     """
     return {
         path.name
         for path in TESTS.iterdir()
         if path.is_dir()
-        and not path.name.startswith((".", "__"))
+        and not path.name.startswith(GENERATED)
         and path.name not in SHARED
-        and any(path.glob("test_*.py"))
     }
 
 

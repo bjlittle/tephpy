@@ -19,12 +19,19 @@ The gate is the part worth keeping. It asserts the mapping in both directions â€
 every subpackage has a directory, every mirroring directory has a subpackage â€”
 and that each one is a package, which is the condition the sibling imports
 through the tests tree depend on (:issue:`185`). Shared ``fixtures/`` and
-``baseline/`` are excused by name rather than by holding no test module today,
-because a directory that stops holding tests should fail the mapping rather
-than quietly leave it. It was written before the move and run against the tree
-as it stood, where it failed on ``samples`` alone; the four failure messages
-were each read from a forced failure rather than assumed, since an assertion
-message is the one part of a gate its passing run never exercises.
+``baseline/`` are excused by name, and every other directory takes part whatever
+it happens to hold. The first version of the scan did not manage that: it also
+asked for a ``test_*.py`` beside a directory, which is exactly the inference
+naming ``SHARED`` exists to avoid, and it passed in silence over the three
+shapes worth catching -- a directory holding nothing, one holding only nested
+tests, and one whose subpackage was deleted out from under it. Review caught the
+contradiction, the predicate is gone, and each of the three was then forced and
+watched to fail.
+
+The gate was written before the move and run against the tree as it stood, where
+it failed on ``samples`` alone; the four failure messages were each read from a
+forced failure rather than assumed, since an assertion message is the one part
+of a gate its passing run never exercises.
 
 The declared ``SUBPACKAGES`` set exists for the same reason: every mapping
 assertion is satisfied by finding nothing, so the scan is pinned to a corpus
