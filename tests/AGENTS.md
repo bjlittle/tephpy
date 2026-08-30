@@ -1,13 +1,14 @@
 # Agent guidance — tests
 
 The tests tree mirrors the `src/tephpy` package layout: tests for top-level
-modules live at the `tests/` root, and a subpackage carrying modules of its
-own has a matching directory (e.g. `tests/plotting/` for `tephpy.plotting`).
-`tephpy.samples` is the exception that shows the rule is about modules, not
-subpackages: it is a lone `__init__.py`, so `tests/test_samples.py` sits at
-the root beside the other single-module tests. Place new test modules at the
-level of the module they exercise; shared `fixtures/` and `baseline/` stay at
-the root.
+modules live at the `tests/` root, and every subpackage has a matching
+directory (`tests/plotting/` ↔ `tephpy.plotting`) however few modules it
+carries — `tephpy.samples` is a lone `__init__.py` and still has
+`tests/samples/`. Place new test modules at the level of the module they
+exercise; shared `fixtures/` and `baseline/` stay at the root.
+`tests/test_layout.py` holds the tree to this, so a subpackage arriving
+without its directory fails a test rather than waiting to be noticed
+(spec §8.5).
 
 pytest with strict config and `filterwarnings = ["error"]`. Image tests use
 pytest-mpl (`@pytest.mark.mpl_image_compare`); CI and `pixi run tests` pass
