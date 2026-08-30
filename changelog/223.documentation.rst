@@ -22,5 +22,8 @@ temperature — the surface case ``Sounding`` already rejects.
 :class:`TephpyValidationError <tephpy.exceptions.TephpyValidationError>` a
 non-numeric array raises, and
 :meth:`IsoplethFamily.set_visible <tephpy.plotting.isopleths.IsoplethFamily.set_visible>`
-the ``ValueError`` it inherits from being ``configure()``, which re-reads every
-configuration tier. (:user:`claude`)
+the ``ValueError`` and the further ``TypeError`` routes it inherits from being
+``configure()``, which re-reads every configuration tier — so a ``tephpy.config``
+value gone bad since the family was built raises on hiding as readily as on
+showing, not only on the edge-ownership conflict the entry named.
+(:user:`claude`)

@@ -1627,8 +1627,10 @@ class TephigramAxes(Axes):
         Raises
         ------
         TypeError
-            If an option name or ``labels`` placement is unknown, or if another
-            family already claims a requested edge.
+            If an option name or ``labels`` placement is unknown, if a family
+            ``emphasis`` is malformed — a non-mapping, a member value that will
+            not convert to float, a style that is not a mapping, or an unknown
+            style key — or if another family already claims a requested edge.
         ValueError
             If an option value is invalid — a non-positive ``interval``, or an
             ``emphasis`` giving a non-finite member value, a ``linewidth`` that

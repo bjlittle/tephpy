@@ -1017,7 +1017,10 @@ class IsoplethFamily(martist.Artist):
         therefore ``configure(visible=False)``, which releases any claimed
         edge, and showing is ``configure(visible=True)``, which reclaims it.
         Setting the value the family already has changes nothing, exactly as
-        the base class does.
+        the base class does. Either direction of a real change re-reads every
+        configuration tier, so a ``tephpy.config`` value that has gone bad
+        since the family was built raises here whichever way it is going; a
+        no-op call re-reads nothing.
 
         Parameters
         ----------
@@ -1028,8 +1031,12 @@ class IsoplethFamily(martist.Artist):
         ------
         TypeError
             If showing the family would reclaim an edge another family took
-            while it was hidden; the family stays hidden (see
-            :meth:`configure`).
+            while it was hidden; the family stays hidden. Also if a
+            ``tephpy.config`` value the reconfigure re-reads is malformed — an
+            unknown label placement, or a family ``emphasis`` that is a
+            non-mapping, keys a member value that will not convert to float,
+            or carries a style that is not a mapping or an unknown style key
+            (see :meth:`configure`).
         ValueError
             If a ``tephpy.config`` value the reconfigure re-reads is invalid —
             a non-positive ``interval``, or an ``emphasis`` giving a non-finite
