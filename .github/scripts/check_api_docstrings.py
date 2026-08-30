@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026, tephpy Contributors.
+#
+# This file is part of tephpy and is distributed under the 3-Clause BSD license.
+# See the LICENSE file in the package root directory for licensing details.
+
+"""Check the published API docstrings carry what policy requires (:issue:`227`).
+
+numpydoc validates a great deal and this not at all: its ``ERROR_MSGS`` table
+runs ``GL0x``, ``SS0x``, ``PR0x``, ``RT01``-``RT05``, ``YD01``, ``SA0x`` and
+``EX01``, with no rule for ``Raises`` and none for ``versionadded``. A
+docstring may therefore omit either and ``pixi run lint`` stays green, which
+is how the public API came to carry no ``versionadded`` at all while thirteen
+files under ``.github/scripts`` and ``docs/src/_ext`` already used the form.
+
+The set this walks is the set sphinx-autoapi publishes: every module under
+``src/tephpy`` with no underscore-prefixed path component, minus ``examples``,
+together with the objects those modules define. ``tephpy.config`` is the case
+that shapes the design -- a ``Config`` instance exported from the private
+``tephpy._config``, which has no page of its own, yet whose methods are
+published as ``tephpy.config.load`` and its neighbours because the singleton
+is reachable from ``tephpy``. An enumerator built from the module list alone
+would miss every one of them, so the walk reaches through the instance too.
+
+Attributes and module data are deliberately outside the set. A dataclass
+field is documented in its class's ``Attributes`` section and a ``#:`` comment
+is not a docstring, so neither has anywhere to carry a directive; of the 207
+``tephpy`` entries a build publishes, 104 are attributes and one is data.
+
+``tests/test_docs_api_inventory.py`` is what earns the static shortcut: it
+pins this enumeration against the ``objects.inv`` a real build wrote, so the
+fast set is provably the set a reader meets.
+
+Notes
+-----
+.. versionadded:: 0.1.0
+
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import importlib
+import inspect
+from pathlib import Path
+import pkgutil
+import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import types
+
+REPO = Path(__file__).parents[2]
+PACKAGE = REPO / "src"
+
+#: Roles that own a docstring of their own, and so can carry a directive.
+STAMPED_ROLES = ("module", "class", "exception", "function", "method", "property")
+
+
+@dataclasses.dataclass(frozen=True)
+class PublicObject:
+    """One published API object.
+
+    Parameters
+    ----------
+    name : str
+        The dotted name the API reference publishes it under.
+    role : str
+        One of :data:`STAMPED_ROLES`.
+    obj : object
+        The live object, read for its docstring.
+
+    Attributes
+    ----------
+    name : str
+        The dotted name the API reference publishes it under.
+    role : str
+        One of :data:`STAMPED_ROLES`.
+    obj : object
+        The live object, read for its docstring.
+    """
+
+    name: str
+    role: str
+    obj: object
+
+
+def _import_package() -> types.ModuleType:
+    """Import ``tephpy`` from the working tree.
+
+    Returns
+    -------
+    types.ModuleType
+        The imported package.
+    """
+    if str(PACKAGE) not in sys.path:
+        sys.path.insert(0, str(PACKAGE))
+    return importlib.import_module("tephpy")
+
+
+def public_modules() -> list[str]:
+    """Return the dotted names of the modules autoapi publishes.
+
+    Returns
+    -------
+    list of str
+        Sorted module names, private modules and the gallery excluded.
+    """
+    package = _import_package()
+    names = ["tephpy"]
+    for info in pkgutil.walk_packages(package.__path__, prefix="tephpy."):
+        parts = info.name.split(".")
+        if any(part.startswith("_") for part in parts) or "examples" in parts:
+            continue
+        names.append(info.name)
+    return sorted(names)
+
+
+def _members(owner: object, prefix: str, seen: set[str]) -> list[PublicObject]:
+    """Collect the published members an owner defines.
+
+    ``vars`` rather than ``dir`` throughout, because it answers the question
+    autoapi asks: what does this thing *define*? For a module that excludes
+    the names it imports -- ``tephpy.calc`` imports four exception classes and
+    two unit helpers, and autoapi documents none of them under ``calc``, since
+    they belong to the modules that define them. For a class it excludes
+    inherited members, which is right because ``autoapi_options`` carries no
+    ``inherited-members``: ``TephigramAxes`` documents what it overrides and
+    adds, not the whole of ``matplotlib.axes.Axes``.
+
+    A module needs the stricter test of the two. ``vars`` still holds every
+    imported name, so membership is settled by ``__module__`` -- the module
+    that defines an object is the one that publishes it.
+
+    Parameters
+    ----------
+    owner : object
+        The module, class, or singleton type to walk.
+    prefix : str
+        The dotted name `owner` is published under.
+    seen : set of str
+        Dotted names already emitted; mutated in place.
+
+    Returns
+    -------
+    list of PublicObject
+        The members, in name order.
+    """
+    is_module = inspect.ismodule(owner)
+    found: list[PublicObject] = []
+    for name in sorted(vars(owner)):
+        if name.startswith("_"):
+            continue
+        try:
+            child = getattr(owner, name)
+        except AttributeError:  # pragma: no cover -- defensive
+            continue
+        target = child.fget if isinstance(child, property) else child
+        defined_in = getattr(target, "__module__", None) or ""
+        if is_module:
+            if defined_in != owner.__name__:
+                continue
+        elif not defined_in.startswith("tephpy"):
+            continue
+        dotted = f"{prefix}.{name}"
+        if dotted in seen:
+            continue
+        if inspect.isclass(child):
+            role = "exception" if issubclass(child, BaseException) else "class"
+            seen.add(dotted)
+            found.append(PublicObject(dotted, role, child))
+            found.extend(_members(child, dotted, seen))
+        elif isinstance(child, property):
+            seen.add(dotted)
+            found.append(PublicObject(dotted, "property", target))
+        elif inspect.isroutine(child):
+            seen.add(dotted)
+            found.append(
+                PublicObject(dotted, "function" if is_module else "method", child)
+            )
+    return found
+
+
+def published_objects() -> list[PublicObject]:
+    """Enumerate every published API object that owns a docstring.
+
+    Returns
+    -------
+    list of PublicObject
+        Sorted by dotted name.
+    """
+    package = _import_package()
+    seen: set[str] = set()
+    found: list[PublicObject] = []
+    for name in public_modules():
+        module = importlib.import_module(name)
+        found.append(PublicObject(name, "module", module))
+        found.extend(_members(module, name, seen))
+    found.extend(_singleton_methods(type(package.config), "tephpy.config", seen))
+    return sorted(found, key=lambda entry: entry.name)
+
+
+def _singleton_methods(owner: type, prefix: str, seen: set[str]) -> list[PublicObject]:
+    """Collect the methods a reachable singleton publishes.
+
+    ``tephpy.config`` is a ``Config`` instance exported from the private
+    ``tephpy._config``. The module has no page, but the instance is reachable
+    from ``tephpy``, so autoapi documents what you can *call* on it --
+    ``context``, ``load``, ``reset`` and ``save`` -- and nothing else. Its
+    properties are not published, and its dataclass sections arrive as
+    ``py:attribute`` entries like ``tephpy.config.isotherms.alpha``, which own
+    no docstring. Methods only, therefore, matching what a build emits rather
+    than what the class happens to hold.
+
+    Parameters
+    ----------
+    owner : type
+        The singleton's class.
+    prefix : str
+        The dotted name the singleton is published under.
+    seen : set of str
+        Dotted names already emitted; mutated in place.
+
+    Returns
+    -------
+    list of PublicObject
+        The published methods, in name order.
+    """
+    found: list[PublicObject] = []
+    for name in sorted(vars(owner)):
+        if name.startswith("_"):
+            continue
+        child = getattr(owner, name)
+        if not inspect.isroutine(child):
+            continue
+        dotted = f"{prefix}.{name}"
+        if dotted in seen:
+            continue
+        seen.add(dotted)
+        found.append(PublicObject(dotted, "method", child))
+    return found
