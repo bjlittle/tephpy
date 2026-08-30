@@ -290,6 +290,20 @@ def _sounding(**kwargs):
     return Sounding(PRESSURE, TEMPERATURE, dewpoint=DEWPOINT, **kwargs)
 
 
+# A saturated profile with a sharp cold notch inside the mixed-layer depth.
+# `mixed_parcel` averages potential temperature linearly and mixing ratio
+# nonlinearly, so across this layer the mean mixing ratio outruns the mean
+# potential temperature and the mixed parcel comes out supersaturated. It is
+# the one route to a parcel start `Sounding` construction cannot reject.
+NOTCHED_PRESSURE = Q(np.array([1000.0, 950.0, 900.0, 850.0, 700.0, 500.0]), "hPa")
+NOTCHED_TEMPERATURE = Q(np.array([25.0, -15.0, 25.0, 10.0, -5.0, -25.0]), "degC")
+
+
+def _notched_sounding():
+    """Build the saturated, cold-notched sounding (dewpoint at temperature)."""
+    return Sounding(NOTCHED_PRESSURE, NOTCHED_TEMPERATURE, dewpoint=NOTCHED_TEMPERATURE)
+
+
 def test_calc_reexports_eagerly():
     """`tephpy.calc.parcel_path` works after `import tephpy` (spec §4)."""
     assert tephpy.calc.parcel_path is parcel_path
@@ -462,6 +476,25 @@ def test_parcel_path_mixed_layer_nan_start_raises():
     with pytest.raises(TephpyValidationError, match=r"undefined \(NaN\)") as excinfo:
         parcel_path(snd, parcel="mixed-layer")
     assert excinfo.value.levels == ()
+
+
+def test_parcel_path_mixed_layer_dewpoint_above_temperature_raises():
+    """Only the mixed parcel can start supersaturated (spec §6).
+
+    `Sounding` rejects dewpoint above temperature level by level, so the
+    surface parcel — which starts from a level — can never reach Normand's
+    point without one. The mixed-layer parcel is averaged rather than
+    selected, and the average is not bound by the per-level invariant, so
+    it is the sole route to this error from a constructed sounding.
+    """
+    snd = _notched_sounding()
+    with pytest.raises(
+        DewpointExceedsTemperatureError, match="no Normand's point exists"
+    ):
+        parcel_path(snd, parcel="mixed-layer")
+    # The same sounding lifts cleanly from the surface: the overshoot is the
+    # averaging's, not the profile's.
+    assert parcel_path(snd).parcel == "surface"
 
 
 # --- indices ---------------------------------------------------------------
@@ -653,6 +686,14 @@ def test_indices_nan_surface_start_raises():
     with pytest.raises(TephpyValidationError, match=r"undefined \(NaN\)") as excinfo:
         indices(snd)
     assert excinfo.value.levels == (0,)
+
+
+def test_indices_mixed_layer_dewpoint_above_temperature_raises():
+    """The supersaturated mixed-parcel guard also fronts ``indices`` (spec §6)."""
+    with pytest.raises(
+        DewpointExceedsTemperatureError, match="no Normand's point exists"
+    ):
+        indices(_notched_sounding(), parcel="mixed-layer")
 
 
 def test_indices_theta_w_follows_the_parcel_option():

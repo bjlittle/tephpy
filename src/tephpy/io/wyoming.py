@@ -192,6 +192,10 @@ def parse(
         If the body is not readable as CSV at all, expected columns are
         missing, a row is shorter than the header, the header carries no
         data rows, or a cell is not numeric.
+    TypeError
+        If `time` is neither a datetime nor a string.
+    ValueError
+        If a `time` string is not ISO 8601.
     """
     when = None if time is None else coerce_time(time)
     try:

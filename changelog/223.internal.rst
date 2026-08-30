@@ -1,0 +1,24 @@
+``tests/test_calc.py`` now covers the one route to a supersaturated parcel start
+that a constructed :class:`Sounding <tephpy.sounding.Sounding>` cannot rule out.
+Its dewpoint validation is per level, so a ``"surface"`` parcel — which starts
+from a level — can never reach Normand's point without one; a ``"mixed-layer"``
+parcel is averaged rather than selected, and ``metpy.calc.mixed_parcel`` averages
+potential temperature linearly while mixing ratio averages nonlinearly, so across
+a saturated layer with a cold notch inside the mixed-layer depth the mixed
+dewpoint overshoots the mixed temperature. Both
+:func:`calc.parcel_path <tephpy.calc.parcel_path>` and
+:func:`calc.indices <tephpy.calc.indices>` are covered, the way the neighbouring
+mixed-layer guards are, and the surface parcel is asserted to lift cleanly from
+the same sounding so the test pins the averaging rather than the profile. Both
+were verified by mutation.
+
+``tests/plotting/`` gains the cover for the configuration-driven raises this
+sweep documented: that
+:meth:`IsoplethFamily.set_visible <tephpy.plotting.isopleths.IsoplethFamily.set_visible>`
+re-resolves every tier in *either* direction of a real visibility change — so a
+``tephpy.config`` value gone bad raises on hiding as readily as on showing — and
+that a no-op call re-resolves nothing, which is the short-circuit that makes a
+careless probe under-report the hiding case. The accessor's malformed
+``emphasis`` test is parametrized over all four shapes the ``Raises`` section
+enumerates, rather than resting the enumeration on one member.
+(:user:`claude`)

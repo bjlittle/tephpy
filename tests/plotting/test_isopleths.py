@@ -823,6 +823,46 @@ def test_on_change_fires_once_per_successful_resolve():
     assert len(calls) == 2
 
 
+@pytest.mark.parametrize("target", [False, True])
+@pytest.mark.parametrize(
+    ("section", "error", "match"),
+    [
+        ({"labels": "diagonal"}, TypeError, "unknown 'isotherms' label placement"),
+        ({"emphasis": {0.0: "red"}}, TypeError, "must be a mapping of style"),
+        ({"interval": -5.0}, ValueError, "must be a positive, finite number"),
+    ],
+)
+def test_set_visible_re_reads_config_in_either_direction(target, section, error, match):
+    """A configuration value gone bad raises on hiding as well as showing.
+
+    ``set_visible`` is ``configure(visible=...)``, which re-resolves every
+    tier before it touches the flag: ``labels`` and ``emphasis`` normalize
+    unconditionally, and only then is ``label_edges`` zeroed for an invisible
+    family. The direction of travel therefore does not matter (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    # Start from the opposite state, so the call under test is a real
+    # transition rather than the value-unchanged early return below.
+    family.set_visible(not target)
+    assert bool(family.get_visible()) is (not target)
+    with config.context(isotherms=section), pytest.raises(error, match=match):
+        family.set_visible(target)
+
+
+def test_set_visible_no_op_re_reads_nothing():
+    """The value-unchanged early return resolves nothing, so it cannot raise.
+
+    The other half of the re-read contract: a call that does not change the
+    visibility never reaches ``configure``, so even a configuration that
+    would fail to resolve passes straight through (spec §3.2).
+    """
+    family = _make_family("isotherms")
+    assert family.get_visible() is True
+    with config.context(isotherms={"interval": -5.0}):
+        family.set_visible(True)
+    assert family.get_visible() is True
+
+
 def test_set_visible_resolves_and_notifies_only_on_a_change():
     """``set_visible`` is the visibility resolve, and it does not recurse."""
     calls = []

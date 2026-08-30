@@ -887,6 +887,9 @@ class TephigramAxes(Axes):
         TephpyUnitsError
             For unit-less bare arrays, ambiguous or unparsable units, or
             the wrong dimensionality.
+        TephpyValidationError
+            If an array holds non-numeric elements (e.g. string
+            missing-markers) that cannot coerce to float64.
         TypeError
             For wrong argument combinations: a ``Profile`` together with
             `temperature` or ``units=``, or `temperature` omitted when
@@ -1624,8 +1627,14 @@ class TephigramAxes(Axes):
         Raises
         ------
         TypeError
-            If an option name or ``labels`` placement is unknown, or if another
-            family already claims a requested edge.
+            If an option name or ``labels`` placement is unknown, if a family
+            ``emphasis`` is malformed — a non-mapping, a member value that will
+            not convert to float, a style that is not a mapping, or an unknown
+            style key — or if another family already claims a requested edge.
+        ValueError
+            If an option value is invalid — a non-positive ``interval``, or an
+            ``emphasis`` giving a non-finite member value, a ``linewidth`` that
+            is not positive and finite, or an ``alpha`` outside ``[0, 1]``.
         """
         family = self._families[name]
         provided = {key: value for key, value in kwargs.items() if value is not None}

@@ -95,6 +95,25 @@ class Sounding:
         Construction-only (not stored): unit strings for bare-array
         fields, keyed by field name, e.g. ``units={"pressure": "hPa",
         "temperature": "degC"}`` (spec §5).
+
+    Raises
+    ------
+    DewpointExceedsTemperatureError
+        If `dewpoint` exceeds `temperature` at a level where both are
+        non-NaN (equality — saturation — is physical and accepted).
+    NonMonotonicPressureError
+        If `pressure` is not strictly monotonic.
+    TephpyUnitsError
+        For a ``units=`` mapping naming an unknown field, unit-less bare
+        arrays, ambiguous or unparsable units, or the wrong
+        dimensionality.
+    TephpyValidationError
+        If a field holds non-numeric elements, the fields are not 1-D and
+        equal-length over at least two levels, only one of the wind pair
+        is given, or `pressure` is not finite at every level.
+    TypeError
+        If `pressure` or `temperature` is ``None``, or `time` is neither a
+        datetime nor a real ``numpy.datetime64`` (``NaT`` is rejected).
     """
 
     pressure: pint.Quantity
