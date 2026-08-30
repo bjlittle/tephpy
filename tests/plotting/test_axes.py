@@ -2037,9 +2037,23 @@ def test_accessor_emphasis_available_on_every_family(tephigram_axes):
         )
 
 
-def test_accessor_emphasis_error_propagates(tephigram_axes):
-    with pytest.raises(TypeError, match="emphasis style key"):
-        tephigram_axes.isotherms(emphasis={0.0: {"colour": "red"}})
+@pytest.mark.parametrize(
+    ("emphasis", "match"),
+    [
+        ([0.0], "'isotherms' emphasis must be a mapping"),
+        ({None: {}}, "member value must be a number"),
+        ({0.0: "red"}, "must be a mapping of style overrides"),
+        ({0.0: {"colour": "red"}}, r"unknown 'isotherms' emphasis style key"),
+    ],
+)
+def test_accessor_emphasis_error_propagates(tephigram_axes, emphasis, match):
+    """Every malformed ``emphasis`` shape the accessor documents reaches out.
+
+    ``_configure_family``'s ``Raises`` enumerates four shapes, so each is
+    checked here rather than the enumeration resting on one member.
+    """
+    with pytest.raises(TypeError, match=match):
+        tephigram_axes.isotherms(emphasis=emphasis)
 
 
 def test_accessor_emphasis_empty_mapping_clears_config():
