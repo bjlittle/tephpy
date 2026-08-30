@@ -1,0 +1,23 @@
+The gallery pages no longer show the ``# sphinx_gallery_tags = [...]`` flag in the
+example they publish. ``remove_config_comments = True`` in ``sphinx_gallery_conf``
+strips ``# sphinx_gallery_*`` lines from the rendered code after
+``py_source_parser.extract_file_config`` has read them off the source, so the tags
+still render on each page and still drive the index filter, and the reader of a
+page whose purpose is showing source is shown the example rather than the
+instruction that published it.
+
+Gallery spec §3.6 had decided the other way, and the decision is reversed rather
+than contradicted: it was taken against ``sphinx_gallery_start_ignore``, which
+would have hidden the flag by putting three lines of machinery into the file the
+reader downloads and runs, and which hides whatever it is wrapped around.
+``remove_config_comments`` pays neither cost — the example files are untouched,
+the downloaded ``.py`` still carries the flag, and the pattern it strips matches
+sphinx-gallery's own flags and no other comment.
+
+Measured rather than assumed: the gallery was rebuilt with the option off and on,
+and the two generated trees diffed. Across the five examples the only content
+that changed was the five flag lines and the source-line spans that follow from
+them, the five pages still render their ``Tags:`` line, and the index still
+carries five ``data-sgtags`` thumbnails behind the filter. The one thing the
+removal leaves is the blank line the flag stood on: the rendered block shows
+three where PEP 8 wrote two. (:user:`claude`)

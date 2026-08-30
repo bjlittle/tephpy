@@ -112,6 +112,13 @@ bibtex_bibfiles = ["refs.bib"]
 sphinx_gallery_conf = {
     "examples_dirs": ["../../src/tephpy/examples"],
     "gallery_dirs": ["gallery"],
+    # Strips the `# sphinx_gallery_*` flags from the code the page shows, after
+    # they have been read and acted on -- `extract_file_config` parses them out
+    # of the source, and this drops them from the render only. A tag list is a
+    # build instruction rather than part of the example, and the reader of a
+    # page whose purpose is showing source is owed the source, not the
+    # scaffolding that put the page there (docs-style, "Gallery Examples").
+    "remove_config_comments": True,
     # A dotted string, not the class: see tephpy_gallery_order's docstring.
     "within_subsection_order": "tephpy_gallery_order.RegistryOrder",
 }

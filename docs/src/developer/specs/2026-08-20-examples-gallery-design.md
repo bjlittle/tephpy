@@ -362,12 +362,24 @@ registry's reach, so §3.7 asserts it from the source. It has to: a misspelled f
 discarded in silence, with no warning to fail the build on (verified against the real
 parser, 2026-08-20). That is the same silent absence §2 rejects glob discovery for.
 
-The flag stays visible in the published source. sphinx-gallery's
-`sphinx_gallery_start_ignore` block would hide it from the page and was tested working, but
-plots spec §3.1 set `plot_include_source = True` on the reasoning that "the source is the
-point, so it is shown", and hiding lines from a page whose purpose is showing source
-contradicts it — for a saving of one self-explanatory line on the page, at a cost of three
-lines of machinery in the file the reader downloads and runs.
+The flag stays in the file and off the page. `remove_config_comments = True` in
+`sphinx_gallery_conf` drops `# sphinx_gallery_*` lines from the rendered code, after
+`py_source_parser.extract_file_config` has read them off the source — so the tags still
+render on each page and still drive the index filter, while the reader sees the example
+rather than the instruction that published it.
+
+That reverses an earlier decision, which was taken against a different mechanism.
+`sphinx_gallery_start_ignore` would also have hidden the line, but at a cost of three lines
+of machinery in the file the reader downloads and runs, and by hiding *source* from a page
+whose purpose is showing source — which contradicts plots spec §3.1's
+`plot_include_source = True` and its reasoning that "the source is the point, so it is
+shown". `remove_config_comments` pays neither cost. The example files are untouched, the
+downloaded `.py` still carries the flag, and nothing belonging to the example can be caught
+by it: `INFILE_CONFIG_PATTERN` matches sphinx-gallery's own flags and no other comment. The
+five pages, their five `data-sgtags` thumbnails and the five downloads were rebuilt and
+diffed against the previous build to confirm that the flag lines were the only content that
+changed (2026-08-30). What it leaves behind is the blank line the flag stood on: the
+rendered block shows three where PEP 8 wrote two.
 
 (gallery-spec-3-7)=
 ### 3.7 Packaging and gates
