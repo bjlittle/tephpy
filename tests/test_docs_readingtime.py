@@ -115,3 +115,107 @@ def test_parse_argument_rejects_anything_else(argument):
     """Reading spec §3.2: an argument the directive cannot read stops the build."""
     with pytest.raises(ValueError, match="readingtime"):
         reading.parse_argument(argument)
+
+
+RST_PAGE = """\
+.. _howto-example:
+
+An Example Page
+===============
+
+.. readingtime::
+
+A lead paragraph.
+
+A Section
+---------
+
+Body text.
+"""
+
+MYST_PAGE = """\
+# An Example Specification
+
+```{readingtime}
+```
+
+> **Living document.**
+
+(example-spec-1)=
+## 1. Purpose
+
+Body text.
+"""
+
+
+def test_the_rst_title_is_the_first_underline():
+    assert reading.title_line(RST_PAGE, ".rst") == 4
+
+
+def test_the_rst_first_section_is_the_second_underline():
+    assert reading.first_section_line(RST_PAGE, ".rst") == 11
+
+
+def test_a_page_with_no_sections_has_no_first_section():
+    text = "Only a Title\n============\n\n.. readingtime::\n\nBody.\n"
+    assert reading.first_section_line(text, ".rst") is None
+    assert reading.carries_reading_time(text, ".rst")
+
+
+def test_the_myst_title_is_the_first_atx_heading():
+    assert reading.title_line(MYST_PAGE, ".md") == 1
+
+
+def test_the_myst_first_section_is_the_first_level_two_heading():
+    assert reading.first_section_line(MYST_PAGE, ".md") == 9
+
+
+def test_a_directive_in_the_lead_satisfies_the_rule():
+    assert reading.carries_reading_time(RST_PAGE, ".rst")
+    assert reading.carries_reading_time(MYST_PAGE, ".md")
+
+
+def test_a_page_without_the_directive_does_not():
+    without = RST_PAGE.replace(".. readingtime::\n", "")
+    assert not reading.carries_reading_time(without, ".rst")
+
+
+def test_a_directive_after_the_first_section_does_not_satisfy_the_rule():
+    """Reading spec §3.6, decision 5: the banner is for a reader who hasn't scrolled."""
+    moved = RST_PAGE.replace(".. readingtime::\n\n", "").replace(
+        "Body text.\n", ".. readingtime::\n\nBody text.\n"
+    )
+    assert reading.directive_lines(moved, ".rst")
+    assert not reading.carries_reading_time(moved, ".rst")
+
+
+def test_an_indented_directive_is_a_demonstration_and_does_not_count():
+    """What lets `docs-style.rst` show the directive and carry a live one."""
+    shown = RST_PAGE.replace(".. readingtime::", ".. code::\n\n       .. readingtime::")
+    assert reading.directive_lines(shown, ".rst") == []
+    assert not reading.carries_reading_time(shown, ".rst")
+
+
+def test_the_myst_directive_is_found_although_it_is_itself_a_fence():
+    """Reading spec §3.6: a fence-skipping reader cannot see the opening rail."""
+    assert reading.directive_lines(MYST_PAGE, ".md") == [3]
+
+
+def test_a_directive_quoted_inside_a_myst_fence_does_not_count():
+    quoted = MYST_PAGE.replace(
+        "Body text.\n",
+        "````\n```{readingtime}\n```\n````\n",
+    )
+    assert reading.directive_lines(quoted, ".md") == [3]
+
+
+def test_a_heading_inside_a_myst_fence_is_not_a_section():
+    """The defect `tephpy_citations.read_lines` documents, in the other direction."""
+    fenced = MYST_PAGE.replace("Body text.\n", "```\n## Not a heading\n```\n")
+    assert reading.first_section_line(fenced, ".md") == 9
+
+
+def test_the_myst_scanner_keeps_the_rail_discipline():
+    """A four-backtick block may quote a three-backtick one without closing."""
+    text = "# Title\n\n````\n```\n## quoted\n```\n````\n\n## 1. Real\n"
+    assert reading.first_section_line(text, ".md") == 9
