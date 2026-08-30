@@ -16,4 +16,14 @@ its own body, because that is where a dataclass validates and the class
 docstring is the only one a reader is shown; a rule reading the class body would
 have missed the largest defect :pull:`223` found by hand. Verified against that
 defect: removing the ``Raises`` section :pull:`223` added to ``Sounding`` makes
-the gate report it. (:user:`claude`)
+the gate report it.
+
+Whether a raise escapes is decided by walking outward through the ``try`` blocks
+that enclose it. A handler swallows it, unless that handler re-raises bare,
+which puts the same exception back on its way out — so the walk continues from
+there. Both simpler readings are wrong in opposite directions: ignoring bare
+re-raises loses a ``ValueError`` raised in a ``try`` body and re-raised by its
+own handler, while crediting a bare ``raise`` with everything its handler
+catches invents one on ``IsoplethFamily.configure``, which rolls back and
+re-raises under ``except Exception`` around a body that raises nothing at all.
+(:user:`claude`)

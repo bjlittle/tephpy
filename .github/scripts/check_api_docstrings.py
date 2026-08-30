@@ -551,7 +551,7 @@ def _caught_by(name: str, handlers: Iterable[str]) -> bool:
     Returns
     -------
     bool
-        ``True`` when the raise never reaches a caller.
+        ``True`` when one of them catches it.
     """
     bases = _exception_bases()
     chain, current, seen = set(), name, set()
@@ -562,41 +562,111 @@ def _caught_by(name: str, handlers: Iterable[str]) -> bool:
     return any(handler in chain for handler in handlers)
 
 
-def _handlers_around(fn: ast.AST, node: ast.AST) -> list[str]:
-    """Return what an enclosing ``try`` in `fn` catches at `node`.
+def _handler_names(handler: ast.ExceptHandler) -> list[str]:
+    """Return the unqualified names one ``except`` clause catches.
+
+    Parameters
+    ----------
+    handler : ast.ExceptHandler
+        The clause to read.
+
+    Returns
+    -------
+    list of str
+        ``["BaseException"]`` for a bare ``except``.
+    """
+    if handler.type is None:
+        return ["BaseException"]
+    if isinstance(handler.type, ast.Tuple):
+        return [ast.unparse(entry).split(".")[-1] for entry in handler.type.elts]
+    return [ast.unparse(handler.type).split(".")[-1]]
+
+
+def _enclosing_tries(fn: ast.AST, node: ast.AST) -> list[ast.Try]:
+    """Return the ``try`` statements whose body holds `node`, innermost first.
 
     Parameters
     ----------
     fn : ast.AST
         The function being read.
     node : ast.AST
-        The ``raise`` statement.
+        The statement to locate.
 
     Returns
     -------
-    list of str
-        Unqualified exception names, ``"BaseException"`` for a bare ``except``.
+    list of ast.Try
+        Ordered by span, so the tightest enclosing block comes first.
     """
     line = getattr(node, "lineno", -1)
-    caught = []
-    for block in ast.walk(fn):
-        if not isinstance(block, ast.Try):
-            continue
-        if not any(
+    blocks = [
+        block
+        for block in ast.walk(fn)
+        if isinstance(block, ast.Try)
+        and any(
             stmt.lineno <= line <= (stmt.end_lineno or stmt.lineno)
             for stmt in block.body
-        ):
-            continue
+        )
+    ]
+    blocks.sort(key=lambda block: (block.end_lineno or block.lineno) - block.lineno)
+    return blocks
+
+
+def _reraises_bare(handler: ast.ExceptHandler) -> bool:
+    """Report whether a handler ends up re-raising what it caught.
+
+    Parameters
+    ----------
+    handler : ast.ExceptHandler
+        The clause to read.
+
+    Returns
+    -------
+    bool
+        ``True`` when it contains a bare ``raise``.
+    """
+    return any(
+        isinstance(node, ast.Raise) and node.exc is None for node in ast.walk(handler)
+    )
+
+
+def _escapes(fn: ast.AST, node: ast.Raise, name: str) -> bool:
+    """Report whether a raise at `node` can leave `fn`.
+
+    Walks outward through the ``try`` blocks enclosing the raise. A handler
+    that catches it swallows it -- unless the handler re-raises bare, which
+    puts the same exception back on its way out, so the walk continues from
+    there.
+
+    That last case is the one a simpler reading gets wrong in both
+    directions. Ignoring bare re-raises entirely loses a ``ValueError``
+    raised in a ``try`` body and re-raised by its own handler. Crediting a
+    bare ``raise`` with everything its handler catches invents one:
+    ``IsoplethFamily.configure`` rolls back and re-raises under
+    ``except Exception``, where nothing is raised in the body at all and the
+    exception on its way out belongs to the call it made.
+
+    Parameters
+    ----------
+    fn : ast.AST
+        The function being read.
+    node : ast.Raise
+        The raise statement.
+    name : str
+        The raised exception's unqualified name.
+
+    Returns
+    -------
+    bool
+        ``True`` when the exception reaches a caller.
+    """
+    for block in _enclosing_tries(fn, node):
         for handler in block.handlers:
-            if handler.type is None:
-                caught.append("BaseException")
-            elif isinstance(handler.type, ast.Tuple):
-                caught += [
-                    ast.unparse(entry).split(".")[-1] for entry in handler.type.elts
-                ]
-            else:
-                caught.append(ast.unparse(handler.type).split(".")[-1])
-    return caught
+            if not _caught_by(name, _handler_names(handler)):
+                continue
+            if _reraises_bare(handler):
+                break  # back on its way out; keep walking outward
+            return False
+    return True
 
 
 def raised_directly(fn: ast.AST) -> set[str]:
@@ -638,7 +708,7 @@ def raised_directly(fn: ast.AST) -> set[str]:
             continue
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
         name = ast.unparse(raised).split(".")[-1]
-        if not _caught_by(name, _handlers_around(fn, node)):
+        if _escapes(fn, node, name):
             found.add(name)
     return found
 

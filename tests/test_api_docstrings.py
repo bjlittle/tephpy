@@ -500,3 +500,71 @@ def test_a_module_has_no_raises_of_its_own(gate):
     """Module-level code runs at import; the rule has nothing to read."""
     entry = gate.PublicObject("tephpy", "module", tephpy)
     assert gate.check_raises([entry]) == []
+
+
+def test_raised_directly_follows_a_bare_re_raise_out(gate):
+    """A raise its own handler catches and re-raises still reaches a caller.
+
+    Reported by review on :pull:`230`: the named raise reads as caught and
+    the bare ``raise`` was discarded, so the exception escaped the gate as
+    well as the function.
+    """
+    fn = _fn('''
+        def f():
+            """Doc."""
+            try:
+                raise ValueError("escapes")
+            except ValueError:
+                cleanup()
+                raise
+    ''')
+    assert gate.raised_directly(fn) == {"ValueError"}
+
+
+def test_a_bare_re_raise_does_not_invent_a_raise(gate):
+    """Rolling back and re-raising is propagation, not a direct raise.
+
+    ``IsoplethFamily.configure`` is exactly this: the body only *calls*, and
+    what leaves under ``except Exception`` belongs to the call. Crediting the
+    bare ``raise`` with everything its handler catches would report
+    ``Exception`` on a function that raises nothing itself.
+    """
+    fn = _fn('''
+        def f():
+            """Doc."""
+            try:
+                helper()
+            except Exception:
+                rollback()
+                raise
+    ''')
+    assert gate.raised_directly(fn) == set()
+
+
+def test_a_re_raise_can_still_be_caught_further_out(gate):
+    """An outer handler that does not re-raise still swallows it."""
+    fn = _fn('''
+        def f():
+            """Doc."""
+            try:
+                try:
+                    raise ValueError("inner")
+                except ValueError:
+                    raise
+            except ValueError:
+                return None
+    ''')
+    assert gate.raised_directly(fn) == set()
+
+
+def test_a_handler_raising_a_different_exception_swallows_the_first(gate):
+    """``raise Y from err`` replaces X; only Y escapes."""
+    fn = _fn('''
+        def f():
+            """Doc."""
+            try:
+                raise ValueError("inner")
+            except ValueError as err:
+                raise TephpyIOError("outer") from err
+    ''')
+    assert gate.raised_directly(fn) == {"TephpyIOError"}
