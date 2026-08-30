@@ -1126,8 +1126,10 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
 `CITATION.cff` (validated in CI), `codecov.yml`, `.github/dependabot.yml`,
 `CODE_OF_CONDUCT.md` (Contributor Covenant), `CONTRIBUTING.md` (points at the developer
 docs), `SECURITY.md`, issue/PR templates, `.github/labeler.yml` (incl. a `spec-0` label
-rule), `CODEOWNERS`, and per-directory `AGENTS.md` files (root, `docs/`, `tests/`). SemVer
-with a 0.x honesty period.
+rule), `CODEOWNERS`, and per-directory `AGENTS.md` files (root, `docs/`, `tests/`), each with
+a `CLAUDE.md` beside it that imports it — Claude Code reads `CLAUDE.md` and not
+`AGENTS.md`, so without the companion a directory's guidance reaches only the agents
+that read `AGENTS.md` directly. SemVer with a 0.x honesty period.
 
 (spec-9)=
 ## 9. v1 scope
