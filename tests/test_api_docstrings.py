@@ -16,6 +16,8 @@ methods, and that a dataclass field does not.
 
 from __future__ import annotations
 
+import pytest
+
 
 def test_published_objects_covers_the_documented_modules(gate):
     """The 15 module pages autoapi builds, and no private module."""
@@ -66,3 +68,48 @@ def test_published_objects_excludes_private_and_examples(gate):
     names = {entry.name for entry in gate.published_objects()}
     assert not any(".examples" in name for name in names)
     assert not any(part.startswith("_") for name in names for part in name.split("."))
+
+
+def test_target_version_is_the_base_of_the_scm_version(gate, monkeypatch):
+    """The next tag's version, with the development suffix removed."""
+    monkeypatch.setattr(gate, "_scm_version", lambda: "0.2.0.dev3")
+    assert gate.target_version() == "0.2.0"
+
+
+@pytest.mark.parametrize(
+    ("reported", "expected"),
+    [
+        ("0.1.0.dev149+dirty", "0.1.0"),  # no tags yet, working tree dirty
+        ("0.2.0.dev3", "0.2.0"),  # mid-cycle, after v0.1.0
+        ("0.2.0", "0.2.0"),  # exactly on a tag
+        ("0.3.0.dev1+g36dd91c", "0.3.0"),  # a node-id local segment
+    ],
+)
+def test_target_version_strips_dev_and_local_segments(
+    gate, monkeypatch, reported, expected
+):
+    monkeypatch.setattr(gate, "_scm_version", lambda: reported)
+    assert gate.target_version() == expected
+
+
+def test_target_version_refuses_a_shallow_checkout(gate, monkeypatch):
+    """A shallow clone derives the wrong target, so refuse rather than guess.
+
+    Without tags ``setuptools_scm`` falls back to the first release, so once
+    ``v0.1.0`` exists a shallow checkout derives ``0.1.0`` where the answer is
+    ``0.2.0`` -- and comparing against a wrong-low target turns correctly
+    stamped symbols into failures (:issue:`227`).
+    """
+    monkeypatch.setattr(gate, "_is_shallow", lambda: True)
+    assert gate.target_version() is None
+
+
+def test_target_version_uses_the_project_version_scheme(gate):
+    """The schemes come from ``pyproject.toml``, not from a copy of them.
+
+    ``get_version`` with no configuration reports ``0.1``, not ``0.1.0``,
+    because it does not read ``[tool.setuptools_scm]``. Restating
+    ``release-branch-semver`` in the gate would work until someone changed it
+    in one place, so the gate reads the file the build reads.
+    """
+    assert gate.target_version() == "0.1.0"

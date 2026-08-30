@@ -44,6 +44,7 @@ import importlib
 import inspect
 from pathlib import Path
 import pkgutil
+import subprocess
 import sys
 from typing import TYPE_CHECKING
 
@@ -96,6 +97,76 @@ def _import_package() -> types.ModuleType:
     if str(PACKAGE) not in sys.path:
         sys.path.insert(0, str(PACKAGE))
     return importlib.import_module("tephpy")
+
+
+def _is_shallow() -> bool:
+    """Report whether this checkout is shallow.
+
+    Returns
+    -------
+    bool
+        ``True`` when git reports a shallow repository.
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO,
+    )
+    return result.stdout.strip() == "true"
+
+
+def _scm_version() -> str:
+    """Return the version ``setuptools_scm`` derives for this checkout.
+
+    The schemes are read from ``pyproject.toml`` rather than restated here.
+    ``get_version`` with no configuration reports ``0.1``, not ``0.1.0``,
+    because it never sees ``version_scheme = "release-branch-semver"`` -- and
+    a gate comparing against ``0.1`` would fail every correctly stamped
+    docstring in the package.
+
+    Returns
+    -------
+    str
+        A PEP 440 version, e.g. ``"0.1.0.dev149"``.
+    """
+    import warnings  # noqa: PLC0415
+
+    from setuptools_scm import Configuration, get_version  # noqa: PLC0415
+
+    config = Configuration.from_file(str(REPO / "pyproject.toml"))
+    with warnings.catch_warnings():
+        # `release-branch-semver` is deprecated upstream in favour of
+        # `semver-pep440-release-branch` -- the same scheme under a new name,
+        # verified to derive the same version. Renaming it is a deliberate
+        # change to release-critical configuration and not this gate's to
+        # make, and the gate cannot act on the warning either way, so it reads
+        # the number and moves on.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return str(
+            get_version(
+                root=str(REPO),
+                version_scheme=config.version_scheme,
+                local_scheme=config.local_scheme,
+            )
+        )
+
+
+def target_version() -> str | None:
+    """Return the base version the next tag will carry.
+
+    Returns
+    -------
+    str or None
+        The base version, e.g. ``"0.1.0"``; ``None`` when the checkout is
+        shallow, where the derivation cannot be trusted.
+    """
+    if _is_shallow():
+        return None
+    from packaging.version import Version  # noqa: PLC0415
+
+    return Version(_scm_version()).base_version
 
 
 def public_modules() -> list[str]:
