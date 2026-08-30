@@ -465,7 +465,7 @@ description = "Check that every documentation link resolves in the build"
 # Reads the inventory the build just wrote, so it belongs here rather than in
 # pre-commit: it is what licenses `check_api_docstrings.py` to enumerate the
 # published API without a build (:issue:`227`).
-cmd = "python -m pytest tests/test_docs_api_inventory.py -q"
+cmd = "python .github/scripts/check_api_inventory.py docs/_build/html"
 depends-on = ["docs-html"]
 description = "Check the API gate's surface matches the published inventory"
 

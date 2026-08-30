@@ -523,8 +523,8 @@ numpydoc's directive list.
 
 ``.github/scripts/check_api_docstrings.py`` is the gate. Run it directly to see
 what is missing; ``tests/test_api_docstrings.py`` is what enforces it, and
-``tests/test_docs_api_inventory.py`` holds its idea of the published surface to
-the inventory a real build writes. It is a test rather than a pre-commit hook
+``check_api_inventory.py`` holds its idea of the published surface to the
+inventory a real build writes. It is a test rather than a pre-commit hook
 because it imports ``tephpy``: the other local hooks are pure-stdlib text
 scanners and run in the isolated environment pre-commit builds, whereas
 declaring this one's ``additional_dependencies`` would restate

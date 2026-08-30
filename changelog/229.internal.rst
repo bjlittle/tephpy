@@ -12,8 +12,7 @@ drift from the build, and declined altogether on a shallow checkout where the
 derivation is untrustworthy.
 
 The gate owns a reusable definition of the published API, which
-``tests/test_docs_api_inventory.py`` holds to the ``objects.inv`` a real build
-writes. That test earned its place immediately: the first enumeration found 156
+``check_api_inventory.py`` holds to the ``objects.inv`` a real build writes. That test earned its place immediately: the first enumeration found 156
 objects against the published 94, every one of the 62 extra a re-export. The
 rule that settles it — an object is published by the module that *defines* it,
 so ``vars`` rather than ``dir`` throughout — is not one the module layout would
