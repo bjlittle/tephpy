@@ -39,6 +39,7 @@ Notes
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import importlib
 import inspect
@@ -326,11 +327,6 @@ DIRECTIVE = re.compile(r"^\s*\.\.[ \t]+versionadded::[ \t]*(\S+)[ \t]*$", re.MUL
 def notes_section(doc: str) -> str:
     """Return the body of a docstring's ``Notes`` section.
 
-    Hand-rolled rather than handed to ``numpydoc.docscrape``, because the
-    ``test`` environment carries no numpydoc and this gate is enforced from
-    the test suite. A section is a title line over a rule of dashes, and its
-    body runs to the next such title or to the end.
-
     Parameters
     ----------
     doc : str
@@ -341,6 +337,29 @@ def notes_section(doc: str) -> str:
     str
         The section body, empty when there is no ``Notes`` section.
     """
+    return section(doc, "Notes")
+
+
+def section(doc: str, title: str) -> str:
+    """Return the body of one numpydoc section.
+
+    Hand-rolled rather than handed to ``numpydoc.docscrape``, because the
+    ``test`` environment carries no numpydoc and this gate is enforced from
+    the test suite. A section is a title line over a rule of dashes, and its
+    body runs to the next such title or to the end.
+
+    Parameters
+    ----------
+    doc : str
+        The docstring, already dedented by :func:`inspect.getdoc`.
+    title : str
+        The section title, e.g. ``"Notes"`` or ``"Raises"``.
+
+    Returns
+    -------
+    str
+        The section body, empty when the docstring has no such section.
+    """
     lines = (doc or "").splitlines()
     underlined = [
         index
@@ -350,7 +369,7 @@ def notes_section(doc: str) -> str:
         and len(lines[index + 1].strip()) >= len(lines[index].strip())
     ]
     for position, index in enumerate(underlined):
-        if lines[index].strip() != "Notes":
+        if lines[index].strip() != title:
             continue
         following = underlined[position + 1 :]
         # A section ends at the *title* of the next one, which sits on the
@@ -434,21 +453,330 @@ def main() -> int:
     """
     entries = published_objects()
     target = target_version()
-    problems = check_versionadded(entries, target)
-    if problems:
+    # Two rules, reported separately: the versionadded rule is total and
+    # exact, the raises rule is narrow by design (:issue:`224`). Folding them
+    # into one verdict would let the narrower one argue for switching off the
+    # other.
+    stamps = check_versionadded(entries, target)
+    raises = check_raises(entries)
+    if stamps:
         print(
-            f"{len(problems)} of {len(entries)} published API objects fail the "
+            f"{len(stamps)} of {len(entries)} published API objects fail the "
             f"versionadded rule (docs-style, :issue:`227`):\n"
         )
-        for line in problems:
+        for line in stamps:
             print(f"  {line}")
         print(
             "\nAdd a Notes section as the docstring's last section:\n\n"
             f"    Notes\n    -----\n    .. versionadded:: {target or '<version>'}\n"
         )
+    if raises:
+        print(
+            f"\n{len(raises)} published API object(s) raise an exception their "
+            f"Raises section does not document (docs-style, :issue:`224`):\n"
+        )
+        for line in raises:
+            print(f"  {line}")
+        print(
+            "\nDocument it, or -- if the raise cannot reach a caller -- say so "
+            "where it is raised.\n"
+        )
+    if stamps or raises:
         return 1
-    print(f"versionadded ok: {len(entries)} published API objects")
+    print(
+        f"api docstrings ok: {len(entries)} published objects carry a "
+        f"versionadded and document what they raise"
+    )
     return 0
+
+
+def documented_raises(doc: str) -> set[str]:
+    """Return the exception names a docstring's ``Raises`` section lists.
+
+    Parameters
+    ----------
+    doc : str
+        The docstring, already dedented.
+
+    Returns
+    -------
+    set of str
+        The listed type names, unqualified. Descriptions are indented under
+        their type, so only unindented lines count.
+    """
+    names = set()
+    for line in section(doc, "Raises").splitlines():
+        if not line or line[:1].isspace() or not line.strip():
+            continue
+        for part in line.split(" or "):
+            bare = part.strip().strip("`").split("(")[0].strip()
+            if bare:
+                names.add(bare.split(".")[-1])
+    return names
+
+
+def _exception_bases() -> dict[str, str]:
+    """Map each known exception name to its immediate base.
+
+    Returns
+    -------
+    dict of str to str
+        Builtin exceptions plus tephpy's own hierarchy.
+    """
+    import builtins  # noqa: PLC0415
+
+    bases = {}
+    for name in dir(builtins):
+        obj = getattr(builtins, name)
+        if isinstance(obj, type) and issubclass(obj, BaseException):
+            bases[name] = "" if obj is BaseException else obj.__mro__[1].__name__
+    exceptions = importlib.import_module("tephpy.exceptions")
+    for name in dir(exceptions):
+        obj = getattr(exceptions, name)
+        if isinstance(obj, type) and issubclass(obj, BaseException):
+            bases[name] = obj.__mro__[1].__name__
+    return bases
+
+
+def _caught_by(name: str, handlers: Iterable[str]) -> bool:
+    """Report whether a handler in `handlers` would catch `name`.
+
+    Parameters
+    ----------
+    name : str
+        The raised exception's unqualified name.
+    handlers : iterable of str
+        The unqualified names an enclosing ``except`` clause catches.
+
+    Returns
+    -------
+    bool
+        ``True`` when one of them catches it.
+    """
+    bases = _exception_bases()
+    chain, current, seen = set(), name, set()
+    while current and current not in seen:
+        seen.add(current)
+        chain.add(current)
+        current = bases.get(current, "")
+    return any(handler in chain for handler in handlers)
+
+
+def _handler_names(handler: ast.ExceptHandler) -> list[str]:
+    """Return the unqualified names one ``except`` clause catches.
+
+    Parameters
+    ----------
+    handler : ast.ExceptHandler
+        The clause to read.
+
+    Returns
+    -------
+    list of str
+        ``["BaseException"]`` for a bare ``except``.
+    """
+    if handler.type is None:
+        return ["BaseException"]
+    if isinstance(handler.type, ast.Tuple):
+        return [ast.unparse(entry).split(".")[-1] for entry in handler.type.elts]
+    return [ast.unparse(handler.type).split(".")[-1]]
+
+
+def _enclosing_tries(fn: ast.AST, node: ast.AST) -> list[ast.Try]:
+    """Return the ``try`` statements whose body holds `node`, innermost first.
+
+    Parameters
+    ----------
+    fn : ast.AST
+        The function being read.
+    node : ast.AST
+        The statement to locate.
+
+    Returns
+    -------
+    list of ast.Try
+        Ordered by span, so the tightest enclosing block comes first.
+    """
+    line = getattr(node, "lineno", -1)
+    blocks = [
+        block
+        for block in ast.walk(fn)
+        if isinstance(block, ast.Try)
+        and any(
+            stmt.lineno <= line <= (stmt.end_lineno or stmt.lineno)
+            for stmt in block.body
+        )
+    ]
+    blocks.sort(key=lambda block: (block.end_lineno or block.lineno) - block.lineno)
+    return blocks
+
+
+def _reraises_bare(handler: ast.ExceptHandler) -> bool:
+    """Report whether a handler ends up re-raising what it caught.
+
+    Parameters
+    ----------
+    handler : ast.ExceptHandler
+        The clause to read.
+
+    Returns
+    -------
+    bool
+        ``True`` when it contains a bare ``raise``.
+    """
+    return any(
+        isinstance(node, ast.Raise) and node.exc is None for node in ast.walk(handler)
+    )
+
+
+def _escapes(fn: ast.AST, node: ast.Raise, name: str) -> bool:
+    """Report whether a raise at `node` can leave `fn`.
+
+    Walks outward through the ``try`` blocks enclosing the raise. A handler
+    that catches it swallows it -- unless the handler re-raises bare, which
+    puts the same exception back on its way out, so the walk continues from
+    there.
+
+    That last case is the one a simpler reading gets wrong in both
+    directions. Ignoring bare re-raises entirely loses a ``ValueError``
+    raised in a ``try`` body and re-raised by its own handler. Crediting a
+    bare ``raise`` with everything its handler catches invents one:
+    ``IsoplethFamily.configure`` rolls back and re-raises under
+    ``except Exception``, where nothing is raised in the body at all and the
+    exception on its way out belongs to the call it made.
+
+    Parameters
+    ----------
+    fn : ast.AST
+        The function being read.
+    node : ast.Raise
+        The raise statement.
+    name : str
+        The raised exception's unqualified name.
+
+    Returns
+    -------
+    bool
+        ``True`` when the exception reaches a caller.
+    """
+    for block in _enclosing_tries(fn, node):
+        for handler in block.handlers:
+            if not _caught_by(name, _handler_names(handler)):
+                continue
+            if _reraises_bare(handler):
+                break  # back on its way out; keep walking outward
+            return False
+    return True
+
+
+def raised_directly(fn: ast.AST) -> set[str]:
+    """Return the exceptions a function raises in its own body.
+
+    Direct raises only, with no propagation through the calls it makes. That
+    narrowness is deliberate (:issue:`224`): a propagating analysis cannot
+    follow dynamic dispatch, cannot see an exception a third party raises --
+    ``datetime.fromisoformat``'s ``ValueError`` is documented and invisible to
+    it -- and reports internal guards that no caller can reach. Every one of
+    those is a false positive, and a gate that cries wolf is switched off.
+
+    A bare ``raise`` is excluded: it re-raises whatever the handler caught,
+    which the ``except`` clause already names. So is anything inside a nested
+    function, whose raises fire when *it* is called.
+
+    Parameters
+    ----------
+    fn : ast.AST
+        The parsed function definition.
+
+    Returns
+    -------
+    set of str
+        Unqualified exception names that can leave the body.
+    """
+    nested = [
+        (node.lineno, node.end_lineno or node.lineno)
+        for node in ast.walk(fn)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+        and node is not fn
+    ]
+    found = set()
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.Raise) or node.exc is None:
+            continue
+        line = getattr(node, "lineno", None)
+        if line is not None and any(lo <= line <= hi for lo, hi in nested):
+            continue
+        raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+        name = ast.unparse(raised).split(".")[-1]
+        if _escapes(fn, node, name):
+            found.add(name)
+    return found
+
+
+def _definition(obj: object) -> ast.AST | None:
+    """Parse the source of a callable into its definition node.
+
+    Parameters
+    ----------
+    obj : object
+        The callable to read.
+
+    Returns
+    -------
+    ast.AST or None
+        The parsed definition, or ``None`` when the source is unavailable.
+    """
+    import textwrap  # noqa: PLC0415
+
+    try:
+        source = textwrap.dedent(inspect.getsource(inspect.unwrap(obj)))
+    except (OSError, TypeError):  # pragma: no cover -- builtins, C extensions
+        return None
+    return ast.parse(source).body[0]
+
+
+def check_raises(entries: Iterable[PublicObject]) -> list[str]:
+    """Check each entry documents the exceptions it raises itself.
+
+    A class is read through its constructor hook rather than its own body,
+    because that is where a dataclass validates and where the caller meets
+    the failure: ``Sounding``, ``Profile`` and ``SoundingIndices`` all
+    validate in ``__post_init__`` and document it on the class, which is the
+    only docstring a reader of the API reference is shown.
+
+    Parameters
+    ----------
+    entries : iterable of PublicObject
+        The published objects to check.
+
+    Returns
+    -------
+    list of str
+        One line per violation, empty when the corpus is clean.
+    """
+    problems = []
+    for entry in entries:
+        if entry.role in ("function", "method", "property"):
+            sources = [entry.obj]
+        elif entry.role in ("class", "exception"):
+            sources = [
+                hook
+                for name in ("__post_init__", "__init__")
+                if (hook := vars(entry.obj).get(name)) is not None
+            ]
+        else:
+            continue
+        documented = documented_raises(inspect.getdoc(entry.obj) or "")
+        for source in sources:
+            node = _definition(source)
+            if node is None:
+                continue
+            problems.extend(
+                f"{entry.name} ({entry.role}): raises {name}, "
+                f"which its Raises section does not document"
+                for name in sorted(raised_directly(node) - documented)
+            )
+    return problems
 
 
 if __name__ == "__main__":
