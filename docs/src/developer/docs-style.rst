@@ -460,8 +460,13 @@ sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
 discards it in silence, with no warning to fail the build on — which is why the
 test reads the flag out of the source text rather than asking the parser.
 
-Leave the flag visible. ``sphinx_gallery_start_ignore`` would hide it from the
-page, but the source is the point on a page whose purpose is showing source.
+Write the flag plainly and leave it in the file: it does not reach the page.
+``remove_config_comments`` strips ``# sphinx_gallery_*`` lines from the rendered
+code once sphinx-gallery has read them, so the tags still render and still drive
+the index filter, and the script the reader downloads still carries the flag.
+Nothing else is hidden — the pattern matches sphinx-gallery's own flags and no
+other comment, which is why this replaced ``sphinx_gallery_start_ignore``, the
+mechanism that would have hidden source along with it (gallery spec §3.6).
 
 A module's docstring is not a docstring — it is the page's title and opening
 prose — so the :ref:`glossary rule <glossary-rule>` applies to it in full:
