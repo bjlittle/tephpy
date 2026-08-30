@@ -531,10 +531,24 @@ scanners and run in the isolated environment pre-commit builds, whereas
 declaring this one's ``additional_dependencies`` would restate
 ``requirements/pypi-core.txt`` and drift from it.
 
-**numpydoc does not enforce any of this**, and does not enforce ``Raises``
-either: its checks stop at ``RT05`` and ``SA04``, with no ``RS`` family and no
-rule for a version directive. Any statement to the contrary — including in the
-frozen implementation plans — is wrong.
+The same gate checks that a published object documents what it **raises**. The
+rule is deliberately narrow: only an exception raised in the object's own body,
+with no propagation through the calls it makes. A propagating analysis cannot
+follow dynamic dispatch, cannot see an exception a third party raises —
+``datetime.fromisoformat``'s ``ValueError`` is correctly documented and
+invisible to it — and reports internal guards no caller can reach. Each of
+those is a false positive, and a gate that cries wolf gets switched off. So
+*documented but not found* is never an error; only the missing direction is
+checked.
+
+A class is read through ``__post_init__`` or ``__init__`` rather than its own
+body, because that is where a dataclass validates and the class docstring is
+the only one the API reference shows. Documenting the raise on the private
+validator instead would put it where no reader looks.
+
+**numpydoc enforces none of this.** Its checks stop at ``RT05`` and ``SA04``,
+with no ``RS`` family and no rule for a version directive. Any statement to the
+contrary — including in the frozen implementation plans — is wrong.
 
 .. _bibliography:
 

@@ -1,0 +1,19 @@
+The API docstring gate gained its second rule: a published object must document
+the exceptions it raises. ``numpydoc`` has no ``RS`` family — its checks stop at
+``RT05`` and ``SA04`` — so until now a ``Raises`` section could be absent or
+stale and ``pixi run lint`` stayed green, which is how three public classes came
+to validate their arguments and document none of it (:issue:`224`, fixed by hand
+in :pull:`223`).
+
+The rule is narrow on purpose: only an exception raised in the object's own
+body, with nothing propagated through the calls it makes. Measured over the
+package, propagation is where the false positives live — it cannot follow
+dynamic dispatch, cannot see ``datetime.fromisoformat``'s ``ValueError`` behind
+a correctly documented one, and reports internal guards that no caller can
+reach. So *documented but not found* is never an error, and only the missing
+direction is checked. A class is read through its constructor hook rather than
+its own body, because that is where a dataclass validates and the class
+docstring is the only one a reader is shown; a rule reading the class body would
+have missed the largest defect :pull:`223` found by hand. Verified against that
+defect: removing the ``Raises`` section :pull:`223` added to ``Sounding`` makes
+the gate report it. (:user:`claude`)
