@@ -39,6 +39,7 @@ extensions = [
     "sphinx_togglebutton",
     "sphinxcontrib.bibtex",
     "tephpy_config_reference",
+    "tephpy_readingtime",
 ]
 
 # -- autoapi -----------------------------------------------------------------
