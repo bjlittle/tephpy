@@ -378,8 +378,13 @@ downloaded `.py` still carries the flag, and nothing belonging to the example ca
 by it: `INFILE_CONFIG_PATTERN` matches sphinx-gallery's own flags and no other comment. The
 five pages, their five `data-sgtags` thumbnails and the five downloads were rebuilt and
 diffed against the previous build to confirm that the flag lines were the only content that
-changed (2026-08-30). What it leaves behind is the blank line the flag stood on: the
-rendered block shows three where PEP 8 wrote two.
+changed (2026-08-30).
+
+The removal preserves the blank lines around what it strips, so the flag sits flush under
+the imports with no blank line above it. Written the other way it leaves its own blank line
+on the page — three before `def main` where PEP 8 wrote two, which is the one trace the
+removal would otherwise leave, on the published page, with nothing about a blank line to
+fail `--fail-on-warning`. §3.7 asserts the placement for that reason.
 
 (gallery-spec-3-7)=
 ### 3.7 Packaging and gates
@@ -419,6 +424,11 @@ Three things are asserted, all of them off the registry:
    needs, because a test that asked the real parser for the tags of a file spelling the
    flag `sphinx_gallery_tag` would be told there are none and could not tell that from an
    example that declared none.
+
+   The same reading asserts *where* the flag sits — flush under the imports, no blank line
+   above it. `remove_config_comments` preserves the blanks around what it strips (§3.6), so
+   the placement is what decides whether the published page carries the removal's trace, and
+   a blank line is not something any build fails on.
 3. **The canonical figure is pinned.** `pytest-mpl` over
    `tephpy.examples.plot_parcel_analysis.main`, satisfying spec §7's composed-figure baseline —
    the last outstanding baseline of the roadmap, and the one that has been waiting for

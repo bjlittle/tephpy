@@ -159,6 +159,27 @@ def test_example_tags_are_declared_and_in_vocabulary(module):
     assert set(tags) <= VOCABULARY, sorted(set(tags) - VOCABULARY)
 
 
+@pytest.mark.parametrize("module", [module for _, module in REGISTRY])
+def test_the_tag_flag_has_no_blank_line_above_it(module):
+    """The flag sits flush under the imports, for the sake of the render.
+
+    ``remove_config_comments`` drops the flag line and preserves the blank
+    lines around it (gallery spec §3.6), so a blank line above the flag is
+    one the reader is left looking at: three blank lines before ``def
+    main`` where PEP 8 wrote two. The gap is the only trace the removal
+    leaves, it appears on the published page, and nothing about a blank
+    line fails a build -- which is why the placement is asserted here
+    rather than described in the style guide alone.
+    """
+    lines = (EXAMPLES / f"{module}.py").read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if _TAGS.match(line))
+    assert lines[index - 1].strip(), (
+        f"{module} has a blank line above its sphinx_gallery_tags flag; the "
+        "flag goes flush under the imports, so that removing it from the "
+        "rendered page leaves two blank lines and not three"
+    )
+
+
 def test_the_tephigram_example_restates_the_default_extent():
     """``plot_tephigram`` frames the diagram exactly as the default does.
 

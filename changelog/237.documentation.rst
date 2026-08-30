@@ -1,0 +1,19 @@
+The gallery pages now show the two blank lines PEP 8 wrote between an example's
+imports and its ``def main``, where :pull:`236` left three.
+
+``remove_config_comments`` preserves the blank lines around the flag it strips,
+so the flag's own blank line survives it. That made the placement of
+``# sphinx_gallery_tags`` load-bearing for the render rather than a matter of
+taste: written with a blank line above it, the flag leaves that line on the
+published page. The five examples now carry it flush under their imports, and
+the rendered block reads ``Figure``, blank, blank, ``def main`` — measured off
+the built pages, all five.
+
+``tests/examples`` asserts the placement, because nothing else could. A blank
+line raises no Sphinx warning, so ``--fail-on-warning`` has nothing to catch;
+the removal is silent by design; and the next example is written by copying the
+one beside it, which is how the shape would have spread. The assertion was
+forced to fail by putting the blank line back, and reports which example and
+what the flag's position is for. Gallery spec §3.6, gallery spec §3.7 and the
+documentation style guide record the rule rather than leaving it to the diff.
+(:user:`claude`)

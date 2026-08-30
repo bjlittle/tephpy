@@ -30,7 +30,6 @@ from tephpy import samples
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-
 # sphinx_gallery_tags = ["metpy", "barbs", "sounding"]
 
 

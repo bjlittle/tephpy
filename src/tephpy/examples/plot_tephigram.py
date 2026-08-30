@@ -23,7 +23,6 @@ import tephpy  # registers the "tephigram" projection
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-
 # sphinx_gallery_tags = ["diagram", "isopleths"]
 
 
