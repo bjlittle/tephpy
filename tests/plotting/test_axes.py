@@ -2120,21 +2120,26 @@ def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):
     assert "-12" in labels
 
 
-#: The option names an accessor's ``Raises`` prose may mention. Derived from
-#: the accessors themselves rather than written out, so the check is that the
-#: five agree with each other and with what each family accepts -- not that
-#: they match a fourteenth copy of the list (:issue:`226`).
-_OPTIONS = (
-    "values",
-    "interval",
-    "truncation",
-    "color",
-    "linewidth",
-    "alpha",
-    "labels",
-    "emphasis",
-    "visible",
-)
+def _option_vocabulary(families):
+    """Return every option name `families` accept.
+
+    Read from the specs rather than written out. A tuple here would be a
+    second registry inside a check whose whole purpose is to have no second
+    registry: an option added to the specs and missing from the tuple would
+    never be looked for, so its prose could drift between accessors and the
+    comparison would still pass (:issue:`226`, review on :pull:`231`).
+
+    Parameters
+    ----------
+    families : mapping of str to FamilySpec
+        The family specs to read.
+
+    Returns
+    -------
+    set of str
+        The union of what those families accept.
+    """
+    return set().union(*(set(spec.allowed) for spec in families.values()))
 
 
 def _raises_prose(gate, name):
@@ -2143,10 +2148,61 @@ def _raises_prose(gate, name):
     return gate.section(inspect.getdoc(accessor) or "", "Raises")
 
 
-def _options_named(gate, name):
+def _options_named(gate, name, families):
     """Return the option names that accessor's ``Raises`` prose mentions."""
     prose = _raises_prose(gate, name)
-    return {option for option in _OPTIONS if f"``{option}``" in prose}
+    return {
+        option for option in _option_vocabulary(families) if f"``{option}``" in prose
+    }
+
+
+def _disagreements(gate, families):
+    """Return the accessors whose prose disagrees with what `families` accept.
+
+    Parameters
+    ----------
+    gate : module
+        The API docstring gate, for its section parser.
+    families : mapping of str to FamilySpec
+        The specs to check against, so a test can widen one.
+
+    Returns
+    -------
+    list of str
+        One entry per accessor naming the wrong option set.
+    """
+    named = {name: _options_named(gate, name, families) for name in families}
+    validated = set().union(*named.values())
+    return [
+        name
+        for name, spec in families.items()
+        if named[name] != validated & set(spec.allowed)
+    ]
+
+
+def test_an_option_the_specs_gain_joins_the_comparison(gate):
+    """A new option participates by being added to the specs, and nothing else.
+
+    Reported by review on :pull:`231`: the vocabulary had been a tuple in this
+    file, so an option the specs gained would sit outside every comparison and
+    could drift between accessors unnoticed -- a second registry inside a check
+    whose purpose is to have no second registry.
+
+    Proved rather than asserted. Give ``mixing_ratios`` an ``interval`` it does
+    not have, and its prose -- which rightly promises none -- is now wrong for
+    the family it describes, so the check reports it.
+    """
+    families = isopleths._FAMILY_SPECS
+    assert _disagreements(gate, families) == []
+
+    spec = families["mixing_ratios"]
+    widened = {
+        **families,
+        "mixing_ratios": dataclasses.replace(
+            spec, allowed=frozenset({*spec.allowed, "interval"})
+        ),
+    }
+    assert _disagreements(gate, widened) == ["mixing_ratios"]
 
 
 def test_each_accessor_names_the_validated_options_its_family_accepts(gate):
@@ -2164,10 +2220,14 @@ def test_each_accessor_names_the_validated_options_its_family_accepts(gate):
     an accessor quietly dropping one it does accept is not.
     """
     families = isopleths._FAMILY_SPECS
-    validated = set().union(*(_options_named(gate, name) for name in families))
+    validated = set().union(
+        *(_options_named(gate, name, families) for name in families)
+    )
     assert validated, "no accessor names any option; the check is vacuous"
     for name, spec in families.items():
-        assert _options_named(gate, name) == validated & set(spec.allowed), name
+        assert _options_named(gate, name, families) == validated & set(spec.allowed), (
+            name
+        )
 
 
 def test_mixing_ratios_is_the_family_that_differs(gate):
@@ -2178,5 +2238,7 @@ def test_mixing_ratios_is_the_family_that_differs(gate):
     expectation from the same prose would pass if both moved together.
     """
     assert "interval" not in isopleths._FAMILY_SPECS["mixing_ratios"].allowed
-    assert "interval" not in _options_named(gate, "mixing_ratios")
-    assert "interval" in _options_named(gate, "isotherms")
+    assert "interval" not in _options_named(
+        gate, "mixing_ratios", isopleths._FAMILY_SPECS
+    )
+    assert "interval" in _options_named(gate, "isotherms", isopleths._FAMILY_SPECS)
