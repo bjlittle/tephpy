@@ -16,7 +16,11 @@ methods, and that a dataclass field does not.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+REPO = Path(__file__).parents[1]
 
 
 def test_published_objects_covers_the_documented_modules(gate):
@@ -199,3 +203,40 @@ def test_main_reports_the_whole_surface(gate, capsys):
     out = capsys.readouterr().out
     assert code in (0, 1)
     assert "94" in out
+
+
+def test_every_published_docstring_is_stamped(gate):
+    """The rule, enforced over the real package.
+
+    This is where the gate runs, rather than in pre-commit. The repository's
+    other local hooks are pure-stdlib text scanners, so they work in the
+    isolated environment pre-commit builds; this one imports ``tephpy``, and
+    listing its runtime dependencies as ``additional_dependencies`` would
+    duplicate ``requirements/pypi-core.txt`` and drift from it. The test suite
+    already runs where the package is installed, and CI runs it on every pull
+    request, so the rule is enforced without a second declaration of what
+    tephpy needs to import.
+    """
+    problems = gate.check_versionadded(gate.published_objects(), gate.target_version())
+    assert problems == []
+
+
+def test_the_gate_reports_rather_than_raises(gate, capsys):
+    """A contributor can run the script directly and read what to fix."""
+    assert gate.main() == 0
+    assert "versionadded ok" in capsys.readouterr().out
+
+
+def test_the_policy_is_written_down():
+    """docs-style is the living home for the rule the gate enforces.
+
+    The gate says what is wrong; the style guide says what to write. Two
+    developer plans already claim numpydoc validates `Raises`, which it does
+    not (:issue:`225`), so the correction belongs somewhere maintained
+    alongside the code rather than in a frozen plan.
+    """
+    style = (REPO / "docs" / "src" / "developer" / "docs-style.rst").read_text(
+        encoding="utf-8"
+    )
+    assert "versionadded" in style
+    assert "check_api_docstrings" in style

@@ -494,6 +494,47 @@ Reserve ``#:`` comments for annotations on private members — the private
 which autoapi excludes from the reference regardless of comment style. There the
 choice is purely stylistic, and ``#:`` reads naturally above a constant.
 
+API Version Stamps
+------------------
+
+Every published API object records the version it arrived in, as a numpydoc
+``Notes`` section carrying the Sphinx ``versionadded`` directive. It is the
+docstring's **last** section, because numpydoc's section order places ``Notes``
+after ``Raises``:
+
+.. code-block:: rst
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+"Published" means what the API reference publishes: every module under
+``src/tephpy`` with no underscore-prefixed path component except the gallery,
+and the objects those modules define. Attributes are outside it — a dataclass
+field is documented in its class's ``Attributes`` section, so it has nowhere of
+its own to carry a directive — and so is the gallery, whose module docstring is
+sphinx-gallery's rendered title block rather than a numpydoc docstring.
+
+Write ``versionadded``, not Sphinx 9's ``version-added``. The two are the same
+directive and render identically, but the documentation floor is
+``sphinx>=8.0``, where the hyphenated spelling does not exist; numpydoc's
+``GL10`` two-colon check does not fire for it either, because it is not in
+numpydoc's directive list.
+
+``.github/scripts/check_api_docstrings.py`` is the gate. Run it directly to see
+what is missing; ``tests/test_api_docstrings.py`` is what enforces it, and
+``tests/test_docs_api_inventory.py`` holds its idea of the published surface to
+the inventory a real build writes. It is a test rather than a pre-commit hook
+because it imports ``tephpy``: the other local hooks are pure-stdlib text
+scanners and run in the isolated environment pre-commit builds, whereas
+declaring this one's ``additional_dependencies`` would restate
+``requirements/pypi-core.txt`` and drift from it.
+
+**numpydoc does not enforce any of this**, and does not enforce ``Raises``
+either: its checks stop at ``RT05`` and ``SA04``, with no ``RS`` family and no
+rule for a version directive. Any statement to the contrary — including in the
+frozen implementation plans — is wrong.
+
 .. _bibliography:
 
 Bibliography
