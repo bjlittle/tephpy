@@ -546,6 +546,12 @@ body, because that is where a dataclass validates and the class docstring is
 the only one the API reference shows. Documenting the raise on the private
 validator instead would put it where no reader looks.
 
+``Raises`` entries are listed **alphabetically**, which the gate also checks.
+The rule earns its place where one failure is reachable from many entry
+points: thirteen docstrings across ``plotting`` restate the same
+configuration-driven raise set by hand, and nothing else keeps those copies in
+step (:issue:`226`).
+
 **numpydoc enforces none of this.** Its checks stop at ``RT05`` and ``SA04``,
 with no ``RS`` family and no rule for a version directive. Any statement to the
 contrary — including in the frozen implementation plans — is wrong.

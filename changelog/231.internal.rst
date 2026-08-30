@@ -1,0 +1,23 @@
+Thirteen docstrings across ``plotting`` restate one configuration-driven raise
+set by hand — every family accessor, ``clear``, ``edge_axis``, ``configure``,
+``set_visible``, ``_resolve`` and the two emphasis helpers — and nothing kept
+the copies in step, so they drifted (:issue:`226`). Two had already gone
+incomplete and were fixed in :pull:`223`.
+
+Three divergences are closed here. :meth:`IsoplethFamily.configure
+<tephpy.plotting.isopleths.IsoplethFamily.configure>`, the copy the other twelve
+delegate to, was the vaguest of them — an open-ended "e.g. a non-positive
+``interval``" where its own callers enumerate four conditions — and now
+enumerates them too. Three ``Raises`` sections listed their entries out of
+alphabetical order, which the other docstrings follow: ``_resolve``, and also
+:func:`calc.normand_point <tephpy.calc.normand_point>` and
+:meth:`TephigramAxes.fit <tephpy.plotting.axes.TephigramAxes.fit>`, which the
+issue had not spotted.
+
+What holds them from here is a relationship rather than a fourteenth copy of the
+list. The gate checks that every published ``Raises`` section is alphabetical,
+and ``tests/plotting/test_axes.py`` derives the option names an accessor may
+mention from the five accessors themselves, then requires each to name exactly
+those its family accepts. So ``mixing_ratios`` omitting ``interval`` is correct
+— it takes none — while an accessor quietly dropping one it does accept fails,
+which is verified by mutation. (:user:`claude`)

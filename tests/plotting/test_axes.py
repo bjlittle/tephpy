@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import math
 
 import matplotlib.colors as mcolors
@@ -40,7 +41,7 @@ from tephpy._constants import (
     Y_MAXIMUM_TEMPERATURE,
 )
 from tephpy.exceptions import MissingDataError, TephpyUnitsError, TephpyValidationError
-from tephpy.plotting import axes
+from tephpy.plotting import axes, isopleths
 from tephpy.plotting.axes import TephigramAxes, TephigramTransform
 from tephpy.plotting.isopleths import EDGES, IsoplethFamily
 
@@ -2117,3 +2118,65 @@ def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):
     tephigram_axes.figure.canvas.draw()
     labels = [text.get_text() for text in tephigram_axes.xaxis.get_ticklabels()]
     assert "-12" in labels
+
+
+#: The option names an accessor's ``Raises`` prose may mention. Derived from
+#: the accessors themselves rather than written out, so the check is that the
+#: five agree with each other and with what each family accepts -- not that
+#: they match a fourteenth copy of the list (:issue:`226`).
+_OPTIONS = (
+    "values",
+    "interval",
+    "truncation",
+    "color",
+    "linewidth",
+    "alpha",
+    "labels",
+    "emphasis",
+    "visible",
+)
+
+
+def _raises_prose(gate, name):
+    """Return the ``Raises`` section of one accessor on ``TephigramAxes``."""
+    accessor = getattr(axes.TephigramAxes, name)
+    return gate.section(inspect.getdoc(accessor) or "", "Raises")
+
+
+def _options_named(gate, name):
+    """Return the option names that accessor's ``Raises`` prose mentions."""
+    prose = _raises_prose(gate, name)
+    return {option for option in _OPTIONS if f"``{option}``" in prose}
+
+
+def test_each_accessor_names_the_validated_options_its_family_accepts(gate):
+    """Thirteen docstrings restate one configuration-driven raise set.
+
+    Every family accessor, ``clear``, ``edge_axis``, ``configure``,
+    ``set_visible``, ``_resolve`` and the emphasis helpers each write that set
+    out by hand, and nothing kept the copies in step (:issue:`226`). Two had
+    already gone incomplete and were fixed in :pull:`223`.
+
+    What a machine can hold is the relationship, not the prose. The set of
+    options an accessor may name is derived from the five accessors
+    themselves; each must then name exactly those its family accepts. So
+    ``mixing_ratios`` omitting ``interval`` is correct -- it takes none -- and
+    an accessor quietly dropping one it does accept is not.
+    """
+    families = isopleths._FAMILY_SPECS
+    validated = set().union(*(_options_named(gate, name) for name in families))
+    assert validated, "no accessor names any option; the check is vacuous"
+    for name, spec in families.items():
+        assert _options_named(gate, name) == validated & set(spec.allowed), name
+
+
+def test_mixing_ratios_is_the_family_that_differs(gate):
+    """The one asymmetry the check above has to tolerate.
+
+    ``mixing_ratios`` takes no ``interval``, so its ``Raises`` must not
+    promise one. Asserted directly, because a check that derived its
+    expectation from the same prose would pass if both moved together.
+    """
+    assert "interval" not in isopleths._FAMILY_SPECS["mixing_ratios"].allowed
+    assert "interval" not in _options_named(gate, "mixing_ratios")
+    assert "interval" in _options_named(gate, "isotherms")
