@@ -389,6 +389,49 @@ stopped declaring anything. Fix the declaration and run it again. The baseline t
 declaration named is a live pin, and to a scan that cannot read the declaration it
 looks exactly like the orphan of a renamed section, which this command removes.
 
+Reading Time
+------------
+
+Every page a reader reads start to finish opens with a reading-time banner,
+placed after the title and before the first section:
+
+.. code:: rst
+
+   .. readingtime::
+
+In a specification, which is Markdown, it is the equivalent fence.
+
+The estimate is counted from the *parsed* page rather than from its source, so
+directive options, comment blocks and front matter are not counted as words and a
+body another directive generated is. The rate is 150 words per minute
+:cite:`brysbaert2019` :cite:`carver1982` — below the 175 wpm floor Brysbaert
+reports for ordinary non-fiction prose, because these pages alternate argument
+with code the reader parses line by line.
+
+Two per-page overrides exist, and both are deliberate marks in the source rather
+than silent adjustments. A literal duration is quoted instead of counted:
+
+.. code:: rst
+
+   .. readingtime:: 45
+
+and a rate replaces the default for that page alone:
+
+.. code:: rst
+
+   .. readingtime:: 200wpm
+
+Anything else is a build error. There is no way to spell an argument the
+directive half-understands.
+
+A page that is *navigated* rather than read carries no banner: the four Diátaxis
+landing pages, the developer and specification indexes, the site root, the
+glossary, and the four reference pages whose body a directive generates. These
+are named in ``EXEMPT`` in ``tests/test_docs_readingtime.py``, with the reason
+beside each, and ``test_every_page_a_reader_reads_carries_a_reading_time``
+fails for any other page that omits one. Adding a page means adding the banner
+or adding the reason.
+
 Gallery Examples
 ----------------
 
