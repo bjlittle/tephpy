@@ -3,6 +3,8 @@
 Why the Axes Are Rotated
 ========================
 
+.. readingtime::
+
 A :term:`tephigram` looks like a chart somebody turned forty-five degrees on the
 way to the printer. It is not. The rotation is the last step of a construction that
 starts by choosing two coordinates on physical grounds, and every awkward-looking

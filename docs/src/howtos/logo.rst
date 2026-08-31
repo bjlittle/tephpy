@@ -3,6 +3,8 @@
 Add the tephpy Logo
 ===================
 
+.. readingtime::
+
 :func:`~tephpy.plotting.logo.add_logo` brands a figure or an axes in one call.
 It draws an :class:`matplotlib.offsetbox.AnnotationBbox`, so the logo is a
 normal artist — returned for restyling, and removable.

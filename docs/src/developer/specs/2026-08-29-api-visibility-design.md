@@ -1,5 +1,8 @@
 # tephpy API visibility — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. The how-to pages it describes cite it by section — `visibility spec §3.3` and
 > the like — so these sections *are* the reasoning behind what those pages say, and where

@@ -3,6 +3,8 @@
 Decode BUFR With ecCodes
 ========================
 
+.. readingtime::
+
 ``tephpy`` does not decode TEMP (TTAA/TTBB) bulletins or BUFR messages, and it
 is not going to. The formats are WMO's, the reference decoder for BUFR is
 `ecCodes <https://confluence.ecmwf.int/display/ECC>`__, and a second

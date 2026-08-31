@@ -1,5 +1,8 @@
 # tephpy — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. tephpy's source cites it by section — you will find `spec §6` and the like
 > throughout `src/` — so these sections *are* the reasoning behind what the code does, and

@@ -1,5 +1,8 @@
 # tephpy reading time — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. The extension, the gate and the style rule it describes cite it by section —
 > `reading spec §3.4` and the like — so these sections *are* the reasoning behind what that

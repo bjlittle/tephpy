@@ -1,5 +1,8 @@
 # tephpy design specifications — publication and conventions
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the documentation system
 > it describes. It states the conventions every tephpy design specification follows —
 > where they live, how their sections are addressed, and what a reader may assume about

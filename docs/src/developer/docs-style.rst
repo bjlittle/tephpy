@@ -1,6 +1,8 @@
 Documentation Style
 ====================
 
+.. readingtime::
+
 .. _title-style:
 
 Title Style

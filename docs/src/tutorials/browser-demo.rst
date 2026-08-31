@@ -1,6 +1,8 @@
 Plot a Sounding in Your Browser
 ================================
 
+.. readingtime::
+
 This experimental demo runs tephpy and matplotlib entirely in your browser. It
 starts with a bundled example :term:`sounding` and lets you replace it with a
 local CSV file. Your file is not uploaded to tephpy or to a live-data service.

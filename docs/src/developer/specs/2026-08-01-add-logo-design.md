@@ -1,5 +1,8 @@
 # tephpy `add_logo` — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `src/tephpy/plotting/logo.py` cites it by section — `logo spec §3.5` and the
 > like — so these sections *are* the reasoning behind what the code does, and where the two

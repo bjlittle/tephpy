@@ -3,6 +3,8 @@
 Configure tephpy From a File
 ============================
 
+.. readingtime::
+
 A house style is the same handful of lines at the top of every script — a
 colour scheme, a preferred extent, a cursor readout. A configuration file
 gives them a home on disk, and every later ``import tephpy`` picks them up.

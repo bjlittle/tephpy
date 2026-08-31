@@ -3,6 +3,8 @@
 Packaging and Support
 =====================
 
+.. readingtime::
+
 What ``tephpy`` runs on, what holds it there, and what its distributions carry.
 
 Supported Pythons

@@ -3,6 +3,8 @@
 Parcel Ascent and Normand's Point
 =================================
 
+.. readingtime::
+
 :ref:`explanation-rotated-axes` describes the grid. This page describes the one
 thing meteorologists draw *on* it: the path a :term:`parcel` of air takes when
 something lifts it, and why the answer to "will this :term:`sounding` produce a

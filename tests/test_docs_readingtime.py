@@ -397,3 +397,35 @@ def test_published_pages_excludes_a_synthetic_tree_of_its_own(tmp_path):
         page.relative_to(tmp_path).as_posix() for page in published_pages(tmp_path)
     }
     assert found == survivors
+
+
+def carrying_pages() -> list[Path]:
+    """Return the published pages a reader reads start to finish (reading spec §3.7)."""
+    return [page for page in published_pages() if identify(page) not in EXEMPT]
+
+
+@pytest.mark.parametrize("page", carrying_pages(), ids=identify)
+def test_every_page_a_reader_reads_carries_a_reading_time(page):
+    """Reading spec §3.6: absence is a failure, not an omission.
+
+    A page with no banner would otherwise be ambiguous between "short" and
+    "nobody got round to it", which is the reason the rule is gated at all.
+    """
+    text = page.read_text(encoding="utf-8")
+    assert reading.carries_reading_time(text, page.suffix), (
+        f"{identify(page)} carries no `readingtime` directive in its lead: put one "
+        f"after the title and before the first section heading, at column 0, or add "
+        f"the page to EXEMPT with the reason it is navigated rather than read"
+    )
+
+
+@pytest.mark.parametrize("page", carrying_pages(), ids=identify)
+def test_no_page_carries_more_than_one_reading_time(page):
+    """Two banners on one page is a copy-paste, not a decision.
+
+    `docs-style.rst` is the exception the rule allows for: the demonstrations in
+    its Reading Time section sit inside literal blocks, indented, so they are not
+    directives at column 0 and do not count here.
+    """
+    text = page.read_text(encoding="utf-8")
+    assert len(reading.directive_lines(text, page.suffix)) == 1

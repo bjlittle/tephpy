@@ -1,5 +1,8 @@
 # tephpy view framing — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `src/tephpy/plotting/axes.py`, `src/tephpy/_constants.py` and
 > `src/tephpy/_configfile.py` cite it by section — `framing spec §3.1` and the like — so

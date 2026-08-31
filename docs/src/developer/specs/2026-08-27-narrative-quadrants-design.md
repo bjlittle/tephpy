@@ -1,5 +1,8 @@
 # tephpy narrative quadrants — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. The tutorial, explanation and how-to pages it describes cite it by section —
 > `narrative spec §3.2` and the like — so these sections *are* the reasoning behind what
