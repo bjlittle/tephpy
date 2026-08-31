@@ -24,7 +24,7 @@ Notes
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from docutils import nodes
 from sphinx.util.docutils import SphinxDirective
@@ -84,7 +84,7 @@ class ReadingTimeDirective(SphinxDirective):
 
         Raises
         ------
-        docutils.parsers.rst.states.MarkupError
+        docutils.parsers.rst.DirectiveError
             When the argument matches neither documented shape.
 
         Notes
@@ -92,6 +92,11 @@ class ReadingTimeDirective(SphinxDirective):
         .. versionadded:: 0.1.0
 
         """
+        # The rendered estimate depends on the rate, the word pattern and the
+        # argument grammar in `tephpy_reading`, none of which is a document
+        # source Sphinx already watches. Without this, an incremental build
+        # would keep serving a stale estimate after e.g. `WPM` changed.
+        self.env.note_dependency(tephpy_reading.__file__)
         argument = self.arguments[0] if self.arguments else None
         try:
             parsed = tephpy_reading.parse_argument(argument)
@@ -150,7 +155,7 @@ def banner(minutes: int) -> nodes.container:
     plural = "" if minutes == 1 else "s"
     paragraph = nodes.paragraph()
     paragraph += nodes.raw("", ICON, format="html")
-    paragraph += nodes.Text(f" Estimated reading time: {minutes} minute{plural}")
+    paragraph += nodes.Text(f"Estimated reading time: {minutes} minute{plural}")
     container = nodes.container(classes=["reading-time"])
     container += paragraph
     return container
@@ -182,7 +187,7 @@ def resolve(app: Sphinx, doctree: nodes.document) -> None:  # noqa: ARG001
         node.replace_self(banner(minutes))
 
 
-def setup(app: Sphinx) -> dict[str, Any]:
+def setup(app: Sphinx) -> dict[str, object]:
     """Register the directive and its transform.
 
     Parameters

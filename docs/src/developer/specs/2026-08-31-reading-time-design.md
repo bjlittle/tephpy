@@ -220,9 +220,14 @@ HTML `<i class="fa-solid fa-clock">` followed by the text. Rendered, measured on
 
 ```html
 <div class="reading-time docutils container">
-<p><i class="fa-solid fa-clock"></i> Estimated reading time: 1 minute</p>
+<p><i class="fa-solid fa-clock"></i>Estimated reading time: 1 minute</p>
 </div>
 ```
+
+The text carries no leading space of its own: on a non-HTML builder the `raw`
+icon node drops out, and a literal space would then open the paragraph with a
+stray character. The icon gets its spacing from `.reading-time i { margin-right:
+0.5em; }` in the stylesheet instead.
 
 The icon is the one thing that stays raw HTML. pydata-sphinx-theme vendors Font Awesome
 Free 7.2.0 as a webfont and emits `<i class="fa-solid …">` elements throughout the built
@@ -232,8 +237,9 @@ into this project's stylesheet, and would break silently on a theme upgrade to F
 Awesome 8. The `<i>` form is version-agnostic and is what the theme itself uses.
 
 The rule lands in `docs/src/_static/tephpy.css`, which is already the site-wide stylesheet,
-and colours the banner with **`--pst-color-surface`** and **`--pst-color-text-muted`**.
-Both are defined by the theme and both follow the light/dark toggle.
+and colours the banner with **`--pst-color-surface`**, **`--pst-color-accent`** — the left
+border — and **`--pst-color-text-muted`**. All three are defined by the theme and all three
+follow the light/dark toggle.
 
 That choice is a correction of the prior art rather than a preference. GeoVista's
 `readingtime.css` styles the banner with `var(--article-info-bg)` and
@@ -241,7 +247,7 @@ That choice is a correction of the prior art rather than a preference. GeoVista'
 stylesheets, nor anywhere in pydata-sphinx-theme, checked on 2026-08-31. The background
 therefore falls back to transparent and the colour to inherited, and only the padding,
 border, radius and weight take effect. A CSS custom property that resolves to nothing fails
-silently, which is why this specification names the two it uses and says where they come
+silently, which is why this specification names the three it uses and says where they come
 from.
 
 (reading-spec-3-6)=
@@ -401,10 +407,12 @@ decision 3 exists to leave behind.
 (reading-spec-6)=
 ## 6. Testing
 
-`tests/test_docs_readingtime.py`, which covers both halves of §3.1 at the level each can be
-reached.
+Two files, one per half of §3.1, at the level each half can be reached. `pytest.importorskip`
+at module level skips the module it is in, so a single file would skip the stdlib half in
+the very matrix — `test-py3*` — it exists to run in; the repository already splits for this
+reason, `tests/test_citations.py` and `tests/test_citation_xrefs.py`.
 
-**Runs everywhere, importing `tephpy_reading` only.**
+**`tests/test_docs_readingtime.py`. Runs everywhere, importing `tephpy_reading` only.**
 
 - `count_words` and `estimate_minutes` against fixed inputs, including the `max(1, …)`
   floor and the minute/minutes plural.
@@ -424,8 +432,9 @@ reached.
 has to be re-measured to stay true, and a scanner that quietly stops recognising the
 directive would otherwise pass by finding nothing.
 
-**Needs the default environment**, guarded with `pytest.importorskip("sphinx")` exactly as
-`tests/test_citation_xrefs.py` is, and skipped in the `test-py3*` matrix:
+**`tests/test_readingtime_directive.py`. Needs the default environment**, guarded with
+`pytest.importorskip("sphinx")` exactly as `tests/test_citation_xrefs.py` is, and skipped
+whole in the `test-py3*` matrix:
 
 - The directive returns a placeholder carrying the parsed argument.
 - The `doctree-read` handler replaces the placeholder, and counts a constructed doctree
