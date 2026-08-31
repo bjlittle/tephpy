@@ -1,5 +1,8 @@
 # tephpy scope and support statements — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `README.md`, `docs/src/developer/packaging.rst`, `docs/src/howtos/temp-and-bufr.rst`
 > and `docs/src/reference/glossary.rst` cite it by section — `scope spec §3.1` and the like —

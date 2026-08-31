@@ -3,6 +3,8 @@
 Read a Sounding From an Archive
 ===============================
 
+.. readingtime::
+
 ``tephpy`` reads two archive formats: the :term:`IGRA` records published by
 NOAA/NCEI, and the ``TEXT:CSV`` bodies the University of Wyoming's archive
 serves. Both hand back

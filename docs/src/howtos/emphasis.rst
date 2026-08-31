@@ -3,6 +3,8 @@
 Emphasise a Reference Isopleth
 ==============================
 
+.. readingtime::
+
 Forecasters read a :term:`tephigram` against a handful of reference lines — the
 0 °C :term:`isotherm` for the freezing level, −20 °C for the cold limit of the
 airframe icing band, a mandatory pressure level. The ``emphasis`` option

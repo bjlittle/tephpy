@@ -3,6 +3,8 @@
 Build a Sounding From Your Own Data
 ===================================
 
+.. readingtime::
+
 :doc:`read-a-sounding` covers the archives ``tephpy`` reads. This page covers
 the other way in: your data is already in Python, in a
 :class:`pandas.DataFrame` or an :class:`xarray.Dataset`, and you want a

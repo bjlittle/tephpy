@@ -3,6 +3,8 @@
 Your First Tephigram
 ====================
 
+.. readingtime::
+
 By the end of this page you will have drawn a real :term:`radiosonde` ascent on a
 :term:`tephigram` and be able to say what every line on it is. No meteorology is assumed.
 The only thing you need is ``tephpy`` installed.

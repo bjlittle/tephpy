@@ -1,5 +1,8 @@
 # tephpy dependency floors — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `.github/workflows/ci-floors.yml` and `.github/scripts/floors.py` cite it by
 > section — `floors spec §3.2` and the like — so these sections *are* the reasoning behind

@@ -3,6 +3,8 @@
 Frame the View
 ==============
 
+.. readingtime::
+
 Two questions, two answers. *Frame this neatly* is :meth:`ax.fit(...)
 <tephpy.plotting.axes.TephigramAxes.fit>` with a pressure clamp; *make
 these figures directly comparable* is :meth:`ax.set_extent(...)

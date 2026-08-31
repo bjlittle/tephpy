@@ -3,6 +3,8 @@
 Work With Units
 ===============
 
+.. readingtime::
+
 ``tephpy`` takes and returns pint quantities at every boundary carrying
 scientific data (spec §5). Diagram geometry is the documented exception: the
 :mod:`transforms <tephpy.transforms>` layer trades in bare arrays in the

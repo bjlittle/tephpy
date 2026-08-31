@@ -1,5 +1,8 @@
 # tephpy configuration value domains — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `src/tephpy/_configfile.py` and `src/tephpy/_constants.py` cite it by section —
 > `domain spec §3.2` and the like — so these sections *are* the reasoning behind what the

@@ -1,5 +1,8 @@
 # tephpy published figures — design specification
 
+```{readingtime}
+```
+
 > **Living document.** This specification is maintained alongside the code, not archived
 > behind it. `docs/src/conf.py`, the user quadrant pages, `tests/test_docs_snippets.py`
 > and `.github/scripts/check_docs_figures.py` cite it by section — `plots spec §3.2` and

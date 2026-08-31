@@ -15,3 +15,52 @@
 .center {
   text-align: center;
 }
+
+/*
+ * The reading-time banner (reading spec §3.5).
+ *
+ * The three custom properties are pydata-sphinx-theme's own and follow its
+ * light/dark toggle. They are named here rather than borrowed from the prior
+ * art because a CSS custom property that resolves to nothing fails silently:
+ * GeoVista's `readingtime.css` styles this banner with `--article-info-bg` and
+ * `--article-info-fg`, which are defined neither there nor in the theme, so its
+ * background falls back to transparent and its colour to inherited.
+ */
+.reading-time {
+  background: var(--pst-color-surface);
+  border-left: 4px solid var(--pst-color-accent);
+  border-radius: 4px;
+  color: var(--pst-color-text-muted);
+  margin-bottom: 1.2em;
+  padding: 0.6em 1em;
+}
+
+/*
+ * The horizontal padding is repeated on a two-class selector deliberately.
+ * pydata-sphinx-theme ships `.docutils.container { padding-left: unset;
+ * padding-right: unset }`, and a `container` node carries all three classes,
+ * so that rule outranks the single-class one above and flattened the icon
+ * against the accent border. Measured in Chromium against the built page:
+ * `padding-left` computed to `0px` before this rule existed.
+ */
+.reading-time.container {
+  padding-left: 1em;
+  padding-right: 1em;
+}
+
+.reading-time p {
+  margin: 0;
+}
+
+/*
+ * Both selectors are needed, and the `svg` one is the one that fires. The
+ * theme loads Font Awesome's SVG-with-JS framework, which replaces the `<i>`
+ * this directive emits with an `<svg class="svg-inline--fa">` once the page is
+ * live -- so an `i`-only rule styles the markup in the file and nothing the
+ * reader ever sees. The `i` selector is kept for a viewer with scripting off,
+ * where the element stays an `<i>`.
+ */
+.reading-time i,
+.reading-time svg {
+  margin-right: 0.65em;
+}

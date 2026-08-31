@@ -3,6 +3,8 @@
 Label and Compose the Diagram
 =============================
 
+.. readingtime::
+
 A fresh :term:`tephigram` carries no axis titles, because no
 :term:`isopleth` family has asked for an edge. This page claims one, puts the
 diagram beside something else, and writes the result out for a paper.

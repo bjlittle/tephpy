@@ -3,6 +3,8 @@
 Analyse a Sounding
 ==================
 
+.. readingtime::
+
 :ref:`tutorial-first-tephigram` drew an ascent and named the lines on it. This
 page asks the question a forecaster asks next: *was this atmosphere capable of a
 storm?* By the end you will have lifted a :term:`parcel` through it, shaded the
