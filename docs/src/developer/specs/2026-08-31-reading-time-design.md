@@ -231,8 +231,32 @@ HTML `<i class="fa-solid fa-clock">` followed by the text. Rendered, measured on
 
 The text carries no leading space of its own: on a non-HTML builder the `raw`
 icon node drops out, and a literal space would then open the paragraph with a
-stray character. The icon gets its spacing from `.reading-time i { margin-right:
-0.5em; }` in the stylesheet instead.
+stray character. The icon gets its spacing from the stylesheet instead.
+
+**Two of the banner's declarations have to outmanoeuvre the theme, and both did not at
+first.** Measured in Chromium against the built page on 2026-08-31, the shipped banner
+rendered with **`padding-left: 0px`**, **`padding-right: 0px`** and **zero** space on either
+side of the icon — the clock sat flush against the accent border. Two independent causes,
+neither of which any gate in this repository can see:
+
+- **`padding: 0.6em 1em` on `.reading-time` was outranked.** The theme ships
+  `.docutils.container { padding-left: unset; padding-right: unset }`, and a docutils
+  `container` node carries all three classes, so a two-class selector beat the one-class
+  rule and the horizontal half was discarded. The vertical half survived, which is what made
+  the loss easy to miss. The stylesheet therefore repeats the horizontal padding under
+  `.reading-time.container`, which matches that specificity and wins on source order.
+- **`.reading-time i` matched nothing on a live page.** The theme loads Font Awesome's
+  SVG-with-JS framework, which rewrites every `<i class="fa-solid …">` into an
+  `<svg class="svg-inline--fa">` after load. The rule styled the markup in the file and
+  nothing the reader ever saw. The stylesheet now targets `i` and `svg` together; the `svg`
+  selector is the one that fires, and the `i` selector covers a viewer with scripting off.
+
+This is the same failure this section already warns about in its closing paragraph, arriving
+by two other routes: a declaration that is *present, valid, and inert*. A custom property
+that resolves to nothing, a rule the cascade discards, and a selector matching an element
+the page no longer contains all fail the same way — silently, and only in a browser. Nothing
+in `pixi run tests`, `pixi run lint` or `pixi run docs` inspects rendered geometry, so §7
+records this as a standing limit rather than pretending a gate covers it.
 
 The icon is the one thing that stays raw HTML. pydata-sphinx-theme vendors Font Awesome
 Free 7.2.0 as a webfont and emits `<i class="fa-solid …">` elements throughout the built
@@ -496,6 +520,14 @@ imports nothing from the package.
 **Explicitly not attempted.** A site-wide reading-time index, a per-quadrant total, and any
 persistence of the estimate between builds. The number is derived from the page each time
 the page is read, which is the only version of it that cannot go stale.
+
+**A standing limit, not a deferral.** No gate here inspects rendered geometry. Everything
+this specification checks is checked before a browser is involved — the suite reads text,
+and the docs build reads warnings — so the two defects §3.5 records were invisible to all of
+it and were found by rendering the page and measuring it. A stylesheet regression of that
+shape would ship again. Closing it means a browser assertion in the manner of
+`.github/scripts/check_browser_demo.py`, which drives Chromium already; that is a larger
+piece of machinery than this feature warrants on its own and is not attempted here.
 
 (reading-spec-8)=
 ## 8. Open items
