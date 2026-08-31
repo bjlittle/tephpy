@@ -93,10 +93,15 @@ class ReadingTimeDirective(SphinxDirective):
 
         """
         # The rendered estimate depends on the rate, the word pattern and the
-        # argument grammar in `tephpy_reading`, none of which is a document
-        # source Sphinx already watches. Without this, an incremental build
-        # would keep serving a stale estimate after e.g. `WPM` changed.
+        # argument grammar in `tephpy_reading`, and on the banner markup and the
+        # minute/minutes plural in this module -- none of which is a document
+        # source Sphinx already watches. This extension's `version` in `setup()`
+        # is a frozen "0.1.0", so it is these two `note_dependency` calls, not a
+        # version bump, that is what would make an incremental build re-render a
+        # page after e.g. `WPM` or `ICON` changed rather than serve a pickled,
+        # stale doctree.
         self.env.note_dependency(tephpy_reading.__file__)
+        self.env.note_dependency(__file__)
         argument = self.arguments[0] if self.arguments else None
         try:
             parsed = tephpy_reading.parse_argument(argument)

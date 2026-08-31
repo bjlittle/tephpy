@@ -196,9 +196,45 @@ def test_an_indented_directive_is_a_demonstration_and_does_not_count():
     assert not reading.carries_reading_time(shown, ".rst")
 
 
+def test_an_rst_directive_glued_to_trailing_text_does_not_count():
+    """Important 1: `.. readingtime::junk` at column 0 is a comment to docutils.
+
+    `RST_DIRECTIVE` used to match on prefix alone, so the gate would credit the
+    page with a directive that renders no banner at all.
+    """
+    text = RST_PAGE.replace(".. readingtime::", ".. readingtime::junk")
+    assert reading.directive_lines(text, ".rst") == []
+    assert not reading.carries_reading_time(text, ".rst")
+
+
 def test_the_myst_directive_is_found_although_it_is_itself_a_fence():
     """Reading spec §3.6: a fence-skipping reader cannot see the opening rail."""
     assert reading.directive_lines(MYST_PAGE, ".md") == [3]
+
+
+@pytest.mark.parametrize(
+    "info",
+    ["{readingtime}", "{readingtime} 45", "{readingtime} 200wpm"],
+    ids=["bare", "minutes", "wpm"],
+)
+def test_a_myst_directive_carrying_an_argument_is_still_found(info):
+    """Important 1: the MyST half must match a directive that takes an argument.
+
+    `directive_lines` used to compare the whole info string against
+    `MYST_DIRECTIVE` with `==`, so `` ```{readingtime} 45 `` -- a documented
+    override, reading spec §3.2 -- was invisible to the gate: an author using
+    either override would be told by the coverage test to add a directive they
+    had already added.
+    """
+    text = MYST_PAGE.replace("```{readingtime}", f"```{info}")
+    assert reading.directive_lines(text, ".md") == [3]
+    assert reading.carries_reading_time(text, ".md")
+
+
+def test_a_different_myst_directive_is_not_found():
+    """The token match must not widen into a substring or prefix match."""
+    text = MYST_PAGE.replace("```{readingtime}", "```{note}")
+    assert reading.directive_lines(text, ".md") == []
 
 
 def test_a_directive_quoted_inside_a_myst_fence_does_not_count():
@@ -329,7 +365,6 @@ def test_every_excluded_tree_exists(name):
     assert not name.endswith("/"), f"{name} has a trailing slash"
     if not (DOCS / name).is_dir():
         pytest.skip(f"{name} exists only after a docs build")
-    assert (DOCS / name).is_dir(), f"{name} is not a directory under {DOCS}"
 
 
 @pytest.mark.parametrize("name", ["_static", "developer/plans"])
@@ -429,3 +464,18 @@ def test_no_page_carries_more_than_one_reading_time(page):
     """
     text = page.read_text(encoding="utf-8")
     assert len(reading.directive_lines(text, page.suffix)) == 1
+
+
+@pytest.mark.parametrize("name", EXEMPT)
+def test_no_exempt_page_carries_a_reading_time(name):
+    """The two tests above enforce reading spec §3.7's list in one direction only.
+
+    `carrying_pages` filters `EXEMPT` out before either runs, so an exempt page
+    that grew a banner -- a stale exemption, or a copy-paste -- would pass both
+    of them silently.
+    """
+    text = (DOCS / name).read_text(encoding="utf-8")
+    assert not reading.carries_reading_time(text, Path(name).suffix), (
+        f"{name} is in EXEMPT and carries a `readingtime` directive: remove the "
+        f"directive, or remove the page from EXEMPT if it is read start to finish"
+    )

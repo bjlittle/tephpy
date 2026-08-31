@@ -205,8 +205,10 @@ cites `Reading Research Quarterly` 18, 56–58, where the paper runs 56–88; an
 account of the same paper reports that it differentiates rauding from studying and
 memorizing **without giving words-per-minute figures for them**. The gears are most likely
 from Carver's later rauding-theory work rather than the 1982 paper, and this specification
-does not cite a number to a source it could not read. `refs.bib` carries the two rows of
-the table above and nothing else.
+does not cite a number to a source it could not read. No entry went into `refs.bib` for the
+"gears" figures: it gained the two rows of the table above, `brysbaert2019` and
+`carver1982`, and nothing else for this work. (`refs.bib` also carries `amsglossary` and
+`metoffice_factsheet13`, added for unrelated citations before this specification existed.)
 
 Both entries go into `docs/src/refs.bib` and render on the References page. This is what
 the bibliography is for: docs-style's rule is to reach for it *where a convention needs an
@@ -276,10 +278,17 @@ pages an author could have written it on and should not. A companion test assert
 `developer/plans/**` is genuinely in `conf.py`'s `exclude_patterns`, so the exclusion
 tracks the build rather than restating a claim about it.
 
-**The rule.** A page in the corpus and not in §3.7's list must carry at least one
+**The rule.** A page in the corpus and not in §3.7's list must carry exactly one
 occurrence of the directive at column 0 — `.. readingtime::` in reStructuredText,
 a `{readingtime}` fence in MyST — after the page title and before the first section
-heading.
+heading (`test_no_page_carries_more_than_one_reading_time`).
+
+That is stricter than the transform of §3.3, which deliberately supports several
+placeholders on one page: `test_two_placeholders_on_one_page_share_one_word_count`
+pins a shared word count across them, precisely so that mechanism keeps working.
+The convention is stricter than the mechanism on purpose. Two banners on one page
+is not a page that has chosen to show its reading time twice; it is a copy-paste
+nobody meant to publish, and the gate treats it as the mistake it is.
 
 Column 0 is load-bearing in both directions. It is what lets `docs-style.rst` demonstrate
 the directive inside a `.. code::` block, indented, while carrying a live one in its lead;
@@ -418,16 +427,29 @@ reason, `tests/test_citations.py` and `tests/test_citation_xrefs.py`.
 **`tests/test_docs_readingtime.py`. Runs everywhere, importing `tephpy_reading` only.**
 
 - `count_words` and `estimate_minutes` against fixed inputs, including the `max(1, …)`
-  floor and the minute/minutes plural.
+  floor.
 - The argument grammar of §3.2: bare minutes, a `wpm` override, case insensitivity, and the
   rejection of an argument matching neither shape.
 - The page scanner: a directive at column 0 accepted; the same line indented inside a
   literal block rejected; a MyST directive fence found where a fence-skipping reader would
-  miss it (§3.6); an occurrence after the first section heading rejected.
+  miss it (§3.6), including one carrying an argument; a differently-named MyST fence not
+  found; an `.. readingtime::` glued to trailing text not counted, because docutils reads
+  that as a comment rather than the directive; an occurrence after the first section
+  heading rejected.
 - The corpus derivation, against the real `docs/src`: every exclusion of §3.6 excludes
   something that exists, and `developer/plans/**` is in `conf.py`'s `exclude_patterns`.
-- The coverage rule itself, over the derived corpus.
-- Every entry in the exemption list resolves to a file.
+  `test_published_pages_excludes_a_synthetic_tree_of_its_own` exercises the same exclusions
+  against a tree built fresh under `tmp_path`, so the assertion holds regardless of whether
+  this workspace has ever run a docs build; `test_every_tracked_excluded_tree_exists_unconditionally`
+  pins the two exclusions that are tracked rather than generated, which may not skip.
+- The coverage rule itself, over the derived corpus, in both directions:
+  `test_every_page_a_reader_reads_carries_a_reading_time` and
+  `test_no_page_carries_more_than_one_reading_time` for a page in the corpus and not in
+  `EXEMPT`; `test_no_exempt_page_carries_a_reading_time` for the reverse — a page in
+  `EXEMPT` growing a banner nobody meant to publish.
+- Every entry in the exemption list resolves to a file, and
+  `test_the_exempt_pages_are_all_in_the_corpus` checks the list is exempting pages the
+  corpus actually has.
 
 **Membership, not counts.** The corpus tests name members — at least one page per quadrant,
 `developer/docs-style.rst`, and one published specification — following
@@ -439,13 +461,27 @@ directive would otherwise pass by finding nothing.
 `pytest.importorskip("sphinx")` exactly as `tests/test_citation_xrefs.py` is, and skipped
 whole in the `test-py3*` matrix:
 
-- The directive returns a placeholder carrying the parsed argument.
+- The directive returns a placeholder carrying the parsed argument, and `run()` itself,
+  driven through the real RST parser with the directive registered, raises rather than
+  silently estimating when the argument matches neither documented shape.
 - The `doctree-read` handler replaces the placeholder, and counts a constructed doctree
-  correctly: a comment excluded, a literal block included, the title counted once.
+  correctly: a comment excluded, a literal block included, the title counted once, and
+  `raw` and `system_message` text excluded too — the diagnostic a bad argument itself
+  produces must not inflate the estimate it failed to compute.
+- Two placeholders on one page share one word count, taken once rather than recomputed
+  inside the loop: recomputing it there would let the first placeholder's own banner text
+  inflate the second placeholder's count.
 - A literal-duration argument publishes that number and does not count.
+- `setup()` registers the directive and the `doctree-read` handler and never calls
+  `app.add_node()` — asserted against what `setup()` does, not against source text carrying
+  the name in prose.
 
-The leak guard of §3.2 is not a test. It is a property of not registering the node, and
-what it produces is a Sphinx build failure, which `pixi run docs` already surfaces.
+The leak guard of §3.2 is partly a test now. Its precondition — that `setup()` never
+registers the placeholder node — is pinned by
+`test_setup_registers_the_directive_and_the_transform_but_not_the_node`. What that
+precondition produces if the transform ever stops firing is still not a test: an unknown
+node type is a Sphinx build failure under `--fail-on-warning`, and `pixi run docs` is what
+would surface it.
 
 (reading-spec-7)=
 ## 7. Scope

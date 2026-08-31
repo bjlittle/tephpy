@@ -424,6 +424,9 @@ and a rate replaces the default for that page alone:
 Anything else is a build error. There is no way to spell an argument the
 directive half-understands.
 
+A page carries exactly one banner. Two is a copy-paste, not a decision, and
+``test_no_page_carries_more_than_one_reading_time`` fails the build over it.
+
 A page that is *navigated* rather than read carries no banner: the four Diátaxis
 landing pages, the developer and specification indexes, the site root, the
 glossary, and the four reference pages whose body a directive generates. These

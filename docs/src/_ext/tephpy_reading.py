@@ -163,8 +163,14 @@ FENCE = re.compile(r"\A(?P<rail>`{3,}|~{3,})(?P<info>.*)\Z")
 UNDERLINE = re.compile(r"""\A(?P<char>[=\-~^"'`#*+:.])(?P=char){2,}[ \t]*\Z""")
 """A reStructuredText section underline at column 0, three characters or more."""
 
-RST_DIRECTIVE = re.compile(r"\A\.\. readingtime::")
-"""The directive at column 0. Indented, it is a demonstration (reading spec §3.6)."""
+RST_DIRECTIVE = re.compile(r"\A\.\. readingtime::(?=\s|\Z)")
+"""The directive at column 0. Indented, it is a demonstration (reading spec §3.6).
+
+The lookahead requires the directive name to end at whitespace or line end, so
+``.. readingtime::junk`` does not match: docutils parses that as a comment, not
+the directive, and a prefix match would tell the gate the page carries a banner
+that never renders.
+"""
 
 MYST_DIRECTIVE = "{readingtime}"
 """The info string of the fence that opens the directive in MyST."""
@@ -314,7 +320,15 @@ def directive_lines(text: str, suffix: str) -> list[int]:
 
     """
     if suffix == ".md":
-        return [number for number, _, info in myst_scan(text) if info == MYST_DIRECTIVE]
+        # `info` carries the whole fence info string, which for a directive that
+        # takes an argument is `"{readingtime} 45"` or `"{readingtime} 200wpm"`
+        # (reading spec §3.2) -- so the directive name is only the first token,
+        # not the whole string. An exact match would miss both overrides.
+        return [
+            number
+            for number, _, info in myst_scan(text)
+            if info is not None and info.split()[:1] == [MYST_DIRECTIVE]
+        ]
     return [
         number
         for number, line in enumerate(text.splitlines(), start=1)
