@@ -887,7 +887,12 @@ entirely — the three cases stay, what they assert inverts:
             "extent",
             "diagram.extent",
         ),
-        ("isotherms:\n  emphasis: [0]\n", "isotherms", "emphasis", "isotherms.emphasis"),
+        (
+            "isotherms:\n  emphasis: [0]\n",
+            "isotherms",
+            "emphasis",
+            "isotherms.emphasis",
+        ),
         ("isotherms:\n  values: [0, ten]\n", "isotherms", "values", "isotherms.values"),
     ],
     ids=["extent", "emphasis", "values"],
@@ -913,7 +918,7 @@ Then add, after it:
 
 ```python
 def test_a_wrong_typed_value_does_not_cost_the_rest_of_the_file(tmp_path):
-    """"The rest of the file still applies" is otherwise a claim about nothing.
+    """ "The rest of the file still applies" is otherwise a claim about nothing.
 
     One bad option beside a good one, in one file, reached through
     ``Config.load`` so the rollback is in play: the good option must
@@ -960,9 +965,7 @@ def test_path_marks_a_file_with_a_wrong_typed_value_in_force(
     """
     monkeypatch.delenv(_configfile.CONFIG_ENV_VAR, raising=False)
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "tephpyrc.yaml").write_text(
-        "diagram:\n  extent: 5\n", encoding="utf-8"
-    )
+    (tmp_path / "tephpyrc.yaml").write_text("diagram:\n  extent: 5\n", encoding="utf-8")
     result = runner.invoke(_cli.main, ["config", "path"])
     assert result.exit_code == 0
     assert f"{tmp_path / 'tephpyrc.yaml'}  [in force]" in result.output
@@ -984,7 +987,9 @@ def test_a_wrong_typed_value_does_not_stop_the_import(tmp_path):
     from the whole-file rejection this replaces (configfile spec §5.2).
     """
     bad = tmp_path / "bad.yaml"
-    bad.write_text("isotherms:\n  linewidth: thick\n  color: purple\n", encoding="utf-8")
+    bad.write_text(
+        "isotherms:\n  linewidth: thick\n  color: purple\n", encoding="utf-8"
+    )
     result = _run(tmp_path, TEPHPYRC=str(bad), PYTHONWARNINGS="error")
     assert "TephpyConfigWarning" in result.stderr
     assert "expects a number" in result.stderr
@@ -1025,24 +1030,22 @@ the first line past 88 columns — the message the reader sees is character-for-
 what it was, plus the path:
 
 ```python
-            if option not in valid:
-                _warn_from_caller(
-                    f"{prefix}ignoring unknown option {option!r} in "
-                    f"configuration section {name!r}; expected one of "
-                    f"{sorted(valid)}"
-                )
-                continue
-            if value is None:
-                hint = (
-                    "; an unquoted '#' colour is read as a comment, so quote "
-                    "it as '#b0b0b0' if that is what happened"
-                    if option in _COLOR_OPTIONS
-                    else ""
-                )
-                _warn_from_caller(
-                    f"{prefix}ignoring {name}.{option}, whose value is null{hint}"
-                )
-                continue
+if option not in valid:
+    _warn_from_caller(
+        f"{prefix}ignoring unknown option {option!r} in "
+        f"configuration section {name!r}; expected one of "
+        f"{sorted(valid)}"
+    )
+    continue
+if value is None:
+    hint = (
+        "; an unquoted '#' colour is read as a comment, so quote "
+        "it as '#b0b0b0' if that is what happened"
+        if option in _COLOR_OPTIONS
+        else ""
+    )
+    _warn_from_caller(f"{prefix}ignoring {name}.{option}, whose value is null{hint}")
+    continue
 ```
 
 and replace the bare `setattr` from Task 1 Step 6 with the catch:

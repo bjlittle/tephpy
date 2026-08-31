@@ -416,9 +416,7 @@ def _normalize_emphasis(value: object, name: str) -> dict[float, dict[str, objec
         try:
             member = float(cast("SupportsFloat", raw_member))
         except (TypeError, ValueError) as err:
-            msg = (
-                f"{name!r} emphasis member value must be a number: {raw_member!r}"
-            )
+            msg = f"{name!r} emphasis member value must be a number: {raw_member!r}"
             raise TypeError(msg) from err
         if not isinstance(raw_style, Mapping):
             msg = (
@@ -500,10 +498,8 @@ clause `, or if ``emphasis`` is malformed`.
 In `_resolve` (`isopleths.py:860-925`), add after the `raw_visible`/`visible` lines:
 
 ```python
-        raw_emphasis = pick("emphasis")
-        emphasis = (
-            {} if raw_emphasis is None else _normalize_emphasis(raw_emphasis, spec.name)
-        )
+raw_emphasis = pick("emphasis")
+emphasis = {} if raw_emphasis is None else _normalize_emphasis(raw_emphasis, spec.name)
 ```
 
 and pass it in the `ResolvedOptions(...)` call, after `visible=visible`:
@@ -666,7 +662,9 @@ def test_emphasis_outside_the_domain_is_a_silent_no_op():
     family.configure(emphasis={200.0: {}})
     family._build()
     view = mtransforms.Bbox.from_extents(1591.0, 1671.0, 1902.0, 1822.0)
-    assert not np.any(family._view_mask(view) & np.isclose(family._member_values, 200.0))
+    assert not np.any(
+        family._view_mask(view) & np.isclose(family._member_values, 200.0)
+    )
 
 
 def test_emphasis_style_lookup_matches_within_tolerance():
@@ -736,47 +734,43 @@ caches:
 Replace `_build` (`isopleths.py:969-992`) with:
 
 ```python
-    def _build(self) -> None:
-        """Build and cache the member polylines, boxes and emphasis marks.
+def _build(self) -> None:
+    """Build and cache the member polylines, boxes and emphasis marks.
 
-        Emphasised values the canonical set does not already carry are appended
-        to the build, so a member the zoom ladder would never select still
-        exists to be forced in by :meth:`_zoom_mask` (spec §3.2). Which members
-        those are is recorded, because a list family strides by member index and
-        an addition must not shift that phase.
-        """
-        opts = self._options
-        canonical = self._candidate_values()
-        keys = np.asarray(sorted(opts.emphasis), dtype=np.float64)
-        extra = keys[_close_index(keys, canonical) < 0]
-        members = self._spec.builder(
-            np.concatenate([canonical, extra]), opts.truncation
+    Emphasised values the canonical set does not already carry are appended
+    to the build, so a member the zoom ladder would never select still
+    exists to be forced in by :meth:`_zoom_mask` (spec §3.2). Which members
+    those are is recorded, because a list family strides by member index and
+    an addition must not shift that phase.
+    """
+    opts = self._options
+    canonical = self._candidate_values()
+    keys = np.asarray(sorted(opts.emphasis), dtype=np.float64)
+    extra = keys[_close_index(keys, canonical) < 0]
+    members = self._spec.builder(np.concatenate([canonical, extra]), opts.truncation)
+    self._members = members
+    self._member_values = np.array(
+        [member.value for member in members], dtype=np.float64
+    )
+    # By value, not by build position: a builder may drop members (the moist
+    # adiabats truncate), so positions do not survive the round trip.
+    self._member_extra = np.asarray(_close_index(self._member_values, extra) >= 0)
+    if members:
+        self._member_bboxes = np.array(
+            [
+                (
+                    member.xy[:, 0].min(),
+                    member.xy[:, 1].min(),
+                    member.xy[:, 0].max(),
+                    member.xy[:, 1].max(),
+                )
+                for member in members
+            ],
+            dtype=np.float64,
         )
-        self._members = members
-        self._member_values = np.array(
-            [member.value for member in members], dtype=np.float64
-        )
-        # By value, not by build position: a builder may drop members (the moist
-        # adiabats truncate), so positions do not survive the round trip.
-        self._member_extra = np.asarray(
-            _close_index(self._member_values, extra) >= 0
-        )
-        if members:
-            self._member_bboxes = np.array(
-                [
-                    (
-                        member.xy[:, 0].min(),
-                        member.xy[:, 1].min(),
-                        member.xy[:, 0].max(),
-                        member.xy[:, 1].max(),
-                    )
-                    for member in members
-                ],
-                dtype=np.float64,
-            )
-        else:
-            self._member_bboxes = np.empty((0, 4))
-        self._zoom_adaptive = opts.values is None and opts.interval is None
+    else:
+        self._member_bboxes = np.empty((0, 4))
+    self._zoom_adaptive = opts.values is None and opts.interval is None
 ```
 
 - [ ] **Step 6: Force emphasised members through the zoom mask**
@@ -839,29 +833,27 @@ Replace `_zoom_mask` (`isopleths.py:994-1025`) with:
 Add as a method on `IsoplethFamily`, immediately after `_zoom_mask`:
 
 ```python
-    def _emphasis_style(self, value: float) -> dict[str, object] | None:
-        """Return the emphasis overrides for one member value.
+def _emphasis_style(self, value: float) -> dict[str, object] | None:
+    """Return the emphasis overrides for one member value.
 
-        Parameters
-        ----------
-        value : float
-            The member's isopleth value in the family's native units.
+    Parameters
+    ----------
+    value : float
+        The member's isopleth value in the family's native units.
 
-        Returns
-        -------
-        dict of str to object or None
-            The member's style overrides, or ``None`` when it is not
-            emphasised.
-        """
-        emphasis = self._options.emphasis
-        if not emphasis:
-            return None
-        for key, style in emphasis.items():
-            if math.isclose(
-                key, value, rel_tol=_EMPHASIS_RTOL, abs_tol=_EMPHASIS_ATOL
-            ):
-                return style
+    Returns
+    -------
+    dict of str to object or None
+        The member's style overrides, or ``None`` when it is not
+        emphasised.
+    """
+    emphasis = self._options.emphasis
+    if not emphasis:
         return None
+    for key, style in emphasis.items():
+        if math.isclose(key, value, rel_tol=_EMPHASIS_RTOL, abs_tol=_EMPHASIS_ATOL):
+            return style
+    return None
 ```
 
 - [ ] **Step 8: Run the tests to verify they pass**
@@ -1215,9 +1207,7 @@ def test_emphasis_forced_member_reaches_the_edge_ticks(tephigram_axes):
     """A forced member is ticked like any other (spec §3.2)."""
     tephigram_axes.isotherms(labels="bottom", emphasis={-12.0: {}})
     tephigram_axes.figure.canvas.draw()
-    labels = [
-        text.get_text() for text in tephigram_axes.xaxis.get_ticklabels()
-    ]
+    labels = [text.get_text() for text in tephigram_axes.xaxis.get_ticklabels()]
     assert "-12" in labels
 ```
 
@@ -1237,9 +1227,9 @@ For **each** of `isotherms`, `isobars`, `dry_adiabats`, `moist_adiabats` and
 First, add the parameter to the signature, after `labels` and before `visible`:
 
 ```python
-        labels: bool | str | tuple[str, ...] | None = None,
-        emphasis: Mapping[float, Mapping[str, object]] | None = None,
-        visible: bool | None = None,
+labels: bool | str | tuple[str, ...] | None = (None,)
+emphasis: Mapping[float, Mapping[str, object]] | None = (None,)
+visible: bool | None = (None,)
 ```
 
 Second, add the numpydoc entry to `Parameters`, after the `labels` entry and before

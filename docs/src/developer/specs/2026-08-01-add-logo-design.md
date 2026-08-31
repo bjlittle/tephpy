@@ -261,7 +261,7 @@ zoom = size_inches * 72 / master_height_px
 AnnotationBbox(
     OffsetImage(arr, zoom=zoom, **image_kwargs),
     xy=anchor,
-    xycoords="figure fraction",      # or "axes fraction"
+    xycoords="figure fraction",  # or "axes fraction"
     xybox=offset,
     boxcoords="offset points",
     box_alignment=alignment,
@@ -294,10 +294,10 @@ from tephpy.plotting import add_logo
 fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
 ax.plot(sounding.pressure, sounding.temperature)
 
-add_logo(ax)                                        # lockup, small, auto theme, lower left
-add_logo(fig, form="icon", loc="upper right")       # figure corner, not the plot's
-add_logo(ax, size="large", loc=(0.35, 0.02))        # exact placement, pad ignored
-add_logo(ax, theme="dark", alpha=0.6)               # explicit variant, watermark weight
+add_logo(ax)  # lockup, small, auto theme, lower left
+add_logo(fig, form="icon", loc="upper right")  # figure corner, not the plot's
+add_logo(ax, size="large", loc=(0.35, 0.02))  # exact placement, pad ignored
+add_logo(ax, theme="dark", alpha=0.6)  # explicit variant, watermark weight
 ```
 
 (logo-spec-5)=

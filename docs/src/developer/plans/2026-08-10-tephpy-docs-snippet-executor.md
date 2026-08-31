@@ -206,7 +206,11 @@ def literal_blocks(text: str) -> list[tuple[int, str, list[str]]]:
         while end > start and not lines[end - 1].strip():
             end -= 1
         found.append(
-            (start + 1, directive["language"], [line[body:] for line in lines[start:end]])
+            (
+                start + 1,
+                directive["language"],
+                [line[body:] for line in lines[start:end]],
+            )
         )
         index = cursor
     return found
@@ -283,9 +287,7 @@ def code_pages() -> list[Path]:
 
     """
     return [
-        page
-        for page in user_pages()
-        if python_blocks(page.read_text(encoding="utf-8"))
+        page for page in user_pages() if python_blocks(page.read_text(encoding="utf-8"))
     ]
 
 

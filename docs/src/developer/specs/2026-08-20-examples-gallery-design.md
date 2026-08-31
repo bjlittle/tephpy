@@ -90,9 +90,9 @@ Three functions, name-keyed, matching the way `tephpy.config` and the command li
 address things:
 
 ```python
-samples.available()                    # the shipped sample names
-samples.sounding("norman-12z")         # -> Sounding
-samples.path("camborne-wyoming-12z")   # -> the file that sample is read from
+samples.available()  # the shipped sample names
+samples.sounding("norman-12z")  # -> Sounding
+samples.path("camborne-wyoming-12z")  # -> the file that sample is read from
 ```
 
 `sounding` reads through a public reader — `tephpy.io.igra.read(path, time=...)` or

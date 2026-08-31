@@ -465,8 +465,8 @@ def test_target_version_is_the_base_of_the_scm_version(monkeypatch):
     ("reported", "expected"),
     [
         ("0.1.0.dev148+dirty", "0.1.0"),  # today: no tags, local segment present
-        ("0.2.0.dev3", "0.2.0"),          # mid-cycle after v0.1.0
-        ("0.2.0", "0.2.0"),               # exactly on a tag
+        ("0.2.0.dev3", "0.2.0"),  # mid-cycle after v0.1.0
+        ("0.2.0", "0.2.0"),  # exactly on a tag
     ],
 )
 def test_target_version_strips_dev_and_local_segments(monkeypatch, reported, expected):
@@ -572,21 +572,21 @@ git commit -m "Derive the target version, refusing a shallow checkout"
 - [ ] **Step 1: Write the failing test**
 
 ```python
-GOOD = '''Summary line.
+GOOD = """Summary line.
 
 Notes
 -----
 .. versionadded:: 0.1.0
-'''
+"""
 
 NO_NOTES = "Summary line.\n"
 
-WRONG = '''Summary line.
+WRONG = """Summary line.
 
 Notes
 -----
 .. versionadded:: 0.9.9
-'''
+"""
 
 
 def test_cited_version_reads_the_directive():
@@ -607,7 +607,9 @@ def test_cited_version_ignores_a_single_colon():
 
 
 def test_check_reports_a_missing_directive():
-    entry = gate.PublicObject("tephpy.thing", "function", type("O", (), {"__doc__": NO_NOTES}))
+    entry = gate.PublicObject(
+        "tephpy.thing", "function", type("O", (), {"__doc__": NO_NOTES})
+    )
     problems = gate.check_versionadded([entry], "0.1.0")
     assert len(problems) == 1
     assert "tephpy.thing" in problems[0]
@@ -615,20 +617,26 @@ def test_check_reports_a_missing_directive():
 
 
 def test_check_reports_a_version_that_is_not_the_target():
-    entry = gate.PublicObject("tephpy.thing", "function", type("O", (), {"__doc__": WRONG}))
+    entry = gate.PublicObject(
+        "tephpy.thing", "function", type("O", (), {"__doc__": WRONG})
+    )
     problems = gate.check_versionadded([entry], "0.1.0")
     assert len(problems) == 1
     assert "0.9.9" in problems[0]
 
 
 def test_check_accepts_the_target():
-    entry = gate.PublicObject("tephpy.thing", "function", type("O", (), {"__doc__": GOOD}))
+    entry = gate.PublicObject(
+        "tephpy.thing", "function", type("O", (), {"__doc__": GOOD})
+    )
     assert gate.check_versionadded([entry], "0.1.0") == []
 
 
 def test_check_skips_the_version_comparison_without_a_target():
     """A shallow checkout still checks presence, just not the value."""
-    entry = gate.PublicObject("tephpy.thing", "function", type("O", (), {"__doc__": WRONG}))
+    entry = gate.PublicObject(
+        "tephpy.thing", "function", type("O", (), {"__doc__": WRONG})
+    )
     assert gate.check_versionadded([entry], None) == []
 ```
 
@@ -761,6 +769,7 @@ Write to the scratchpad (this script is a tool, not a deliverable — it is not 
 
 ```python
 """Append a Notes/versionadded section to every unstamped published docstring."""
+
 from __future__ import annotations
 
 import ast
