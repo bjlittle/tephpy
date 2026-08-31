@@ -420,3 +420,100 @@ def scan(
             number,
             f"{carried}-{number.replace('.', '-')}",
         )
+
+
+@dataclass(frozen=True)
+class Wrapped:
+    """A citation whose prefix a line break separated from its section.
+
+    Attributes
+    ----------
+    line : int
+        The 1-indexed line the citation was written on -- the second line of the
+        wrap, where the section sign sits.
+    citation : Citation
+        The citation as the gate reads it, which is what the page links to.
+    unwrapped : str or None
+        The anchor the same text names once the wrap is undone, which is what the
+        author wrote. It differs from ``citation.slug``; that difference is the
+        defect.
+
+    """
+
+    line: int
+    citation: Citation
+    unwrapped: str | None
+
+
+def _paragraphs(text: str) -> Iterator[list[tuple[int, str]]]:
+    """Group the unfenced lines of ``text`` into blank-line separated runs."""
+    run: list[tuple[int, str]] = []
+    for number, line in read_lines(text):
+        if line.strip():
+            run.append((number, line))
+        elif run:
+            yield run
+            run = []
+    if run:
+        yield run
+
+
+def wrapped_citations(
+    text: str,
+    pattern: re.Pattern[str],
+    owner: str | None,
+) -> Iterator[Wrapped]:
+    """Yield each citation a line break separated from its prefix.
+
+    The gate of docs spec §3.6 reads one line at a time, so a prefix ending a line
+    never reaches a section sign opening the next: the citation resolves against
+    the shorter prefix it is left with, or falls back to the containing document.
+    The transform of docs spec §3.7 does the same, because the prefix gap of
+    :func:`citation_pattern` is horizontal-only and the text node keeps the
+    newline. Both therefore agree, both resolve, and the page links somewhere the
+    author did not write (:issue:`197`).
+
+    Nothing here guesses intent. The comparison is between the citation as written
+    and the same citation with its wrap undone, and only a citation whose anchor
+    *changes* is yielded -- so a bare ``§N`` meaning the containing document reads
+    the same both ways and is never reported.
+
+    Parameters
+    ----------
+    text : str
+        The file contents.
+    pattern : re.Pattern
+        The citation pattern from :func:`citation_pattern`.
+    owner : str or None
+        The prefix of the document ``text`` was written in, as for :func:`scan`.
+
+    Yields
+    ------
+    Wrapped
+        One per citation whose anchor the wrap changed, in the order written.
+
+    A paragraph where undoing the wrap changes how many citations there are is
+    passed over rather than reported. The two readings cannot then be paired, so
+    there is nothing to compare; no paragraph in this repository does it, and
+    inventing a report for a shape nobody has written would be guessing at what it
+    meant.
+
+    Notes
+    -----
+    .. versionadded:: 0.1.0
+
+    """
+    for paragraph in _paragraphs(text):
+        written = [
+            (number, citation)
+            for number, line in paragraph
+            for citation in scan(line, pattern, owner)
+        ]
+        undone = list(
+            scan(" ".join(line.strip() for _, line in paragraph), pattern, owner)
+        )
+        if len(written) != len(undone):
+            continue
+        for (number, citation), unwrapped in zip(written, undone, strict=True):
+            if citation.slug != unwrapped.slug:
+                yield Wrapped(number, citation, unwrapped.slug)

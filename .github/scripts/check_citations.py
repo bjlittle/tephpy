@@ -213,6 +213,60 @@ def check_citations(
     return violations
 
 
+def check_wraps(
+    paths: Iterable[Path],
+    anchors: dict[str, Anchor],
+    owners: dict[Path, str],
+) -> list[Violation]:
+    """Assert that no line break separates a citation from its prefix.
+
+    The rule above reads one line at a time, so a prefix ending a line never
+    reaches a section sign opening the next; the citation resolves against
+    whatever prefix it is left with, or falls back to the containing document.
+    The rendering transform agrees, because the prefix gap is horizontal-only and
+    the text node keeps the newline -- so both pass, and the page links somewhere
+    the author did not write (:issue:`197`).
+
+    This asks the one question neither of them can: does undoing the wrap change
+    the anchor? Only a citation whose anchor moves is reported, so a bare ``§N``
+    meaning the containing document -- 61% of the citations in this corpus -- reads
+    the same both ways and is never flagged. A section separated from its prefix
+    by something that is not a separator, ``" and "`` being the case
+    :issue:`197` records, resolves identically either way and is out of reach here.
+
+    Parameters
+    ----------
+    paths : iterable of Path
+        The files to scan.
+    anchors : dict
+        The anchor registry from :func:`collect_anchors`.
+    owners : dict
+        The owning prefix of each specification, from :func:`collect_anchors`.
+
+    Returns
+    -------
+    list of Violation
+        One entry per citation whose anchor the wrap moved.
+
+    """
+    pattern = citation_pattern(anchors)
+    violations: list[Violation] = []
+    for path in paths:
+        own = owners.get(path)
+        text = path.read_text(encoding="utf-8")
+        for wrap in citations.wrapped_citations(text, pattern, own):
+            violations.append(  # noqa: PERF401
+                Violation(
+                    path,
+                    wrap.line,
+                    f"'{wrap.citation.text}' is split from its prefix by the line "
+                    f"break above: it resolves to '#{wrap.citation.slug}', and "
+                    f"unwrapped it names '#{wrap.unwrapped}'",
+                )
+            )
+    return violations
+
+
 def check_anchors(
     specs: Iterable[Path],
     owners: dict[Path, str],
@@ -347,7 +401,7 @@ def corpus() -> list[Path]:
 
 
 def main() -> int:
-    """Run the three assertions over the corpus.
+    """Run every assertion over the corpus.
 
     Returns
     -------
@@ -364,6 +418,7 @@ def main() -> int:
     groups = {
         "Unresolved citations": check_citations(paths, anchors, owners),
         "Anchor problems": check_anchors(specs, owners),
+        "Citations split from their prefix": check_wraps(paths, anchors, owners),
     }
     total = sum(len(found) for found in groups.values())
     if total == 0:

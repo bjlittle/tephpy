@@ -431,3 +431,71 @@ def test_scan_continues_past_an_unlocatable_source_line(tmp_path):
     lines = [line for _n, line in citations.source_lines(path, raw)]
     assert "A first" in lines  # (a) unlocatable line is still yielded
     assert "second line" in lines  # (b) scan continues past the unlocatable line
+
+
+def wrapped(source, owner=None):
+    """Return ``(line, text, slug, unwrapped)`` for each wrap the grammar finds."""
+    return [
+        (w.line, w.citation.text, w.citation.slug, w.unwrapped)
+        for w in citations.wrapped_citations(cite(source), PATTERN, owner)
+    ]
+
+
+def test_a_prefix_wrapped_away_from_its_section_is_reported():
+    """The shape :issue:`197` describes, live in the tree when this was written.
+
+    ``docs`` ends a line and ``spec @3.2`` opens the next, so the gate reads the
+    second line alone and resolves the shorter prefix. Both existing gates pass:
+    the anchor it lands on exists, and the transform renders a link to it.
+    """
+    source = "the gate of docs\nspec @3.2 is what every page is written against.\n"
+    assert wrapped(source, owner="plots-spec") == [
+        (2, cite("spec @3.2"), "spec-3-2", "docs-spec-3-2")
+    ]
+
+
+def test_a_run_wrapping_after_its_comma_is_reported():
+    """The second route ``scan``'s docstring names: the separator wraps.
+
+    The prefix stays put; the comma that joins the run is what crosses the break.
+    """
+    source = "the two guards of docs spec @3.2,\n@3.3 and the fallback beneath them.\n"
+    assert wrapped(source, owner="spec") == [
+        (2, cite("@3.3"), "spec-3-3", "docs-spec-3-3")
+    ]
+
+
+def test_a_bare_section_meaning_the_containing_document_is_left_alone():
+    """The 61% case: undoing the wrap does not move it, so nothing is reported."""
+    source = (
+        "the four guards of docs spec @3.2 are what\n@3.3 of this document requires.\n"
+    )
+    assert wrapped(source, owner="spec") == []
+
+
+def test_a_separator_joined_run_on_one_line_is_left_alone():
+    """``docs spec @3.2, @3.3`` is a run the grammar already reads correctly."""
+    assert wrapped("the pair at docs spec @3.2, @3.3 governs it.\n", owner="spec") == []
+
+
+def test_a_section_wrapped_away_from_an_and_is_left_alone():
+    """The class :issue:`197` records as undetectable, asserted as out of scope.
+
+    ``" and "`` is not a separator, so the prefix does not carry across it in
+    either reading. Both agree on the containing document, and no comparison can
+    tell that from a citation the author meant that way.
+    """
+    source = "the guards of docs spec @3.2 and\n@3.3 govern the fallback.\n"
+    assert wrapped(source, owner="spec") == []
+
+
+def test_a_prefix_ending_a_paragraph_does_not_reach_the_next_one():
+    """A blank line ends the join; two paragraphs are never one sentence."""
+    source = "a sentence ending in docs\n\nspec @3.2 opens the next paragraph.\n"
+    assert wrapped(source, owner="spec") == []
+
+
+def test_a_wrap_inside_a_fenced_block_is_not_read():
+    """``read_lines`` skips fences, and an illustration of the defect is not one."""
+    source = "```\nthe gate of docs\nspec @3.2 is illustrated here.\n```\n"
+    assert wrapped(source, owner="spec") == []
