@@ -451,7 +451,9 @@ reason, `tests/test_citations.py` and `tests/test_citation_xrefs.py`.
 **`tests/test_docs_readingtime.py`. Runs everywhere, importing `tephpy_reading` only.**
 
 - `count_words` and `estimate_minutes` against fixed inputs, including the `max(1, …)`
-  floor.
+  floor, and `test_the_default_rate_is_the_one_the_specification_cites` holding `WPM` to
+  the 150 of §3.4 — the one assertion tying the number this whole feature turns on back to
+  the paragraph that argues for it.
 - The argument grammar of §3.2: bare minutes, a `wpm` override, case insensitivity, and the
   rejection of an argument matching neither shape.
 - The page scanner: a directive at column 0 accepted; the same line indented inside a
@@ -495,7 +497,11 @@ whole in the `test-py3*` matrix:
 - Two placeholders on one page share one word count, taken once rather than recomputed
   inside the loop: recomputing it there would let the first placeholder's own banner text
   inflate the second placeholder's count.
-- A literal-duration argument publishes that number and does not count.
+- A literal-duration argument publishes that number and does not count, and
+  `test_a_one_minute_page_is_singular` holds the banner to "1 minute" rather than
+  "1 minutes". The plural lives in `banner()` and so can only be reached from this module;
+  an earlier draft of this section listed it under the stdlib file above, where
+  `tephpy_reading` has no plural logic at all to test.
 - `setup()` registers the directive and the `doctree-read` handler and never calls
   `app.add_node()` — asserted against what `setup()` does, not against source text carrying
   the name in prose.
