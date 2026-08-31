@@ -1,0 +1,6 @@
+Reconciled ``reading spec §6`` with the tests it inventories. Two assertions
+were reachable from neither its prose nor its named list: the one holding the
+banner to "1 minute" rather than "1 minutes", and the one holding ``WPM`` to the
+150 that ``reading spec §3.4`` argues for. The first had been described under
+the wrong file, where the module it names has no plural logic to test.
+(:user:`claude`)
