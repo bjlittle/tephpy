@@ -1,0 +1,8 @@
+The property test over the citation grammar can now build the split-prefix
+wrap. ``PIECES`` carried ``logo spec`` only as one joined atom, so a wrap
+could never part ``logo`` from ``spec``, and the first of the three known
+line-span divergences was outside the generator's reach at any ``repeat`` —
+guarded by two hand-written cases rather than by the property meant to stand
+for the unknown fourth. Verified by mutation rather than by adding the piece
+and assuming: with the prefix-internal gap widened to ``\s+``, the property
+passes before the change and fails after it. (:user:`claude`)

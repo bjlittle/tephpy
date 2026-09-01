@@ -152,15 +152,17 @@ def test_a_compound_run_cannot_span_a_line():
     assert "logo-spec-5" not in [slug for _text, slug in whole]
 
 
-#: Enough grammar to build the divergence of
-#: ``test_a_compound_run_cannot_span_a_line`` — a multi-word prefix, a
-#: one-word prefix, two section numbers, both run separators, a word that
-#: is not one, and the wrap itself — but not every construction that has
-#: bitten: the split-prefix wrap of ``WRAPPED[0]`` and ``WRAPPED[1]``
-#: needs ``logo`` and ``spec`` held apart, and here they exist only
-#: joined, as ``"logo spec"``. Five of these compose that divergence
+#: Enough grammar to build every construction that has bitten — a
+#: multi-word prefix, its first word alone, a one-word prefix, two section
+#: numbers, both run separators, a word that is not one, and the wrap
+#: itself. ``"logo"`` earns its place by being the only way to hold a
+#: multi-word prefix apart: without it the split-prefix wrap of
+#: ``WRAPPED[0]`` and ``WRAPPED[1]`` is unreachable at any ``repeat``,
+#: because ``"logo spec"`` exists only joined and no wrap can part it
+#: (:issue:`121`). Five of these compose the run-separator divergence
 #: (prefix, number, separator, wrap, number), so nothing shorter than
-#: ``repeat=5`` can express it.
+#: ``repeat=5`` can express it; the split prefix needs four, so the same
+#: floor reaches it.
 #:
 #: Lowered to ``repeat=4`` against today's ``PIECES``, this property goes
 #: vacuous under ``SEPARATOR`` widened to ``\s*[,/]\s*``: that construction
@@ -175,13 +177,19 @@ def test_a_compound_run_cannot_span_a_line():
 #: A second known divergence, the prefix-to-sign gap (``[^\S\n]*§`` in
 #: :func:`citation_pattern`) widened to ``\s``, is already caught at
 #: ``repeat=3`` and gives no evidence either way about the floor. A
-#: third, the gap inside a multi-word prefix widened the same way, is
-#: outside this generator's reach at any ``repeat``: ``PIECES`` carries
-#: ``"logo spec"`` only as one joined piece, and no ``"logo"`` of its
-#: own for a wrap to part from ``"spec"``. It is guarded only by
-#: ``test_a_citation_cannot_span_a_line`` (``WRAPPED[0]`` and
-#: ``WRAPPED[1]``), not by this property.
-PIECES = ["logo spec", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
+#: third, the gap inside a multi-word prefix widened the same way, was
+#: outside this generator's reach until ``"logo"`` was added, and is now
+#: caught here as well as by ``test_a_citation_cannot_span_a_line``
+#: (``WRAPPED[0]`` and ``WRAPPED[1]``). All three known divergences are
+#: therefore reachable, which is what lets this property stand for the
+#: unknown fourth rather than for two of the three shapes it names.
+#:
+#: Verified by mutation rather than by adding the piece and assuming
+#: (:issue:`121`): with the prefix-internal gap widened to ``\s+``, this
+#: property passed before ``"logo"`` and fails after it, in all three
+#: owner parametrisations. Adding a piece proves nothing on its own — a
+#: generated test is vacuous until its search space can build the failure.
+PIECES = ["logo spec", "logo", "spec", "@3.2", "@1", ",", "/", " and ", "\n"]
 
 
 @pytest.mark.parametrize("owner", [None, "docs-spec", "spec"])
