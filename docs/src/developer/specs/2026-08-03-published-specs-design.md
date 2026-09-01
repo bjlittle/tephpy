@@ -278,6 +278,13 @@ whatever prefix shares its line, or falls back to the containing document. The t
 page links somewhere nobody wrote. Both of the other properties hold throughout: the anchor
 exists, and it is keyed and covered. Only the reader can tell, and only by following it.
 
+Separation reads each file the way the other three do, and for the same reason: a notebook
+as its cells rather than as the JSON it is stored in. A notebook's authored newlines are
+escapes inside quoted strings, so a rule reading the raw text finds no line boundary to look
+across and every wrap in the corpus's notebooks would pass unseen. What a wrap may join is
+therefore bounded by what the reader yields — a fence in markdown and a cell boundary in a
+notebook both end a run, the first blank and the second merely discontinuous.
+
 The check asks the one question the other three cannot: **does undoing the wrap move the
 anchor?** Nothing guesses what the author meant. A citation that reads the same wrapped and
 unwrapped is never reported, which is what keeps the rule silent over the bare `§N` naming

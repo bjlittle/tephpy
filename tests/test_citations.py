@@ -268,3 +268,34 @@ def test_a_citation_wrapped_away_from_its_prefix_is_a_violation(tmp_path):
     assert len(violations) == 1
     assert violations[0].line == 5
     assert "narrative-spec-3-6" in violations[0].message
+
+
+def test_a_wrap_authored_in_a_notebook_is_a_violation(tmp_path):
+    """The gate reads a notebook as a notebook, not as the JSON it is stored in.
+
+    A notebook's authored newlines are escapes inside quoted strings, so a rule
+    reading the raw text finds no boundary to look across and the wrap goes by.
+    Notebooks are governed by the same derived corpus as everything else.
+    """
+    nbformat = pytest.importorskip("nbformat")
+    spec = tmp_path / "parent.md"
+    spec.write_text("(spec-3-2)=\n### 3.2 A\n")
+    other = tmp_path / "docs.md"
+    other.write_text("(docs-spec-3-2)=\n### 3.2 B\n")
+    anchors, owners = cc.collect_anchors([spec, other])
+
+    notebook = tmp_path / "probe.ipynb"
+    nbformat.write(
+        nbformat.v4.new_notebook(
+            cells=[
+                nbformat.v4.new_markdown_cell(
+                    f"the gate of docs\nspec {SECTION}3.2 is the rule."
+                )
+            ]
+        ),
+        notebook,
+    )
+
+    violations = cc.check_wraps([notebook], anchors, owners)
+    assert len(violations) == 1
+    assert "docs-spec-3-2" in violations[0].message

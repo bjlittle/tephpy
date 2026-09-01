@@ -445,21 +445,36 @@ class Wrapped:
     unwrapped: str | None
 
 
-def _paragraphs(text: str) -> Iterator[list[tuple[int, str]]]:
-    """Group the unfenced lines of ``text`` into blank-line separated runs."""
+def _paragraphs(
+    lines: Iterable[tuple[int, str]],
+) -> Iterator[list[tuple[int, str]]]:
+    """Group ``lines`` into the runs a line wrap can join.
+
+    A blank line ends a run, and so does a gap in the numbering. The gap matters
+    wherever the reader that produced ``lines`` skipped something: a fence in a
+    markdown file, and the space between two cells of a notebook, which
+    :func:`notebook_lines` numbers by the ``.ipynb`` file and so leaves
+    discontinuous rather than blank. Joining across either would pair two lines
+    the reader never sees together.
+    """
     run: list[tuple[int, str]] = []
-    for number, line in read_lines(text):
-        if line.strip():
-            run.append((number, line))
-        elif run:
+    previous: int | None = None
+    for number, line in lines:
+        if (
+            not line.strip()
+            or (run and previous is not None and number != previous + 1)
+        ) and run:
             yield run
             run = []
+        if line.strip():
+            run.append((number, line))
+        previous = number
     if run:
         yield run
 
 
 def wrapped_citations(
-    text: str,
+    lines: Iterable[tuple[int, str]],
     pattern: re.Pattern[str],
     owner: str | None,
 ) -> Iterator[Wrapped]:
@@ -480,12 +495,15 @@ def wrapped_citations(
 
     Parameters
     ----------
-    text : str
-        The file contents.
+    lines : iterable of (int, str)
+        The authored lines and their numbers, as :func:`source_lines` yields
+        them. The reader is the caller's to choose, so that a notebook is read
+        as a notebook: its authored newlines are escapes inside JSON strings,
+        and a reader of the raw text finds no line boundary to look across.
     pattern : re.Pattern
         The citation pattern from :func:`citation_pattern`.
     owner : str or None
-        The prefix of the document ``text`` was written in, as for :func:`scan`.
+        The prefix of the document the lines were written in, as for :func:`scan`.
 
     Yields
     ------
@@ -503,7 +521,7 @@ def wrapped_citations(
     .. versionadded:: 0.1.0
 
     """
-    for paragraph in _paragraphs(text):
+    for paragraph in _paragraphs(lines):
         written = [
             (number, citation)
             for number, line in paragraph

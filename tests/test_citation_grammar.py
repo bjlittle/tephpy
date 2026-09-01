@@ -433,12 +433,17 @@ def test_scan_continues_past_an_unlocatable_source_line(tmp_path):
     assert "second line" in lines  # (b) scan continues past the unlocatable line
 
 
-def wrapped(source, owner=None):
+def wrapped_lines(lines, owner=None):
     """Return ``(line, text, slug, unwrapped)`` for each wrap the grammar finds."""
     return [
         (w.line, w.citation.text, w.citation.slug, w.unwrapped)
-        for w in citations.wrapped_citations(cite(source), PATTERN, owner)
+        for w in citations.wrapped_citations(lines, PATTERN, owner)
     ]
+
+
+def wrapped(source, owner=None):
+    """As ``wrapped_lines``, reading ``source`` the way a ``.md`` file is read."""
+    return wrapped_lines(citations.read_lines(cite(source)), owner)
 
 
 def test_a_prefix_wrapped_away_from_its_section_is_reported():
@@ -499,3 +504,47 @@ def test_a_wrap_inside_a_fenced_block_is_not_read():
     """``read_lines`` skips fences, and an illustration of the defect is not one."""
     source = "```\nthe gate of docs\nspec @3.2 is illustrated here.\n```\n"
     assert wrapped(source, owner="spec") == []
+
+
+def test_a_wrap_authored_in_a_notebook_cell_is_found(tmp_path):
+    """The reader is chosen by the caller, so a notebook is read as a notebook.
+
+    Reading a notebook's raw text would look for the wrap in JSON, where the
+    authored newline is an escape inside a quoted string and no line boundary
+    exists to find.
+    """
+    nb = nbformat.v4.new_notebook(
+        cells=[
+            nbformat.v4.new_markdown_cell(
+                cite("the gate of docs\nspec @3.2 is the rule.")
+            )
+        ]
+    )
+    path = tmp_path / "probe.ipynb"
+    nbformat.write(nb, path)
+    lines = citations.source_lines(path, path.read_text(encoding="utf-8"))
+
+    found = wrapped_lines(lines, owner="spec")
+    assert [(text, slug, unwrapped) for _line, text, slug, unwrapped in found] == [
+        (cite("spec @3.2"), "spec-3-2", "docs-spec-3-2")
+    ]
+
+
+def test_a_cell_boundary_is_not_a_line_wrap(tmp_path):
+    """Two cells are two paragraphs, though no blank line separates them.
+
+    ``notebook_lines`` numbers by the ``.ipynb`` file, so consecutive cells leave
+    a gap rather than a blank line. Joining across one would report a wrap that
+    the reader of the rendered notebook never sees.
+    """
+    nb = nbformat.v4.new_notebook(
+        cells=[
+            nbformat.v4.new_markdown_cell("a cell ending in docs"),
+            nbformat.v4.new_markdown_cell(cite("spec @3.2 opens the next.")),
+        ]
+    )
+    path = tmp_path / "probe.ipynb"
+    nbformat.write(nb, path)
+    lines = citations.source_lines(path, path.read_text(encoding="utf-8"))
+
+    assert wrapped_lines(lines, owner="spec") == []

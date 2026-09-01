@@ -254,7 +254,8 @@ def check_wraps(
     for path in paths:
         own = owners.get(path)
         text = path.read_text(encoding="utf-8")
-        for wrap in citations.wrapped_citations(text, pattern, own):
+        lines = citations.source_lines(path, text)
+        for wrap in citations.wrapped_citations(lines, pattern, own):
             violations.append(  # noqa: PERF401
                 Violation(
                     path,
