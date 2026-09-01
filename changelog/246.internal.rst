@@ -1,0 +1,9 @@
+``ruff-format`` no longer runs over markdown. Version 0.16.5 added ``markdown``
+to that hook's own ``types_or``, so :pull:`242` — an automated hook update —
+put every fenced block under ``docs/src/developer/`` through the formatter,
+which formats each fence as though it were a module. The blocks there are
+excerpts rather than modules, and three were reinterpreted: a trailing comma
+separating two parameters of a signature became a one-element tuple, and two
+statements lifted from inside a loop were dedented to column zero. The hook is
+pinned back to Python file types, and every file :pull:`242` reformatted is
+restored. (:user:`claude`)

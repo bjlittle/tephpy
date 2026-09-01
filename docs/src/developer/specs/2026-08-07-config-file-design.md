@@ -33,10 +33,7 @@ preferred extent, a cursor readout — retypes it at the top of every script:
 ```python
 tephpy.config.isotherms.color = "purple"
 tephpy.config.isobars.linewidth = 0.8
-tephpy.config.diagram.extent = {
-    "pressure": (1000.0, 250.0),
-    "temperature": (-30.0, 35.0),
-}
+tephpy.config.diagram.extent = {"pressure": (1000.0, 250.0), "temperature": (-30.0, 35.0)}
 ```
 
 This specification gives that boilerplate a home on disk:

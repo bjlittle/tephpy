@@ -1626,17 +1626,15 @@ _EMPHASIS_STYLE_PROSE: Final[str] = (
 and replace the first two lines of the `emphasis` entry of `_LINE_DETAILS` (lines 866-867) —
 
 ```python
-"Each value is a mapping of style overrides -- ``color``,"
-
-"``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
+            "Each value is a mapping of style overrides -- ``color``, "
+            "``linewidth``, ``linestyle`` and ``alpha`` -- and an omitted key "
 ```
 
 — with:
 
 ```python
-"Each value is a mapping of style overrides --"
-
-f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
+            "Each value is a mapping of style overrides -- "
+            f"{_EMPHASIS_STYLE_PROSE} -- and an omitted key "
 ```
 
 leaving the remaining five lines of that string unchanged. The first line stays a plain

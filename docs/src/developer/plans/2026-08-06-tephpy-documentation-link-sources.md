@@ -774,9 +774,7 @@ def main() -> int:
     # A source linking only non-canonically does link into the documentation, so
     # it is told what is wrong with those links rather than that it has none.
     blind = [
-        name
-        for name, report in reports.items()
-        if not report.found and not report.stray
+        name for name, report in reports.items() if not report.found and not report.stray
     ]
     if blind:
         for name in blind:

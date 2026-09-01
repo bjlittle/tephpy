@@ -543,9 +543,7 @@ def check_anchors(
             match = ANCHOR.match(above)
             if match is None:
                 violations.append(
-                    Violation(
-                        spec, number, f"heading carries no anchor; add ({expected})="
-                    )
+                    Violation(spec, number, f"heading carries no anchor; add ({expected})=")
                 )
             elif f"{match['slug']}-{match['num']}" != expected:
                 violations.append(
@@ -580,7 +578,8 @@ def main() -> int:
     total = sum(len(found) for found in groups.values())
     if total == 0:
         print(
-            f"citations ok: {len(anchors)} anchors, {len(paths)} files (docs spec §3.6)"
+            f"citations ok: {len(anchors)} anchors, {len(paths)} files "
+            f"(docs spec §3.6)"
         )
         return 0
     for heading, found in groups.items():

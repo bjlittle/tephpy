@@ -309,9 +309,7 @@ def test_no_generated_template_line_exceeds_the_source_width():
     so that raising the renderer's width cannot silently carry the gate up with
     it (configfile spec §3.4).
     """
-    over = [
-        line for line in _configfile.render_template().splitlines() if len(line) > 88
-    ]
+    over = [line for line in _configfile.render_template().splitlines() if len(line) > 88]
     assert over == []
 ```
 
@@ -701,9 +699,7 @@ def test_the_reference_names_every_option_and_no_others():
     """The page and the template render the same table (configfile spec §3.6)."""
     prefix = ".. py:attribute:: "
     emitted = {
-        line.removeprefix(prefix)
-        for line in rendered().splitlines()
-        if line.startswith(prefix)
+        line.removeprefix(prefix) for line in rendered().splitlines() if line.startswith(prefix)
     }
     assert emitted == {
         f"tephpy.config.{section}.{option}"
@@ -726,9 +722,7 @@ def test_every_rendered_type_is_resolvable_text():
     """
     prefix = "   :type: "
     types = [
-        line.removeprefix(prefix)
-        for line in rendered().splitlines()
-        if line.startswith(prefix)
+        line.removeprefix(prefix) for line in rendered().splitlines() if line.startswith(prefix)
     ]
     assert len(types) == 42
     for text in types:
@@ -739,9 +733,7 @@ def test_every_rendered_type_is_resolvable_text():
 
 def test_every_method_is_given_a_target():
     """Prose cross-references the methods; the page is where they resolve."""
-    emitted = [
-        line for line in rendered().splitlines() if line.startswith(".. py:method:: ")
-    ]
+    emitted = [line for line in rendered().splitlines() if line.startswith(".. py:method:: ")]
     assert emitted == [
         ".. py:method:: tephpy.config.load(path=None)",
         ".. py:method:: tephpy.config.save(path=None)",
@@ -909,9 +901,7 @@ def render_reference(config: Config) -> str:
     lines.append("")
     for name in _REFERENCE_METHODS:
         method = getattr(type(config), name)
-        lines.append(
-            f".. py:method:: tephpy.config.{name}({_reference_signature(method)})"
-        )
+        lines.append(f".. py:method:: tephpy.config.{name}({_reference_signature(method)})")
         lines.append("")
         lines.append(f"   {inspect.getdoc(method).splitlines()[0]}")
         lines.append("")

@@ -377,16 +377,18 @@ Then confirm with `git diff` that Step 2's docstring paragraph is either still p
 - [ ] **Step 4: Write fact 2 at the override**
 
 ```python
-def handle_startendtag(self, _tag: str, _attrs: list[tuple[str, str | None]]) -> None:
-    """Ignore a self-closing tag; it encloses nothing.
+    def handle_startendtag(
+        self, _tag: str, _attrs: list[tuple[str, str | None]]
+    ) -> None:
+        """Ignore a self-closing tag; it encloses nothing.
 
-    Defensive, not load-bearing: deleting this leaves every test in
-    ``tests/test_rendered_citations.py`` passing, because ``HTMLParser``
-    defaults to ``handle_starttag`` then ``handle_endtag``, which is
-    net-neutral for a stack-and-pop model. The test pins the behaviour, not
-    the override, and no test can distinguish the two. It stops being
-    redundant the moment the classification stops being stack-and-pop.
-    """
+        Defensive, not load-bearing: deleting this leaves every test in
+        ``tests/test_rendered_citations.py`` passing, because ``HTMLParser``
+        defaults to ``handle_starttag`` then ``handle_endtag``, which is
+        net-neutral for a stack-and-pop model. The test pins the behaviour, not
+        the override, and no test can distinguish the two. It stops being
+        redundant the moment the classification stops being stack-and-pop.
+        """
 ```
 
 Do not write the test count into that docstring. It was 15 when {issue}`93` was filed and is 25 now; a number nothing checks is a number that drifts, which is fact 3's whole point.
