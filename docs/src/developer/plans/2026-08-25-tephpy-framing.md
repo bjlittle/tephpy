@@ -105,7 +105,10 @@ def test_the_old_corner_call_is_now_unwritable(tephigram_axes):
         ({"pressure": (-5.0, 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
         ({"pressure": (float("nan"), 200.0), "temperature": (-65.0, 5.0)}, "pressure"),
         ({"pressure": (900.0, 900.0), "temperature": (-65.0, 5.0)}, "pressure"),
-        ({"pressure": (900.0, 200.0), "temperature": (float("inf"), 5.0)}, "temperature"),
+        (
+            {"pressure": (900.0, 200.0), "temperature": (float("inf"), 5.0)},
+            "temperature",
+        ),
         ({"pressure": (900.0, 200.0), "temperature": (5.0, 5.0)}, "temperature"),
     ],
 )
@@ -467,7 +470,9 @@ def test_fit_without_the_parcel_clips_the_path_it_is_read_against(
     assert with_parcel[1] > without[1] or with_parcel[0] < without[0]
 
 
-def test_fit_takes_several_soundings(tephigram_axes, sample_sounding, sample_sounding_b):
+def test_fit_takes_several_soundings(
+    tephigram_axes, sample_sounding, sample_sounding_b
+):
     """A station's day, framed alike."""
     tephigram_axes.fit(sample_sounding, sample_sounding_b, margin=0.0)
     xlo, xhi = tephigram_axes.get_xlim()
@@ -490,7 +495,10 @@ def test_a_nan_dewpoint_bounds_nothing_and_poisons_nothing(
         dewpoint=dewpoint * sample_sounding.dewpoint.units,
     )
     tephigram_axes.fit(gapped, margin=0.0)
-    assert all(math.isfinite(v) for v in (*tephigram_axes.get_xlim(), *tephigram_axes.get_ylim()))
+    assert all(
+        math.isfinite(v)
+        for v in (*tephigram_axes.get_xlim(), *tephigram_axes.get_ylim())
+    )
 
 
 def test_fit_needs_something_to_frame(tephigram_axes):
@@ -797,7 +805,9 @@ def test_a_pressure_clamp_sets_the_pressure_range(tephigram_axes, sample_soundin
     assert tephigram_axes.get_ylim() == pytest.approx((ylo, yhi), abs=0.5)
 
 
-def test_a_pressure_clamp_narrows_the_view(tephigram_axes, tephigram_axes_b, sample_sounding):
+def test_a_pressure_clamp_narrows_the_view(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
     """The defect this parameter exists to fix (framing spec §3.2).
 
     A radiosonde ascent does not stop at the tropopause; the shipped
@@ -811,7 +821,9 @@ def test_a_pressure_clamp_narrows_the_view(tephigram_axes, tephigram_axes_b, sam
     assert (clamped[1] - clamped[0]) < 0.6 * (unclamped[1] - unclamped[0])
 
 
-def test_a_clamp_excludes_data_outside_it(tephigram_axes, tephigram_axes_b, sample_sounding):
+def test_a_clamp_excludes_data_outside_it(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
     """Levels outside the band do not bound the view."""
     tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
     narrow = tephigram_axes.get_ylim()
@@ -820,7 +832,9 @@ def test_a_clamp_excludes_data_outside_it(tephigram_axes, tephigram_axes_b, samp
     assert (wide[1] - wide[0]) > (narrow[1] - narrow[0])
 
 
-def test_a_clamp_order_carries_no_meaning(tephigram_axes, tephigram_axes_b, sample_sounding):
+def test_a_clamp_order_carries_no_meaning(
+    tephigram_axes, tephigram_axes_b, sample_sounding
+):
     tephigram_axes.fit(sample_sounding, pressure=(950.0, 300.0), margin=0.0)
     tephigram_axes_b.fit(sample_sounding, pressure=(300.0, 950.0), margin=0.0)
     assert tephigram_axes.get_xlim() == tephigram_axes_b.get_xlim()
@@ -867,47 +881,44 @@ Inside `fit`, the per-object loop currently collects every pressure and every te
 Replace the reduction with:
 
 ```python
-        if pressure is not None:
-            for name, bounds in (("pressure", pressure),):
-                lo, hi = sorted(bounds)
-                if not (math.isfinite(lo) and math.isfinite(hi)):
-                    msg = f"fit {name} clamp bounds must be finite: {bounds!r}"
-                    raise ValueError(msg)
-                if lo == hi:
-                    msg = f"fit {name} clamp must not be degenerate: {bounds!r}"
-                    raise ValueError(msg)
-                if lo <= 0.0:
-                    msg = f"fit pressure clamp bounds must be above 0 hPa: {bounds!r}"
-                    raise ValueError(msg)
-        pressures: list[npt.NDArray[np.float64]] = []
-        temperatures: list[npt.NDArray[np.float64]] = []
-        for obj in objects:
-            level, temps = _framing_coordinates(obj)
-            level = np.asarray(level, dtype=np.float64)
-            if pressure is None:
-                inside = np.ones(level.shape, dtype=bool)
-            else:
-                lo, hi = sorted(pressure)
-                inside = (level >= lo) & (level <= hi)
-            pressures.append(level[inside])
-            temperatures.extend(np.asarray(t, dtype=np.float64)[inside] for t in temps)
-        all_p = np.concatenate(pressures) if pressures else np.array([])
-        all_t = np.concatenate(temperatures) if temperatures else np.array([])
-        if not (
-            all_p.size
-            and all_t.size
-            and np.isfinite(all_p).any()
-            and np.isfinite(all_t).any()
-        ):
-            msg = "fit() found no finite data to frame"
-            raise MissingDataError(msg)
-        if pressure is None:
-            span_p = (float(np.nanmin(all_p)), float(np.nanmax(all_p)))
-        else:
-            span_p = (float(min(pressure)), float(max(pressure)))
-        xlo, xhi, ylo, yhi = _limits_from_ranges(
-            span_p, (float(np.nanmin(all_t)), float(np.nanmax(all_t)))
-        )
+if pressure is not None:
+    for name, bounds in (("pressure", pressure),):
+        lo, hi = sorted(bounds)
+        if not (math.isfinite(lo) and math.isfinite(hi)):
+            msg = f"fit {name} clamp bounds must be finite: {bounds!r}"
+            raise ValueError(msg)
+        if lo == hi:
+            msg = f"fit {name} clamp must not be degenerate: {bounds!r}"
+            raise ValueError(msg)
+        if lo <= 0.0:
+            msg = f"fit pressure clamp bounds must be above 0 hPa: {bounds!r}"
+            raise ValueError(msg)
+pressures: list[npt.NDArray[np.float64]] = []
+temperatures: list[npt.NDArray[np.float64]] = []
+for obj in objects:
+    level, temps = _framing_coordinates(obj)
+    level = np.asarray(level, dtype=np.float64)
+    if pressure is None:
+        inside = np.ones(level.shape, dtype=bool)
+    else:
+        lo, hi = sorted(pressure)
+        inside = (level >= lo) & (level <= hi)
+    pressures.append(level[inside])
+    temperatures.extend(np.asarray(t, dtype=np.float64)[inside] for t in temps)
+all_p = np.concatenate(pressures) if pressures else np.array([])
+all_t = np.concatenate(temperatures) if temperatures else np.array([])
+if not (
+    all_p.size and all_t.size and np.isfinite(all_p).any() and np.isfinite(all_t).any()
+):
+    msg = "fit() found no finite data to frame"
+    raise MissingDataError(msg)
+if pressure is None:
+    span_p = (float(np.nanmin(all_p)), float(np.nanmax(all_p)))
+else:
+    span_p = (float(min(pressure)), float(max(pressure)))
+xlo, xhi, ylo, yhi = _limits_from_ranges(
+    span_p, (float(np.nanmin(all_t)), float(np.nanmax(all_t)))
+)
 ```
 
 Everything below that — the margin resolution, the padded `set_xlim`/`set_ylim`, and `set_autoscale_on(False)` — is unchanged.

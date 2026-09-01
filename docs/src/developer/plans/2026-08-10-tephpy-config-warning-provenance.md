@@ -203,23 +203,21 @@ Replace `src/tephpy/_configfile.py:279-299` (the body of the `for option, value`
 and including the second `continue`) with:
 
 ```python
-            if option not in valid:
-                _warn_from_caller(
-                    f"ignoring unknown option {option!r} in configuration "
-                    f"section {name!r}; expected one of {sorted(valid)}"
-                )
-                continue
-            if value is None:
-                hint = (
-                    "; an unquoted '#' colour is read as a comment, so quote "
-                    "it as '#b0b0b0' if that is what happened"
-                    if option in _COLOR_OPTIONS
-                    else ""
-                )
-                _warn_from_caller(
-                    f"ignoring {name}.{option}, whose value is null{hint}"
-                )
-                continue
+if option not in valid:
+    _warn_from_caller(
+        f"ignoring unknown option {option!r} in configuration "
+        f"section {name!r}; expected one of {sorted(valid)}"
+    )
+    continue
+if value is None:
+    hint = (
+        "; an unquoted '#' colour is read as a comment, so quote "
+        "it as '#b0b0b0' if that is what happened"
+        if option in _COLOR_OPTIONS
+        else ""
+    )
+    _warn_from_caller(f"ignoring {name}.{option}, whose value is null{hint}")
+    continue
 ```
 
 Both message strings are unchanged, character for character. `apply`'s own docstring is

@@ -169,13 +169,13 @@ def test_count_words_counts_word_character_runs(text, expected):
 @pytest.mark.parametrize(
     ("words", "wpm", "expected"),
     [
-        (0, 150, 1),      # the floor: no page reads in zero minutes
+        (0, 150, 1),  # the floor: no page reads in zero minutes
         (1, 150, 1),
         (150, 150, 1),
-        (151, 150, 2),    # rounds up, never down
+        (151, 150, 2),  # rounds up, never down
         (300, 150, 2),
         (1500, 150, 10),
-        (300, 100, 3),    # the rate is honoured
+        (300, 100, 3),  # the rate is honoured
     ],
 )
 def test_estimate_minutes_rounds_up_with_a_floor_of_one(words, wpm, expected):
@@ -189,8 +189,8 @@ def test_estimate_minutes_defaults_to_the_house_rate():
 @pytest.mark.parametrize(
     ("argument", "minutes", "wpm"),
     [
-        (None, None, 150),      # no argument: count at the house rate
-        ("30", 30, 150),        # a literal duration, quoted not counted
+        (None, None, 150),  # no argument: count at the house rate
+        ("30", 30, 150),  # a literal duration, quoted not counted
         ("1", 1, 150),
         ("200wpm", None, 200),  # a rate override; the count still happens
         ("200WPM", None, 200),  # case-insensitive
@@ -206,14 +206,14 @@ def test_parse_argument_reads_the_two_documented_shapes(argument, minutes, wpm):
 @pytest.mark.parametrize(
     "argument",
     [
-        "thirty",       # the prior art computes an estimate here and warns nobody
+        "thirty",  # the prior art computes an estimate here and warns nobody
         "",
         "10 minutes",
         "wpm",
-        "0wpm",         # a zero rate would divide by zero
-        "0",            # a zero-minute page is not a duration
+        "0wpm",  # a zero rate would divide by zero
+        "0",  # a zero-minute page is not a duration
         "-5",
-        "12wpmx",       # anchored at both ends
+        "12wpmx",  # anchored at both ends
         "x200wpm",
     ],
 )
@@ -275,7 +275,9 @@ because these pages alternate argument with code the reader parses line by line.
 WORD = re.compile(r"\w+")
 """What counts as a word. Taken from the prior art, and shared rather than better."""
 
-ARGUMENT = re.compile(r"\A(?:(?P<wpm>[1-9]\d*)wpm|(?P<minutes>[1-9]\d*))\Z", re.IGNORECASE)
+ARGUMENT = re.compile(
+    r"\A(?:(?P<wpm>[1-9]\d*)wpm|(?P<minutes>[1-9]\d*))\Z", re.IGNORECASE
+)
 """The directive's two argument shapes, anchored at both ends (reading spec §3.2)."""
 
 

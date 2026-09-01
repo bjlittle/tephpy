@@ -178,9 +178,11 @@ false corners without saying what it does produce would have traded one silence 
 ### 3.2 `fit` by data
 
 ```python
-ax.fit(sounding, pressure=(950, 300))     # one ascent, over the layer of interest
-ax.fit(sounding, parcel, pressure=(950, 300))   # environment and the path it is read against
-ax.fit(*ascents, pressure=(1000, 200))    # a station's day, every panel framed alike
+ax.fit(sounding, pressure=(950, 300))  # one ascent, over the layer of interest
+ax.fit(
+    sounding, parcel, pressure=(950, 300)
+)  # environment and the path it is read against
+ax.fit(*ascents, pressure=(1000, 200))  # a station's day, every panel framed alike
 ```
 
 Variadic over anything the diagram plots — `Sounding` and `Profile` today — with one rule:

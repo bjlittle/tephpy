@@ -583,8 +583,8 @@ from mpl_toolkits.axes_grid1 import axes_size, make_axes_locatable
 the `tephpy._constants` import block gains (alphabetical):
 
 ```python
-BARB_GUTTER_PAD,
-BARB_GUTTER_WIDTH,
+(BARB_GUTTER_PAD,)
+(BARB_GUTTER_WIDTH,)
 ```
 
 and the `TYPE_CHECKING` block gains:
@@ -1177,8 +1177,8 @@ In `src/tephpy/plotting/axes.py`: the `tephpy._constants` import block gains
 (alphabetical):
 
 ```python
-BARB_MIN_SEPARATION,
-BARB_STAFF_POSITION,
+(BARB_MIN_SEPARATION,)
+(BARB_STAFF_POSITION,)
 ```
 
 add the two runtime imports (alphabetical among the `tephpy` imports):
@@ -2854,7 +2854,7 @@ numpy's inventory publishes ``numpy.bool``, autoapi renders the annotation as
 ``numpy.bool_``):
 
 ```python
-("py:class", "numpy.bool_"),
+(("py:class", "numpy.bool_"),)
 ```
 
 - [ ] **Step 3: Add the glossary entries**

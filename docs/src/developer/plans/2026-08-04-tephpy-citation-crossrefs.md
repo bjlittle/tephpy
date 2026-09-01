@@ -343,7 +343,9 @@ def scan(
     carried: str | None = None
     end = 0
     for match in pattern.finditer(source):
-        joined = carried is not None and SEPARATOR.fullmatch(source[end : match.start()])
+        joined = carried is not None and SEPARATOR.fullmatch(
+            source[end : match.start()]
+        )
         end = match.end()
         if match["prefix"] is not None:
             carried = re.sub(r"\s+", "-", match["prefix"].lower())
@@ -1007,11 +1009,7 @@ sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 Then add the extension to `extensions`, first in the list so it loads before autoapi:
 
 ```python
-extensions = [
-    "citation_xrefs",
-    "autoapi.extension",
-    ...
-]
+extensions = ["citation_xrefs", "autoapi.extension", ...]
 ```
 
 - [ ] **Step 3: Build the documentation**
@@ -1138,7 +1136,9 @@ class Scan(HTMLParser):
         if tag not in VOID:
             self.stack.append(tag)
 
-    def handle_startendtag(self, _tag: str, _attrs: list[tuple[str, str | None]]) -> None:
+    def handle_startendtag(
+        self, _tag: str, _attrs: list[tuple[str, str | None]]
+    ) -> None:
         """Ignore a self-closing tag; it encloses nothing."""
 
     def handle_endtag(self, tag: str) -> None:

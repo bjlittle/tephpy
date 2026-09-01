@@ -505,9 +505,7 @@ __all__ = ["REGISTRY"]
 
 #: Command-line name to module name, in gallery order. The name is the
 #: module's with its ``plot_`` prefix removed.
-REGISTRY: tuple[tuple[str, str], ...] = (
-    ("parcel-analysis", "plot_parcel_analysis"),
-)
+REGISTRY: tuple[tuple[str, str], ...] = (("parcel-analysis", "plot_parcel_analysis"),)
 ```
 
 **The registry holds only the example this task creates.** Task 3 appends its four as it writes them, each entry landing in the same commit as its module. Registering all five up front would leave `test_registry_covers_the_directory` and four parametrised cases red for the whole of Task 2 — every commit unbisectable, and every reviewer having to re-derive that the red was planned. The gate is proven instead by Task 3 Step 8's mutation, which removes a registered entry and watches the suite fail.

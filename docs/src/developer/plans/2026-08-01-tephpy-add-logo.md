@@ -1195,7 +1195,9 @@ def _resolve_loc(
     try:
         x, y = (float(value) for value in loc)
     except (TypeError, ValueError) as err:
-        msg = f"loc must be a placement string or an (x, y) pair of floats, got {loc!r}."
+        msg = (
+            f"loc must be a placement string or an (x, y) pair of floats, got {loc!r}."
+        )
         raise TypeError(msg) from err
     if not (math.isfinite(x) and math.isfinite(y)):
         msg = f"loc coordinates must be finite, got {loc!r}."
