@@ -475,6 +475,11 @@ cmd = "python .github/scripts/check_docs_figures.py docs/_build/html"
 depends-on = ["docs-html"]
 description = "Check that every published figure matches its baseline"
 
+[tool.pixi.feature.docs.tasks.docs-check-tooltips]
+cmd = "python .github/scripts/check_tooltips.py docs/_build/html"
+depends-on = ["docs-html"]
+description = "Check that the tooltips were generated and stayed scoped"
+
 # Blesses whatever the build just rendered, which is why it is a task a
 # contributor runs deliberately and not something `docs` depends on: the diff it
 # writes into `docs/baseline` is the thing to read before committing, and a
@@ -499,6 +504,7 @@ depends-on = [
   "docs-check-citations",
   "docs-check-figures",
   "docs-check-links",
+  "docs-check-tooltips",
 ]
 description = "Build the HTML documentation and check its output"
 

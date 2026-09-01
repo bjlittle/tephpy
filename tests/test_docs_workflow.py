@@ -246,13 +246,14 @@ def test_the_bounded_steps_fit_inside_the_job():
 #: The tasks `ci-docs` exists to run. Held by membership rather than by count
 #: or by "at least one": the failure this gate is for is a gate that stops
 #: being run, and a job that dropped `docs-check-links` would still be running
-#: four tasks, still non-empty, still passing anything looser than this.
+#: five tasks, still non-empty, still passing anything looser than this.
 GATES = {
     "docs-html",
     "docs-check-api",
     "docs-check-citations",
     "docs-check-links",
     "docs-check-figures",
+    "docs-check-tooltips",
     "docs-browser-test",
 }
 
