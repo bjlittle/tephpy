@@ -240,6 +240,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-copybutton-0.5.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-design-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-gallery-0.21.0-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-tippy-0.4.3-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-togglebutton-0.3.2-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx_changelog-1.6.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinxcontrib-applehelp-2.0.0-pyhd8ed1ab_1.conda
@@ -501,6 +502,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-copybutton-0.5.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-design-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-gallery-0.21.0-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-tippy-0.4.3-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-togglebutton-0.3.2-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx_changelog-1.6.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinxcontrib-applehelp-2.0.0-pyhd8ed1ab_1.conda
@@ -753,6 +755,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-copybutton-0.5.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-design-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-gallery-0.21.0-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-tippy-0.4.3-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-togglebutton-0.3.2-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx_changelog-1.6.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sphinxcontrib-applehelp-2.0.0-pyhd8ed1ab_1.conda
@@ -6075,6 +6078,23 @@ packages:
   - pkg:pypi/sphinx-gallery?source=hash-mapping
   size: 398898
   timestamp: 1777021908652
+- conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-tippy-0.4.3-pyhcf101f3_0.conda
+  sha256: b9563f7391ce4144f1f6e830e09da47183bbbd13717081e31b90287fad19d97a
+  md5: df44d130fab50f3056bec6bddfbe48f2
+  depends:
+  - beautifulsoup4
+  - jinja2
+  - python >=3.10
+  - requests
+  - sphinx >4
+  - python
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/sphinx-tippy?source=hash-mapping
+  run_exports: {}
+  size: 18089
+  timestamp: 1763491906091
 - conda: https://conda.anaconda.org/conda-forge/noarch/sphinx-togglebutton-0.3.2-pyhd8ed1ab_0.tar.bz2
   sha256: 0dcee238aae6337fae5eaf1f9a29b0c51ed9834ae501fccb2cde0fed8dae1a88
   md5: 382738101934261ea7931d1460e64868
@@ -6441,11 +6461,11 @@ packages:
   name: tephpy
   requires_dist:
   - click>=8.1
-  - matplotlib>=3.10
-  - metpy>=1.6
+  - matplotlib>=3.11
+  - metpy>=1.7
   - numpy>=2.0
   - pandas>=2.3
-  - pint>=0.24
+  - pint>=0.24.4
   - platformdirs>=4.0
   - pyyaml>=6.0.1
   - xarray>=2024.10
@@ -6454,16 +6474,18 @@ packages:
   - pre-commit>=4.0 ; extra == 'devs'
   - ruff>=0.15 ; extra == 'devs'
   - zizmor>=1.9 ; extra == 'devs'
+  - build>=1.5 ; extra == 'docs'
   - myst-nb>=1.1 ; extra == 'docs'
   - numpydoc>=1.8 ; extra == 'docs'
   - playwright>=1.55 ; extra == 'docs'
   - pydata-sphinx-theme>=0.16 ; extra == 'docs'
   - sphinx>=8.0 ; extra == 'docs'
-  - sphinx-autoapi>=3.3 ; extra == 'docs'
+  - sphinx-autoapi>=3.6.1 ; extra == 'docs'
   - sphinx-click>=6.0 ; extra == 'docs'
   - sphinx-copybutton>=0.5 ; extra == 'docs'
-  - sphinx-design>=0.6 ; extra == 'docs'
+  - sphinx-design>=0.6.1 ; extra == 'docs'
   - sphinx-gallery>=0.17 ; extra == 'docs'
+  - sphinx-tippy>=0.4.3 ; extra == 'docs'
   - sphinx-togglebutton>=0.3 ; extra == 'docs'
   - sphinx-changelog>=1.6 ; extra == 'docs'
   - sphinxcontrib-bibtex>=2.6 ; extra == 'docs'
@@ -6471,10 +6493,12 @@ packages:
   - build>=1.5 ; extra == 'test'
   - hypothesis>=6.100 ; extra == 'test'
   - nbformat>=5.10 ; extra == 'test'
-  - packaging>=24.0 ; extra == 'test'
+  - packaging>=24.2 ; extra == 'test'
   - pytest>=8.0 ; extra == 'test'
   - pytest-cov>=5.0 ; extra == 'test'
   - pytest-mpl>=0.17 ; extra == 'test'
+  - setuptools>=77.0.3 ; extra == 'test'
+  - setuptools-scm>=10 ; extra == 'test'
   requires_python: '>=3.12'
 - pypi: https://files.pythonhosted.org/packages/43/6b/b24aebc2b04bffcb342bccf96e287c78b363e1615bed5cea97500cc0393a/playwright-1.62.0-py3-none-manylinux1_x86_64.whl
   name: playwright
