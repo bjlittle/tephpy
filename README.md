@@ -23,12 +23,6 @@ temperature-entropy coordinate system and delegates thermodynamic analysis
 ([parcel ascent][parcel-ascent], [CAPE][cape], [CIN][cin],
 [LCL][lcl]/[LFC][lfc]/[EL][el]) to [MetPy](https://github.com/Unidata/MetPy).
 
-Successor to [SciTools/tephi](https://github.com/SciTools/tephi).
-
-> [!NOTE]
-> **Status:** early development — the plotting and analysis API is being built
-> out plan by plan for the [design][specs].
-
 ## Non-Goals
 
 Decisions, not omissions — most with somewhere to go instead.
@@ -47,6 +41,11 @@ Decisions, not omissions — most with somewhere to go instead.
 - **No aviation overlays** (icing, MINTRA contrail curves). Also v1.x — though
   [member emphasis][emphasis] already distinguishes the icing band's 0 °C and
   −20 °C bounds, which is most of what the overlay would draw.
+
+> [!NOTE]
+> **Status:** early development — the plotting and analysis API is being built
+> out plan by plan for the [design][specs].
+
 
 [tephigram]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-tephigram
 [parcel-ascent]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-parcel-ascent
