@@ -1,0 +1,9 @@
+The citation gate now asserts that no line break separates a citation's prefix
+from its section number. A prefix ending a line never reaches a section sign
+opening the next, so the citation resolves against whatever prefix shares its
+line — the anchor exists, the existing rules pass, and the page links to a
+section nobody wrote. The new rule asks whether undoing the wrap moves the
+anchor, so a citation that reads the same either way is never reported. One
+live instance was found and fixed: ``narrative spec §3.6`` in the gallery
+specification had wrapped after ``narrative``, and linked to the parent
+specification's browser-demo section instead. (:user:`claude`)

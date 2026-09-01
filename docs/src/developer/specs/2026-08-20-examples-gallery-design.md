@@ -607,10 +607,10 @@ question.
 - **Deferred** (7c — {issue}`66`) — **the reader how-to.** §5 sends the `io` example there.
   The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to
   belongs to 7c's tutorials and explanation quadrants regardless (scope spec §3.6), so it
-  waits on that plan rather than on any one API landing. *Specified 2026-08-27:* narrative
-  spec §3.6, which records that sending it here moved the network constraint rather than
-  solving it — the how-to quadrant executes python under the same rule — so the page shows
-  one runnable route and says so.
+  waits on that plan rather than on any one API landing. *Specified 2026-08-27:*
+  narrative spec §3.6, which records that sending it here moved the network constraint
+  rather than solving it — the how-to quadrant executes python under the same rule — so
+  the page shows one runnable route and says so.
 
 - **Rejected** (2026-08-20) — **a sixth, `io` example.** §5 gives the reasoning: its
   subject is not a picture, and the network constraint makes the misfit mechanical as well

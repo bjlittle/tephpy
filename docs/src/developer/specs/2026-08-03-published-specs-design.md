@@ -254,12 +254,13 @@ know that the absence of a tag means "not covered" rather than "nothing outstand
 §3.2 and §3.3 are conventions, and a convention that nothing checks decays. Renumbering a
 section, or inserting one, strands every citation that named the old number — and the
 failure is invisible, because a stale citation is still a well-formed sentence in a
-docstring that still renders. A pre-commit hook therefore asserts three properties:
+docstring that still renders. A pre-commit hook therefore asserts four properties:
 
 1. **Resolution.** Every citation names an anchor that exists.
 2. **Keying.** Every `(prefix-N)=` target sits immediately above the heading numbered N.
 3. **Coverage.** Targets and numbered headings pair up one to one: every heading carries a
    target, and every target still has a heading beneath it.
+4. **Separation.** No line break sits between a citation's prefix and its section number.
 
 Resolution is the one that catches renumbering. Keying and coverage are what keep
 resolution meaningful: an anchor that has drifted onto the wrong heading still resolves, a
@@ -268,6 +269,33 @@ behind by a deleted section resolves to nothing at all — none of the three sho
 broken citation. Coverage is stated as a pairing rather than a one-way rule because the
 two directions catch different faults, and reading only from the headings down misses the
 orphan: there is no heading left to start from.
+
+Separation is the one resolution cannot help with, because the wrapped citation resolves —
+to the wrong document. A prefix ending a line never reaches a section sign opening the next:
+the reader of §3.2's grammar is horizontal-only by design, so the citation is left with
+whatever prefix shares its line, or falls back to the containing document. The transform of
+§3.7 reads it the same way, the text node having kept the newline, so the two agree and the
+page links somewhere nobody wrote. Both of the other properties hold throughout: the anchor
+exists, and it is keyed and covered. Only the reader can tell, and only by following it.
+
+Separation reads each file the way the other three do, and for the same reason: a notebook
+as its cells rather than as the JSON it is stored in. A notebook's authored newlines are
+escapes inside quoted strings, so a rule reading the raw text finds no line boundary to look
+across and every wrap in the corpus's notebooks would pass unseen. What a wrap may join is
+therefore bounded by what the reader yields — a fence in markdown and a cell boundary in a
+notebook both end a run, the first blank and the second merely discontinuous.
+
+The check asks the one question the other three cannot: **does undoing the wrap move the
+anchor?** Nothing guesses what the author meant. A citation that reads the same wrapped and
+unwrapped is never reported, which is what keeps the rule silent over the bare `§N` naming
+the containing document — 61% of the citations in this corpus when the rule was written, and
+the reason §3.2's fallback is not simply withdrawn. The measurement behind that figure, and
+the two heuristics it ruled out, are recorded in {issue}`197`.
+
+One class stays out of reach and is accepted rather than approximated. A section separated
+from its prefix by something that is not a separator — `" and "` is the case {issue}`197`
+found — resolves identically wrapped or not, so no comparison distinguishes it from a
+citation meant that way. That one is a review question, and *Reviewing Claims* asks it.
 
 The check derives its registry rather than declaring one. It reads the anchors out of
 `docs/src/developer/specs/*.md`, and the set of valid prefixes falls out of them; a

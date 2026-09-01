@@ -241,3 +241,61 @@ def test_the_repository_satisfies_the_citation_contract(capsys):
     bypassed them.
     """
     assert cc.main() == 0, capsys.readouterr().out
+
+
+def test_a_citation_wrapped_away_from_its_prefix_is_a_violation(tmp_path):
+    """:issue:`197`, in the shape found live in the tree when this was written.
+
+    ``narrative`` ends a line and ``spec §3.6`` opens the next. The existing rule
+    passes, because the anchor the shorter prefix names exists; the page then
+    links to that anchor instead of the one written.
+    """
+    parent = tmp_path / "parent.md"
+    parent.write_text("(spec-3-6)=\n### 3.6 Browser documentation demo\n")
+    narrative = tmp_path / "narrative.md"
+    narrative.write_text("(narrative-spec-3-6)=\n### 3.6 The reader how-to\n")
+    gallery = tmp_path / "gallery.md"
+    gallery.write_text(
+        "(gallery-spec-1)=\n## 1. Purpose\n\n"
+        f"belongs to 7c regardless. *Specified 2026-08-27:* narrative\n"
+        f"spec {SECTION}3.6, which records that it moved the constraint.\n"
+    )
+    anchors, owners = cc.collect_anchors([parent, narrative, gallery])
+
+    assert cc.check_citations([gallery], anchors, owners) == []
+
+    violations = cc.check_wraps([gallery], anchors, owners)
+    assert len(violations) == 1
+    assert violations[0].line == 5
+    assert "narrative-spec-3-6" in violations[0].message
+
+
+def test_a_wrap_authored_in_a_notebook_is_a_violation(tmp_path):
+    """The gate reads a notebook as a notebook, not as the JSON it is stored in.
+
+    A notebook's authored newlines are escapes inside quoted strings, so a rule
+    reading the raw text finds no boundary to look across and the wrap goes by.
+    Notebooks are governed by the same derived corpus as everything else.
+    """
+    nbformat = pytest.importorskip("nbformat")
+    spec = tmp_path / "parent.md"
+    spec.write_text("(spec-3-2)=\n### 3.2 A\n")
+    other = tmp_path / "docs.md"
+    other.write_text("(docs-spec-3-2)=\n### 3.2 B\n")
+    anchors, owners = cc.collect_anchors([spec, other])
+
+    notebook = tmp_path / "probe.ipynb"
+    nbformat.write(
+        nbformat.v4.new_notebook(
+            cells=[
+                nbformat.v4.new_markdown_cell(
+                    f"the gate of docs\nspec {SECTION}3.2 is the rule."
+                )
+            ]
+        ),
+        notebook,
+    )
+
+    violations = cc.check_wraps([notebook], anchors, owners)
+    assert len(violations) == 1
+    assert "docs-spec-3-2" in violations[0].message
