@@ -299,3 +299,14 @@ def test_a_wrap_authored_in_a_notebook_is_a_violation(tmp_path):
     violations = cc.check_wraps([notebook], anchors, owners)
     assert len(violations) == 1
     assert "docs-spec-3-2" in violations[0].message
+
+
+@tracked
+def test_the_corpus_passes_over_the_vendored_runtime():
+    """The vendored runtime is not this project's prose (tooltip spec §3.2)."""
+    # Asserted alongside the directory being non-empty, because "no corpus path
+    # is under a directory that does not exist" is a test that passes for the
+    # wrong reason the day the bundles move.
+    vendored = REPO / "docs" / "src" / "_static" / "js"
+    assert list(vendored.glob("*.js")), "the vendored runtime is missing"
+    assert not [path for path in cc.corpus() if vendored in path.parents]

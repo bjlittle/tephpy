@@ -268,3 +268,13 @@ def test_the_repository_satisfies_the_reference_contract(capsys):
     clone, so this is what catches a reference broken by someone who bypassed them.
     """
     assert gr.main() == 0, capsys.readouterr().out
+
+
+def test_an_unquoted_css_colour_is_still_reported_outside_the_exemption(tmp_path):
+    """The exemption is a place, not a pattern (tooltip spec §3.2)."""
+    # The vendored bundle is passed over because of where it comes from. The same
+    # text in a file this project writes is still judged, which is what keeps the
+    # exemption from quietly widening into the colour rule.
+    source = tmp_path / "theme.css"
+    source.write_text(f"background-color:{HASH}333\n")
+    assert gr.check_unlinked([source])
