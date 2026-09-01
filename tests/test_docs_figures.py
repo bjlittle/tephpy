@@ -775,3 +775,53 @@ def test_a_failing_comparison_keeps_the_diff_where_it_can_be_opened(
     written = sorted((root.parent / gate.DIFFS).glob("*-failed-diff*"))
     assert [path.name for path in written] == ["alpha-failed-diff.png"]
     assert str(written[0]) in flat(out), "the advice does not name the diff it wrote"
+
+
+def test_the_malformed_advice_does_not_recommend_the_character_that_fails():
+    """The diagnostic and the pattern must agree on a dot (:issue:`174`).
+
+    The advice is what a contributor acts on. Recommending the character the
+    strict pattern now refuses would send them round the loop that produced the
+    failure, so the pattern refusing it and the advice offering it cannot both
+    stand.
+    """
+    dotted = ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n"
+    assert gate.declarations(dotted) == []
+    assert "dots and dashes" not in gate.MALFORMED
+    assert "digits and dashes" in gate.MALFORMED
+
+
+def test_the_malformed_advice_counts_the_shapes_it_names():
+    """`CANDIDATE` catches a fourth shape now, and the advice enumerates them."""
+    shapes = {
+        "whitespace": ".. plot::\n    :filename-prefix: alpha beta\n\n    x = 1\n",
+        "tab": ".. plot::\n\t:filename-prefix: alpha\n\n\tx = 1\n",
+        "case": ".. plot::\n    :Filename-Prefix: alpha\n\n    x = 1\n",
+        "dot": ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n",
+    }
+    for name, text in shapes.items():
+        assert gate.malformed(text), f"the {name} shape is no longer detected"
+    assert "four shapes" in gate.MALFORMED, (
+        f"the advice names a count that is not {len(shapes)}"
+    )
+
+
+def test_a_diff_that_cannot_be_moved_is_reported_where_it_lies(tmp_path):
+    """A gate with a drifted figure to report must still report it (:issue:`174`).
+
+    Creating the destination can fail as readily as the move -- an unwritable
+    build parent is the case -- and losing the drift report to an error about
+    relocating its own attachment would replace a message a contributor can act
+    on with one they cannot.
+    """
+    diff = tmp_path / "alpha-failed-diff.png"
+    diff.write_bytes(b"not really a png")
+    # A file where the destination's parent should be. Chosen over an unwritable
+    # directory because permission bits are bypassed for uid 0, and a test that
+    # goes vacuous in a root container is one that stops holding exactly where
+    # nobody is watching.
+    blocker = tmp_path / "blocker"
+    blocker.write_bytes(b"not a directory")
+
+    assert gate.relocate(diff, blocker / gate.DIFFS) == diff
+    assert diff.is_file(), "the diff the advice names was lost"

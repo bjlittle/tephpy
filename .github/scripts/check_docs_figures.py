@@ -198,12 +198,13 @@ UNRECOGNISED = (
 MALFORMED = (
     "This looks like a ':filename-prefix:' declaration and is not read as "
     "one, which is worse than declaring nothing: the page appears to publish "
-    "the figure, and no baseline is ever compared against it. The three "
-    "shapes this misses are a value that contains whitespace, a line indented "
-    "with a tab rather than spaces, and an option name spelled in some other "
-    "case, such as ':Filename-Prefix:'. Rewrite the value as one run of "
-    "letters, digits, dots and dashes, indent every line of the block with "
-    "spaces only, and spell the option name in lowercase."
+    "the figure, and no baseline is ever compared against it. The four "
+    "shapes this misses are a value that contains whitespace, a value that "
+    "contains a dot, which matplotlib itself refuses so the figure would never "
+    "be built, a line indented with a tab rather than spaces, and an option "
+    "name spelled in some other case, such as ':Filename-Prefix:'. Rewrite the "
+    "value as one run of letters, digits and dashes, indent every line of the "
+    "block with spaces only, and spell the option name in lowercase."
 )
 
 
@@ -384,12 +385,15 @@ def relocate(diff: Path, destination: Path) -> Path:
     Path
         Where the diff now is, or where it was if it could not be moved. A gate
         already reporting a drifted figure has something to say either way, and
-        losing that report to an error about moving its own attachment would
-        replace a message a contributor can act on with one they cannot.
+        losing that report to an error about relocating its own attachment
+        would replace a message a contributor can act on with one they cannot.
+        Creating the directory is inside that guarantee, not before it: an
+        unwritable build parent fails there rather than at the move, and would
+        otherwise abort the gate on the one path this fallback exists for.
 
     """
-    destination.mkdir(parents=True, exist_ok=True)
     try:
+        destination.mkdir(parents=True, exist_ok=True)
         return Path(shutil.move(str(diff), str(destination / diff.name)))
     except OSError:
         return diff
