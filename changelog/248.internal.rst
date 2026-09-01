@@ -1,0 +1,10 @@
+Closed the two deferred minors in the published-figure gate. A
+``:filename-prefix:`` carrying a dot is no longer read as a declaration —
+matplotlib refuses one, so it names a figure the build never writes, and the
+near-miss detector now reports it instead of the gate hunting for a missing
+image. And a failed comparison's ``-failed-diff.png`` is moved out of the built
+site before the gate returns: ``compare_images`` writes it beside the built
+image, which is the directory Read the Docs publishes, and this gate runs after
+Sphinx has already produced a complete and publishable tree. It is moved rather
+than deleted, because the advice sends a contributor to open exactly that file,
+and its new path is named beside the measurement. (:user:`claude`)

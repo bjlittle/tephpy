@@ -714,3 +714,114 @@ def test_every_committed_baseline_is_claimed_by_a_page():
     claimed = {figure.baseline.name for figure in figures}
     found = {path.name for path in BASELINE.glob(f"*{gate.SUFFIX}")}
     assert found == claimed
+
+
+def test_a_dotted_prefix_is_reported_rather_than_read():
+    """A dot is refused by matplotlib, so a prefix carrying one is not a figure.
+
+    `check_output_base_name` raises `PlotError` for a dot or a slash, so the
+    class this pattern modelled was wider than the class that can exist. Reading
+    one would have the gate looking for a built image the build never wrote;
+    declining to read it hands the value to the near-miss detector, which
+    reports it (:issue:`174`).
+    """
+    text = ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n"
+    assert gate.declarations(text) == []
+    assert gate.malformed(text) == ["alpha.beta"]
+
+
+@pytest.mark.usefixtures("unlisted")
+def test_a_failing_comparison_writes_no_diff_into_the_published_tree(
+    tmp_path, monkeypatch, capsys
+):
+    """`docs/_build/html/` is what Read the Docs publishes (:issue:`174`).
+
+    `compare_images` writes its diff beside the built image, which puts it in
+    the directory that gets deployed. The gate runs after Sphinx, so the build
+    output is complete and publishable at the moment the diff appears -- "a red
+    gate should not reach a deploy" is an argument, not a mechanism.
+    """
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": declare("alpha")},
+        {"alpha": "red"},
+        {"alpha": "blue"},
+    )
+    root, _source, _baselines = tree
+
+    code, _out = run(monkeypatch, capsys, gate, tree)
+
+    assert code == 1
+    strays = sorted(path.name for path in (root / gate.IMAGES).glob("*-failed-diff*"))
+    assert strays == [], f"the published image directory holds {strays}"
+
+
+@pytest.mark.usefixtures("unlisted")
+def test_a_failing_comparison_keeps_the_diff_where_it_can_be_opened(
+    tmp_path, monkeypatch, capsys
+):
+    """Moving the diff out of the deploy must not cost the contributor the file."""
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": declare("alpha")},
+        {"alpha": "red"},
+        {"alpha": "blue"},
+    )
+    root, _source, _baselines = tree
+
+    code, out = run(monkeypatch, capsys, gate, tree)
+
+    assert code == 1
+    written = sorted((root.parent / gate.DIFFS).glob("*-failed-diff*"))
+    assert [path.name for path in written] == ["alpha-failed-diff.png"]
+    assert str(written[0]) in flat(out), "the advice does not name the diff it wrote"
+
+
+def test_the_malformed_advice_does_not_recommend_the_character_that_fails():
+    """The diagnostic and the pattern must agree on a dot (:issue:`174`).
+
+    The advice is what a contributor acts on. Recommending the character the
+    strict pattern now refuses would send them round the loop that produced the
+    failure, so the pattern refusing it and the advice offering it cannot both
+    stand.
+    """
+    dotted = ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n"
+    assert gate.declarations(dotted) == []
+    assert "dots and dashes" not in gate.MALFORMED
+    assert "digits and dashes" in gate.MALFORMED
+
+
+def test_the_malformed_advice_counts_the_shapes_it_names():
+    """`CANDIDATE` catches a fourth shape now, and the advice enumerates them."""
+    shapes = {
+        "whitespace": ".. plot::\n    :filename-prefix: alpha beta\n\n    x = 1\n",
+        "tab": ".. plot::\n\t:filename-prefix: alpha\n\n\tx = 1\n",
+        "case": ".. plot::\n    :Filename-Prefix: alpha\n\n    x = 1\n",
+        "dot": ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n",
+    }
+    for name, text in shapes.items():
+        assert gate.malformed(text), f"the {name} shape is no longer detected"
+    assert "four shapes" in gate.MALFORMED, (
+        f"the advice names a count that is not {len(shapes)}"
+    )
+
+
+def test_a_diff_that_cannot_be_moved_is_reported_where_it_lies(tmp_path):
+    """A gate with a drifted figure to report must still report it (:issue:`174`).
+
+    Creating the destination can fail as readily as the move -- an unwritable
+    build parent is the case -- and losing the drift report to an error about
+    relocating its own attachment would replace a message a contributor can act
+    on with one they cannot.
+    """
+    diff = tmp_path / "alpha-failed-diff.png"
+    diff.write_bytes(b"not really a png")
+    # A file where the destination's parent should be. Chosen over an unwritable
+    # directory because permission bits are bypassed for uid 0, and a test that
+    # goes vacuous in a root container is one that stops holding exactly where
+    # nobody is watching.
+    blocker = tmp_path / "blocker"
+    blocker.write_bytes(b"not a directory")
+
+    assert gate.relocate(diff, blocker / gate.DIFFS) == diff
+    assert diff.is_file(), "the diff the advice names was lost"

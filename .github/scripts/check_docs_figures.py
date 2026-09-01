@@ -55,6 +55,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import shutil
 import sys
 import textwrap
 from typing import NamedTuple
@@ -86,9 +87,17 @@ PUBLISHES = (
 #: A figure declaration: the ``:filename-prefix:`` option of a ``.. plot::``. The
 #: directive line is matched too, so an option of that name under some other
 #: directive is not read as a figure this project publishes.
+#:
+#: The value admits no dot. matplotlib's own ``check_output_base_name`` raises
+#: ``PlotError`` for a dot or a solidus, so a prefix carrying one names a figure
+#: the build never writes; reading it would have this gate hunting for that
+#: image and reporting it missing. Declining to read it hands the value to
+#: :data:`CANDIDATE` instead, which reports it as a declaration this pattern
+#: could not accept -- the shape modelled and the shape that can exist, made the
+#: same (:issue:`174`).
 DECLARATION = re.compile(
     r"^[ ]*\.\.[ ]+plot::.*$(?:\n^[ ]*:[\w-]+:.*$)*?"
-    r"\n^[ ]*:filename-prefix:[ ]*(?P<prefix>[\w.-]+)[ ]*$",
+    r"\n^[ ]*:filename-prefix:[ ]*(?P<prefix>[\w-]+)[ ]*$",
     re.MULTILINE,
 )
 #: The same shape as :data:`DECLARATION`, widened rather than narrowed: any
@@ -153,11 +162,22 @@ CHANGED = (
     "the failure this gate exists to catch: the snippet still runs, and no "
     "longer draws what the page's prose describes. A pixel-size change is "
     "reported above with both sizes and writes no diff to open; anything else "
-    "has a '-failed-diff.png' written beside the built image. If the change is "
+    "has a '-failed-diff.png', whose path is named beside the measurement. It "
+    "is written outside the built site, because that directory is what gets "
+    "deployed. If the change is "
     "wrong, fix the code or the snippet; if it is intended, run 'pixi run "
     "docs-figures' to re-bless it and commit the new baseline with the change "
     "that caused it."
 )
+#: Where a failed comparison's diff is written, relative to the *parent* of the
+#: html root. ``compare_images`` writes it beside the built image, which is
+#: inside the tree Read the Docs publishes: this gate runs as a task after
+#: Sphinx, so that output is complete and publishable at the moment the diff
+#: appears, and "a red gate should not reach a deploy" is an argument rather
+#: than a mechanism (:issue:`174`). The diff is moved here instead of deleted,
+#: because :data:`CHANGED` sends a contributor to open exactly that file.
+DIFFS = "figure-diffs"
+
 #: What to do about a documentation tree that declares no figure anywhere.
 EMPTY = (
     "No page declares a figure, so this gate has nothing to compare and a "
@@ -178,12 +198,13 @@ UNRECOGNISED = (
 MALFORMED = (
     "This looks like a ':filename-prefix:' declaration and is not read as "
     "one, which is worse than declaring nothing: the page appears to publish "
-    "the figure, and no baseline is ever compared against it. The three "
-    "shapes this misses are a value that contains whitespace, a line indented "
-    "with a tab rather than spaces, and an option name spelled in some other "
-    "case, such as ':Filename-Prefix:'. Rewrite the value as one run of "
-    "letters, digits, dots and dashes, indent every line of the block with "
-    "spaces only, and spell the option name in lowercase."
+    "the figure, and no baseline is ever compared against it. The four "
+    "shapes this misses are a value that contains whitespace, a value that "
+    "contains a dot, which matplotlib itself refuses so the figure would never "
+    "be built, a line indented with a tab rather than spaces, and an option "
+    "name spelled in some other case, such as ':Filename-Prefix:'. Rewrite the "
+    "value as one run of letters, digits and dashes, indent every line of the "
+    "block with spaces only, and spell the option name in lowercase."
 )
 
 
@@ -344,6 +365,40 @@ def unreadable(source: Path, figures: list[Figure]) -> bool:
     return failed
 
 
+def relocate(diff: Path, destination: Path) -> Path:
+    """Move a failed comparison's diff out of the tree that gets deployed.
+
+    ``compare_images`` writes its diff beside the built image, and that
+    directory is what Read the Docs publishes. Deleting it would cost the
+    contributor the one file :data:`CHANGED` tells them to open, so it is moved
+    rather than removed (:issue:`174`).
+
+    Parameters
+    ----------
+    diff : Path
+        The diff ``compare_images`` wrote.
+    destination : Path
+        The directory to move it into, created if it is not there.
+
+    Returns
+    -------
+    Path
+        Where the diff now is, or where it was if it could not be moved. A gate
+        already reporting a drifted figure has something to say either way, and
+        losing that report to an error about relocating its own attachment
+        would replace a message a contributor can act on with one they cannot.
+        Creating the directory is inside that guarantee, not before it: an
+        unwritable build parent fails there rather than at the move, and would
+        otherwise abort the gate on the one path this fallback exists for.
+
+    """
+    try:
+        destination.mkdir(parents=True, exist_ok=True)
+        return Path(shutil.move(str(diff), str(destination / diff.name)))
+    except OSError:
+        return diff
+
+
 def main() -> int:
     """Check the built figures against their baselines.
 
@@ -412,9 +467,10 @@ def main() -> int:
                 )
             else:
                 if result is not None:
+                    diff = relocate(Path(result["diff"]), root.parent / DIFFS)
                     changed.append(
                         f"{figure.name} (RMS {result['rms']:.2f}, "
-                        f"tolerance {result['tol']})"
+                        f"tolerance {result['tol']}) -- {diff}"
                     )
 
     claimed = {figure.baseline for figure in figures}
