@@ -1,0 +1,214 @@
+# Copyright (c) 2026, tephpy Contributors.
+#
+# This file is part of tephpy and is distributed under the 3-Clause BSD license.
+# See the LICENSE file in the package root directory for licensing details.
+
+"""Tests for the tooltip gate of tooltip spec §3.6."""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import sys
+
+import pytest
+
+REPO = Path(__file__).parents[1]
+SCRIPT = REPO / ".github" / "scripts" / "check_tooltips.py"
+
+# `MANIFEST.in` prunes `.github`, so an sdist ships this test without the gate it
+# exercises. The gate is a contract about the repository, and that is not the
+# repository, so skip there rather than fail collection -- the guard
+# `tests/test_citations.py` and `tests/test_github_references.py` both carry.
+pytestmark = pytest.mark.skipif(
+    not SCRIPT.is_file(), reason="not a checkout of the repository"
+)
+
+
+def _load():
+    """Load the gate from its path, which is not an importable package."""
+    spec = importlib.util.spec_from_file_location("check_tooltips", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gate = _load() if SCRIPT.is_file() else None
+
+
+PAGE = """<html><body><article class="bd-article">{body}</article>
+{scripts}</body></html>"""
+RUNTIME = (
+    '<script defer="defer" src="{popper}"></script>'
+    '<script defer="defer" src="{tippy}"></script>'
+)
+VENDORED = {
+    "popper": "_static/js/popper.min.js?v=a8c9358f",
+    "tippy": "_static/js/tippy-bundle.umd.min.js?v=37ef8ba7",
+}
+GUARDS = "placement: 'auto-start', maxWidth: 500, interactive: false,"
+SKIPS = '["headerlink", "sd-stretched-link", "sd-sphinx-override"]'
+
+
+def build(  # noqa: PLR0913
+    tmp_path, pages, payloads, *, runtime=None, guards=GUARDS, skips=SKIPS
+):
+    """Write a minimal build tree and return its root.
+
+    ``pages`` maps a docname to the HTML of its article body; ``payloads`` maps a
+    docname to ``{href: tip html}``. Anything absent gets the passing default.
+    """
+    runtime = RUNTIME.format(**(runtime or VENDORED))
+    for docname, body in pages.items():
+        page = tmp_path / f"{docname}.html"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(PAGE.format(body=body, scripts=runtime), encoding="utf-8")
+    for docname, tips in payloads.items():
+        js = (
+            tmp_path
+            / "_static"
+            / "tippy"
+            / f"{docname}.0123abcd-0123-4abc-8def-0123456789ab.js"
+        )
+        js.parent.mkdir(parents=True, exist_ok=True)
+        entries = ", ".join(
+            f'"a[href=\\"{href}\\"]": "{html}"' for href, html in tips.items()
+        )
+        js.write_text(
+            f"selector_to_html = {{{entries}}}\n"
+            f"skip_classes = {skips}\n"
+            f"tippy(link, {{ content: tip_html, {guards} }});\n",
+            encoding="utf-8",
+        )
+    return tmp_path
+
+
+TERM = '<a href="reference/glossary.html#term-tephigram">tephigram</a>'
+THUMB = '<a href="gallery/plot_sounding.html">A Sounding</a>'
+
+
+def test_a_glossary_link_with_a_tip_passes(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
+    )
+    assert gate.check_glossary(root) == []
+
+
+def test_a_glossary_link_without_a_tip_is_reported(tmp_path):
+    root = build(tmp_path, {"index": TERM}, {"index": {}})
+    found = gate.check_glossary(root)
+    assert found
+    assert "term-tephigram" in found[0]
+
+
+def test_a_build_with_no_glossary_link_at_all_is_reported(tmp_path):
+    # The positive assertion of tooltip spec §3.6. A build in which the extension
+    # silently produced nothing satisfies every other check most completely.
+    root = build(tmp_path, {"index": "<p>no links here</p>"}, {"index": {}})
+    found = gate.check_glossary(root)
+    assert found
+    assert "no glossary" in found[0].lower()
+
+
+def test_a_tipped_gallery_link_is_reported(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM + THUMB},
+        {
+            "index": {
+                "reference/glossary.html#term-tephigram": "<dd>a diagram</dd>",
+                "gallery/plot_sounding.html": "<h1>A Sounding</h1>",
+            }
+        },
+    )
+    found = gate.check_gallery(root)
+    assert found
+    assert "plot_sounding" in found[0]
+
+
+def test_an_untipped_gallery_link_passes(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM + THUMB},
+        {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
+    )
+    assert gate.check_gallery(root) == []
+
+
+def test_a_page_loading_the_runtime_from_a_cdn_is_reported(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "https://unpkg.com/@popperjs/core@2",
+            "tippy": "https://unpkg.com/tippy.js@6",
+        },
+    )
+    found = gate.check_vendored(root)
+    assert found
+    assert "index.html" in found[0]
+
+
+def test_a_page_loading_the_vendored_runtime_passes(tmp_path):
+    root = build(tmp_path, {"index": TERM}, {"index": {}})
+    assert gate.check_vendored(root) == []
+
+
+def test_this_specification_naming_the_cdn_is_not_a_violation(tmp_path):
+    # tooltip spec §6: check 3 must look for the runtime script, not for the
+    # string. The specification is a published page and names `unpkg.com` in
+    # prose, so a gate that swept the build for it would fail on the document
+    # that told it to exist.
+    root = build(
+        tmp_path,
+        {
+            "developer/specs/tooltips": "<p>the default is https://unpkg.com/tippy.js@6</p>"
+        },
+        {},
+    )
+    assert gate.check_vendored(root) == []
+
+
+def test_an_interactive_payload_is_reported(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        guards="placement: 'auto-start', maxWidth: 500, interactive: true,",
+    )
+    found = gate.check_guards(root)
+    assert found
+    assert "interactive" in found[0]
+
+
+def test_a_payload_that_dropped_the_stretched_link_class_is_reported(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        skips='["headerlink", "sd-sphinx-override"]',
+    )
+    found = gate.check_guards(root)
+    assert found
+    assert "sd-stretched-link" in found[0]
+
+
+def test_a_payload_carrying_both_guards_passes(tmp_path):
+    root = build(tmp_path, {"index": TERM}, {"index": {}})
+    assert gate.check_guards(root) == []
+
+
+def test_a_build_with_no_payloads_at_all_fails(tmp_path):
+    # Every check but the first is satisfied by an empty build.
+    root = build(tmp_path, {"index": TERM}, {})
+    assert gate.check_guards(root)
+
+
+@pytest.mark.parametrize("argv", [[], ["a", "b"]])
+def test_the_gate_requires_exactly_one_argument(monkeypatch, argv):
+    monkeypatch.setattr(sys, "argv", ["check_tooltips.py", *argv])
+    assert gate.main() == 1
