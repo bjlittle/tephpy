@@ -992,6 +992,20 @@ pixi is the primary interface for environments, tasks, and CI, configured in
   the root. `tests/test_layout.py` asserts the mapping in both directions, after
   `tephpy.samples` spent nine days tested from the root ({issue}`234`): a layout
   rule that only prose states is one the next subpackage breaks silently.
+  The placement sentence is asserted too, in the one reading that needs no
+  exception list ({issue}`239`): **a test module named after a module of the
+  package sits in the directory mirroring where that module lives.** It fires
+  only on a collision, so `tests/test_igra.py` fails because `io/igra.py` is in
+  a subpackage, and `tests/plotting/test_calc.py` fails because `calc.py` is
+  top-level. What is deliberately *not* asserted is that a test module names a
+  module at all: most of the tree names none, and legitimately — facets splitting
+  one surface across several files, gates over machinery that is not the package,
+  and cross-cutting tests answering to no single module. A rule over that
+  reading would spend its life maintaining the exceptions, so tests naming
+  nothing are out of scope by construction rather than by list. The placement
+  rule rests on each module basename having one home, which is asserted beside
+  it; two packages holding an `x.py` would make "where it lives" a question, and
+  it is the answer the rule reads.
 - **Image baselines via pytest-mpl** *(deviation: geovista uses pytest-pyvista for VTK
   scenes; pytest-mpl is the matplotlib equivalent)* — small tolerance-tuned PNGs in-repo for
   each isopleth family, profiles, barbs, shading, and the composed §4 figure.

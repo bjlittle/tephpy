@@ -1,0 +1,8 @@
+Spec §8.5's placement sentence is now asserted, not only stated. A test module
+named after a module of the package must sit in the directory mirroring where
+that module lives, so a ``tests/test_igra.py`` at the root fails because
+``io/igra.py`` is in a subpackage. The rule fires only on a collision, so a test
+naming nothing in the package — most of the tree, and legitimately — is out of
+scope by construction rather than by an exception list. Each module basename
+having one home is asserted beside it, because that is the answer the rule
+reads. (:user:`claude`)
