@@ -234,7 +234,7 @@ argued for an API change. Measured on 2026-08-29, it does not:
 
 ```python
 ax.isobars(labels="left")
-ax.edge_axis("left").get_label_text()  # 'Pressure (hPa)'
+ax.edge_axis("left").get_label_text()   # 'Pressure (hPa)'
 ```
 
 The title is already correct, supplied from `EDGE_AXIS_TITLES` when the family claims the

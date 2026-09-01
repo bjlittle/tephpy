@@ -210,50 +210,48 @@ Add `from pathlib import Path` to the `TYPE_CHECKING` block. Add these members t
 after the field declarations and before `context`:
 
 ```python
-def __post_init__(self) -> None:
-    """Initialise the state that is deliberately not a field.
+    def __post_init__(self) -> None:
+        """Initialise the state that is deliberately not a field.
 
-    Notes
-    -----
-    ``_source`` is set here rather than declared as a class attribute
-    because an annotated class attribute becomes a dataclass field, and
-    :meth:`context` enumerates the configuration sections with
-    ``dataclasses.fields`` — a field here would present ``source`` as an
-    eighth section (configfile spec §3.1).
-    """
-    self._source: Path | None = None
+        Notes
+        -----
+        ``_source`` is set here rather than declared as a class attribute
+        because an annotated class attribute becomes a dataclass field, and
+        :meth:`context` enumerates the configuration sections with
+        ``dataclasses.fields`` — a field here would present ``source`` as an
+        eighth section (configfile spec §3.1).
+        """
+        self._source: Path | None = None
 
+    @property
+    def source(self) -> Path | None:
+        """The configuration file in force.
 
-@property
-def source(self) -> Path | None:
-    """The configuration file in force.
+        Returns
+        -------
+        pathlib.Path or None
+            The file this configuration was loaded from, or ``None`` when
+            no file was found, none was loaded, or the load failed.
+        """
+        return self._source
 
-    Returns
-    -------
-    pathlib.Path or None
-        The file this configuration was loaded from, or ``None`` when
-        no file was found, none was loaded, or the load failed.
-    """
-    return self._source
+    def reset(self) -> None:
+        """Restore the pristine, hardwired configuration.
 
-
-def reset(self) -> None:
-    """Restore the pristine, hardwired configuration.
-
-    Every option in every section returns to ``None`` — falling through
-    to the ``_constants`` conventions — and :attr:`source` becomes
-    ``None``. The section objects are cleared in place rather than
-    rebound, because an
-    :class:`~tephpy.plotting.isopleths.IsoplethFamily` keeps a reference
-    to the section it was created with.
-    """
-    pristine = Config()
-    for field in dataclasses.fields(self):
-        section = getattr(self, field.name)
-        fresh = getattr(pristine, field.name)
-        for option in dataclasses.fields(fresh):
-            setattr(section, option.name, getattr(fresh, option.name))
-    self._source = None
+        Every option in every section returns to ``None`` — falling through
+        to the ``_constants`` conventions — and :attr:`source` becomes
+        ``None``. The section objects are cleared in place rather than
+        rebound, because an
+        :class:`~tephpy.plotting.isopleths.IsoplethFamily` keeps a reference
+        to the section it was created with.
+        """
+        pristine = Config()
+        for field in dataclasses.fields(self):
+            section = getattr(self, field.name)
+            fresh = getattr(pristine, field.name)
+            for option in dataclasses.fields(fresh):
+                setattr(section, option.name, getattr(fresh, option.name))
+        self._source = None
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -350,7 +348,9 @@ def _family_cases():
 
 def test_config_defaults_covers_exactly_the_config_sections():
     """The gate's own input must not silently empty out."""
-    assert set(CONFIG_DEFAULTS) == {field.name for field in dataclasses.fields(Config)}
+    assert set(CONFIG_DEFAULTS) == {
+        field.name for field in dataclasses.fields(Config)
+    }
 
 
 def test_config_defaults_covers_exactly_each_section_option():
@@ -411,72 +411,60 @@ imports (`Final` is already imported). Append at the end of the module:
 #: A ``None`` records an option with **no** default: leaving ``interval`` and
 #: ``values`` unset is what enables the zoom-adaptive selection ladder, so the
 #: template must never print a number for them.
-CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType(
-    {
-        "isotherms": MappingProxyType(
-            {
-                "color": ISOTHERM_COLOR,
-                "linewidth": ISOPLETH_LINEWIDTH,
-                "alpha": ISOPLETH_ALPHA,
-                "labels": True,
-                "visible": True,
-                "emphasis": {},
-                "values": None,
-                "interval": None,
-            }
-        ),
-        "isobars": MappingProxyType(
-            {
-                "color": ISOBAR_COLOR,
-                "linewidth": ISOPLETH_LINEWIDTH,
-                "alpha": ISOPLETH_ALPHA,
-                "labels": True,
-                "visible": True,
-                "emphasis": {},
-                "values": None,
-                "interval": None,
-            }
-        ),
-        "dry_adiabats": MappingProxyType(
-            {
-                "color": DRY_ADIABAT_COLOR,
-                "linewidth": ISOPLETH_LINEWIDTH,
-                "alpha": ISOPLETH_ALPHA,
-                "labels": True,
-                "visible": True,
-                "emphasis": {},
-                "values": None,
-                "interval": None,
-            }
-        ),
-        "moist_adiabats": MappingProxyType(
-            {
-                "color": MOIST_ADIABAT_COLOR,
-                "linewidth": ISOPLETH_LINEWIDTH,
-                "alpha": ISOPLETH_ALPHA,
-                "labels": True,
-                "visible": True,
-                "emphasis": {},
-                "values": None,
-                "interval": None,
-                "truncation": MOIST_ADIABAT_TRUNCATION,
-            }
-        ),
-        "mixing_ratios": MappingProxyType(
-            {
-                "color": MIXING_RATIO_COLOR,
-                "linewidth": ISOPLETH_LINEWIDTH,
-                "alpha": ISOPLETH_ALPHA,
-                "labels": True,
-                "visible": True,
-                "emphasis": {},
-                "values": None,
-            }
-        ),
-        "diagram": MappingProxyType({"extent": DEFAULT_EXTENT}),
-        "cursor": MappingProxyType({"fields": CURSOR_FIELDS}),
-    }
-)
+CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType({
+    "isotherms": MappingProxyType({
+        "color": ISOTHERM_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "alpha": ISOPLETH_ALPHA,
+        "labels": True,
+        "visible": True,
+        "emphasis": {},
+        "values": None,
+        "interval": None,
+    }),
+    "isobars": MappingProxyType({
+        "color": ISOBAR_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "alpha": ISOPLETH_ALPHA,
+        "labels": True,
+        "visible": True,
+        "emphasis": {},
+        "values": None,
+        "interval": None,
+    }),
+    "dry_adiabats": MappingProxyType({
+        "color": DRY_ADIABAT_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "alpha": ISOPLETH_ALPHA,
+        "labels": True,
+        "visible": True,
+        "emphasis": {},
+        "values": None,
+        "interval": None,
+    }),
+    "moist_adiabats": MappingProxyType({
+        "color": MOIST_ADIABAT_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "alpha": ISOPLETH_ALPHA,
+        "labels": True,
+        "visible": True,
+        "emphasis": {},
+        "values": None,
+        "interval": None,
+        "truncation": MOIST_ADIABAT_TRUNCATION,
+    }),
+    "mixing_ratios": MappingProxyType({
+        "color": MIXING_RATIO_COLOR,
+        "linewidth": ISOPLETH_LINEWIDTH,
+        "alpha": ISOPLETH_ALPHA,
+        "labels": True,
+        "visible": True,
+        "emphasis": {},
+        "values": None,
+    }),
+    "diagram": MappingProxyType({"extent": DEFAULT_EXTENT}),
+    "cursor": MappingProxyType({"fields": CURSOR_FIELDS}),
+})
 ```
 
 - [ ] **Step 4: Run the gate to verify it passes**
@@ -1043,7 +1031,9 @@ def coerce(section: str, option: str, value: object) -> object:
     """
     try:
         if option == "extent":
-            return tuple(tuple(float(number) for number in corner) for corner in value)
+            return tuple(
+                tuple(float(number) for number in corner) for corner in value
+            )
         if option == "emphasis":
             return {float(member): dict(style) for member, style in value.items()}
         if option in _FLOAT_TUPLES and isinstance(value, list):
@@ -1056,7 +1046,9 @@ def coerce(section: str, option: str, value: object) -> object:
     return value
 
 
-def apply(config: Config, document: Mapping[str, object], source: Path | None) -> None:
+def apply(
+    config: Config, document: Mapping[str, object], source: Path | None
+) -> None:
     """Apply a parsed configuration document to a configuration.
 
     Parameters
@@ -1716,142 +1708,127 @@ at runtime, so the template's prose lives here (configfile spec §3.4). Add
 #: temperature families, g/kg for mixing ratios — so each family spells out
 #: its own rather than sharing one string that would be wrong for four of
 #: the five.
-CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
-    {
-        "isotherms": MappingProxyType(
-            {
-                "color": "Matplotlib colour for the lines and their labels.",
-                "linewidth": "Line width in points.",
-                "alpha": "Line and label opacity, 0 to 1.",
-                "labels": (
-                    "true, false, or the diagram edges to label - bottom, top, "
-                    "left, right - singly or as a list."
-                ),
-                "visible": "Whether the family is drawn at all.",
-                "emphasis": (
-                    "Members drawn with a distinguishing style, keyed by "
-                    "temperature in degrees Celsius."
-                ),
-                "values": (
-                    "Explicit member temperatures in degrees Celsius. Unset, the "
-                    "zoom-adaptive ladder selects them."
-                ),
-                "interval": (
-                    "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
-                    "ladder selects it."
-                ),
-            }
+CONFIG_DESCRIPTIONS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType({
+    "isotherms": MappingProxyType({
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
         ),
-        "isobars": MappingProxyType(
-            {
-                "color": "Matplotlib colour for the lines and their labels.",
-                "linewidth": "Line width in points.",
-                "alpha": "Line and label opacity, 0 to 1.",
-                "labels": (
-                    "true, false, or the diagram edges to label - bottom, top, "
-                    "left, right - singly or as a list."
-                ),
-                "visible": "Whether the family is drawn at all.",
-                "emphasis": (
-                    "Members drawn with a distinguishing style, keyed by pressure "
-                    "in hPa."
-                ),
-                "values": (
-                    "Explicit member pressures in hPa. Unset, the zoom-adaptive "
-                    "ladder selects them."
-                ),
-                "interval": (
-                    "Member spacing in hPa. Unset, the zoom-adaptive ladder selects it."
-                ),
-            }
+        "visible": "Whether the family is drawn at all.",
+        "emphasis": (
+            "Members drawn with a distinguishing style, keyed by "
+            "temperature in degrees Celsius."
         ),
-        "dry_adiabats": MappingProxyType(
-            {
-                "color": "Matplotlib colour for the lines and their labels.",
-                "linewidth": "Line width in points.",
-                "alpha": "Line and label opacity, 0 to 1.",
-                "labels": (
-                    "true, false, or the diagram edges to label - bottom, top, "
-                    "left, right - singly or as a list."
-                ),
-                "visible": "Whether the family is drawn at all.",
-                "emphasis": (
-                    "Members drawn with a distinguishing style, keyed by potential "
-                    "temperature in degrees Celsius."
-                ),
-                "values": (
-                    "Explicit member potential temperatures in degrees Celsius. "
-                    "Unset, the zoom-adaptive ladder selects them."
-                ),
-                "interval": (
-                    "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
-                    "ladder selects it."
-                ),
-            }
+        "values": (
+            "Explicit member temperatures in degrees Celsius. Unset, the "
+            "zoom-adaptive ladder selects them."
         ),
-        "moist_adiabats": MappingProxyType(
-            {
-                "color": "Matplotlib colour for the lines and their labels.",
-                "linewidth": "Line width in points.",
-                "alpha": "Line and label opacity, 0 to 1.",
-                "labels": (
-                    "true, false, or the diagram edges to label - bottom, top, "
-                    "left, right - singly or as a list."
-                ),
-                "visible": "Whether the family is drawn at all.",
-                "emphasis": (
-                    "Members drawn with a distinguishing style, keyed by wet-bulb "
-                    "potential temperature in degrees Celsius."
-                ),
-                "values": (
-                    "Explicit member wet-bulb potential temperatures in degrees "
-                    "Celsius. Unset, the zoom-adaptive ladder selects them."
-                ),
-                "interval": (
-                    "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
-                    "ladder selects it."
-                ),
-                "truncation": (
-                    "Temperature in degrees Celsius below which a moist adiabat "
-                    "stops being drawn."
-                ),
-            }
+        "interval": (
+            "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
+            "ladder selects it."
         ),
-        "mixing_ratios": MappingProxyType(
-            {
-                "color": "Matplotlib colour for the lines and their labels.",
-                "linewidth": "Line width in points.",
-                "alpha": "Line and label opacity, 0 to 1.",
-                "labels": (
-                    "true, false, or the diagram edges to label - bottom, top, "
-                    "left, right - singly or as a list."
-                ),
-                "visible": "Whether the family is drawn at all.",
-                "emphasis": (
-                    "Members drawn with a distinguishing style, keyed by mixing "
-                    "ratio in g/kg."
-                ),
-                "values": (
-                    "Explicit member mixing ratios in g/kg. Unset, the "
-                    "zoom-adaptive ladder selects them."
-                ),
-            }
+    }),
+    "isobars": MappingProxyType({
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
         ),
-        "diagram": MappingProxyType(
-            {
-                "extent": (
-                    "Default view corners as [[pressure, temperature], [pressure, "
-                    "temperature]], in hPa and degrees Celsius."
-                ),
-            }
+        "visible": "Whether the family is drawn at all.",
+        "emphasis": (
+            "Members drawn with a distinguishing style, keyed by pressure "
+            "in hPa."
         ),
-        "cursor": MappingProxyType(
-            {
-                "fields": "Cursor readout fields, in display order.",
-            }
+        "values": (
+            "Explicit member pressures in hPa. Unset, the zoom-adaptive "
+            "ladder selects them."
         ),
-    }
-)
+        "interval": (
+            "Member spacing in hPa. Unset, the zoom-adaptive ladder "
+            "selects it."
+        ),
+    }),
+    "dry_adiabats": MappingProxyType({
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
+        ),
+        "visible": "Whether the family is drawn at all.",
+        "emphasis": (
+            "Members drawn with a distinguishing style, keyed by potential "
+            "temperature in degrees Celsius."
+        ),
+        "values": (
+            "Explicit member potential temperatures in degrees Celsius. "
+            "Unset, the zoom-adaptive ladder selects them."
+        ),
+        "interval": (
+            "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
+            "ladder selects it."
+        ),
+    }),
+    "moist_adiabats": MappingProxyType({
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
+        ),
+        "visible": "Whether the family is drawn at all.",
+        "emphasis": (
+            "Members drawn with a distinguishing style, keyed by wet-bulb "
+            "potential temperature in degrees Celsius."
+        ),
+        "values": (
+            "Explicit member wet-bulb potential temperatures in degrees "
+            "Celsius. Unset, the zoom-adaptive ladder selects them."
+        ),
+        "interval": (
+            "Member spacing in degrees Celsius. Unset, the zoom-adaptive "
+            "ladder selects it."
+        ),
+        "truncation": (
+            "Temperature in degrees Celsius below which a moist adiabat "
+            "stops being drawn."
+        ),
+    }),
+    "mixing_ratios": MappingProxyType({
+        "color": "Matplotlib colour for the lines and their labels.",
+        "linewidth": "Line width in points.",
+        "alpha": "Line and label opacity, 0 to 1.",
+        "labels": (
+            "true, false, or the diagram edges to label - bottom, top, "
+            "left, right - singly or as a list."
+        ),
+        "visible": "Whether the family is drawn at all.",
+        "emphasis": (
+            "Members drawn with a distinguishing style, keyed by mixing "
+            "ratio in g/kg."
+        ),
+        "values": (
+            "Explicit member mixing ratios in g/kg. Unset, the "
+            "zoom-adaptive ladder selects them."
+        ),
+    }),
+    "diagram": MappingProxyType({
+        "extent": (
+            "Default view corners as [[pressure, temperature], [pressure, "
+            "temperature]], in hPa and degrees Celsius."
+        ),
+    }),
+    "cursor": MappingProxyType({
+        "fields": "Cursor readout fields, in display order.",
+    }),
+})
 ```
 
 - [ ] **Step 4: Render and write the template**

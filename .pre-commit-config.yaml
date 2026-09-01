@@ -40,6 +40,18 @@ repos:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
+        # Python, and not the prose around it. `ruff-format` v0.16.5 added
+        # `markdown` to this hook's own `types_or`, so a version bump alone put
+        # every fenced block under `docs/src/developer/` through the formatter
+        # (:pull:`242`). Those blocks are excerpts, not modules: a slice of a
+        # signature, a line lifted from inside a loop. Formatted as a module
+        # they are reinterpreted -- a trailing comma that separated two
+        # parameters became a one-element tuple, and a nested statement was
+        # dedented to column zero -- so the excerpt then documents something
+        # its source never said. The plans are worse hit than the specs,
+        # because a plan is a point-in-time record frozen once its pull request
+        # merges (docs spec §3.4), and nothing should be editing one at all.
+        types_or: [python, pyi, jupyter]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.3

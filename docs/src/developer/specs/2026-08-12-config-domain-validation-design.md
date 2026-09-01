@@ -142,7 +142,8 @@ with the offending part:
 class _DomainError(Exception):
     """A value of the right type that its option still cannot accept."""
 
-    def __init__(self, expects: str, found: str) -> None: ...
+    def __init__(self, expects: str, found: str) -> None:
+        ...
 ```
 
 `coerce` formats it into the frame configfile spec §5.2 established, so a domain warning
