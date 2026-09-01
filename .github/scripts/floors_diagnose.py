@@ -54,6 +54,7 @@ EXERCISE: dict[str, list[list[str]] | None] = {
         ["--skip-deps", "docs-check-citations"],
         ["--skip-deps", "docs-check-links"],
         ["--skip-deps", "docs-check-api"],
+        ["--skip-deps", "docs-check-tooltips"],
     ],
     "devs": None,
 }
