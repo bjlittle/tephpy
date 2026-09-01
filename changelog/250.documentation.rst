@@ -1,0 +1,11 @@
+The ecCodes recipe's units claim now has recorded provenance, and is narrower
+for it. The page said ecCodes "reports temperatures in kelvin and pressures in
+pascals" — load-bearing, since a reader who declares ``degC`` where the decoder
+handed them kelvin is wrong by 273 K with no error — and nothing anywhere
+recorded a run or a table behind it (:issue:`196`). Stated of ecCodes it was
+also too broad: ``dewpointTemperature`` has a descriptor defined in degrees
+Celsius, and ``windSpeed`` has knot and kilometres-per-hour variants. What makes
+it true is the message rather than the tool, so the page now says what a
+radiosonde message carries. ``scope spec §3.2`` records the descriptors, the
+table version, the tool version and the run behind that, including the output
+the recipe was written without. (:user:`claude`)

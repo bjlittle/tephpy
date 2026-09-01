@@ -89,14 +89,15 @@ message that carried no humidity still gives a usable :term:`sounding` — drop
 the
 ``dewpoint`` argument and its ``units`` entry together.
 
-Two things the decoder will hand you that need a moment. ecCodes reports
-temperatures in kelvin and pressures in pascals; say so in ``units=`` rather
-than converting by hand, because a conversion written twice is a conversion
-that disagrees with itself once. And a BUFR sounding routinely carries missing
-values at some levels — the ``MISSING`` above. Pass those through as
-``float("nan")`` and ``tephpy`` treats them as gaps, which is what they are.
-Pressure is the exception: it must be finite and monotonic, so drop a level
-whose pressure is missing rather than passing a NaN.
+Two things the decoder will hand you that need a moment. A radiosonde message
+carries pressure in pascals and both temperatures in kelvin — the BUFR
+descriptors are defined that way, and ``bufr_dump`` prints them unconverted.
+Say so in ``units=`` rather than converting by hand, because a conversion
+written twice is a conversion that disagrees with itself once. And a BUFR
+sounding routinely carries missing values at some levels — the ``MISSING``
+above. Pass those through as ``float("nan")`` and ``tephpy`` treats them as
+gaps, which is what they are. Pressure is the exception: it must be finite and
+monotonic, so drop a level whose pressure is missing rather than passing a NaN.
 
 Draw It
 -------

@@ -163,6 +163,44 @@ produced them. That last is the load-bearing one: the page's second half was nev
 ecCodes-specific, and saying so is what keeps the page useful to a TEMP reader without
 promising them a tool.
 
+**The units the recipe tells a reader to declare, and where that comes from.** The page
+says a radiosonde message carries pressure in pascals and both temperatures in kelvin. That
+sentence decides whether a reader's sounding is right or wrong by 273 K, with no error to
+warn them, so it carries its provenance here rather than resting on what its author knew
+({issue}`196`).
+
+Established on 2026-09-01 with ecCodes **2.48.0**, obtained through `pixi exec --spec
+eccodes` — the tool is a non-goal and is in no environment this project ships, so a recorded
+run is the only form the evidence can take:
+
+| descriptor | key | unit |
+|---|---|---|
+| 0 07 004 | `pressure` | Pa |
+| 0 12 101 | `airTemperature` | K |
+| 0 12 103 | `dewpointTemperature` | K |
+
+read from ecCodes' own `bufr/tables/0/wmo/46/element.table`, WMO master table version 46.
+
+**The claim had to be narrowed, and the narrowing is the point.** Stated of ecCodes it was
+too broad: `dewpointTemperature` also has a descriptor defined in degrees Celsius
+(0 12 024), and `windSpeed` has kilometres-per-hour and knot variants beside its
+metres-per-second one. What makes the sentence true is not the tool but the message —
+expanding the radiosonde sequences 3 09 052 and 3 09 056 from the shipped `sequence.def`
+gives exactly 0 07 004, 0 12 101 and 0 12 103, and not the Celsius dewpoint. The page
+therefore says what a radiosonde message carries, not what ecCodes reports.
+
+**And the output the recipe could not show, it now has.** A message encoded with those three
+descriptors and read back through `bufr_dump -p` — the command the block above shows —
+prints `pressure=92500`, `airTemperature=290.15`, `dewpointTemperature=285.15`: descriptor
+units, unconverted, in the one-`key=value`-per-line shape the prose describes.
+
+**What the run did not establish.** No real radiosonde message was decoded; none is
+available, which is why the block shows no transcript. The message above was encoded for the
+purpose, and carries three flat descriptors rather than a sounding's replicated levels — so
+it says nothing about the delayed-replication failure recorded below, which it sidesteps
+rather than solves. What it demonstrates is the units ecCodes uses for these descriptors,
+not what any particular centre's message contains.
+
 **The decode is not tephpy's, so it is not shown as python.** ecCodes ships command-line
 tools — `bufr_dump`, `grib_ls` and their relatives — and the recipe uses one, in a
 `code-block:: console` block that shows the invocation and nothing else. Producing genuine
