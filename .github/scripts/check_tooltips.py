@@ -66,8 +66,16 @@ GALLERY = re.compile(r"(\.\./)*(gallery/)?plot_\w+\.html")
 SCRIPT = re.compile(r'<script\b[^>]*\bsrc="([^"]*)"')
 #: The runtime this gate is about, by the file each URL ends in.
 RUNTIME = re.compile(r"(tippy|popper)", re.IGNORECASE)
-#: A URL that leaves this site.
+#: A URL that leaves this site. Also excludes intersphinx glossary links from
+#: check 1: tooltip spec §7 records that external and intersphinx links carry no
+#: tooltip by design, so a bare ``:term:`` resolving off-site is not this
+#: project's glossary and is not counted against it.
 ABSOLUTE = re.compile(r"^[a-z][a-z0-9+.-]*:|^//", re.IGNORECASE)
+#: Pages Sphinx's builder generates rather than renders from a source document --
+#: the extension processes the document set it builds from, writes no payload for
+#: any of these three, and a general index lists every glossary term, so
+#: `genindex` alone would otherwise supply 50 links check 1 could never satisfy.
+GENERATED = {"genindex", "search", "py-modindex"}
 #: The two guards of tooltip spec §3.3 and tooltip spec §3.5, as the payload
 #: spells them.
 GUARDS = ("interactive: false", "sd-stretched-link")
@@ -154,9 +162,11 @@ def check_glossary(root: Path) -> list[str]:
     maps = payloads(root)
     for page in pages(root):
         docname = page.relative_to(root).with_suffix("").as_posix()
+        if docname in GENERATED:
+            continue
         has = tipped(maps.get(docname, {}))
         for href in article_links(page.read_text(encoding="utf-8")):
-            if not TERM.search(href):
+            if not TERM.search(href) or ABSOLUTE.match(href):
                 continue
             seen += 1
             if href not in has:

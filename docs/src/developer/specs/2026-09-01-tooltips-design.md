@@ -239,11 +239,17 @@ the manner of docs spec §3.7's rendered-citation gate, and is wired as the pixi
 It asserts four things, and the choice of four is the proportionality argument of §1
 applied one property at a time:
 
-1. **Every `:term:` link on a published page has a generated tip, and there is at least
-   one.** The positive assertion. A build in which the extension silently produced nothing
-   — a failed import behind a suppression, a selector that stopped matching a themed
-   container — otherwise passes every other check in this list, because all three of those
-   are satisfied most completely by an empty build.
+1. **Every glossary link this project owns, on a page rendered from a source document,
+   has a generated tip, and there is at least one.** The positive assertion. A build in
+   which the extension silently produced nothing — a failed import behind a suppression,
+   a selector that stopped matching a themed container — otherwise passes every other
+   check in this list, because all three of those are satisfied most completely by an
+   empty build. Measured on the current build: 117 links, on pages rendered from a source
+   document, are checked and every one carries a tip. 55 more are out of scope — 50 on
+   `genindex`, which Sphinx's builder generates rather than rendering from a source
+   document and which the extension never processes, and 5 external, intersphinx-resolved
+   links to Python's own glossary, which §7 already records as carrying no tooltip by
+   design.
 2. **No gallery example link is tipped.** §3.4's collision, which is visible to a reader
    and invisible to every existing gate.
 3. **No page references an external tooltip runtime.** §3.2's vendoring, which a future
