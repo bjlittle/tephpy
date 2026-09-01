@@ -36,6 +36,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_gallery.gen_gallery",
+    "sphinx_tippy",
     "sphinx_togglebutton",
     "sphinxcontrib.bibtex",
     "tephpy_config_reference",
@@ -183,6 +184,51 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
+
+# -- sphinx-tippy ------------------------------------------------------------
+# Hover tooltips over the glossary and the API (tooltip spec §3.3). Every setting
+# below changes a default that is wrong here, and the gate of tooltip spec §3.6
+# holds four of them.
+#
+# The three network-reaching sources of tips are off: wiki tips and DOI tips fetch
+# while the documentation builds, and `tippy_rtd_urls` fetches each host it names.
+# This build does not reach the network, and the cost is recorded rather than
+# worked around -- 1,632 external and intersphinx links carry no tooltip
+# (tooltip spec §7).
+tippy_enable_wikitips = False
+tippy_enable_doitips = False
+tippy_rtd_urls = []
+# pydata-sphinx-theme's article container. Without it the tips reach the navigation
+# bar, the sidebar and the breadcrumbs, where a tooltip repeats a link whose
+# destination the reader can already read.
+tippy_anchor_parent_selector = "article.bd-article"
+# `sd-stretched-link` is the extension's own default and must stay. sphinx-design
+# builds a card from a zero-size anchor stretched over the card body, so hovering
+# anywhere on one of the landing page's four Diátaxis cards is hovering that anchor:
+# without this, the *Tutorials* card raises a tooltip that buries the *Explanation*
+# card and a third of the viewport. The prior art this block comes from replaces the
+# default rather than extending it, which is how that was found (tooltip spec §3.3).
+tippy_skip_anchor_classes = ("headerlink", "sd-stretched-link", "sd-sphinx-override")
+# Defaults, and `interactive` is the one that matters. A tip is a verbatim copy of
+# its target's HTML, so a bare `#fragment` inside it resolves against the page
+# *showing* the tip: 781 links in this build point at anchors the host page has not
+# got. While the tip cannot be clicked they are unreachable, and setting
+# `interactive: True` would turn all 781 into dead links in one line
+# (tooltip spec §3.5).
+tippy_props = {}
+# Vendored and pinned, not fetched from unpkg by every reader of every page. NB not
+# `_static/tippy/`, which is where the extension writes its own per-page JavaScript
+# (tooltip spec §3.2).
+tippy_js = ("js/popper.min.js", "js/tippy-bundle.umd.min.js")
+# sphinx-gallery already writes a `tooltip=` on every thumbnail and styles it into a
+# hover panel, so without this one hover raises both (tooltip spec §3.4). Two
+# patterns because `tippy_skip_urls` is matched with `re.match` -- anchored at the
+# start -- against the raw href, which is bare on the gallery index and its
+# execution-times page and dotted from anywhere else.
+tippy_skip_urls = [
+    r"(\.\./)*gallery/plot_\w+\.html",
+    r"plot_\w+\.html",
+]
 
 # -- HTML output -------------------------------------------------------------
 html_theme = "pydata_sphinx_theme"
