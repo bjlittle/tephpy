@@ -652,7 +652,7 @@ back: ``tests/test_docs_snippets.py`` runs the python, ``check_docs_figures.py``
 compares the images, ``check_citations.py`` resolves the section anchors, and
 ``check_documentation_links.py`` resolves the URLs. None of the four asks
 whether the answer is the *intended* one, and a sentence that executes nothing
-is read by nobody but a reviewer. The three questions below are that review, and
+is read by nobody but a reviewer. The four questions below are that review, and
 each is written to have a name for an answer, because "did you verify this?"
 does not (:issue:`193`).
 
@@ -694,3 +694,29 @@ Plans freeze on merge and are not published (docs spec §3.4), so provenance lef
 only in one is provenance a reader of the claim cannot reach. Where the claim is
 published, carry the tool, version and date into the living specification beside
 it.
+
+**Does it say how, and did you read that?** A sentence about what a function
+*does* is checked by reading it once. A sentence about *how it arrives at the
+answer* is a claim about an implementation that can change underneath the page,
+and has to be re-read whenever that implementation does. Both defects
+:issue:`206` records are of the second kind, and nothing here catches that
+shape: a false sentence about a function executes nothing, and the function it
+names resolves perfectly, so the four gates above have nothing to fail on.
+
+*Parcel Ascent and Normand's Point* said :func:`calc.normand_point
+<tephpy.calc.normand_point>` "takes the dry adiabat through the parcel's
+temperature and the mixing-ratio line through its dewpoint, and returns where
+they meet. Nothing is iterated and nothing is fitted". It intersects nothing the
+diagram draws; it delegates to MetPy, and this project's own test is named
+``test_normand_point_is_the_metpy_lcl``. That second sentence is worse than
+unverified — it is a claim about a moving target, false against an older MetPy
+and true today by accident. *Why the Axes Are Rotated* said ``tephpy`` computes
+the isobars and pointed at the transform that runs the other way.
+
+So prefer the contract. Say what a function takes, returns and raises, and leave
+how it gets there to the function. Where the method *is* the point — the
+rotated-axes page cannot explain why isobars are computed rather than ruled
+without describing the computation — describe it, and name in the pull request
+the function you read to check it. A page that describes method carries a
+maintenance obligation the contract does not, which is the reason to take one on
+deliberately rather than in passing.

@@ -1,0 +1,9 @@
+*Reviewing Claims* asks a fourth question: does the prose say **how** a function
+arrives at its answer, and was that read? A sentence about what a function does
+is checked by reading it once; a sentence about how it gets there is a claim
+about an implementation that can change underneath the page. Both defects
+:issue:`206` records are of the second kind, and no gate reaches them — a false
+sentence about a function executes nothing, and the function it names resolves.
+The question is narrow by measurement rather than by hope: across the user
+pages it bears on four of the twenty-five sentences that name a function, where
+"did you read it?" would have borne on all twenty-five. (:user:`claude`)
