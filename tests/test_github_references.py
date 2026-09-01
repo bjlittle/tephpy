@@ -25,9 +25,9 @@ pytestmark = pytest.mark.skipif(
 
 #: As in `test_citations.py`: the corpus this gate borrows is derived with
 #: `git ls-files`, so the two tests that read the live tree need an index, and
-#: the nineteen fixture-driven ones below do not. An unpacked sdist ships all
-#: twenty-one and no repository, so a module-wide guard on the index would take
-#: the nineteen down with the two.
+#: the twenty fixture-driven ones below do not. An unpacked sdist ships all
+#: twenty-two and no repository, so a module-wide guard on the index would take
+#: the twenty down with the two.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )
@@ -270,11 +270,20 @@ def test_the_repository_satisfies_the_reference_contract(capsys):
     assert gr.main() == 0, capsys.readouterr().out
 
 
-def test_an_unquoted_css_colour_is_still_reported_outside_the_exemption(tmp_path):
-    """The exemption is a place, not a pattern (tooltip spec §3.2)."""
-    # The vendored bundle is passed over because of where it comes from. The same
-    # text in a file this project writes is still judged, which is what keeps the
-    # exemption from quietly widening into the colour rule.
+def test_an_unquoted_css_colour_is_still_a_reference(tmp_path):
+    """The rejected alternative of tooltip spec §5: an unquoted-CSS exemption.
+
+    This does not call `corpus()`, so it does not exercise the exemption
+    boundary -- `test_the_repository_satisfies_the_reference_contract` is the
+    half that does, over the live tree. What this locks down is narrower: an
+    unquoted hexadecimal colour, wherever it is found, is still a reference the
+    colour rule must not learn to ignore.
+    """
+    # The vendored bundle is passed over because of where it comes from
+    # (tooltip spec §3.2), not because this project's colour rule recognises
+    # unquoted CSS -- that widening was considered and rejected in tooltip
+    # spec §5. A file elsewhere carrying the same text has no such exemption
+    # and is still judged.
     source = tmp_path / "theme.css"
     source.write_text(f"background-color:{HASH}333\n")
     assert gr.check_unlinked([source])

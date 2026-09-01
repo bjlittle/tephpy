@@ -64,7 +64,7 @@ def _load(path: Path):
 demo = _load(SCRIPT) if SCRIPT.is_file() else None
 
 #: Minutes the job needs for everything that is not one of the bounded steps --
-#: the checkout, the pixi environment, the documentation build and the three
+#: the checkout, the pixi environment, the documentation build and the five
 #: checkers over its output. Together they take about forty seconds in practice.
 UNBOUNDED = 6
 

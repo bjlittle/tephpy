@@ -34,10 +34,11 @@
 
 tephpy's prose is written for scientific software engineers rather than meteorologists
 (spec §8.6), and it pays for that audience with jargon. The glossary is the instrument:
-232 `:term:` references across the documentation, 47 of them inside the glossary's own
-definitions. Every one of those is a link that costs the reader their place on the page —
-they follow it, read a sentence, and come back, or more often they do not follow it and
-carry the unfamiliar word forward.
+158 `:term:` references across the documentation (occurrences, not lines, counted over
+every tracked `.rst`/`.md` file under `docs/src` except the unpublished plans), 54 of them
+inside the glossary's own definitions. Every one of those is a link that costs the reader
+their place on the page — they follow it, read a sentence, and come back, or more often
+they do not follow it and carry the unfamiliar word forward.
 
 A tooltip removes that cost for the case where the reader wants a definition rather than a
 page. It is a presentation feature and this specification treats it as one: nothing here
@@ -65,9 +66,10 @@ at all.
    dependencies, fetched from a third party by every reader. §3.2 replaces both with files
    in this repository.
 3. **Everything is tipped except the gallery.** Measured 2026-09-01: every one of the 117
-   rendered glossary-term links and all 204 API cross-references carry a tip, as do 1,441
-   of 1,446 same-page anchors, with no gate disturbed and about four seconds added to a
-   full build. A narrower configuration was considered and rejected: there was nothing
+   rendered glossary-term links and all 204 API cross-references carry a tip, as do all but
+   5 of the same-page anchors (1,508 of 1,513), with no gate disturbed and about four
+   seconds added to a full build. The 5 are the gallery's own execution-times self-links of
+   decision 4. A narrower configuration was considered and rejected: there was nothing
    measured to trim.
 4. **The gallery thumbnails are skipped, because they already have tooltips.**
    sphinx-gallery writes a `tooltip=` attribute on all five `sphx-glr-thumbcontainer`
@@ -215,16 +217,16 @@ a preference about hover behaviour. It is what makes a known upstream defect unr
 The extension builds a tip by copying the target's rendered HTML verbatim. A bare
 `#fragment` link inside that HTML stays a bare fragment, and so resolves against whatever
 page is *showing* the tip rather than the page it came from. Measured across the whole
-build on 2026-09-01: **781** links inside tip bodies point at anchors that do not exist on
-the host page, **151** of them inside glossary tips — a tip for `#term-tephigram` shown on
-the landing page carries a link to `#term-projection`, which the landing page has not got.
-Every one of the 781 is a bare fragment; relative paths are rebased correctly and none of
-those break.
+build on 2026-09-01: about **790** links inside tip bodies point at anchors that do not
+exist on the host page (788 on this build; the count moves with the prose), **151** of
+them inside glossary tips — a tip for `#term-tephigram` shown on the landing page carries a
+link to `#term-projection`, which the landing page has not got. Every one of them is a bare
+fragment; relative paths are rebased correctly and none of those break.
 
 While `interactive` is `False` a reader cannot reach any of them. They render as link-styled
 text inside a panel that disappears before it can be clicked — misleading, but not a broken
-journey. Setting `interactive: True` would convert 781 pieces of styling into 781 dead
-links in one line, which is why §3.6 asserts the value rather than trusting the default,
+journey. Setting `interactive: True` would convert every one of them into a dead link in
+one line, which is why §3.6 asserts the value rather than trusting the default,
 and why upstream [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and
 [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are cited in §8 as the thing to
 watch.
@@ -252,9 +254,15 @@ applied one property at a time:
    design.
 2. **No gallery example link is tipped.** §3.4's collision, which is visible to a reader
    and invisible to every existing gate.
-3. **No page references an external tooltip runtime.** §3.2's vendoring, which a future
-   `conf.py` edit could revert to the CDN default by deleting one line, with no other
-   symptom.
+3. **The vendored runtime is there, and only there.** Three sub-checks. No page loads it
+   off-site, because `tippy_js` is one deleted line away from the unpkg default and
+   nothing else would say so. Every page carrying a tippy payload references at least one
+   local runtime script, because a page with a payload and a stripped `<script>` tag fails
+   silently in exactly the way the off-site check alone cannot see. And every referenced
+   script — the `?v=...` cache-busting query stripped first — resolves to a file under the
+   build root, because a bundle renamed or deleted at either end is neither absent nor
+   off-site, and Sphinx does not warn on a missing static asset either
+   (`_file_checksum_inner` swallows the `FileNotFoundError`).
 4. **The emitted JavaScript carries `interactive: false` and lists `sd-stretched-link`.**
    The two guards of §3.5 and §3.3, both of which are one word away from being lost and
    neither of which fails a build when it is.
@@ -330,9 +338,12 @@ properties nothing enforces, which is the state decision 6 exists to leave behin
 `tests/test_tooltips.py` tests the gate the way `tests/test_rendered_citations.py` tests
 its own: over fixtures, so the assertions are exercised on a failing build as well as a
 passing one. Each of §3.6's four checks gets a fixture that violates it — a page whose
-`:term:` link has no tip, a tipped gallery link, a page carrying an `unpkg.com` script, and
-an emitted payload with `interactive: true` — and the gate must fail on each. A gate only
-ever exercised against a green build asserts nothing about the red one.
+`:term:` link has no tip, a tipped gallery link, and an emitted payload with
+`interactive: true` — and the gate must fail on each. Check 3's three sub-checks each get
+their own fixture in turn: a page carrying an `unpkg.com` script, a page with a tippy
+payload and no runtime script at all, and a page whose runtime `src` names a file that is
+not under the build root. A gate only ever exercised against a green build asserts nothing
+about the red one.
 
 Two distinctions the fixtures must preserve, because both are places a plausible test
 passes for the wrong reason:
@@ -362,9 +373,10 @@ imports nothing from the package.
 **Explicitly not attempted.** Tooltips on external and intersphinx links. The extension can
 produce them, from Wikipedia, from Crossref DOIs, and by fetching Read the Docs pages
 named in `tippy_rtd_urls`; all three reach the network while the documentation builds, and
-this project's build does not. The measured consequence is that 1,632 external links —
-every matplotlib, numpy, MetPy, pint and Python reference in the documentation — carry no
-tooltip. That is the largest single gap in the feature and it is deliberate.
+this project's build does not. The measured consequence is that about 1,650 external links
+— every matplotlib, numpy, MetPy, pint and Python reference in the documentation — carry
+no tooltip (1,645 measured 2026-09-01; the count moves with every reference the prose
+adds). That is the largest single gap in the feature and it is deliberate.
 
 **A standing limit, not a deferral.** The extension names each generated file with a
 `uuid4()`, so the published site is not byte-reproducible across builds: two builds of an
@@ -372,11 +384,20 @@ unchanged tree differ in every `_static/tippy/*.js` filename. `docs-clean` runs 
 `docs-html`, so stale files do not accumulate in the ordinary task, but an incremental
 build accumulates one set per run. Nothing here fixes that, and no gate detects it.
 
+**A standing limit on check 3, not a deferral.** §3.6's third check now asserts both that a
+page carrying a tippy payload references a vendored runtime script and that every such
+script resolves to a file under the build root, which closes the two regressions found in
+review: a stripped `<script>` tag, and a renamed or deleted bundle. It does not close a
+third: if `tippy_js` named only one of the two bundles — Popper dropped, Tippy kept, say —
+the surviving script still resolves, the page still carries *a* runtime script, and the
+gate stays quiet, even though the extension needs both to function. Nothing here fixes
+that, and no gate detects it.
+
 (tooltip-spec-8)=
 ## 8. Open items
 
-- **Open** — the 781 dead fragment links of §3.5. They are unreachable today and remain so
-  while `interactive` is `False`, which check 4 enforces. Upstream
+- **Open** — the dead in-tip fragment links of §3.5 (about 790). They are unreachable
+  today and remain so while `interactive` is `False`, which check 4 enforces. Upstream
   [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) is the fix; it has stood
   unmerged since 2025-12-16, and if it stays that way the alternative is to vendor the
   correction as a small `docs/src/_ext/` post-processing step. Not attempted here, because

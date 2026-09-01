@@ -51,19 +51,56 @@ GUARDS = "placement: 'auto-start', maxWidth: 500, interactive: false,"
 SKIPS = '["headerlink", "sd-stretched-link", "sd-sphinx-override"]'
 
 
+def _prefixed(depth, srcs):
+    """Rebase each relative src in ``srcs`` with the ``../`` depth needs.
+
+    Mirrors what Sphinx itself does: a root page's script src is unprefixed, a
+    page one directory down gets one ``../``, and so on. An absolute src is
+    left alone.
+    """
+    prefix = "../" * depth
+    return {
+        key: src if gate.ABSOLUTE.match(src) else f"{prefix}{src}"
+        for key, src in srcs.items()
+    }
+
+
 def build(  # noqa: PLR0913
-    tmp_path, pages, payloads, *, runtime=None, guards=GUARDS, skips=SKIPS
+    tmp_path,
+    pages,
+    payloads,
+    *,
+    runtime=None,
+    guards=GUARDS,
+    skips=SKIPS,
+    no_runtime=frozenset(),
+    vendor=True,
 ):
     """Write a minimal build tree and return its root.
 
     ``pages`` maps a docname to the HTML of its article body; ``payloads`` maps a
     docname to ``{href: tip html}``. Anything absent gets the passing default.
+    ``no_runtime`` names docnames that get no runtime ``<script>`` tags at all --
+    the stripped-tag regression check 3 now catches. ``vendor`` writes the two
+    bundle files the default runtime names, so a relative ``src`` resolves by
+    default; pass ``False`` for a page whose runtime file is not there.
     """
-    runtime = RUNTIME.format(**(runtime or VENDORED))
+    srcs = runtime or VENDORED
     for docname, body in pages.items():
         page = tmp_path / f"{docname}.html"
         page.parent.mkdir(parents=True, exist_ok=True)
-        page.write_text(PAGE.format(body=body, scripts=runtime), encoding="utf-8")
+        if docname in no_runtime:
+            scripts = ""
+        else:
+            scripts = RUNTIME.format(**_prefixed(docname.count("/"), srcs))
+        page.write_text(PAGE.format(body=body, scripts=scripts), encoding="utf-8")
+    if vendor:
+        for src in srcs.values():
+            if gate.ABSOLUTE.match(src):
+                continue
+            bundle = tmp_path / src.split("?", 1)[0]
+            bundle.parent.mkdir(parents=True, exist_ok=True)
+            bundle.write_text("/* stub */", encoding="utf-8")
     for docname, tips in payloads.items():
         js = (
             tmp_path
@@ -126,6 +163,21 @@ def test_an_untipped_glossary_link_on_genindex_is_not_reported(tmp_path):
         {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
     )
     assert gate.check_glossary(root) == []
+
+
+def test_an_untipped_glossary_link_on_a_nested_search_page_is_reported(tmp_path):
+    # GENERATED excludes "search" against the full posix docname, not a
+    # basename -- a nested page that happens to share the name, such as a
+    # `reference/search` this project wrote, is not that exclusion and stays
+    # in scope.
+    root = build(
+        tmp_path,
+        {"index": TERM, "reference/search": TERM},
+        {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
+    )
+    found = gate.check_glossary(root)
+    assert found
+    assert any("reference/search" in line for line in found)
 
 
 def test_an_untipped_external_glossary_link_is_not_reported(tmp_path):
@@ -192,6 +244,46 @@ def test_a_page_loading_the_runtime_from_a_cdn_is_reported(tmp_path):
 
 def test_a_page_loading_the_vendored_runtime_passes(tmp_path):
     root = build(tmp_path, {"index": TERM}, {"index": {}})
+    assert gate.check_vendored(root) == []
+
+
+def test_a_page_with_a_payload_and_no_runtime_script_is_reported(tmp_path):
+    # The stripped-tag regression: the payload was generated, but the loader
+    # that would fetch its dependency is gone -- the purely negative off-site
+    # check is satisfied most completely by this build.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
+        no_runtime={"index"},
+    )
+    found = gate.check_vendored(root)
+    assert found
+    assert "references no vendored runtime script" in found[0]
+
+
+def test_a_page_whose_runtime_file_does_not_exist_is_reported(tmp_path):
+    # The renamed-or-deleted-bundle regression: the script tag is there and
+    # local, but nothing was written to the path it names -- neither absent
+    # nor off-site, so it passes both of the other rules.
+    root = build(tmp_path, {"index": TERM}, {"index": {}}, vendor=False)
+    found = gate.check_vendored(root)
+    assert len(found) == len(VENDORED)
+    assert all("does not exist under the build root" in line for line in found)
+
+
+def test_a_runtime_file_with_a_cache_busting_query_still_resolves(tmp_path):
+    # Guards the `?v=...` stripping: Sphinx appends one to every static asset,
+    # and the file it names is written without it.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "_static/js/popper.min.js?v=deadbeef",
+            "tippy": "_static/js/tippy-bundle.umd.min.js?v=deadbeef",
+        },
+    )
     assert gate.check_vendored(root) == []
 
 

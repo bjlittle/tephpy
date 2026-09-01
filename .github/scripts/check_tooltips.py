@@ -17,18 +17,22 @@ Four of them. Every ``:term:`` link on a published page has a tip, and there is 
 least one -- the positive assertion, without which a build where the extension
 produced nothing passes the other three most completely. No gallery example link
 is tipped, because sphinx-gallery already puts a tooltip on those thumbnails and
-two of them fire on one hover (tooltip spec §3.4). No page loads the tooltip
-runtime from a third party, because ``tippy_js`` is one deleted line away from its
-unpkg default and nothing else would say so (tooltip spec §3.2). And the emitted
-payload still carries ``interactive: false`` and ``sd-stretched-link``: the first
-keeps 781 dead in-tip fragment links unreachable (tooltip spec §3.5), the second
-keeps the landing page's four cards from raising a tooltip that buries a third of
-the viewport (tooltip spec §3.3). Neither fails a build when it is lost.
+two of them fire on one hover (tooltip spec §3.4). The vendored runtime is there,
+and only there (tooltip spec §3.2): no page loads it from a third party, a page
+carrying a tippy payload always references at least one local runtime script,
+and every script it references resolves to a file under the build root --
+because ``tippy_js`` is one deleted line away from its unpkg default, a stripped
+``<script>`` tag is otherwise silent, and Sphinx does not warn on a missing
+static asset either. And the emitted payload still carries ``interactive: false`` and
+``sd-stretched-link``: the first keeps about 790 dead in-tip fragment links
+unreachable (tooltip spec §3.5), the second keeps the landing page's four cards
+from raising a tooltip that buries a third of the viewport (tooltip spec §3.3).
+None of the four fails a build when it is lost.
 
-The check for the runtime looks for a *script element* whose source is absolute,
-not for the string ``unpkg.com``. This gate's own specification is a published
-page and names that host in prose, so a sweep for the text would fail on the
-document that asked for the gate.
+The off-site half of the runtime check looks for a *script element* whose source
+is absolute, not for the string ``unpkg.com``. This gate's own specification is a
+published page and names that host in prose, so a sweep for the text would fail
+on the document that asked for the gate.
 
 Notes
 -----
@@ -64,8 +68,14 @@ TERM = re.compile(r"glossary\.html#term-")
 GALLERY = re.compile(r"(\.\./)*(gallery/)?plot_\w+\.html")
 #: A script element and the source it loads.
 SCRIPT = re.compile(r'<script\b[^>]*\bsrc="([^"]*)"')
-#: The runtime this gate is about, by the file each URL ends in.
+#: The runtime this gate is about, by the file each URL ends in. Also matches the
+#: per-page payload loader `TIPPY` names, which sits under a directory also
+#: named "tippy" -- `TIPPY_PREFIX` below tells the two apart.
 RUNTIME = re.compile(r"(tippy|popper)", re.IGNORECASE)
+#: The payload loader's directory, as the prefix a matched `RUNTIME` source is
+#: excluded on: it is Sphinx-emitted and already read by `payloads()`, not one
+#: of the two vendored bundles this check is about.
+TIPPY_PREFIX = f"{TIPPY.as_posix()}/"
 #: A URL that leaves this site. Also excludes intersphinx glossary links from
 #: check 1: tooltip spec §7 records that external and intersphinx links carry no
 #: tooltip by design, so a bare ``:term:`` resolving off-site is not this
@@ -75,10 +85,18 @@ ABSOLUTE = re.compile(r"^[a-z][a-z0-9+.-]*:|^//", re.IGNORECASE)
 #: the extension processes the document set it builds from, writes no payload for
 #: any of these three, and a general index lists every glossary term, so
 #: `genindex` alone would otherwise supply 50 links check 1 could never satisfy.
+#: Matched against the full posix docname, not a basename, so a nested page that
+#: happens to share one of these three names -- `reference/search`, say -- is
+#: not this exclusion and is still checked.
 GENERATED = {"genindex", "search", "py-modindex"}
 #: The two guards of tooltip spec §3.3 and tooltip spec §3.5, as the payload
 #: spells them.
 GUARDS = ("interactive: false", "sd-stretched-link")
+#: The line carrying tooltip spec §3.3's guard, matched on its own so a payload
+#: that merely quotes the class name inside copied tip HTML -- one of the 65
+#: does, this specification's own prose -- does not pass check 4 on that
+#: content instead of on the setting itself.
+SKIP_CLASSES = re.compile(r"^\s*skip_classes\s*=.*$", re.MULTILINE)
 
 
 def pages(root: Path) -> list[Path]:
@@ -193,16 +211,53 @@ def check_gallery(root: Path) -> list[str]:
 
 
 def check_vendored(root: Path) -> list[str]:
-    """Report every page loading the tooltip runtime from off-site."""
+    """Report the runtime loading off-site, missing outright, or not there.
+
+    Three things are checked, and each catches a regression the others cannot.
+    An off-site source is the vendoring reverted. A payload with no local runtime
+    script at all is the same silent failure with the ``<script>`` tag stripped
+    instead of pointed off-site -- the purely negative off-site check alone is
+    satisfied most completely by a page that loads nothing. And a local source
+    naming a file that is not there is a bundle renamed or deleted at either
+    end: neither absent nor off-site, so it passes both of the others, and
+    Sphinx does not warn on it either -- ``_file_checksum_inner`` swallows the
+    ``FileNotFoundError`` a missing static asset raises.
+    """
     found = []
+    maps = payloads(root)
     for page in pages(root):
+        docname = page.relative_to(root).with_suffix("").as_posix()
         text = page.read_text(encoding="utf-8")
-        found.extend(
-            f"{page.relative_to(root)}: loads the tooltip runtime from "
-            f"{src}; tippy_js must name the vendored bundles"
+        #: The two vendored bundles this check is about, excluding the payload
+        #: loader `TIPPY_PREFIX` names -- it also matches `RUNTIME` on its
+        #: filename, but it is not the runtime `tippy_js` vendors.
+        runtime = [
+            src
             for src in SCRIPT.findall(text)
-            if RUNTIME.search(src) and ABSOLUTE.match(src)
+            if RUNTIME.search(src) and TIPPY_PREFIX not in src
+        ]
+        found.extend(
+            f"{page.relative_to(root)}: an off-site script src names {src}, "
+            f"matching the tooltip runtime pattern"
+            for src in runtime
+            if ABSOLUTE.match(src)
         )
+        local = [src for src in runtime if not ABSOLUTE.match(src)]
+        if docname in maps and not local:
+            found.append(
+                f"{page.relative_to(root)}: carries a tippy payload but "
+                f"references no vendored runtime script"
+            )
+        for src in local:
+            #: Sphinx appends a cache-busting `?v=...` query; strip it before
+            #: resolving, and resolve relative to the page, not the root --
+            #: every non-index page's `src` is written relative to itself.
+            target = (page.parent / src.split("?", 1)[0]).resolve()
+            if not target.is_file():
+                found.append(
+                    f"{page.relative_to(root)}: references the runtime file "
+                    f"{src}, which does not exist under the build root"
+                )
     return found
 
 
@@ -214,10 +269,21 @@ def check_guards(root: Path) -> list[str]:
         return ["the build wrote no tooltip payload at all"]
     for js in sorted((root / TIPPY).rglob("*.js")):
         text = js.read_text(encoding="utf-8")
+        skip_line = SKIP_CLASSES.search(text)
+        #: `interactive: false` is read from the whole payload -- it is
+        #: emitted once, in the `tippy(...)` call, and nothing else in a
+        #: copied tip could plausibly quote it. `sd-stretched-link` is read
+        #: from the `skip_classes` line alone, because that string *can*
+        #: appear inside copied tip HTML (tooltip spec §3.2's own page does),
+        #: and a hit there would pass on the wrong evidence.
+        haystacks = {
+            "interactive: false": text,
+            "sd-stretched-link": skip_line[0] if skip_line else "",
+        }
         found.extend(
             f"{js.relative_to(root)}: the payload no longer carries {guard!r}"
             for guard in GUARDS
-            if guard not in text
+            if guard not in haystacks[guard]
         )
     return found
 
@@ -241,7 +307,7 @@ def main() -> int:
     groups = {
         "Glossary links with no tooltip": check_glossary(root),
         "Gallery links that were tipped": check_gallery(root),
-        "Pages loading the runtime off-site": check_vendored(root),
+        "The vendored runtime, not delivered as configured": check_vendored(root),
         "Payloads missing a runtime guard": check_guards(root),
     }
     total = sum(len(found) for found in groups.values())

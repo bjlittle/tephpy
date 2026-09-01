@@ -23,12 +23,12 @@ pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
-#: The corpus is derived with `git ls-files` (docs spec §3.6), so the two tests
-#: that read the live tree need an index. That is a narrower condition than the
-#: module's: an unpacked sdist ships these tests and no repository, and every
-#: fixture-driven test below still holds there. Guarding the module on the index
-#: instead would skip all seventeen wherever history is absent, for a reason
-#: fifteen of them do not have.
+#: The corpus is derived with `git ls-files` (docs spec §3.6), so the three
+#: tests that read the live tree need an index. That is a narrower condition
+#: than the module's: an unpacked sdist ships these tests and no repository,
+#: and every fixture-driven test below still holds there. Guarding the module
+#: on the index instead would skip all twenty wherever history is absent, for a
+#: reason seventeen of them do not have.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )

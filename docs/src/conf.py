@@ -193,8 +193,8 @@ intersphinx_mapping = {
 # The three network-reaching sources of tips are off: wiki tips and DOI tips fetch
 # while the documentation builds, and `tippy_rtd_urls` fetches each host it names.
 # This build does not reach the network, and the cost is recorded rather than
-# worked around -- 1,632 external and intersphinx links carry no tooltip
-# (tooltip spec §7).
+# worked around -- about 1,650 external and intersphinx links carry no tooltip, and the
+# count moves with every reference the prose adds (tooltip spec §7).
 tippy_enable_wikitips = False
 tippy_enable_doitips = False
 tippy_rtd_urls = []
@@ -211,10 +211,10 @@ tippy_anchor_parent_selector = "article.bd-article"
 tippy_skip_anchor_classes = ("headerlink", "sd-stretched-link", "sd-sphinx-override")
 # Defaults, and `interactive` is the one that matters. A tip is a verbatim copy of
 # its target's HTML, so a bare `#fragment` inside it resolves against the page
-# *showing* the tip: 781 links in this build point at anchors the host page has not
-# got. While the tip cannot be clicked they are unreachable, and setting
-# `interactive: True` would turn all 781 into dead links in one line
-# (tooltip spec §3.5).
+# *showing* the tip: about 790 links in this build point at anchors the host
+# page has not got, and the count moves with the prose. While the tip cannot be
+# clicked they are unreachable, and setting `interactive: True` would turn
+# every one of them into a dead link in one line (tooltip spec §3.5).
 tippy_props = {}
 # Vendored and pinned, not fetched from unpkg by every reader of every page. NB not
 # `_static/tippy/`, which is where the extension writes its own per-page JavaScript
