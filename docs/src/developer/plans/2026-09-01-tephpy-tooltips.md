@@ -355,8 +355,12 @@ Expected: `build succeeded.`, exit 0, no `WARNING` or `ERROR` lines. The log gai
 ```bash
 # 1. tips were generated
 ls docs/_build/html/_static/tippy/reference/glossary.*.js
-# 2. no page reaches a CDN for the runtime
-grep -rl "unpkg.com/tippy\|unpkg.com/@popperjs" docs/_build/html --include=*.html | wc -l
+# 2. no page LOADS the runtime from a CDN. Match a script ELEMENT, never the
+#    bare host: this plan's own specification names unpkg.com in prose and is a
+#    published page, so a string sweep matches the document that asked for the
+#    check (tooltip spec §6, which says the same about the gate itself).
+grep -rho '<script[^>]*src="https\?://[^"]*\(tippy\|popper\)[^"]*"' \
+  docs/_build/html --include=*.html | wc -l
 # 3. the vendored files are what the pages load
 grep -o '<script[^>]*src="[^"]*\(tippy\|popper\)[^"]*"' docs/_build/html/index.html
 # 4. the two runtime guards are in the emitted payload
@@ -364,7 +368,7 @@ grep -o "interactive: false" docs/_build/html/_static/tippy/index.*.js
 grep -o "sd-stretched-link" docs/_build/html/_static/tippy/index.*.js
 ```
 
-Expected: the glossary payload exists; `0` pages reach a CDN; the script tags name `_static/js/popper.min.js` and `_static/js/tippy-bundle.umd.min.js` with Sphinx's `?v=` cache-busting query; both guards are present.
+Expected: the glossary payload exists; `0` script elements load the runtime off-site; the script tags name `_static/js/popper.min.js` and `_static/js/tippy-bundle.umd.min.js` with Sphinx's `?v=` cache-busting query; both guards are present.
 
 - [ ] **Step 5: Verify the four existing gates are undisturbed**
 
