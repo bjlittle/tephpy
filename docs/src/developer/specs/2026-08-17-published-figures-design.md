@@ -217,6 +217,21 @@ on the page the registry, and all three of these checkable:
   documentation environment, and the same RMS measure `pytest-mpl` applies to
   `tests/baseline`.
 
+A declared prefix admits no dot. matplotlib's `check_output_base_name` raises for a dot or a
+solidus, so a prefix carrying one names a figure the build never writes, and a gate reading it
+would hunt for that image and report it missing — a true statement about a file, and the wrong
+account of what went wrong. The strict pattern therefore declines it and the near-miss detector
+reports it, which is this section's own rule applied to itself: detection wider than validation
+({issue}`174`).
+
+`compare_images` writes its diff beside the built image, which is inside the tree Read the Docs
+publishes. This gate runs as a task *after* Sphinx, so that output is complete and publishable
+at the moment the diff appears; "a red gate should not reach a deploy" is an argument about
+sequencing rather than a mechanism enforcing it. The diff is therefore moved out of the built
+site rather than left where it lands — and moved rather than deleted, because the advice this
+gate prints sends a contributor to open exactly that file, and its new path is named beside the
+measurement ({issue}`174`).
+
 An empty declared set fails. A gate that finds nothing to check and exits `0` reports a green
 tick over nothing, which is the failure docs spec §3.9's own corpus refusals were written
 against.

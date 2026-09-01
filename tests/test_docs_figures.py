@@ -714,3 +714,64 @@ def test_every_committed_baseline_is_claimed_by_a_page():
     claimed = {figure.baseline.name for figure in figures}
     found = {path.name for path in BASELINE.glob(f"*{gate.SUFFIX}")}
     assert found == claimed
+
+
+def test_a_dotted_prefix_is_reported_rather_than_read():
+    """A dot is refused by matplotlib, so a prefix carrying one is not a figure.
+
+    `check_output_base_name` raises `PlotError` for a dot or a slash, so the
+    class this pattern modelled was wider than the class that can exist. Reading
+    one would have the gate looking for a built image the build never wrote;
+    declining to read it hands the value to the near-miss detector, which
+    reports it (:issue:`174`).
+    """
+    text = ".. plot::\n    :filename-prefix: alpha.beta\n\n    x = 1\n"
+    assert gate.declarations(text) == []
+    assert gate.malformed(text) == ["alpha.beta"]
+
+
+@pytest.mark.usefixtures("unlisted")
+def test_a_failing_comparison_writes_no_diff_into_the_published_tree(
+    tmp_path, monkeypatch, capsys
+):
+    """`docs/_build/html/` is what Read the Docs publishes (:issue:`174`).
+
+    `compare_images` writes its diff beside the built image, which puts it in
+    the directory that gets deployed. The gate runs after Sphinx, so the build
+    output is complete and publishable at the moment the diff appears -- "a red
+    gate should not reach a deploy" is an argument, not a mechanism.
+    """
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": declare("alpha")},
+        {"alpha": "red"},
+        {"alpha": "blue"},
+    )
+    root, _source, _baselines = tree
+
+    code, _out = run(monkeypatch, capsys, gate, tree)
+
+    assert code == 1
+    strays = sorted(path.name for path in (root / gate.IMAGES).glob("*-failed-diff*"))
+    assert strays == [], f"the published image directory holds {strays}"
+
+
+@pytest.mark.usefixtures("unlisted")
+def test_a_failing_comparison_keeps_the_diff_where_it_can_be_opened(
+    tmp_path, monkeypatch, capsys
+):
+    """Moving the diff out of the deploy must not cost the contributor the file."""
+    tree = build(
+        tmp_path,
+        {"howtos/guide.rst": declare("alpha")},
+        {"alpha": "red"},
+        {"alpha": "blue"},
+    )
+    root, _source, _baselines = tree
+
+    code, out = run(monkeypatch, capsys, gate, tree)
+
+    assert code == 1
+    written = sorted((root.parent / gate.DIFFS).glob("*-failed-diff*"))
+    assert [path.name for path in written] == ["alpha-failed-diff.png"]
+    assert str(written[0]) in flat(out), "the advice does not name the diff it wrote"
