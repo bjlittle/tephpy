@@ -1,0 +1,13 @@
+The landing page's four Diátaxis cards now carry themed icons. Each is drawn in
+the brand mark's own vocabulary — the 45° lattice, a profile, an accent on the
+thing being pointed at — rather than taken from a third-party icon set, and each
+shows its quadrant's subject: a path walked to a marked end, one isopleth of a
+family drawn heavier, the axes turning through 45°, an index with one entry
+found. The artwork is hand-authored SVG under ``docs/src/_static/cards/``, a
+light and a dark file per quadrant so the pair can use the brand's two-tone
+palette rather than one colour compromised to survive both grounds. The icon
+sits beside the description where there is room for it and above the description
+where there is not, because ``.. grid:: 2`` is two columns at every breakpoint.
+The grid also gains a gutter and the cards a wider corner radius, so that four
+links read as four objects rather than as one block ruled into quarters.
+(:user:`claude`)

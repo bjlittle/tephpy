@@ -1,0 +1,24 @@
+<!--
+  Copyright (c) 2026, tephpy Contributors.
+
+  This file is part of tephpy and is distributed under the 3-Clause BSD license.
+  See the LICENSE file in the package root directory for licensing details.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="a pair of axes turning through 45 degrees">
+  <title>a pair of axes turning through 45 degrees</title>
+  <g stroke="#1B3A6B" stroke-width="1.6" stroke-linecap="round" opacity="0.20">
+    <path d="M-2 14 L50 66"/><path d="M12 0 L64 52"/><path d="M26 -14 L78 38"/>
+    <path d="M66 14 L14 66"/><path d="M52 0 L0 52"/><path d="M38 -14 L-14 38"/>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-width="4.4" opacity="0.32">
+    <path d="M14 52 L14 18" stroke="#1B3A6B"/>
+    <path d="M14 52 L45 52" stroke="#1B3A6B"/>
+  </g>
+  <path d="M14 52 L38 28" fill="none" stroke="#1B3A6B" stroke-width="5.6"
+    stroke-linecap="round"/>
+  <g fill="none" stroke="#E4572E" stroke-width="2.8" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M14 28 A 24 24 0 0 1 31 35"/>
+    <path d="M29.6 27.9 L31 35 L23.9 33.6"/>
+  </g>
+</svg>

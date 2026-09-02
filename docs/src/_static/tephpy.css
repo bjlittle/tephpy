@@ -64,3 +64,50 @@
 .reading-time svg {
   margin-right: 0.65em;
 }
+
+/*
+ * The four Diátaxis quadrant cards on the landing page.
+ *
+ * The icon is a pair of images rather than sphinx-design's `:img-top:`, which
+ * takes one path and so cannot carry a light and a dark drawing. The pair is
+ * switched by pydata-sphinx-theme's own `only-light`/`only-dark`, which it
+ * applies with `display: none !important` under the mode that does not want
+ * them -- the same mechanism `html_theme_options["logo"]` uses for the navbar
+ * lockup, and the reason the artwork can use the brand's two-tone palette
+ * (`#1B3A6B` on light, `#8FB8E8` on dark) instead of one colour compromised to
+ * survive both grounds. `only-dark` earns a second thing: in dark mode the theme
+ * otherwise applies `filter: brightness(0.8) contrast(1.2)` to every `img`, and
+ * a white background to every `.bd-content img` on top of that -- two rules of
+ * different reach, and the class is the opt-out named in both.
+ */
+.teph-quadrant-icon {
+  display: block;
+  margin: 0 0 0.6rem;
+  width: 56px;
+}
+
+/*
+ * Beside the text once there is room for it, above the text when there is not.
+ * `.. grid:: 2` is two columns at *every* breakpoint -- the emitted row carries
+ * `sd-row-cols-xs-2` through `sd-row-cols-lg-2` -- so a phone gets two cards of
+ * about 150px, and an icon indented out of the flow left "Understanding-
+ * oriented background." wrapping one word per line. Measured in Chromium at a
+ * 360px viewport against the built page. The rule is written mobile-first so
+ * the narrow layout needs no override: an `only-light`/`only-dark` image is
+ * hidden with `display: none !important` and any `display` this sets would lose
+ * to it anyway, but nothing here has to know that.
+ */
+@media (min-width: 576px) {
+  .teph-quadrant .sd-card-body {
+    padding-left: 84px;
+    position: relative;
+  }
+
+  .teph-quadrant-icon {
+    left: 16px;
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
