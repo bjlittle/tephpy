@@ -1,0 +1,6 @@
+``pixi.lock`` records the project's own requirements as well as resolving them, and
+nothing regenerated that copy when a floor was raised, so the lock could go on
+asserting a floor the project had already left behind — as it did for six of them,
+until an unrelated pull request happened to re-solve. The test suite now holds the
+lock's ``requires_dist`` to what ``requirements/pypi-*.txt`` declares, in both
+directions, and fails rather than passes when it can read neither. (:user:`claude`)
