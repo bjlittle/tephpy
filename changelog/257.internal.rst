@@ -1,0 +1,5 @@
+The weekly lock refresh decided whether anything had changed by measuring the length
+of the rendered summary, which reads ``No diff`` — eight bytes — when nothing has. At
+a threshold of ten that sat two bytes from passing an empty update through, and it
+would have failed open, silently, into a weekly pull request with nothing in it. It
+now asks ``pixi update`` directly instead. (:user:`claude`)
