@@ -151,13 +151,21 @@ def read_intro(source: str) -> str:
 
 #: A cross-reference role written with an explicit title, ``:term:`title
 #: <target>```. sphinx-gallery's ``_sanitize_rst`` mangles exactly this form in
-#: the intro paragraph, and in two different ways: where the title is a single
-#: word it publishes the *target* instead of the title, and where the title is
-#: two or more words it publishes the raw ``<target>`` markup at the reader,
-#: because the rule that would have handled it needs a single-word title and the
-#: rule that catches the remainder keeps its content verbatim (:issue:`253`).
-#: The bare form is unaffected, which is why this pattern requires the ``<``.
-_TITLED_ROLE = re.compile(r":[a-z]+:`[^`<>]+<[^`<>]+>`")
+#: the intro paragraph, in three different ways. Where the title is a single word
+#: it publishes the *target* instead of the title; where the title is two or more
+#: words it publishes the raw ``<target>`` markup at the reader, because the rule
+#: that would have handled it needs a single-word title and the rule catching the
+#: remainder keeps its content verbatim; and where the role is domain-qualified it
+#: publishes a fragment of the role itself, ``:py:class:`Sounding <...>``` leaving
+#: ``:pySounding`` (:issue:`253`, sphinx-gallery/sphinx-gallery#1644).
+#:
+#: The role name is matched as one *or more* colon-separated parts so that the
+#: whole of a domain-qualified role is reported. A simpler ``:[a-z]+:`` still
+#: *detects* one -- it matches from the inner ``:class:`` -- but names only that
+#: part, and a guard that reports half the thing it found is a worse guard than
+#: one that reports all of it. The bare and ``~`` forms are unaffected by any of
+#: this, which is why the pattern requires the ``<``.
+_TITLED_ROLE = re.compile(r":(?:[a-z0-9+_-]+:)+`[^`<>]+<[^`<>]+>`")
 
 
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])
@@ -288,3 +296,34 @@ def test_no_intro_paragraph_writes_a_role_with_an_explicit_title(name):
         f"{name}: the thumbnail tooltip is built from this paragraph by pattern, "
         f"and these reach the reader mangled: {found}. Write the bare role."
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a :term:`wind barbs <wind barb>` role",
+        "a :py:class:`Sounding <tephpy.sounding.Sounding>` role",
+        "a :std:doc:`the guide <howtos/index>` role",
+    ],
+)
+def test_the_titled_role_pattern_reads_the_whole_role(text):
+    """A domain-qualified role is caught, and reported whole.
+
+    ``:[a-z]+:`` detects one anyway by matching from its inner part, so the
+    weaker pattern would pass this file's other test while naming ``:class:``
+    where the source says ``:py:class:``. Asserting the *reported* text is what
+    tells the two apart.
+    """
+    found = _TITLED_ROLE.findall(text)
+    assert found, f"no explicit-title role found in {text!r}"
+    assert found[0] in text
+    assert text.startswith(f"a {found[0]} role")
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["a :term:`dewpoint` role", "a :class:`~tephpy.sounding.Sounding` role"],
+)
+def test_the_titled_role_pattern_leaves_the_bare_forms_alone(text):
+    """The bare and ``~`` forms sanitise correctly, so they are not the defect."""
+    assert not _TITLED_ROLE.findall(text)
