@@ -159,13 +159,23 @@ def read_intro(source: str) -> str:
 #: publishes a fragment of the role itself, ``:py:class:`Sounding <...>``` leaving
 #: ``:pySounding`` (:issue:`253`, sphinx-gallery/sphinx-gallery#1644).
 #:
-#: The role name is matched as one *or more* colon-separated parts so that the
-#: whole of a domain-qualified role is reported. A simpler ``:[a-z]+:`` still
-#: *detects* one -- it matches from the inner ``:class:`` -- but names only that
-#: part, and a guard that reports half the thing it found is a worse guard than
-#: one that reports all of it. The bare and ``~`` forms are unaffected by any of
-#: this, which is why the pattern requires the ``<``.
-_TITLED_ROLE = re.compile(r":(?:[a-z0-9+_-]+:)+`[^`<>]+<[^`<>]+>`")
+#: The role name is docutils' own grammar for one, ``Inliner.simplename``
+#: transcribed from ``docutils/parsers/rst/states.py`` (0.22.4). Narrowing it by
+#: hand is what a guard like this must not do: an earlier ``:[a-z0-9+_-]+:`` here
+#: missed ``:TERM:`profile <sounding>``` and ``:my.role:`title <target>```, both
+#: of which Sphinx accepts and renders as ordinary links -- measured, they build
+#: clean under ``--fail-on-warning`` -- and both of which the sanitiser mangles.
+#: A guard narrower than the grammar it guards is a guard with a hole in the
+#: shape of whatever its author did not think of.
+#:
+#: Transcribed rather than imported for the reason ``_TAGS`` and ``_FLAGS`` are:
+#: docutils is absent from the ``test-py3*`` environments the CI matrix runs, so
+#: an importing test would skip exactly where it matters.
+_SIMPLENAME = r"(?:(?!_)\w)+(?:[-._+:](?:(?!_)\w)+)*"
+
+#: The bare and ``~`` forms are unaffected by any of this, which is why the
+#: pattern requires the ``<``.
+_TITLED_ROLE = re.compile(rf":{_SIMPLENAME}:`[^`<>]+<[^`<>]+>`")
 
 
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])
@@ -304,6 +314,8 @@ def test_no_intro_paragraph_writes_a_role_with_an_explicit_title(name):
         "a :term:`wind barbs <wind barb>` role",
         "a :py:class:`Sounding <tephpy.sounding.Sounding>` role",
         "a :std:doc:`the guide <howtos/index>` role",
+        "a :TERM:`profile <sounding>` role",
+        "a :my.role:`title <target>` role",
     ],
 )
 def test_the_titled_role_pattern_reads_the_whole_role(text):
