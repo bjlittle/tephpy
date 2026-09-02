@@ -5,7 +5,7 @@
 """Comparing Two Soundings
 =======================
 
-Two :term:`soundings <sounding>` from the same station on the same day,
+Two ascents from the same station on the same day, each a :term:`sounding`,
 framed together so the change between them is the only thing that moves.
 
 Norman, Oklahoma on 2013-05-20: the 12Z ascent, and the 17Z

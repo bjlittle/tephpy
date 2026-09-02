@@ -6,8 +6,8 @@
 =============
 
 The bare diagram: the five :term:`isopleth` families of a :term:`tephigram`,
-on a coordinate system rotated so that :term:`isotherms <isotherm>` and
-:term:`dry adiabats <dry adiabat>` cross at right angles.
+on a coordinate system rotated so that the :term:`isotherm` and
+:term:`dry adiabat` families cross at right angles.
 
 The :term:`projection` is registered by importing tephpy, and the extent is
 given as a pressure range and a temperature range.

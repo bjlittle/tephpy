@@ -1,0 +1,8 @@
+Every gallery thumbnail's hover tooltip showed its example's summary with the
+cross-reference markup mangled: two leaked raw ``<target>`` text at the reader, and
+three silently published the link target in place of the words around it — ``Two
+soundings from the same station`` read as ``Two sounding from the same station``.
+sphinx-gallery lifts that paragraph out of the docstring with regular expressions
+rather than by parsing it, and the explicit-title role form does not survive the
+trip. The five summaries now use the bare form, so the tooltips read as written and
+the terms stay linked on the page. (:user:`claude`)

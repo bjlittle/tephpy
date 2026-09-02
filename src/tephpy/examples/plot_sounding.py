@@ -6,8 +6,7 @@
 ==========
 
 Temperature and :term:`dewpoint` profiles, with the ascent's
-:term:`wind barbs <wind barb>` on the gutter staff to the right of the
-diagram.
+:term:`wind barb` symbols on the gutter staff to the right of the diagram.
 
 The :term:`sounding` is Norman, Oklahoma at 12Z on 2013-05-20.
 """

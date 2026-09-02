@@ -119,6 +119,65 @@ def read_guard(source: str) -> list[str]:
     return []
 
 
+#: The paragraph sphinx-gallery lifts into a thumbnail's ``tooltip=`` attribute,
+#: transcribed from ``gen_rst.extract_intro_and_title`` (0.21.0): the docstring
+#: split on blank lines, directives dropped, the title taken first and the intro
+#: being the paragraph after it. Transcribed rather than imported for the reason
+#: ``_FLAGS`` is, and read the same way sphinx-gallery reads it -- newlines
+#: joined to spaces before anything looks at the text.
+def read_intro(source: str) -> str:
+    """Return the paragraph sphinx-gallery renders as the thumbnail tooltip.
+
+    Parameters
+    ----------
+    source : str
+        The example module's text.
+
+    Returns
+    -------
+    str
+        The intro paragraph on one line, or the title where there is no other
+        paragraph -- which is the fallback sphinx-gallery itself makes.
+    """
+    docstring = ast.get_docstring(ast.parse(source), clean=False) or ""
+    paragraphs = [
+        paragraph
+        for paragraph in docstring.lstrip().split("\n\n")
+        if paragraph and not paragraph.startswith(".. ")
+    ]
+    intro = paragraphs[0] if len(paragraphs) < 2 else paragraphs[1]
+    return intro.replace("\n", " ")
+
+
+#: A cross-reference role written with an explicit title, ``:term:`title
+#: <target>```. sphinx-gallery's ``_sanitize_rst`` mangles exactly this form in
+#: the intro paragraph, in three different ways. Where the title is a single word
+#: it publishes the *target* instead of the title; where the title is two or more
+#: words it publishes the raw ``<target>`` markup at the reader, because the rule
+#: that would have handled it needs a single-word title and the rule catching the
+#: remainder keeps its content verbatim; and where the role is domain-qualified it
+#: publishes a fragment of the role itself, ``:py:class:`Sounding <...>``` leaving
+#: ``:pySounding`` (:issue:`253`, sphinx-gallery/sphinx-gallery#1644).
+#:
+#: The role name is docutils' own grammar for one, ``Inliner.simplename``
+#: transcribed from ``docutils/parsers/rst/states.py`` (0.22.4). Narrowing it by
+#: hand is what a guard like this must not do: an earlier ``:[a-z0-9+_-]+:`` here
+#: missed ``:TERM:`profile <sounding>``` and ``:my.role:`title <target>```, both
+#: of which Sphinx accepts and renders as ordinary links -- measured, they build
+#: clean under ``--fail-on-warning`` -- and both of which the sanitiser mangles.
+#: A guard narrower than the grammar it guards is a guard with a hole in the
+#: shape of whatever its author did not think of.
+#:
+#: Transcribed rather than imported for the reason ``_TAGS`` and ``_FLAGS`` are:
+#: docutils is absent from the ``test-py3*`` environments the CI matrix runs, so
+#: an importing test would skip exactly where it matters.
+_SIMPLENAME = r"(?:(?!_)\w)+(?:[-._+:](?:(?!_)\w)+)*"
+
+#: The bare and ``~`` forms are unaffected by any of this, which is why the
+#: pattern requires the ``<``.
+_TITLED_ROLE = re.compile(rf":{_SIMPLENAME}:`[^`<>]+<[^`<>]+>`")
+
+
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])
 def test_example_runs(module):
     """Every registered example builds a figure, at the gallery's size.
@@ -225,3 +284,58 @@ def test_the_tephigram_example_restates_the_default_extent():
 def test_parcel_analysis_figure():
     """Pin spec §4's composed figure, which spec §7 has always required."""
     return import_module("tephpy.examples.plot_parcel_analysis").main()
+
+
+@pytest.mark.parametrize("name", [name for name, _ in REGISTRY])
+def test_no_intro_paragraph_writes_a_role_with_an_explicit_title(name):
+    """The thumbnail tooltip is plain text, so its paragraph writes plain roles.
+
+    sphinx-gallery strips the intro paragraph with regular expressions rather
+    than by parsing it, and an explicit-title role survives that as either the
+    wrong words or as raw markup (:issue:`253`). The rule is scoped to the intro
+    paragraph because that is the only part lifted into the attribute: the rest
+    of the docstring is rendered by Sphinx, where the same form is correct and
+    used.
+    """
+    source = (EXAMPLES / f"plot_{name.replace('-', '_')}.py").read_text(
+        encoding="utf-8"
+    )
+    intro = read_intro(source)
+    found = _TITLED_ROLE.findall(intro)
+    assert not found, (
+        f"{name}: the thumbnail tooltip is built from this paragraph by pattern, "
+        f"and these reach the reader mangled: {found}. Write the bare role."
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a :term:`wind barbs <wind barb>` role",
+        "a :py:class:`Sounding <tephpy.sounding.Sounding>` role",
+        "a :std:doc:`the guide <howtos/index>` role",
+        "a :TERM:`profile <sounding>` role",
+        "a :my.role:`title <target>` role",
+    ],
+)
+def test_the_titled_role_pattern_reads_the_whole_role(text):
+    """A domain-qualified role is caught, and reported whole.
+
+    ``:[a-z]+:`` detects one anyway by matching from its inner part, so the
+    weaker pattern would pass this file's other test while naming ``:class:``
+    where the source says ``:py:class:``. Asserting the *reported* text is what
+    tells the two apart.
+    """
+    found = _TITLED_ROLE.findall(text)
+    assert found, f"no explicit-title role found in {text!r}"
+    assert found[0] in text
+    assert text.startswith(f"a {found[0]} role")
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["a :term:`dewpoint` role", "a :class:`~tephpy.sounding.Sounding` role"],
+)
+def test_the_titled_role_pattern_leaves_the_bare_forms_alone(text):
+    """The bare and ``~`` forms sanitise correctly, so they are not the defect."""
+    assert not _TITLED_ROLE.findall(text)
