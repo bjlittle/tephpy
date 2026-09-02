@@ -9,14 +9,21 @@ name: ci-locks
 # resolves each declared minimum and exercises what it resolves, and its header
 # names this workflow as the counterpart it does not replace (floors spec §1).
 #
-# The pull request is opened by a bot account rather than with `github.token`,
-# for one reason: GitHub does not run workflows on a pull request its own token
-# authored, so the lock would arrive with no CI at all -- and the checks are the
-# entire point of proposing it as a pull request rather than pushing it. The
-# token is scoped to `contents` and `pull-requests` on this repository and
-# deliberately carries no `workflows` permission: this bot commits `pixi.lock`
-# and `requirements/tephpy.yml` and nothing else, and a token that cannot rewrite
-# CI is worth much less to anyone who takes it.
+# The pull request is opened by a dedicated bot account rather than with
+# `github.token`, for one reason: GitHub does not run workflows on a pull request
+# its own token authored, so the lock would arrive with no CI at all -- and the
+# checks are the entire point of proposing it as a pull request rather than
+# pushing it.
+#
+# That token is a *classic* one, which is a constraint rather than a preference.
+# A fine-grained token reaches only repositories owned by the account that issued
+# it, and this bot is a collaborator here rather than the owner, so per-repository
+# scoping is not on offer and the scope is account-wide.
+#
+# What narrows it instead is the environment. `TEPHPY_BOT_TOKEN` is an
+# environment secret of `development`, and an environment secret is readable only
+# by a job that declares that environment -- so it is not, as a repository secret
+# would be, readable by every workflow here.
 #
 # Scheduled, never a pull-request gate. It reaches the network to re-resolve, so
 # it goes red for reasons no pull request caused (the reasoning `ci-floors`
@@ -36,6 +43,9 @@ permissions: {}
 jobs:
   pixi-update:
     runs-on: ubuntu-latest
+    # Declared so the job can read `TEPHPY_BOT_TOKEN`, and so that nothing which
+    # does not declare it can.
+    environment: development
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

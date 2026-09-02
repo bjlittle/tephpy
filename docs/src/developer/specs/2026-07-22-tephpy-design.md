@@ -1137,11 +1137,14 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
 
   `ci-locks` (weekly) moves the upper end: it re-resolves the lock, regenerates
   `requirements/tephpy.yml` beside it, and opens one pull request with the diff as its
-  body. It is opened by a bot account rather than with `github.token`, because GitHub runs
-  no workflows on a pull request its own token authored — and the checks running on it are
-  the reason for proposing the lock rather than pushing it. The token carries `contents`
-  and `pull-requests` on this repository and no `workflows` permission, so a bot that
-  commits two files cannot rewrite CI (:issue:`252`).
+  body. It is opened by a dedicated bot account rather than with `github.token`, because
+  GitHub runs no workflows on a pull request its own token authored — and the checks
+  running on it are the reason for proposing the lock rather than pushing it. That token is
+  a *classic* one by constraint, not by choice: a fine-grained token reaches only
+  repositories owned by the account that issued it, and the bot is a collaborator here, so
+  its scope is account-wide. What narrows it is the environment — the secret belongs to
+  `development`, and an environment secret is readable only by a job declaring that
+  environment, rather than by every workflow in the repository (:issue:`252`).
 - **Fast-follow (documented, not built at v1):** `ci-tests-lock` (daily fresh-resolve
   canary), `ci-tests-pypi` (daily pip-only install canary), `ci-linkcheck`, `ci-stale`,
   `ci-first-contribution`, and a JOSS paper build. The spec records these so the gap is a
