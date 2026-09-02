@@ -13,10 +13,11 @@ checks is the small set of properties whose regression would be *silent* and
 would reach the reader as something worse than no tooltip at all
 (tooltip spec §3.6).
 
-Four of them. Every ``:term:`` link on a published page has a tip, and there is at
-least one -- the positive assertion, without which a build where the extension
-produced nothing passes the other three most completely. No gallery example link
-is tipped, because sphinx-gallery already puts a tooltip on those thumbnails and
+Four of them. Every ``:term:`` link on a published page has a tip that carries the
+definition, not merely a tip, and there is at least one -- the positive assertion,
+without which a build where the extension produced nothing, or produced a tip that
+is just the hovered word, passes the other three most completely. No gallery example
+link is tipped, because sphinx-gallery already puts a tooltip on those thumbnails and
 two of them fire on one hover (tooltip spec §3.4). The vendored runtime is there,
 and only there (tooltip spec §3.2): no page loads it from a third party, a page
 carrying a tippy payload always references at least one local runtime script,
@@ -139,8 +140,8 @@ def payloads(root: Path) -> dict[str, dict[str, str]]:
     return found
 
 
-def tipped(payload: dict[str, str]) -> set[str]:
-    """Return the hrefs a payload generates a tip for.
+def tipped(payload: dict[str, str]) -> dict[str, str]:
+    """Return the tip html a payload generates, keyed by href.
 
     Parameters
     ----------
@@ -149,11 +150,18 @@ def tipped(payload: dict[str, str]) -> set[str]:
 
     Returns
     -------
-    set of str
-        The hrefs, with the selector syntax removed.
+    dict
+        ``{href: tip html}``, with the selector syntax removed from the key.
+        A caller that only needs the hrefs -- `check_gallery`, `main`'s summary
+        count -- uses this like a set: iterating, ``len()`` and ``sorted()``
+        all read the keys.
 
     """
-    return {m[1] for selector in payload if (m := SELECTOR.match(selector))}
+    return {
+        m[1]: html
+        for selector, html in payload.items()
+        if (m := SELECTOR.match(selector))
+    }
 
 
 def article_links(html: str) -> list[str]:
@@ -175,7 +183,7 @@ def article_links(html: str) -> list[str]:
 
 
 def check_glossary(root: Path) -> list[str]:
-    """Report every glossary link with no tip, and a build with no link at all."""
+    """Report every glossary link with no tip, or a tip carrying no definition."""
     found, seen = [], 0
     maps = payloads(root)
     for page in pages(root):
@@ -189,6 +197,15 @@ def check_glossary(root: Path) -> list[str]:
             seen += 1
             if href not in has:
                 found.append(f"{docname}: no tip for the glossary link {href}")
+            #: A multi-term glossary entry's starved terms get a tip that is
+            #: just the hovered word -- `<dd` is how a tip that actually
+            #: carries the definition is told apart from one that does not
+            #: (tooltip spec §3.7).
+            elif "<dd" not in has[href]:
+                found.append(
+                    f"{docname}: the tip for the glossary link {href} carries "
+                    f"no definition"
+                )
     if not seen:
         found.append(
             "no glossary link was found in the build, so nothing was checked; "

@@ -144,6 +144,42 @@ def test_a_glossary_link_without_a_tip_is_reported(tmp_path):
     assert "term-tephigram" in found[0]
 
 
+def test_a_glossary_tip_with_no_definition_is_reported(tmp_path):
+    # A multi-term glossary entry's starved terms (tooltip spec §3.7): the
+    # extension gave this term a tip, but it is only the hovered word, with no
+    # `<dd>` -- the proxy this check used to accept.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {
+            "index": {
+                "reference/glossary.html#term-tephigram": (
+                    "<dt id='term-tephigram'>tephigram</dt>"
+                )
+            }
+        },
+    )
+    found = gate.check_glossary(root)
+    assert found
+    assert "no definition" in found[0]
+    assert "term-tephigram" in found[0]
+
+
+def test_a_glossary_tip_with_a_definition_passes(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {
+            "index": {
+                "reference/glossary.html#term-tephigram": (
+                    "<dt id='term-tephigram'>tephigram</dt><dd>a diagram</dd>"
+                )
+            }
+        },
+    )
+    assert gate.check_glossary(root) == []
+
+
 def test_a_build_with_no_glossary_link_at_all_is_reported(tmp_path):
     # The positive assertion of tooltip spec §3.6. A build in which the extension
     # silently produced nothing satisfies every other check most completely.

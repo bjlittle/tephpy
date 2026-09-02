@@ -242,16 +242,18 @@ It asserts four things, and the choice of four is the proportionality argument o
 applied one property at a time:
 
 1. **Every glossary link this project owns, on a page rendered from a source document,
-   has a generated tip, and there is at least one.** The positive assertion. A build in
-   which the extension silently produced nothing — a failed import behind a suppression,
-   a selector that stopped matching a themed container — otherwise passes every other
-   check in this list, because all three of those are satisfied most completely by an
-   empty build. Measured on the current build: 117 links, on pages rendered from a source
-   document, are checked and every one carries a tip. 55 more are out of scope — 50 on
-   `genindex`, which Sphinx's builder generates rather than rendering from a source
-   document and which the extension never processes, and 5 external, intersphinx-resolved
-   links to Python's own glossary, which §7 already records as carrying no tooltip by
-   design.
+   has a generated tip that carries the definition, not merely a tip, and there is at
+   least one.** The positive assertion. A build in which the extension silently produced
+   nothing — a failed import behind a suppression, a selector that stopped matching a
+   themed container — otherwise passes every other check in this list, because all three
+   of those are satisfied most completely by an empty build; a tip that is merely present
+   but bare, the defect §3.7 records, passes just as completely without the "carries the
+   definition" half. Measured on the current build: 117 links, on pages rendered from a
+   source document, are checked and every one carries a tip with a definition. 55 more are
+   out of scope — 50 on `genindex`, which Sphinx's builder generates rather than rendering
+   from a source document and which the extension never processes, and 5 external,
+   intersphinx-resolved links to Python's own glossary, which §7 already records as
+   carrying no tooltip by design.
 2. **No gallery example link is tipped.** §3.4's collision, which is visible to a reader
    and invisible to every existing gate.
 3. **The vendored runtime is there, and only there.** Three sub-checks. No page loads it
@@ -272,6 +274,88 @@ placement, its size, or whether its text wrapped well. That is presentation, thi
 does not gate presentation, and the standing limit recorded in reading spec §7 applies here
 unchanged — a defect of that shape would ship.
 
+(tooltip-spec-3-7)=
+### 3.7 Shared-definition groups, and the `<dt>`s upstream starves
+
+Two different constructs render the same way. A glossary entry may define several
+terms with one shared definition:
+
+```rst
+.. glossary::
+
+    lapse rate
+    dry adiabatic lapse rate
+    DALR
+    moist adiabatic lapse rate
+    saturated adiabatic lapse rate
+    SALR
+        ...
+```
+
+and a Python directive may document several call signatures with one shared
+description — `py:function:: spam(a)` and a second signature line `spam(a, b)`, or the
+`@overload` shape autoapi emits. Both become a run of consecutive `<dt>` elements
+followed by one `<dd>`, and `sphinx_tippy.create_id_to_tip_html` copies the `<dd>` into
+a `<dt>`'s tip only when the `<dd>` is that `<dt>`'s *immediate* next sibling:
+
+```python
+if (next_sibling := next_sibling_tag(tag)) and next_sibling.name == "dd":
+```
+
+**The glossary shape.** Every `<dt>` in the group is given its own bare tip earlier in
+the same function — the loop above it copies `str(tag)` for each one unconditionally —
+but only the *last* `<dt>` of a group ever satisfies the sibling check, so only it is
+given the `<dd>`. Hovering `DALR` shows the word "DALR"; hovering `SALR`, the last term
+of the same group, shows the full definition. tephpy's glossary is 29 entries defining
+50 terms; 13 of the entries define more than one term, 21 of the 50 terms are starved by
+this rule, and — measured on the built site before the correction below — 30 of the 117
+glossary tips §3.6 checks carry no definition (26%).
+
+**The signature shape.** Sphinx's own convention only ever puts an `id` on the *first*
+`<dt>` of a multi-signature group — confirmed against this documentation's own build,
+not assumed: `tephpy.plotting.axes.TephigramAxes.plot_profile`, an `@overload`-shaped
+method accepting either a pressure/temperature pair or a `calc.Profile`, renders as an
+id-bearing `<dt>` for its first signature, a second `<dt>` with **no** `id` at all, and
+one `<dd>`. The first `<dt>` is never adjacent to the `<dd>` — the id-less second `<dt>`
+sits between them — so it is never given one either, and it is the only `<dt>` of the
+group whose tip is ever shown: measured before the fix, the tip stored for it was 2,238
+bytes, the first signature's `<dt>` alone, with no `<dd>` at all. The corpus contains
+exactly one such group today; the shape is one more `@overload` away, and the fix below
+covers it regardless of count.
+
+Filed upstream as
+[sphinx-extensions2/sphinx-tippy#35](https://github.com/sphinx-extensions2/sphinx-tippy/issues/35);
+§3.1 already records upstream as dormant since `0.4.3` in April 2024, so this is vendored
+rather than waited for, in the same shape as the interactive-tips correction §8 keeps open.
+
+**The correction, and why it is not donor-reuse.** A first design fixed the glossary
+shape by *donating* the last term's already-generated, already-trimmed tip to every
+earlier term in its group — reusing `create_id_to_tip_html`'s own trimmed `<dd>` rather
+than re-deriving it, since that function's copy is not a plain `str(dd)`: it keeps at
+most five `<p>` children and drops everything else, silently, and reimplementing that
+trim would need tracking forever against upstream drift. That design does not reach the
+signature shape: donation needs some `<dt>` in the group to already hold the `<dd>` it
+can lend, and here none does — the only `<dt>` with an `id` is never adjacent to the
+`<dd>`, so there is no donor.
+
+`docs/src/_ext/tephpy_tippy_terms.py` instead **pre-processes the parsed page before**
+calling the original function. `_duplicate_definitions` walks the same `BeautifulSoup`
+body the original goes on to read, finds every run of consecutive `<dt>` siblings —
+`id` or no `id` — terminated by a `<dd>`, and inserts a *copy* of that `<dd>` immediately
+after every `<dt>` in the run not already adjacent to it. `create_id_to_tip_html`'s own
+adjacency check then succeeds for every `<dt>`, and its own trimming runs once per
+`<dt>`, unmodified — the correction still never re-derives or duplicates that logic,
+which was the point of the donor idea and is kept here by construction; it is simply
+applied one layer earlier, to the input rather than the output. A `<dt>` whose group has
+no trailing `<dd>` at all is left untouched — nothing to insert and no donor either way.
+
+Mutating the parsed page this way is safe because of how `sphinx_tippy.collect_tips`
+builds it: at `sphinx_tippy.py:261`, `body = BeautifulSoup(context["body"], "html.parser")`
+parses a *copy* of the page's HTML string, and nothing renders from `body` after
+`create_id_to_tip_html` returns — verified by reading `collect_tips`, not assumed, and
+recorded in the module's own docstring so a future reader relying on it again can recheck
+it against whatever `collect_tips` does then.
+
 (tooltip-spec-4)=
 ## 4. Companion changes
 
@@ -280,8 +364,11 @@ unchanged — a defect of that shape would ship.
 - **`requirements/pypi-optional-docs.txt`** — the PyPI counterpart of the same floor.
 - **`pixi.lock`** — re-solved.
 - **`docs/src/conf.py`** — `sphinx_tippy` in `extensions`, and the configuration block of
-  §3.2 to §3.5.
+  §3.2 to §3.5; `tephpy_tippy_terms` immediately after it, for §3.7.
 - **`docs/src/_static/js/`** — the two vendored bundles of §3.2, new directory.
+- **`docs/src/_ext/tephpy_tippy_terms.py`** — the shared-definition-group correction of
+  §3.7, new module.
+- **`tests/test_tippy_terms.py`** — §3.7's own tests, new module.
 - **`.github/scripts/check_citations.py`** — the shared corpus of §3.2 passes over the
   vendored directory. The citation gate's own verdict is unchanged by it; the
   GitHub-reference gate's is what needed it.
@@ -402,6 +489,14 @@ that, and no gate detects it.
   unmerged since 2025-12-16, and if it stays that way the alternative is to vendor the
   correction as a small `docs/src/_ext/` post-processing step. Not attempted here, because
   the defect has no reader-visible consequence under the current configuration.
+- **Open** — the shared-definition-group defect of §3.7, filed upstream as
+  [sphinx-extensions2/sphinx-tippy#35](https://github.com/sphinx-extensions2/sphinx-tippy/issues/35).
+  If upstream fixes it, `create_id_to_tip_html` starts giving every `<dt>` of a group its
+  `<dd>` on its own, so every `<dt>` `_duplicate_definitions` visits is already adjacent to
+  its `<dd>` and it inserts nothing — the pre-processing step becomes a no-op walk over
+  every page rather than a correction. At that point it is removable: delete
+  `tephpy_tippy_terms.py`, its `tests/test_tippy_terms.py`, and the two `conf.py` lines, and
+  re-measure §3.7's counts.
 - **Open** — citation tooltips resolve for 3 of the 10 links into `reference/references.html`.
   Observed on 2026-09-01 and not diagnosed. The bibliography is small enough that the gap
   has not been worth the investigation, and no gate depends on the number.
@@ -422,7 +517,9 @@ that, and no gate detects it.
 - [`sphinx-tippy`](https://github.com/chrisjsewell/sphinx-tippy) — the extension, at
   `0.4.3`. Issue [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and pull
   request [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are the defect of
-  §3.5.
+  §3.5. Issue
+  [sphinx-extensions2/sphinx-tippy#35](https://github.com/sphinx-extensions2/sphinx-tippy/issues/35)
+  is the multi-term glossary defect of §3.7.
 - [`sphinx-hoverxref`](https://github.com/readthedocs/sphinx-hoverxref) — archived
   2025-04-09, carrying the deprecation notice that names Read the Docs' *Link previews* as
   its successor (§5).

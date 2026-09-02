@@ -1,5 +1,8 @@
 Added hover tooltips across the documentation, drawn by `sphinx-tippy
 <https://github.com/chrisjsewell/sphinx-tippy>`_. Every glossary term and every
-API cross-reference now shows its definition on hover, without leaving the page.
-The tooltip runtime is vendored rather than fetched from a CDN, so the tooltips
+API cross-reference now shows its definition on hover, without leaving the page,
+including every term of a glossary entry that defines several at once and every
+signature of an overloaded API method -- a vendored correction for an upstream
+defect that otherwise left all but one member of such a group bare. The
+tooltip runtime is vendored rather than fetched from a CDN, so the tooltips
 work offline and no page reaches a third party. (:user:`claude`)
