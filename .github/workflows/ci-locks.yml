@@ -61,9 +61,15 @@ jobs:
       # wrote, and the reason the bot needs a token that triggers CI at all.
       - name: Refresh the environment file
         if: ${{ hashFiles('diff.md') }}
+        # `printf` around the command substitution is what stores the file the
+        # way this repository stores every file: the export ends in a blank line,
+        # and `end-of-file-fixer` would take it off the moment pre-commit saw the
+        # bot's pull request. Writing the settled form here means the bot commits
+        # what the hooks would have made of it, and
+        # `tests/test_environment_file.py` compares against that same form.
         run: |
-          pixi workspace export conda-environment --environment default \
-            --name tephpy > requirements/tephpy.yml
+          printf '%s\n' "$(pixi workspace export conda-environment \
+            --environment default --name tephpy)" > requirements/tephpy.yml
 
       - name: Propose the update
         id: cpr

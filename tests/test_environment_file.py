@@ -95,7 +95,12 @@ def exported() -> str:
     Returns
     -------
     str
-        The export's output.
+        The export's output, in the form this repository stores a file in:
+        exactly one trailing newline. The export itself ends in a blank line, and
+        `end-of-file-fixer` takes that off every file the repository commits, so
+        the raw output can never equal the committed one. Normalising here rather
+        than loosening the comparison keeps the assertion exact -- every byte
+        before the end still has to match.
 
     Notes
     -----
@@ -110,23 +115,26 @@ def exported() -> str:
     with tempfile.TemporaryDirectory() as scratch:
         manifest = Path(scratch) / "pyproject.toml"
         manifest.write_text(committed("pyproject.toml"), encoding="utf-8")
-        return subprocess.run(  # noqa: S603
-            [
-                pixi,
-                "workspace",
-                "export",
-                "conda-environment",
-                "--manifest-path",
-                str(manifest),
-                "--environment",
-                ENVIRONMENT,
-                "--name",
-                NAME,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
+        return (
+            subprocess.run(  # noqa: S603
+                [
+                    pixi,
+                    "workspace",
+                    "export",
+                    "conda-environment",
+                    "--manifest-path",
+                    str(manifest),
+                    "--environment",
+                    ENVIRONMENT,
+                    "--name",
+                    NAME,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.rstrip("\n")
+            + "\n"
+        )
 
 
 def test_the_export_renders_something():
