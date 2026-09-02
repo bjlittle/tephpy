@@ -119,6 +119,47 @@ def read_guard(source: str) -> list[str]:
     return []
 
 
+#: The paragraph sphinx-gallery lifts into a thumbnail's ``tooltip=`` attribute,
+#: transcribed from ``gen_rst.extract_intro_and_title`` (0.21.0): the docstring
+#: split on blank lines, directives dropped, the title taken first and the intro
+#: being the paragraph after it. Transcribed rather than imported for the reason
+#: ``_FLAGS`` is, and read the same way sphinx-gallery reads it -- newlines
+#: joined to spaces before anything looks at the text.
+def read_intro(source: str) -> str:
+    """Return the paragraph sphinx-gallery renders as the thumbnail tooltip.
+
+    Parameters
+    ----------
+    source : str
+        The example module's text.
+
+    Returns
+    -------
+    str
+        The intro paragraph on one line, or the title where there is no other
+        paragraph -- which is the fallback sphinx-gallery itself makes.
+    """
+    docstring = ast.get_docstring(ast.parse(source), clean=False) or ""
+    paragraphs = [
+        paragraph
+        for paragraph in docstring.lstrip().split("\n\n")
+        if paragraph and not paragraph.startswith(".. ")
+    ]
+    intro = paragraphs[0] if len(paragraphs) < 2 else paragraphs[1]
+    return intro.replace("\n", " ")
+
+
+#: A cross-reference role written with an explicit title, ``:term:`title
+#: <target>```. sphinx-gallery's ``_sanitize_rst`` mangles exactly this form in
+#: the intro paragraph, and in two different ways: where the title is a single
+#: word it publishes the *target* instead of the title, and where the title is
+#: two or more words it publishes the raw ``<target>`` markup at the reader,
+#: because the rule that would have handled it needs a single-word title and the
+#: rule that catches the remainder keeps its content verbatim (:issue:`253`).
+#: The bare form is unaffected, which is why this pattern requires the ``<``.
+_TITLED_ROLE = re.compile(r":[a-z]+:`[^`<>]+<[^`<>]+>`")
+
+
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])
 def test_example_runs(module):
     """Every registered example builds a figure, at the gallery's size.
@@ -225,3 +266,25 @@ def test_the_tephigram_example_restates_the_default_extent():
 def test_parcel_analysis_figure():
     """Pin spec §4's composed figure, which spec §7 has always required."""
     return import_module("tephpy.examples.plot_parcel_analysis").main()
+
+
+@pytest.mark.parametrize("name", [name for name, _ in REGISTRY])
+def test_no_intro_paragraph_writes_a_role_with_an_explicit_title(name):
+    """The thumbnail tooltip is plain text, so its paragraph writes plain roles.
+
+    sphinx-gallery strips the intro paragraph with regular expressions rather
+    than by parsing it, and an explicit-title role survives that as either the
+    wrong words or as raw markup (:issue:`253`). The rule is scoped to the intro
+    paragraph because that is the only part lifted into the attribute: the rest
+    of the docstring is rendered by Sphinx, where the same form is correct and
+    used.
+    """
+    source = (EXAMPLES / f"plot_{name.replace('-', '_')}.py").read_text(
+        encoding="utf-8"
+    )
+    intro = read_intro(source)
+    found = _TITLED_ROLE.findall(intro)
+    assert not found, (
+        f"{name}: the thumbnail tooltip is built from this paragraph by pattern, "
+        f"and these reach the reader mangled: {found}. Write the bare role."
+    )

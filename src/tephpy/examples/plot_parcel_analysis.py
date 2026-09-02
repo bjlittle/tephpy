@@ -6,7 +6,7 @@
 ===============
 
 Lift a :term:`parcel` from the surface, shade the energy available to it,
-and annotate the indices that summarise the :term:`ascent <parcel ascent>`.
+and annotate the indices that summarise the :term:`parcel ascent`.
 
 The :term:`sounding` is Norman, Oklahoma at 12Z on 2013-05-20 — the morning
 of the Moore EF5 tornado, with about 1750 J/kg of :term:`CAPE` under a
