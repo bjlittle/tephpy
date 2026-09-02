@@ -1,0 +1,19 @@
+<!--
+  Copyright (c) 2026, tephpy Contributors.
+
+  This file is part of tephpy and is distributed under the 3-Clause BSD license.
+  See the LICENSE file in the package root directory for licensing details.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="an index of entries, one of them marked">
+  <title>an index of entries, one of them marked</title>
+  <g stroke="#1B3A6B" stroke-width="1.6" stroke-linecap="round" opacity="0.20">
+    <path d="M-2 14 L50 66"/><path d="M12 0 L64 52"/><path d="M26 -14 L78 38"/>
+    <path d="M66 14 L14 66"/><path d="M52 0 L0 52"/><path d="M38 -14 L-14 38"/>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-width="4">
+    <path d="M15 18 L49 18" stroke="#1B3A6B"/>
+    <path d="M15 30 L42 30" stroke="#E4572E"/>
+    <path d="M15 42 L49 42" stroke="#1B3A6B"/>
+    <path d="M15 54 L36 54" stroke="#1B3A6B"/>
+  </g>
+</svg>
