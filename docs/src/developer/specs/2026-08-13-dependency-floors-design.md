@@ -334,7 +334,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Twenty-four of the `test` tier's tests guard on a repository being there —
+index included. Twenty-five of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left

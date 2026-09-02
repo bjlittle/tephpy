@@ -40,7 +40,7 @@ GRAMMAR = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
 #: document's own prefix and resolves anyway, silently landing on the wrong
 #: section. Moving it into any other governed file fails this gate loudly
 #: instead, reported as having no prefix.
-EXCLUDED = ("docs/src/developer/plans/",)
+EXCLUDED = ("docs/src/developer/plans/", "docs/src/_static/js/")
 
 
 def display(path: Path) -> str:
@@ -362,6 +362,12 @@ def corpus() -> list[Path]:
     ``tests/**/*.py`` left ``tests/fixtures/io/README.md`` and its two citations
     outside the check, along with those in ``pyproject.toml`` and the
     specifications' own ``index.rst``.
+
+    The second exclusion is authorship rather than freezing. ``docs/src/_static/js``
+    holds vendored third-party bundles, and docs spec §3.6 and docs spec §3.8 govern
+    what this project writes and a reader reads. A minified stylesheet's
+    ``background-color:#333`` is not a reference to anything and no prose in it can
+    be corrected here (tooltip spec §3.2).
 
     The count this feeds the summary line is therefore not an invariant. It
     moves with every tracked text file any pull request adds — it moved from 160

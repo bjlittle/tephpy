@@ -95,6 +95,16 @@ jobs:
         # inventory this floor's sphinx-autoapi just wrote -- so a difference
         # is a real statement about the floor rather than about the lockfile.
         run: pixi run --environment floors-docs --skip-deps docs-check-api
+      - name: Check the tooltips
+        if: matrix.tier == 'docs'
+        # Unlike the figure gate below, this one asserts structure that belongs
+        # to OTHER packages' floors -- `article.bd-article` is
+        # pydata-sphinx-theme's container and `sd-stretched-link` is
+        # sphinx-design's class -- so a floor pydata-sphinx-theme or
+        # sphinx-design that renders a different container or class name breaks
+        # tooltips here while everything passes at the latest, and catching
+        # exactly that is why this leg runs it rather than excluding it.
+        run: pixi run --environment floors-docs --skip-deps docs-check-tooltips
       # The figure gate `pixi run docs` also runs is excluded, for the reason
       # image comparison is excluded above: it compares the published figures to
       # baselines blessed under the matplotlib the lockfile pins, by the same RMS

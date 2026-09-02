@@ -23,12 +23,12 @@ pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
-#: The corpus is derived with `git ls-files` (docs spec §3.6), so the two tests
-#: that read the live tree need an index. That is a narrower condition than the
-#: module's: an unpacked sdist ships these tests and no repository, and every
-#: fixture-driven test below still holds there. Guarding the module on the index
-#: instead would skip all seventeen wherever history is absent, for a reason
-#: fifteen of them do not have.
+#: The corpus is derived with `git ls-files` (docs spec §3.6), so the three
+#: tests that read the live tree need an index. That is a narrower condition
+#: than the module's: an unpacked sdist ships these tests and no repository,
+#: and every fixture-driven test below still holds there. Guarding the module
+#: on the index instead would skip all twenty wherever history is absent, for a
+#: reason seventeen of them do not have.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )
@@ -299,3 +299,14 @@ def test_a_wrap_authored_in_a_notebook_is_a_violation(tmp_path):
     violations = cc.check_wraps([notebook], anchors, owners)
     assert len(violations) == 1
     assert "docs-spec-3-2" in violations[0].message
+
+
+@tracked
+def test_the_corpus_passes_over_the_vendored_runtime():
+    """The vendored runtime is not this project's prose (tooltip spec §3.2)."""
+    # Asserted alongside the directory being non-empty, because "no corpus path
+    # is under a directory that does not exist" is a test that passes for the
+    # wrong reason the day the bundles move.
+    vendored = REPO / "docs" / "src" / "_static" / "js"
+    assert list(vendored.glob("*.js")), "the vendored runtime is missing"
+    assert not [path for path in cc.corpus() if vendored in path.parents]
