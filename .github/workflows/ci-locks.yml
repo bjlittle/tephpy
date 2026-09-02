@@ -54,15 +54,44 @@ jobs:
         with:
           run-install: false
 
-      # `pixi update` rewrites the lock in place; the JSON it reports is what
-      # became of each package, and `pixi-diff-to-markdown` is what makes that
-      # readable as a pull-request body. An unchanged resolution still writes a
-      # file, so the size test below is how "nothing moved" is told from "these
-      # things moved" -- every step after this one is gated on the result.
+      # `pixi update` rewrites the lock in place and reports what became of each
+      # package; `pixi-diff-to-markdown` turns that into a pull-request body.
+      #
+      # Whether anything moved is asked of the JSON rather than of the prose. An
+      # unchanged resolution still renders a file -- `No diff`, measured at eight
+      # bytes on 2026-09-02 -- so a bot gated on the file merely existing opens an
+      # empty pull request every week, which is what this guard was added to
+      # geovista to stop. A length test stops it too, but only until the wording
+      # changes: at a threshold of ten bytes that one sat two bytes from passing
+      # `No diff` through, and it would fail open, silently, into a weekly empty
+      # pull request that looks like a working bot.
+      #
+      # `.environment` is pixi's own answer to the same question, and it does not
+      # depend on how anything is worded: empty when nothing moved, and one entry
+      # per environment when something did (seven, measured the same day). `diff.md`
+      # therefore exists only when there is something to propose, and every step
+      # below stays gated on it.
+      #
+      # Read the JSON with a tool that is merely *usually* present and the failure
+      # mode is silence: the reader is absent, nothing is reported as moved, no
+      # pull request is opened, and the run is green -- a bot that has stopped
+      # working and says so nowhere.
+      #
+      # `set -e` covers that, but only because the reader runs in an assignment.
+      # As the condition of an `if` -- which is the obvious way to write this, and
+      # was how this step was first written -- a failing command is exempt from
+      # `set -e` by definition, so a missing interpreter reads as "nothing moved"
+      # and the step still passes. Measured both ways before settling on this one.
+      # `python3` rather than `jq` because the interpreter this project cannot run
+      # without is the one least likely to be the thing that is absent.
       - name: Refresh the lock
         run: |
-          pixi update --json | pixi exec pixi-diff-to-markdown > diff.md
-          if [ "$(wc -c < diff.md)" -lt 10 ]; then rm diff.md; fi
+          set -euo pipefail
+          pixi update --json > update.json
+          moved=$(python3 -c "import json; print(len(json.load(open('update.json'))['environment']))" < /dev/null)
+          if [ "${moved}" -gt 0 ]; then
+            pixi exec pixi-diff-to-markdown < update.json > diff.md
+          fi
 
       # Regenerated from the same manifest the lock was just solved against, so
       # the two travel together in one pull request. `tests/test_environment_file.py`
