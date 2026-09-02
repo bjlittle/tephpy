@@ -256,15 +256,24 @@ applied one property at a time:
    carrying no tooltip by design.
 2. **No gallery example link is tipped.** §3.4's collision, which is visible to a reader
    and invisible to every existing gate.
-3. **The vendored runtime is there, and only there.** Three sub-checks. No page loads it
-   off-site, because `tippy_js` is one deleted line away from the unpkg default and
-   nothing else would say so. Every page carrying a tippy payload references at least one
-   local runtime script, because a page with a payload and a stripped `<script>` tag fails
-   silently in exactly the way the off-site check alone cannot see. And every referenced
-   script — the `?v=...` cache-busting query stripped first — resolves to a file under the
-   build root, because a bundle renamed or deleted at either end is neither absent nor
-   off-site, and Sphinx does not warn on a missing static asset either
-   (`_file_checksum_inner` swallows the `FileNotFoundError`).
+3. **The vendored runtime is there, and only there.** Three sub-checks, in this order. No
+   page loads it off-site — tested first, on the raw `src` text, against every script
+   matching the runtime pattern, so an off-site URL that happens to contain the generated
+   payload loader's own path (`_static/tippy/`) is still caught rather than mistaken for
+   it. Every page carrying a tippy payload references at least one *other* local runtime
+   script, because a page with a payload and a stripped `<script>` tag fails silently in
+   exactly the way the off-site check alone cannot see; the payload loader itself is told
+   apart from the two vendored bundles by an anchored test of where it resolves, not by a
+   substring of its `src` text. And every remaining local script — the `?v=...`
+   cache-busting query stripped first, and a root-relative `src` resolved against the build
+   root rather than the page, since `Path.__truediv__` discards the page side of that join
+   when the right operand is absolute — resolves to a file *inside* the build root,
+   because `resolve()` normalises a traversal but does not confine it: a bundle renamed or
+   deleted at either end is neither absent nor off-site, and neither is one resolving
+   outside the tree entirely, and Sphinx does not warn on a missing static asset either
+   (`_file_checksum_inner` swallows the `FileNotFoundError`). The two failure shapes are
+   reported with different text — "escapes the build root" against "does not exist under
+   the build root" — because a reader needs to know which one they have.
 4. **The emitted JavaScript carries `interactive: false` and lists `sd-stretched-link`.**
    The two guards of §3.5 and §3.3, both of which are one word away from being lost and
    neither of which fails a build when it is.

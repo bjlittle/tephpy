@@ -98,7 +98,11 @@ def build(  # noqa: PLR0913
         for src in srcs.values():
             if gate.ABSOLUTE.match(src):
                 continue
-            bundle = tmp_path / src.split("?", 1)[0]
+            clean = src.split("?", 1)[0]
+            #: A root-relative src is written under `tmp_path` itself, the
+            #: same build root the gate resolves it against -- joining with
+            #: the leading `/` intact would discard `tmp_path` entirely.
+            bundle = tmp_path / clean.lstrip("/")
             bundle.parent.mkdir(parents=True, exist_ok=True)
             bundle.write_text("/* stub */", encoding="utf-8")
     for docname, tips in payloads.items():
@@ -296,6 +300,117 @@ def test_a_page_with_a_payload_and_no_runtime_script_is_reported(tmp_path):
     found = gate.check_vendored(root)
     assert found
     assert "references no vendored runtime script" in found[0]
+
+
+def test_an_offsite_runtime_naming_the_payload_directory_is_reported(tmp_path):
+    # The payload-loader exclusion must not be a substring test: an off-site
+    # URL that merely *contains* `_static/tippy/` in its path is still the
+    # vendoring reverted, and must be caught, not dropped for looking local.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "https://cdn.example/_static/tippy/popper.min.js",
+            "tippy": "https://cdn.example/_static/tippy/tippy-bundle.umd.min.js",
+        },
+    )
+    found = gate.check_vendored(root)
+    offsite = [line for line in found if "off-site" in line]
+    assert len(offsite) == len(VENDORED)
+    assert all("index.html" in line for line in offsite)
+    assert any("popper.min.js" in line for line in offsite)
+    assert any("tippy-bundle.umd.min.js" in line for line in offsite)
+
+
+def test_the_genuine_payload_loader_under_static_tippy_is_not_reported(tmp_path):
+    # Regression guard for the exclusion the substring test above was
+    # standing in for: a page's own generated payload loader, sitting under
+    # `_static/tippy/` and matching `RUNTIME` on its filename, must still be
+    # passed over -- it is Sphinx-emitted and not one of the two vendored
+    # bundles this check is about.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {"reference/glossary.html#term-tephigram": "<dd>a diagram</dd>"}},
+        runtime={
+            "popper": "_static/js/popper.min.js",
+            "tippy": "_static/js/tippy-bundle.umd.min.js",
+        },
+    )
+    # The loader referenced by the `<script>` tag is the same uuid-stamped
+    # payload file `build` already wrote for "index" and `payloads()` reads
+    # as the selector map -- there is no separate loader file in reality.
+    loader = (
+        root / "_static" / "tippy" / "index.0123abcd-0123-4abc-8def-0123456789ab.js"
+    )
+    assert loader.is_file()
+    page = root / "index.html"
+    page.write_text(
+        page.read_text(encoding="utf-8").replace(
+            "</body>",
+            f'<script defer="defer" src="_static/tippy/{loader.name}"></script></body>',
+        ),
+        encoding="utf-8",
+    )
+    assert gate.check_vendored(root) == []
+
+
+def test_a_local_runtime_file_outside_the_build_root_is_reported(tmp_path):
+    # `resolve()` normalises but does not constrain: a traversal src that
+    # resolves to a real file outside the build root must be reported, and
+    # distinguished from a merely-missing file.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "tippy.js").write_text("/* not vendored here */", encoding="utf-8")
+    root = build(
+        tmp_path / "build",
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "_static/js/popper.min.js",
+            "tippy": "../outside/tippy.js",
+        },
+    )
+    found = gate.check_vendored(root)
+    assert found
+    assert any(
+        "escapes the build root" in line and "tippy.js" in line for line in found
+    )
+    assert not any("does not exist" in line for line in found)
+
+
+def test_a_root_relative_runtime_src_resolving_inside_the_build_passes(tmp_path):
+    # A single leading `/` is root-relative, not off-site (`ABSOLUTE` does not
+    # match it), and must resolve against the build root rather than the
+    # page -- `Path.__truediv__` would otherwise discard the page side of the
+    # join and walk the OS filesystem root.
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "/_static/js/popper.min.js",
+            "tippy": "/_static/js/tippy-bundle.umd.min.js",
+        },
+    )
+    assert gate.check_vendored(root) == []
+
+
+def test_a_root_relative_runtime_src_naming_a_missing_file_is_reported(tmp_path):
+    root = build(
+        tmp_path,
+        {"index": TERM},
+        {"index": {}},
+        runtime={
+            "popper": "/_static/js/popper.min.js",
+            "tippy": "/_static/js/tippy-bundle.umd.min.js",
+        },
+        vendor=False,
+    )
+    found = gate.check_vendored(root)
+    assert len(found) == len(VENDORED)
+    assert all("does not exist under the build root" in line for line in found)
 
 
 def test_a_page_whose_runtime_file_does_not_exist_is_reported(tmp_path):

@@ -71,12 +71,10 @@ GALLERY = re.compile(r"(\.\./)*(gallery/)?plot_\w+\.html")
 SCRIPT = re.compile(r'<script\b[^>]*\bsrc="([^"]*)"')
 #: The runtime this gate is about, by the file each URL ends in. Also matches the
 #: per-page payload loader `TIPPY` names, which sits under a directory also
-#: named "tippy" -- `TIPPY_PREFIX` below tells the two apart.
+#: named "tippy" -- `check_vendored` tells the two apart by where a *local*
+#: match resolves, not by a substring of its src text, so an off-site URL that
+#: merely contains that path is still reported rather than dropped.
 RUNTIME = re.compile(r"(tippy|popper)", re.IGNORECASE)
-#: The payload loader's directory, as the prefix a matched `RUNTIME` source is
-#: excluded on: it is Sphinx-emitted and already read by `payloads()`, not one
-#: of the two vendored bundles this check is about.
-TIPPY_PREFIX = f"{TIPPY.as_posix()}/"
 #: A URL that leaves this site. Also excludes intersphinx glossary links from
 #: check 1: tooltip spec §7 records that external and intersphinx links carry no
 #: tooltip by design, so a bare ``:term:`` resolving off-site is not this
@@ -231,46 +229,74 @@ def check_vendored(root: Path) -> list[str]:
     """Report the runtime loading off-site, missing outright, or not there.
 
     Three things are checked, and each catches a regression the others cannot.
-    An off-site source is the vendoring reverted. A payload with no local runtime
+    An off-site source is the vendoring reverted -- tested before anything else,
+    so an off-site URL that happens to *contain* the payload loader's path is
+    still caught rather than mistaken for it. A payload with no local runtime
     script at all is the same silent failure with the ``<script>`` tag stripped
     instead of pointed off-site -- the purely negative off-site check alone is
     satisfied most completely by a page that loads nothing. And a local source
-    naming a file that is not there is a bundle renamed or deleted at either
-    end: neither absent nor off-site, so it passes both of the others, and
-    Sphinx does not warn on it either -- ``_file_checksum_inner`` swallows the
-    ``FileNotFoundError`` a missing static asset raises.
+    that does not resolve to a file inside the build root is a bundle renamed
+    or deleted at either end, or a traversal escaping the tree it should be
+    confined to: neither absent nor off-site, so it passes both of the others,
+    and Sphinx does not warn on a missing asset either -- ``_file_checksum_inner``
+    swallows the ``FileNotFoundError`` it raises.
     """
     found = []
     maps = payloads(root)
+    root_dir = root.resolve()
+    #: The payload loader's directory, resolved once -- a local match is that
+    #: loader, not one of the two vendored bundles, only when it actually
+    #: resolves inside here; a source that merely contains this path as text
+    #: (off-site, or a local traversal quoting it) is not this exclusion.
+    payload_dir = (root_dir / TIPPY).resolve()
     for page in pages(root):
         docname = page.relative_to(root).with_suffix("").as_posix()
         text = page.read_text(encoding="utf-8")
-        #: The two vendored bundles this check is about, excluding the payload
-        #: loader `TIPPY_PREFIX` names -- it also matches `RUNTIME` on its
-        #: filename, but it is not the runtime `tippy_js` vendors.
-        runtime = [
-            src
-            for src in SCRIPT.findall(text)
-            if RUNTIME.search(src) and TIPPY_PREFIX not in src
-        ]
+        matches = [src for src in SCRIPT.findall(text) if RUNTIME.search(src)]
+        #: Off-site is decided on the src text alone, before any resolution or
+        #: exclusion -- whatever an absolute source's path contains, it is
+        #: never this build's payload loader.
         found.extend(
             f"{page.relative_to(root)}: an off-site script src names {src}, "
             f"matching the tooltip runtime pattern"
-            for src in runtime
+            for src in matches
             if ABSOLUTE.match(src)
         )
-        local = [src for src in runtime if not ABSOLUTE.match(src)]
+        #: Local sources, resolved. Sphinx appends a cache-busting `?v=...`
+        #: query, stripped first. A root-relative `src` (a single leading
+        #: `/`, which `ABSOLUTE` deliberately does not match) resolves
+        #: against the build root -- `Path.__truediv__` discards the page
+        #: side of a join when the right operand is absolute, so joining
+        #: against the page would instead walk the OS filesystem root.
+        #: Everything else is relative to the page, as every non-index
+        #: page's `src` is written relative to itself.
+        resolved = []
+        for src in matches:
+            if ABSOLUTE.match(src):
+                continue
+            clean = src.split("?", 1)[0]
+            base = root_dir if clean.startswith("/") else page.parent
+            resolved.append((src, (base / clean.lstrip("/")).resolve()))
+        #: The two vendored bundles this check is about, excluding the payload
+        #: loader -- told apart by an anchored test of where it resolves, not
+        #: a substring of its src text.
+        local = [
+            (src, target)
+            for src, target in resolved
+            if not target.is_relative_to(payload_dir)
+        ]
         if docname in maps and not local:
             found.append(
                 f"{page.relative_to(root)}: carries a tippy payload but "
                 f"references no vendored runtime script"
             )
-        for src in local:
-            #: Sphinx appends a cache-busting `?v=...` query; strip it before
-            #: resolving, and resolve relative to the page, not the root --
-            #: every non-index page's `src` is written relative to itself.
-            target = (page.parent / src.split("?", 1)[0]).resolve()
-            if not target.is_file():
+        for src, target in local:
+            if not target.is_relative_to(root_dir):
+                found.append(
+                    f"{page.relative_to(root)}: references the runtime file "
+                    f"{src}, which escapes the build root"
+                )
+            elif not target.is_file():
                 found.append(
                     f"{page.relative_to(root)}: references the runtime file "
                     f"{src}, which does not exist under the build root"
