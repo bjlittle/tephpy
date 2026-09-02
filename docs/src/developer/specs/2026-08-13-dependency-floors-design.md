@@ -33,7 +33,7 @@ low therefore does not fail here. It fails for one person — the user whose sol
 land on that version — in an environment this repository never sees, and the first report of
 it arrives as a bug that looks like tephpy's.
 
-The lockfile-update bot in spec §8.7's fast-follow list does not close this. `pixi update`
+`ci-locks`, the lockfile-update bot of spec §8.7, does not close this. `pixi update`
 moves the resolved point *upward*, so that job tests the ceiling. The floor is the other end
 of the same declaration and needs its own job; both are worth having and neither substitutes
 for the other.
@@ -334,7 +334,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Thirty of the `test` tier's tests guard on a repository being there —
+index included. Thirty-two of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
@@ -552,8 +552,8 @@ the issue body are each seen to work on a failure rather than only on a green ru
 (floors-spec-6)=
 ## 6. Non-goals
 
-- **Testing the ceiling.** **Rejected** (2026-08-13) — that is the lockfile-update bot's job
-  in spec §8.7's fast-follow list, which moves the resolved point upward. This one moves it
+- **Testing the ceiling.** **Rejected** (2026-08-13) — that is `ci-locks`'s job, the
+  lockfile-update bot of spec §8.7, which moves the resolved point upward. This one moves it
   down, and a job that did both would report a failure at either end with one exit code.
 - **Every supported Python, and every platform.** **Rejected** (2026-08-13) — the floors are
   a corner, not a matrix. tephpy builds `linux-64` only (spec §8.2), and resolving the same

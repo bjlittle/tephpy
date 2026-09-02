@@ -63,7 +63,7 @@ bespoke text-file ingest. tephpy exists to cover all four.
 | Architecture | Layered library around a matplotlib projection | See §3. Chosen over a sounding-centric god object and over a MetPy-`SkewT`-style figure manager |
 | Engineering standards | Mirror geovista (§8) | pixi-led, SPEC 0, Diátaxis, geovista pre-commit/ruff/mypy/CI conventions. geovista is the explicit minimum bar |
 | Build backend | `setuptools` + `setuptools_scm` | Matches geovista; dynamic version written to `_version.py` (not hatchling as first sketched) |
-| CI scope at v1 | Core gates now, maintenance bots as fast-follow | Load-bearing quality gates from day one; lockfile/canary/linkcheck/stale/JOSS bots deferred so a new repo isn't buried in bot noise (§8.6) |
+| CI scope at v1 | Core gates now, maintenance bots as fast-follow | Load-bearing quality gates from day one; canary/linkcheck/stale/JOSS bots deferred so a new repo isn't buried in bot noise (§8.6). The lockfile bot has since been built as `ci-locks` |
 
 (spec-3)=
 ## 3. Architecture
@@ -1133,11 +1133,22 @@ All workflows: SHA-pinned actions, `permissions: {}` default, `persist-credentia
   broken floor, attributed to a single package (floors spec §1). It is deliberately not a
   required check: it solves fresh against a live channel, so it goes red for reasons no pull
   request caused, and a required check like that is one people learn to ignore
-  (floors spec §2). It is the lower end of the declaration whose upper end `ci-locks` moves.
-- **Fast-follow (documented, not built at v1):** `ci-locks` (weekly lockfile-update bot),
-  `ci-tests-lock` (daily fresh-resolve canary), `ci-tests-pypi` (daily pip-only install
-  canary), `ci-linkcheck`, `ci-stale`, `ci-first-contribution`, and a JOSS paper build. The
-  spec records these so the gap is a deliberate schedule, not an omission.
+  (floors spec §2). It is the lower end of the declaration.
+
+  `ci-locks` (weekly) moves the upper end: it re-resolves the lock, regenerates
+  `requirements/tephpy.yml` beside it, and opens one pull request with the diff as its
+  body. It is opened by a dedicated bot account rather than with `github.token`, because
+  GitHub runs no workflows on a pull request its own token authored — and the checks
+  running on it are the reason for proposing the lock rather than pushing it. That token is
+  a *classic* one by constraint, not by choice: a fine-grained token reaches only
+  repositories owned by the account that issued it, and the bot is a collaborator here, so
+  its scope is account-wide. What narrows it is the environment — the secret belongs to
+  `development`, and an environment secret is readable only by a job declaring that
+  environment, rather than by every workflow in the repository (:issue:`252`).
+- **Fast-follow (documented, not built at v1):** `ci-tests-lock` (daily fresh-resolve
+  canary), `ci-tests-pypi` (daily pip-only install canary), `ci-linkcheck`, `ci-stale`,
+  `ci-first-contribution`, and a JOSS paper build. The spec records these so the gap is a
+  deliberate schedule, not an omission.
 
 (spec-8-8)=
 ### 8.8 Repo hygiene and community files
@@ -1225,7 +1236,7 @@ Cross-cutting rules (apply to every plan rather than one row):
 
 Outside the roadmap:
 
-- The §8.7 fast-follow CI bots (lockfile updates, resolve/pip canaries, linkcheck, stale,
+- The §8.7 fast-follow CI bots (resolve/pip canaries, linkcheck, stale,
   first-contribution, JOSS build) are post-v1 continuous work, adopted on need rather than
   assigned to a plan.
 - Release execution — towncrier assembly into `CHANGELOG.rst`, the `v0.x` tag that

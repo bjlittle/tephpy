@@ -1,0 +1,6 @@
+``pixi.lock`` pins the packages every job installs, so left alone CI goes on testing
+whichever resolution was last written. A new ``ci-locks`` workflow re-resolves it
+weekly, regenerates the ``requirements/tephpy.yml`` conda environment file beside it,
+and opens a single pull request with the diff as its body — proposed by a bot account
+rather than pushed, so the checks that guard both files actually run on it.
+(:user:`claude`)

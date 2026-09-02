@@ -1,0 +1,119 @@
+name: ci-locks
+
+# `pixi.lock` pins the exact packages every other job installs, and nothing moves
+# it on its own -- so left alone the whole of CI goes on testing the resolution of
+# whichever day it was last written. This job moves the resolved point upward
+# once a week and opens a pull request with what changed.
+#
+# It is the upper end of the declaration. `ci-floors` is the lower end: that one
+# resolves each declared minimum and exercises what it resolves, and its header
+# names this workflow as the counterpart it does not replace (floors spec §1).
+#
+# The pull request is opened by a dedicated bot account rather than with
+# `github.token`, for one reason: GitHub does not run workflows on a pull request
+# its own token authored, so the lock would arrive with no CI at all -- and the
+# checks are the entire point of proposing it as a pull request rather than
+# pushing it.
+#
+# That token is a *classic* one, which is a constraint rather than a preference.
+# A fine-grained token reaches only repositories owned by the account that issued
+# it, and this bot is a collaborator here rather than the owner, so per-repository
+# scoping is not on offer and the scope is account-wide.
+#
+# What narrows it instead is the environment. `TEPHPY_BOT_TOKEN` is an
+# environment secret of `development`, and an environment secret is readable only
+# by a job that declares that environment -- so it is not, as a repository secret
+# would be, readable by every workflow here.
+#
+# Scheduled, never a pull-request gate. It reaches the network to re-resolve, so
+# it goes red for reasons no pull request caused (the reasoning `ci-floors`
+# records for itself).
+
+on:
+  schedule:
+    - cron: "7 5 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  pixi-update:
+    runs-on: ubuntu-latest
+    # Declared so the job can read `TEPHPY_BOT_TOKEN`, and so that nothing which
+    # does not declare it can.
+    environment: development
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          run-install: false
+
+      # `pixi update` rewrites the lock in place; the JSON it reports is what
+      # became of each package, and `pixi-diff-to-markdown` is what makes that
+      # readable as a pull-request body. An unchanged resolution still writes a
+      # file, so the size test below is how "nothing moved" is told from "these
+      # things moved" -- every step after this one is gated on the result.
+      - name: Refresh the lock
+        run: |
+          pixi update --json | pixi exec pixi-diff-to-markdown > diff.md
+          if [ "$(wc -c < diff.md)" -lt 10 ]; then rm diff.md; fi
+
+      # Regenerated from the same manifest the lock was just solved against, so
+      # the two travel together in one pull request. `tests/test_environment_file.py`
+      # holds this file to what the export produces, and runs on this bot's pull
+      # request like any other -- which is the check standing over what the bot
+      # wrote, and the reason the bot needs a token that triggers CI at all.
+      - name: Refresh the environment file
+        if: ${{ hashFiles('diff.md') }}
+        # `printf` around the command substitution is what stores the file the
+        # way this repository stores every file: the export ends in a blank line,
+        # and `end-of-file-fixer` would take it off the moment pre-commit saw the
+        # bot's pull request. Writing the settled form here means the bot commits
+        # what the hooks would have made of it, and
+        # `tests/test_environment_file.py` compares against that same form.
+        run: |
+          printf '%s\n' "$(pixi workspace export conda-environment \
+            --environment default --name tephpy)" > requirements/tephpy.yml
+
+      - name: Propose the update
+        id: cpr
+        if: ${{ hashFiles('diff.md') }}
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ secrets.TEPHPY_BOT_TOKEN }}
+          add-paths: |
+            pixi.lock
+            requirements/tephpy.yml
+          commit-message: "Move the resolved point upward"
+          branch: pixi-auto-update
+          base: main
+          delete-branch: true
+          title: "Refresh the lock and the environment file"
+          body-path: diff.md
+          labels: |
+            new: pull-request
+            bot
+            pixi
+            skip-changelog
+
+      # A scheduled job nobody watches reports to its own run, so what it did is
+      # readable without opening the log.
+      - name: Report what was proposed
+        if: ${{ hashFiles('diff.md') }}
+        env:
+          NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          URL: ${{ steps.cpr.outputs.pull-request-url }}
+          OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+        run: |
+          {
+            echo "### Lock refresh"
+            echo
+            echo "- pull request: [#${NUMBER}](${URL})"
+            echo "- operation: ${OPERATION}"
+          } >> "${GITHUB_STEP_SUMMARY}"
