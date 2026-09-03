@@ -331,6 +331,16 @@ that has the reading-time banner name the theme's properties instead of hard-cod
 background. Colour is never the only channel: every button and badge also carries the
 quadrant's name as text.
 
+`clear` is the one control on the page that is not a filter, and it is styled as one. It
+takes the `danger` family — the only one the four quadrants leave free, and the one this
+page refuses for a quadrant precisely because red reads as an action rather than a
+category — filled rather than outlined, set at the end of its row, and marked with a
+leading multiplication sign so it is identifiable by shape as well as by hue. It cannot
+take the accent, which is already the active topic button's fill: the earlier styling gave
+it the topic buttons' own grey and a dashed border, and it read as a ninth term nobody had
+selected. It appears only once something is selected, and clears both rows, since clearing
+one and leaving the other would leave the list filtered with nothing obviously still set.
+
 The selection is reflected in `?topics=` and `?quadrants=` query parameters, mirroring
 sphinx-gallery's `?sg-tags=`, so a filtered view can be linked to from an issue or a reply.
 A term or quadrant in the URL that no button offers is ignored rather than applied, so a
@@ -549,6 +559,15 @@ date, in the same browser. Checked, and observed to hold:
     `rgb(95, 180, 136)` in dark, and so on for the other three — and the four differed from
     each other in both. Colour is carried by the theme's semantic families, so this is a
     consequence of §3.6's choice rather than four pairs of values kept in step by hand.
+17. `clear` was measured against the controls it has to be told apart from, after it was
+    restyled for reading as one of them. Text on it contrasts at 4.82:1 in light and 7.08:1
+    in dark, both above the 4.5:1 WCAG AA floor for text at this size. Against the inactive
+    topic grey and against the active topic fill it is clearly distinct in both themes —
+    CIE ΔE76 of 63.6 and 85.9 in light, 40.1 and 62.9 in dark, where under about 15 is
+    confusable and over 25 is clearly separate. The dark pairing was checked because both
+    colours are light pinks there and the eye can be wrong about it; the measurement says
+    they are not close. Its accessible name remained `clear`, the glyph being CSS rather
+    than markup.
 
 The check also caught a defect the implementation fixed before this record was written:
 Sphinx places an `add_js_file` script in `<head>`, undeferred — the same place it puts

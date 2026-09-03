@@ -138,7 +138,8 @@
  * already maintains -- the colour, a tint for backgrounds, and the guarantee
  * that both are legible in either mode -- so dark mode needs no second palette
  * here, exactly as the reading-time banner needs none. `danger` is deliberately
- * unused: red on a documentation quadrant reads as an error, not a category.
+ * not among them: red on a documentation quadrant reads as an error rather than
+ * a category. It is taken instead by `clear`, below, which is not a category.
  *
  * Colour is never the only channel. Every button and every badge also carries
  * the quadrant's name as text, so nothing here is load-bearing for a reader who
@@ -202,17 +203,19 @@
 
 .teph-topic-button,
 .teph-topic-clear {
-  background: var(--pst-color-surface);
-  border: 1px solid var(--pst-color-border);
   border-radius: 999px;
-  color: var(--pst-color-text-base);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0.2em 0.85em;
 }
 
-.teph-topic-button:hover,
-.teph-topic-clear:hover {
+.teph-topic-button {
+  background: var(--pst-color-surface);
+  border: 1px solid var(--pst-color-border);
+  color: var(--pst-color-text-base);
+}
+
+.teph-topic-button:hover {
   border-color: var(--pst-color-accent);
 }
 
@@ -222,8 +225,53 @@
   color: var(--pst-color-background);
 }
 
+/*
+ * `clear` is the one control here that is not a filter, and it read as one: it
+ * carried the topic buttons' own grey with a dashed border, so it sat in their
+ * row looking like a ninth term nobody had selected yet.
+ *
+ * It takes `danger`, which is the only semantic family this page leaves free --
+ * the four quadrants hold success, info, secondary and warning
+ * (topics spec §3.6), and the
+ * accent is already the active topic button's fill, so accent here would
+ * reproduce the very collision this rule exists to end. Red is also the apt
+ * signal: this is the reset, not a category, which is exactly why
+ * topics spec §3.6 refuses red for a quadrant and takes it here.
+ *
+ * Filled rather than outlined, pushed to the end of its row by `margin-left`,
+ * and marked with a leading multiplication sign. The glyph is CSS rather than
+ * markup so a screen reader announces "clear" and not "times clear" -- and it is
+ * what keeps the control identifiable by shape as well as by hue, for a reader
+ * who cannot separate red from grey.
+ */
 .teph-topic-clear {
-  border-style: dashed;
+  background: var(--pst-color-danger);
+  border: 1px solid var(--pst-color-danger);
+  color: var(--pst-color-background);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.teph-topic-clear::before {
+  content: "\00d7";
+  font-size: 1.1em;
+  line-height: 1;
+  margin-right: 0.35em;
+}
+
+.teph-topic-clear:hover {
+  filter: brightness(1.1);
+}
+
+/*
+ * The focus ring the browser draws by default is a thin dotted outline that is
+ * near-invisible against a filled control. Every button here states its own.
+ */
+.teph-topic-button:focus-visible,
+.teph-quadrant-button:focus-visible,
+.teph-topic-clear:focus-visible {
+  outline: 2px solid var(--pst-color-text-base);
+  outline-offset: 2px;
 }
 
 .teph-topic-list {
