@@ -492,21 +492,23 @@ position it should occupy. Registry order is gallery order is
 sphinx-gallery calls ``plt.rcdefaults()`` before every example, so a configured
 default is discarded before the first line runs.
 
-Tags come from a closed vocabulary — ``analysis``, ``barbs``, ``diagram``,
-``indices``, ``isopleths``, ``metpy``, ``overlay``, ``shading``, ``sounding`` —
-two to four per example, declared in the flag sphinx-gallery reads:
+Tags come from a closed vocabulary of seventeen terms, shared with the site-wide
+topic index, two to four per example, declared in the flag sphinx-gallery reads:
 
 .. code-block:: python
 
     # sphinx_gallery_tags = ["analysis", "shading", "indices", "sounding"]
 
-They render on the page and drive the index's filter buttons, so a ``barb``
-beside a ``barbs`` splits the very index the feature exists to build. Widening
-the vocabulary means editing ``VOCABULARY`` in
-``tests/examples/test_examples.py``, which is deliberate. Spell the flag exactly:
-sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
-discards it in silence, with no warning to fail the build on — which is why the
-test reads the flag out of the source text rather than asking the parser.
+Each term is defined by what it covers *and* what it excludes in topics spec §3.3,
+and that table is the authority when two people would tag a page differently — the
+gate cannot see a disagreement, because both spellings are legal. They render on
+the page and drive the index's filter buttons, so a ``barb`` beside a ``barbs``
+splits the very index the feature exists to build. Widening the vocabulary means
+adding the term to ``VOCABULARY`` in ``docs/src/_ext/tephpy_topics_data.py`` *and*
+its definition to that table, together. Spell the flag exactly: sphinx-gallery
+parses ``sphinx_gallery_tag`` into a differently-keyed entry and discards it in
+silence, with no warning to fail the build on — which is why the test reads the
+flag out of the source text rather than asking the parser.
 
 Write the flag flush under the imports, with no blank line above it — the
 removal preserves the blank lines around what it strips, so a blank line there
