@@ -212,9 +212,9 @@ does not cite a number to a source it could not read. No entry went into `refs.b
 
 Both entries go into `docs/src/refs.bib` and render on the References page. This is what
 the bibliography is for: docs-style's rule is to reach for it *where a convention needs an
-authority*, and a default deciding a number printed on 29 pages is exactly that. The
-`:all:` on the bibliography directive means both render although only `docs-style.rst`
-cites them.
+authority*, and a default deciding a number printed on every page a reader reads is
+exactly that. The `:all:` on the bibliography directive means both render although only
+`docs-style.rst` cites them.
 
 (reading-spec-3-5)=
 ### 3.5 The banner and its styling
@@ -392,9 +392,8 @@ gates them, and both totals move whenever a page is added, exempted, or unexempt
   entry.
 - **`changelog/`** — one `<PR>.documentation.rst` fragment per pull request, ending with
   ``(:user:`claude`)``.
-- **This document** — one of the 29 pages in §3.7's carrying set. It receives its own
-  banner in the
-  implementation change, not before: the directive does not exist yet, and a
+- **This document** — one of the pages in §3.7's carrying set. It receives its own
+  banner in the implementation change, not before: the directive does not exist yet, and a
   `{readingtime}` fence in a published specification would fail the `--fail-on-warning`
   build on an unknown directive.
 
