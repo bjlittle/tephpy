@@ -1,0 +1,14 @@
+A design specification for topic discovery across the Diátaxis quadrants,
+``topics spec §…``. Diátaxis segregates documentation by the reader's *intent*,
+but a reader often arrives with a *topic*, which lands in several quadrants at
+once — measured on the corpus of 2026-09-03, ``sounding`` appears in twelve of
+nineteen items across three quadrants, and nothing on the site says so. The
+specification designs a closed seventeen-term vocabulary generalising the
+gallery's own — each term defined by what it covers *and what it excludes*,
+because the boundary is the part that stops two contributors tagging the same
+page differently — a promotion rule deciding which terms earn a filter button, one
+published page listing every item with its quadrant labelled, a gate, and a
+monthly coverage report. It reopens narrative spec §3.8, which rejected a
+site-wide tag index, on the grounds that the eleven-page premise has moved to
+fourteen and that the question answered there was about volume rather than about
+the axis the corpus is organised on. (:user:`claude`)
