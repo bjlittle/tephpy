@@ -1,0 +1,40 @@
+name: ci-topics
+
+# The coverage report of topics spec §3.8. Scheduled and never a pull-request
+# gate: what it reports is editorial judgement, and decision 6 is explicit that
+# an empty cell in the matrix is a question rather than a defect. A documentation
+# gate that manufactures work makes the documentation worse.
+#
+# Monthly, not weekly. A documentation corpus moves on pull-request timescales.
+
+on:
+  schedule:
+    - cron: "23 5 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: File or update the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository
+            }}/actions/runs/${{ github.run_id }}
+        # The runner's interpreter rather than a pinned one, for the reason
+        # `ci-floors.yml`'s filing job uses it: this script imports nothing
+        # outside the standard library and shells out to `gh`, which is on the
+        # image, so a pinned interpreter would buy a live download for nothing.
+        run: python3 .github/scripts/topics_issue.py --run-url "$RUN_URL"
