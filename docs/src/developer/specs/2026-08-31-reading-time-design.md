@@ -520,8 +520,8 @@ would surface it.
 ## 7. Scope
 
 **In scope.** The two modules of §3.1, the stylesheet rule, the gate, the two bibliography
-entries, the `docs-style` section, and the directive on the 29 pages of §3.7 — landing in
-one change, per §4.
+entries, the `docs-style` section, and the directive on the carrying pages of §3.7 —
+landing in one change, per §4.
 
 **Out of scope.** Any change under `src/tephpy/`. This is documentation machinery, and it
 imports nothing from the package.
