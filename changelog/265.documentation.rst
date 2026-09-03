@@ -1,0 +1,7 @@
+The monthly topic-coverage report now totals each quadrant's column — how many
+of the vocabulary's terms a quadrant covers at all — and names the terms that
+select half the corpus or more, with their share and the quadrants they hold.
+A term that broad discriminates too little to be a filter button, but it is not
+a defect and is not deleted; a term crossing that line either way is editorial
+news. The section is omitted when nothing qualifies.
+(:user:`claude`)
