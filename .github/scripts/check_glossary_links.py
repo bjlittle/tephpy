@@ -74,6 +74,12 @@ XREF = re.compile(r":term:`([^`<]+?)(?:\s*<([^>]+)>)?`")
 DIRECTIVE = re.compile(r"^\s*\.\.\s+\S+::")
 #: A section underline; the line above it is a title.
 UNDERLINE = re.compile(r"^[=\-~^\"'`#*+]{3,}\s*$")
+#: A docinfo field at the head of a page. Sphinx lifts a field list preceding all
+#: other markup into `env.metadata` and removes it from the doctree, so it never
+#: reaches a reader and cannot carry a `:term:` role -- which makes a glossary
+#: term in one a mention of nothing (topics spec §3.2). Anywhere else a field
+#: list renders, and is prose like any other line.
+FIELD = re.compile(r"^:[^:\s][^:]*:")
 #: Spans that are not narrative prose, stripped before a line is searched.
 NOT_PROSE = (
     re.compile(r":[a-z:]+:`[^`]*`"),  # any role, display text and target
@@ -126,6 +132,14 @@ def prose(text: str) -> list[tuple[int, str]]:
     lines = text.splitlines()
     found: list[tuple[int, str]] = []
     index = 0
+    # The docinfo field list, if the page opens with one: consecutive field lines
+    # and their indented continuations, to the first blank line. A page opening
+    # with anything else leaves `index` at 0 on the first comparison, so this
+    # costs a page without tags one test.
+    while index < len(lines) and lines[index].strip():
+        if not FIELD.match(lines[index]) and not lines[index].startswith((" ", "\t")):
+            break
+        index += 1
     while index < len(lines):
         line = lines[index]
         if DIRECTIVE.match(line) or re.match(r"^\s*\.\.\s", line):

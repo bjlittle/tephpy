@@ -172,6 +172,32 @@ def test_emphasis_is_not_prose():
     assert gate.unlinked("See *Draw a Sounding* for that.\n", terms()) == []
 
 
+def test_a_leading_field_list_is_metadata_and_not_prose():
+    """A `:tags:` declaration is lifted into `env.metadata` and never rendered.
+
+    Scanning it as prose makes the tag list the page's first mention of every
+    glossary term it names -- `isopleths`, `parcel`, `projection` and `sounding`
+    are all four both vocabulary terms and glossary spellings -- and demands a
+    `:term:` role that a docinfo field list cannot carry (topics spec §3.2).
+    """
+    text = (
+        ":tags: units, sounding\n\n.. _howto-units:\n\nWork With Units\n"
+        "===============\n\nProse.\n"
+    )
+    assert (1, ":tags: units, sounding") not in gate.prose(text)
+
+
+def test_a_field_list_below_the_first_line_is_still_prose():
+    """The exemption is exactly as wide as the position Sphinx reads.
+
+    A field list anywhere else renders at the reader, so a glossary term in one is
+    a first mention like any other. An exemption wider than the mechanism it
+    exists for is a hole in the shape of whatever nobody thought of.
+    """
+    text = "Work With Units\n===============\n\n:tags: units, sounding\n\nProse.\n"
+    assert (4, ":tags: units, sounding") in gate.prose(text)
+
+
 def test_a_plural_is_the_same_mention():
     found = gate.unlinked("Two soundings, drawn together.\n", terms())
     assert [term for _, term, _ in found] == ["sounding"]

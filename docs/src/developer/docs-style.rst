@@ -429,11 +429,43 @@ A page carries exactly one banner. Two is a copy-paste, not a decision, and
 
 A page that is *navigated* rather than read carries no banner: the four Diátaxis
 landing pages, the developer and specification indexes, the site root, the
-glossary, and the four reference pages whose body a directive generates. These
-are named in ``EXEMPT`` in ``tests/test_docs_readingtime.py``, with the reason
+glossary, the topic index, and the four reference pages whose body a directive
+generates. These are named in ``EXEMPT`` in ``tests/test_docs_readingtime.py``, with the reason
 beside each, and ``test_every_page_a_reader_reads_carries_a_reading_time``
 fails for any other page that omits one. Adding a page means adding the banner
 or adding the reason.
+
+Topic Tags
+----------
+
+Every page of the tutorials, how-to and explanation quadrants declares two to four
+topic tags, on the **first line of the file**:
+
+.. code:: rst
+
+   :tags: units, sounding
+
+Above the ``.. _label:`` target, with a blank line under it. The position is not a
+style choice: Sphinx lifts a field list into page metadata, where nothing renders it,
+only when it precedes every other piece of markup. Under the title it renders at the
+reader as a stray definition list instead (topics spec §3.2).
+
+The terms are the closed vocabulary of topics spec §3.3, shared with the gallery, each
+defined there by what it covers *and* what it excludes. Two to four, for the reason a
+gallery example takes two to four: one tag files a page under a single button, and a
+full house files it under every one.
+
+``tests/test_docs_topics.py`` discovers the quadrants rather than reading a list, so a
+new page fails until it declares tags, and an unknown term fails until it is added to
+``VOCABULARY`` and to that table together.
+
+A term earns a filter button on :ref:`topics` by appearing in two or more quadrants and
+selecting fewer than half the corpus (topics spec §3.4). Both thresholds are relative,
+so nobody edits a number as the documentation grows, and a term that earns no button
+still tags its pages and still drives the gallery's own filter.
+
+The reference quadrant and the developer section carry no tags. Reference pages are
+lookup surfaces reached by name, and the developer section waits on :issue:`66`.
 
 Gallery Examples
 ----------------
@@ -492,21 +524,23 @@ position it should occupy. Registry order is gallery order is
 sphinx-gallery calls ``plt.rcdefaults()`` before every example, so a configured
 default is discarded before the first line runs.
 
-Tags come from a closed vocabulary — ``analysis``, ``barbs``, ``diagram``,
-``indices``, ``isopleths``, ``metpy``, ``overlay``, ``shading``, ``sounding`` —
-two to four per example, declared in the flag sphinx-gallery reads:
+Tags come from a closed vocabulary of seventeen terms, shared with the site-wide
+topic index, two to four per example, declared in the flag sphinx-gallery reads:
 
 .. code-block:: python
 
     # sphinx_gallery_tags = ["analysis", "shading", "indices", "sounding"]
 
-They render on the page and drive the index's filter buttons, so a ``barb``
-beside a ``barbs`` splits the very index the feature exists to build. Widening
-the vocabulary means editing ``VOCABULARY`` in
-``tests/examples/test_examples.py``, which is deliberate. Spell the flag exactly:
-sphinx-gallery parses ``sphinx_gallery_tag`` into a differently-keyed entry and
-discards it in silence, with no warning to fail the build on — which is why the
-test reads the flag out of the source text rather than asking the parser.
+Each term is defined by what it covers *and* what it excludes in topics spec §3.3,
+and that table is the authority when two people would tag a page differently — the
+gate cannot see a disagreement, because both spellings are legal. They render on
+the page and drive the index's filter buttons, so a ``barb`` beside a ``barbs``
+splits the very index the feature exists to build. Widening the vocabulary means
+adding the term to ``VOCABULARY`` in ``docs/src/_ext/tephpy_topics_data.py`` *and*
+its definition to that table, together. Spell the flag exactly: sphinx-gallery
+parses ``sphinx_gallery_tag`` into a differently-keyed entry and discards it in
+silence, with no warning to fail the build on — which is why the test reads the
+flag out of the source text rather than asking the parser.
 
 Write the flag flush under the imports, with no blank line above it — the
 removal preserves the blank lines around what it strips, so a blank line there

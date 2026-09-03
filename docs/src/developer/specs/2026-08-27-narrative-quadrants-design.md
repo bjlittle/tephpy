@@ -249,6 +249,13 @@ navigation for a corpus too large to browse, and eleven pages is not one. sphinx
 own tags continue to serve the gallery, which is the surface that has enough entries to need
 filtering.
 
+*Amended 2026-09-03 (topics spec §1.1).* Reopened, on a premise this paragraph's reasoning
+does not dispute: the question topics spec §1.1 asks is not whether the corpus is too large
+to browse, which is still arguably no, but whether it is organised on an axis orthogonal to
+how a reader arrives, which volume does not settle either way. The corpus had also grown to
+nineteen tagged items by then. `topics spec §3.6` builds the index without the sphinx-tags
+dependency this section's own reasoning left rejected.
+
 (narrative-spec-4)=
 ## 4. Companion changes
 

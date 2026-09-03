@@ -1,3 +1,5 @@
+:tags: units, sounding
+
 .. _howto-units:
 
 Work With Units

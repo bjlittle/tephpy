@@ -1,3 +1,5 @@
+:tags: sounding, data-input
+
 Plot a Sounding in Your Browser
 ================================
 

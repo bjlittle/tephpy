@@ -1,3 +1,5 @@
+:tags: analysis, parcel, shading, metpy
+
 .. _explanation-parcel-ascent:
 
 Parcel Ascent and Normand's Point

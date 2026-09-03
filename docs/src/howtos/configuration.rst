@@ -1,3 +1,5 @@
+:tags: config, isopleths
+
 .. _configure-from-a-file:
 
 Configure tephpy From a File

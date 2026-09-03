@@ -1,3 +1,5 @@
+:tags: diagram, sounding, parcel
+
 .. _howto-framing:
 
 Frame the View

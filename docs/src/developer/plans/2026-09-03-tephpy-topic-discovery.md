@@ -268,10 +268,16 @@ def test_read_gallery_tags_rejects_a_misspelled_flag():
 
 #: A corpus in which every term sits on a documented side of both thresholds.
 #: Six items, so "fewer than half" is "fewer than three".
+#:
+#: Corrected during implementation: item `"c"` was originally in quadrant
+#: `"howtos"`, which put `narrow` in two quadrants (`tutorials` and `howtos`)
+#: and so promoted it, contradicting `test_a_term_in_one_quadrant_is_held_back`
+#: below. Moving `"c"` to `"tutorials"` confines `narrow` to one quadrant, as
+#: that test requires.
 FIXTURE = {
     "a": ("tutorials", ["spanning", "narrow", "broad"]),
     "b": ("howtos", ["spanning", "broad"]),
-    "c": ("howtos", ["narrow", "broad"]),
+    "c": ("tutorials", ["narrow", "broad"]),
     "d": ("explanation", ["halved", "broad"]),
     "e": ("gallery", ["halved", "broad"]),
     "f": ("gallery", ["halved", "solo"]),

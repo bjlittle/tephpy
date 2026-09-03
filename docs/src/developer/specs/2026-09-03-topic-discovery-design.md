@@ -18,7 +18,11 @@
   that records it
 - **Scope:** one taxonomy module, one Sphinx extension, one published page, one pytest
   gate, one scheduled report, and a `:tags:` field list on 14 narrative pages; the five
-  gallery examples keep the tags they already declare; no change to `src/tephpy/`
+  gallery examples keep the tags they already declare; no change to `src/tephpy/`. The
+  amendment to `.github/scripts/check_glossary_links.py`, so the glossary gate skips a
+  leading docinfo field list as metadata rather than reading it as prose (§3.2), is not a
+  companion change but a prerequisite — a scope line omitting it would describe a change
+  that could not have been merged
 - **Parent spec:** [`2026-08-20-examples-gallery-design.md`](2026-08-20-examples-gallery-design.md)
   — gallery spec §3.6 is the closed vocabulary this generalises, and gallery spec §7 is
   where the site-wide index was first deferred
@@ -129,6 +133,15 @@ quadrants must carry tags, so a page added tomorrow fails the gate until it decl
 A hand-maintained list is one a new page silently misses, which is the failure mode
 reading spec §3.6 already reasons about for its own coverage gate.
 
+Discovery is recursive, so an item is keyed by its **docname** — its whole path under the
+source root, without the suffix — and its quadrant is that path's **top-level** directory.
+For a page sitting directly in a quadrant those are the same string, which is why the
+distinction is easy to lose: taking the immediate parent instead would file
+`howtos/advanced/tuning` under a quadrant called `advanced`, entering §3.4's span count and
+§3.8's matrix as a fifth column that no vocabulary term has ever heard of. Keying by
+docname is also what makes the three readers of §3.5 agree, the extension having no other
+name for a page.
+
 (topics-spec-3-2)=
 ### 3.2 Where tags are declared
 
@@ -137,26 +150,40 @@ gallery spec §3.6 records why that is the single declaration: it is the only sp
 sphinx-gallery reads, a misspelling is discarded in silence, and `remove_config_comments`
 keeps the flag off the rendered page.
 
-**Narrative pages** declare an rST field list under the title:
+**Narrative pages** declare an rST field list on the **first line of the file**, above
+the `.. _label:` target where there is one:
 
 ```rst
+:tags: units, sounding
+
+.. _howto-units:
+
 Work With Units
 ===============
 
-:tags: units, sounding
+.. readingtime::
 ```
 
-Sphinx's metadata collector lifts a docinfo field list into `env.metadata[docname]` and
-removes it from the doctree. The extension therefore reads a plain dict, with no directive
-class to write, and nothing renders on the page — which matters here specifically, because
-a rendering directive would have to coexist with the `readingtime` banner at the top of
-these same pages.
+The position is the whole rule, and it was measured rather than reasoned. Sphinx's
+metadata collector lifts a docinfo field list into `env.metadata[docname]` and removes it
+from the doctree — so it renders nothing, which matters here specifically, because a
+rendering directive would have to coexist with the `readingtime` banner at the top of
+these same pages. But it does that only for a field list **preceding every other piece of
+markup**. A field list written under the title, which this section first proposed, leaves
+`env.metadata` empty and renders a visible definition list at the reader: the exact
+failure this section named as its risk. Measured on 2026-09-03 against a build in the
+`docs` environment, in three placements. `env.metadata` holds the field body as one
+string, `{'tags': 'units, sounding'}`, so the adapter splits on commas.
 
-This mechanism is **unverified as of 2026-09-03** and is the first thing the implementation
-establishes: that a field list declared alongside the `readingtime` directive still reaches
-`env.metadata` rather than rendering as a stray definition list. §8 carries it as an open
-item. If it does not hold, the fallback is a `.. topics::` directive that stores into
-`env` and renders nothing, at the cost of a directive class.
+The declaration has one consequence outside Sphinx. `check_glossary_links.py` reads a
+page's lines as narrative prose and requires the first mention of a glossary term to
+carry `:term:`; a `:tags:` line scanned as prose makes the tag list that first mention,
+and demands a role a docinfo field list cannot carry. Four vocabulary terms are also
+glossary spellings — `isopleths`, `parcel`, `projection`, `sounding` — so this is not a
+corner case; measured over the tagged corpus, the unfixed gate reported sixteen unlinked
+mentions across thirteen of the fourteen pages, every one of them the `:tags:` line
+itself. `prose()` therefore skips a leading field list, in the same category as the rule
+it already carries for a directive's options and body.
 
 (topics-spec-3-3)=
 ### 3.3 The vocabulary
@@ -284,14 +311,49 @@ It gets **no landing-page card**. gallery spec §5 ruled that the landing grid i
 Diátaxis quadrants and that anything sitting in it reads as a fifth; that reasoning
 transfers unchanged, and this page is a way into all four rather than a peer of them.
 
-It lists every item in the corpus with its quadrant labelled and its tags shown, and offers
-the promoted terms of §3.4 as filter buttons. Filtering is client-side over `data-topics`
-attributes — the shape sphinx-gallery's own `sg-tags.js` already demonstrates — so it needs
-no dependency and degrades to the full list with scripting off, which is the list that
-decision 1 says is the actual feature.
+It lists every item in the corpus with its quadrant labelled and its tags shown, above
+**two rows of filter buttons**. Filtering is client-side over `data-topics` and
+`data-quadrant` attributes — the shape sphinx-gallery's own `sg-tags.js` already
+demonstrates — so it needs no dependency and degrades to the full list with scripting off,
+which is the list that decision 1 says is the actual feature.
 
-The selection is reflected in a `?topics=` query parameter, mirroring sphinx-gallery's
-`?sg-tags=`, so a filtered view can be linked to from an issue or a reply.
+The **quadrant row** offers all four groups of §3.1, unconditionally: each always holds
+pages, and a row whose membership moved with the corpus would shift under a returning
+reader. The **topic row** offers only the terms that earned a button under §3.4. The two
+are different kinds of control — one is the coarse cut a reader already knows the shape of,
+the other is earned by a rule — and they are coloured differently so that the difference is
+visible before either is clicked.
+
+**The two rows combine differently, and the data forces it.** Topics are ANDed, as they are
+in `sg-tags.js`: an item carries two to four, so a second term genuinely narrows. Quadrants
+are ORed, because an item sits in exactly one — ANDing two quadrants would select nothing
+every time, and a control whose second click always empties the page is broken rather than
+strict. The rows are then ANDed with each other, which is what makes "how-tos about
+parcels" expressible at all, and that query is the reason this page exists: §1's reader
+arrives with a topic, and the quadrant is how they say what kind of help they want with it.
+
+Each quadrant has a colour, carried by both its button and the badge on every row belonging
+to it, so a filtered list shows at a glance which quadrant answered. The four are
+pydata-sphinx-theme's own semantic colour families rather than invented ones, which is what
+makes them correct in both light and dark without a second palette — the same reasoning
+that has the reading-time banner name the theme's properties instead of hard-coding a
+background. Colour is never the only channel: every button and badge also carries the
+quadrant's name as text.
+
+`clear` is the one control on the page that is not a filter, and it is styled as one. It
+takes the `danger` family — the only one the four quadrants leave free, and the one this
+page refuses for a quadrant precisely because red reads as an action rather than a
+category — filled rather than outlined, set at the end of its row, and marked with a
+leading multiplication sign so it is identifiable by shape as well as by hue. It cannot
+take the accent, which is already the active topic button's fill: the earlier styling gave
+it the topic buttons' own grey and a dashed border, and it read as a ninth term nobody had
+selected. It appears only once something is selected, and clears both rows, since clearing
+one and leaving the other would leave the list filtered with nothing obviously still set.
+
+The selection is reflected in `?topics=` and `?quadrants=` query parameters, mirroring
+sphinx-gallery's `?sg-tags=`, so a filtered view can be linked to from an issue or a reply.
+A term or quadrant in the URL that no button offers is ignored rather than applied, so a
+stale link cannot filter the list down to nothing with no control to undo it.
 
 (topics-spec-3-7)=
 ### 3.7 The gate
@@ -353,11 +415,22 @@ places. The registration sites are enumerated here so the set is visible in one 
 |---|---|
 | `docs/src/index.rst` | the toctree entry |
 | `tests/test_docs_readingtime.py` | an `EXEMPT` entry — the page is navigated, not read |
-| the reading-time specification | reading spec §3.7's prose list of the same set |
+| the reading-time specification | reading spec §3.7's exemption table, and its carrying-page count |
 | `docs/src/developer/specs/index.rst` | the `topics spec §…` row and the toctree entry |
 | `tests/examples/test_examples.py` | its `VOCABULARY` moves out to the module of §3.5 |
 | `docs/src/_static/tephpy.css` | the filter button and badge styling |
 | `docs/src/conf.py` | the extension in `extensions` |
+| `docs/src/_static/topics.js` | the filter, registered by the extension rather than by `conf.py` |
+| `docs/src/developer/docs-style.rst` | the "Topic Tags" section, the vocabulary's new home in "Gallery Examples", and the topic index in the "Reading Time" exemption sentence |
+| `.github/scripts/check_glossary_links.py` | a leading docinfo field list is metadata, not prose (§3.2) |
+| `tests/ext_modules.py` | the shared `_ext` loader, so the vocabulary's move does not add a third copy of it |
+| `tests/test_floors.py` | its `GUARDED` tuple, so `tests/test_topics_issue.py`'s sdist guard is checked the same way the other `.github`-script tests' are |
+
+The reading-time exemption set (reading spec §3.7) is written in **four** places, not
+three: `tests/test_docs_readingtime.py`'s `EXEMPT` tuple, reading spec §3.7's exemption
+table, reading spec §3.7's own carrying-page count — the "That leaves … pages carrying
+the directive" sentence, which restates the same set as arithmetic and does not update
+itself when the table does — and `docs-style.rst`'s "Reading Time" prose.
 
 The fourteen narrative pages each gain a `:tags:` field list. The five example files are
 untouched.
@@ -399,10 +472,12 @@ and because the proxy's failures are self-correcting as the corpus grows.
 ### 6.1 The tagging this document is measured against
 
 The eight-term promoted set of §3.4 is computed from a tagging proposed on 2026-09-03 by
-reading each page's title, section headings, `ax.*` calls and glossary references. It is a
-**proposal, not a fact**: the gallery's five rows are the tags those files already declare,
-and the fourteen narrative rows are this document's suggestion, to be confirmed or revised
-when the pages are edited.
+reading each page's title, section headings, `ax.*` calls and glossary references, and
+**confirmed on 2026-09-03**: the gallery's five rows are the tags those files already
+declare, and the fourteen narrative rows were checked against the covers/not table of
+§3.3 as each page gained its `:tags:` field list, revising none of them. The promoted set
+of §3.4 therefore now rests on a measurement of the tagged pages rather than on this
+table's original proposal.
 
 | quadrant | item | tags |
 |---|---|---|
@@ -443,9 +518,72 @@ a rule test pass or fail for the wrong reason.
 ### 6.3 What is not gated
 
 The page's rendering. Whether the filter buttons work is a browser question, and this
-project gates correctness of content rather than of presentation. The build asserts the
-page exists and carries one `data-topics` attribute per item; the filter itself is checked
-by hand at implementation and recorded here as having been.
+project gates correctness of content rather than of presentation. Nothing asserts that the
+page carries one `data-topics` attribute per item — that is a property of how `tephpy_topics.py`
+constructs the page, not something checked. What the build does assert, at `doctree-resolved`:
+`build_corpus` raises if the corpus is empty, and — because the build runs
+`--fail-on-warning` — it fails if a narrative page declares no tags, or if its source
+declaration disagrees with what Sphinx read into `env.metadata`. The filter itself was
+checked by hand on 2026-09-03, against `docs/_build/html/topics.html` loaded as a
+`file://` URL, in Chrome for Testing 151.0.7922.34 driven through Playwright. Checked,
+and observed to hold:
+
+1. The filter bar appeared with one button per promoted term (eight: `analysis`,
+   `data-input`, `diagram`, `indices`, `isopleths`, `metpy`, `parcel`, `shading`), in both
+   themes.
+2. Clicking a button narrowed the nineteen-item list and marked the button active.
+3. A second button narrowed the list further rather than widening it — AND, not OR.
+4. `analysis` and `data-input` together, which share no item, showed the empty notice
+   rather than a blank list.
+5. `clear` appeared on the first selection and restored the full list of nineteen items
+   when clicked.
+6. Selecting a topic added `?topics=…` to the URL, and reloading that URL restored the
+   selection.
+7. A hand-written `?topics=nonsense` was ignored: every item stayed listed, no button
+   showed as active, and the unrecognised parameter was stripped from the address bar —
+   `topics.js` runs `params.delete(PARAM)` whenever the selection is empty, which an
+   unrecognised term leaves it.
+8. With JavaScript disabled (`browser.new_context(java_script_enabled=False)`), the filter
+   bar did not appear and every item was listed.
+
+The quadrant row of §3.6 was added after that check and exercised the same way, on the same
+date, in the same browser. Checked, and observed to hold:
+
+9. Both rows appeared: four quadrant buttons and eight topic buttons, over nineteen items.
+10. `Tutorials` alone left three items — the three the corpus holds.
+11. `Tutorials` and `Explanation` together left **five**, not zero. This is the one that
+    matters: the rows combine differently, and ORing the quadrant row is what the data
+    requires rather than a preference. Under the topic row's AND semantics this click would
+    have emptied the page.
+12. `How-To Guides` with `parcel` left exactly one item, *Frame the View* — the cross-axis
+    query of §3.6, and the reason the feature exists.
+13. `Tutorials` with `metpy`, which share no item, showed the empty notice rather than a
+    blank list.
+14. The selection reached the URL as `?quadrants=tutorials&topics=metpy`; `clear` emptied
+    both rows, restored all nineteen items, stripped the query string and hid itself.
+15. Reloading `?quadrants=gallery&topics=shading` restored one item with both buttons
+    active; `?quadrants=nonsense&topics=nonsense` was ignored in both rows and stripped.
+16. In light **and** dark, each quadrant's badge border resolved to exactly the same colour
+    as its own button when active — `rgb(0, 132, 63)` for Tutorials in light,
+    `rgb(95, 180, 136)` in dark, and so on for the other three — and the four differed from
+    each other in both. Colour is carried by the theme's semantic families, so this is a
+    consequence of §3.6's choice rather than four pairs of values kept in step by hand.
+17. `clear` was measured against the controls it has to be told apart from, after it was
+    restyled for reading as one of them. Text on it contrasts at 4.82:1 in light and 7.08:1
+    in dark, both above the 4.5:1 WCAG AA floor for text at this size. Against the inactive
+    topic grey and against the active topic fill it is clearly distinct in both themes —
+    CIE ΔE76 of 63.6 and 85.9 in light, 40.1 and 62.9 in dark, where under about 15 is
+    confusable and over 25 is clearly separate. The dark pairing was checked because both
+    colours are light pinks there and the eye can be wrong about it; the measurement says
+    they are not close. Its accessible name remained `clear`, the glyph being CSS rather
+    than markup.
+
+The check also caught a defect the implementation fixed before this record was written:
+Sphinx places an `add_js_file` script in `<head>`, undeferred — the same place it puts
+sphinx-gallery's own `sg-tags.js` — so the script runs before `<body>` is parsed. A bare
+top-level filter, run at that point, finds `#teph-topic-filter` absent and returns
+immediately, forever; `sg-tags.js` avoids this by deferring its own work to
+`DOMContentLoaded`, and `topics.js` now does the same.
 
 (topics-spec-7)=
 ## 7. Scope
@@ -464,10 +602,10 @@ separately as {issue}`261`; and the five example files, whose tags are already c
 
 Tagged per docs spec §3.5.
 
-- **Open** — **the field-list metadata mechanism (§3.2).** That a `:tags:` docinfo field
-  list reaches `env.metadata` while the `readingtime` directive sits at the top of the same
-  page is reasoned but unverified as of 2026-09-03. It is implementation step one, and the
-  fallback is a non-rendering directive.
+- **Closed** (2026-09-03) — **the field-list metadata mechanism (§3.2).** Established by
+  build: a `:tags:` field list reaches `env.metadata` and renders nothing, but only on
+  the first line of the file, not under the title as this document first proposed. §3.2
+  carries the measurement and the correction. The fallback directive was not needed.
 
 - **Open** — **`sphinx-tags` was reasoned about rather than probed (§5).** The rejection
   rests on sphinx-gallery locking its tags into the example source, which is documented

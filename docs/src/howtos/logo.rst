@@ -1,3 +1,5 @@
+:tags: branding, diagram
+
 .. _howto-logo:
 
 Add the tephpy Logo

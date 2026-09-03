@@ -16,38 +16,26 @@ import pytest
 
 from tephpy import examples
 from tephpy.examples import REGISTRY
+from tests.ext_modules import load
 
-#: The tag vocabulary of gallery spec §3.6. A tag outside it splits the
-#: gallery's own filter, which is the whole reason the tags exist.
-VOCABULARY = frozenset(
-    {
-        "analysis",
-        "barbs",
-        "diagram",
-        "indices",
-        "isopleths",
-        "metpy",
-        "overlay",
-        "shading",
-        "sounding",
-    }
-)
-
-#: sphinx-gallery reads exactly this flag and silently discards any other
-#: spelling, so this pattern is deliberately as strict as its parser
-#: (gallery spec §3.6). Reading the text rather than importing
-#: sphinx_gallery is what makes the assertion run in CI: the test
-#: environments have no documentation dependencies.
-_TAGS = re.compile(r"^# sphinx_gallery_tags = (?P<value>\[.*\])$", re.MULTILINE)
+#: The taxonomy of topics spec §3.5. The vocabulary and the flag pattern moved
+#: there when the site-wide topic index started reading the same two things: a
+#: second copy would agree until one was widened. Loaded by path because
+#: `docs/src/_ext` is a `sys.path` entry at build time and not a package
+#: (:issue:`92`), and imported here with no `importorskip` guard, because this
+#: module holds nothing outside the standard library and these assertions run on
+#: every supported Python.
+topics = load("tephpy_topics_data")
 
 #: sphinx-gallery's own in-file flag pattern, transcribed from
 #: ``py_source_parser.INFILE_CONFIG_PATTERN`` (0.21.0) -- what
 #: ``remove_config_comments`` strips from the code a gallery page shows.
-#: Transcribed for the reason ``_TAGS`` is read from text at all: sphinx-gallery
-#: is absent from the ``test-py3*`` environments the CI matrix runs, so a test
-#: that imported it to borrow the pattern would skip exactly where it matters.
-#: Unlike ``_TAGS`` this matches every ``sphinx_gallery_*`` flag and an indented
-#: one, because those are stripped too and leave the same gap behind.
+#: Transcribed for the reason ``topics.GALLERY_TAGS`` is read from text at all:
+#: sphinx-gallery is absent from the ``test-py3*`` environments the CI matrix
+#: runs, so a test that imported it to borrow the pattern would skip exactly
+#: where it matters. Unlike ``topics.GALLERY_TAGS`` this matches every
+#: ``sphinx_gallery_*`` flag and an indented one, because those are stripped too
+#: and leave the same gap behind.
 _FLAGS = re.compile(
     r"^[ \t]*#\s*sphinx_gallery_([A-Za-z0-9_]+)(\s*=\s*(.+))?[ \t]*\n?",
     re.MULTILINE,
@@ -88,10 +76,7 @@ def read_tags(source: str) -> list[str]:
     list of str
         The declared tags, empty if the file declares none.
     """
-    match = _TAGS.search(source)
-    if match is None:
-        return []
-    return ast.literal_eval(match.group("value"))
+    return topics.read_gallery_tags(source)
 
 
 def read_guard(source: str) -> list[str]:
@@ -168,7 +153,8 @@ def read_intro(source: str) -> str:
 #: A guard narrower than the grammar it guards is a guard with a hole in the
 #: shape of whatever its author did not think of.
 #:
-#: Transcribed rather than imported for the reason ``_TAGS`` and ``_FLAGS`` are:
+#: Transcribed rather than imported for the reason ``topics.GALLERY_TAGS`` and
+#: ``_FLAGS`` are:
 #: docutils is absent from the ``test-py3*`` environments the CI matrix runs, so
 #: an importing test would skip exactly where it matters.
 _SIMPLENAME = r"(?:(?!_)\w)+(?:[-._+:](?:(?!_)\w)+)*"
@@ -231,8 +217,10 @@ def test_example_tags_are_declared_and_in_vocabulary(module):
     """
     tags = read_tags((EXAMPLES / f"{module}.py").read_text())
     assert tags, f"{module} declares no sphinx_gallery_tags"
-    assert 2 <= len(tags) <= 4, f"{module} declares {len(tags)} tags: {tags}"
-    assert set(tags) <= VOCABULARY, sorted(set(tags) - VOCABULARY)
+    assert topics.MIN_TAGS <= len(tags) <= topics.MAX_TAGS, (
+        f"{module} declares {len(tags)} tags: {tags}"
+    )
+    assert set(tags) <= topics.VOCABULARY, sorted(set(tags) - topics.VOCABULARY)
 
 
 @pytest.mark.parametrize("module", [module for _, module in REGISTRY])

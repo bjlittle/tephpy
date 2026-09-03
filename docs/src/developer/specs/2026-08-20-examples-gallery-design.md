@@ -352,11 +352,18 @@ five-example gallery does not need site-wide tag pages, and taking the dependenc
 leave two tag mechanisms live at once with nothing to say which an example's tags feed.
 Tagging the tutorials and how-tos is 7c's question, and the one that would earn it.
 
-Tags come from a closed vocabulary — `diagram`, `isopleths`, `sounding`, `barbs`,
-`analysis`, `shading`, `indices`, `overlay`, `metpy` — of two to four per example. An open
-vocabulary was rejected for the reason a glossary has one canonical spelling per concept
-(spec §8.6): a `barb` filter button beside a `barbs` one splits the very index the feature
-exists to build.
+Tags come from a closed vocabulary of two to four per example, drawn from the table of
+seventeen terms at `topics spec §3.3` — the covers/not definition for each one lives there.
+An open vocabulary was rejected for the reason a glossary has one canonical spelling per
+concept (spec §8.6): a `barb` filter button beside a `barbs` one splits the very index the
+feature exists to build.
+
+*Amended 2026-09-03 (topics spec §3.3, §7).* The vocabulary was originally nine terms,
+closed here: `diagram`, `isopleths`, `sounding`, `barbs`, `analysis`, `shading`, `indices`,
+`overlay`, `metpy`. `topics spec §7` deliberately widened it to seventeen so the narrative
+quadrants tagged by that plan could share one taxonomy with the gallery instead of keeping a
+second, and `topics spec §3.3` is now the table this section pointed to for each term's
+covers/not boundary.
 
 The flag is the single declaration, because it is the only one sphinx-gallery reads; the
 registry (§3.2) holds names and order, not tags. That places the vocabulary outside the
@@ -417,8 +424,8 @@ Three things are asserted, all of them off the registry:
    section has left.
 2. **The registry, the directory and the vocabulary agree.** Every `plot_*.py` is
    registered, every registered module exists, and every example declares two to four tags
-   drawn from §3.6's vocabulary. This is what makes the registry a single source of
-   truth rather than a second list to keep in step.
+   drawn from the vocabulary of `topics spec §3.3` (§3.6). This is what makes the registry
+   a single source of truth rather than a second list to keep in step.
 
    The tags are read from the source text, not from a `sphinx_gallery` import: the flag is
    a comment, so importing the module cannot see it, and sphinx-gallery is absent from the
@@ -602,7 +609,10 @@ question.
   which owns the tutorials and explanation quadrants that would be tagged. *Answered
   2026-08-27:* rejected there too, narrative spec §3.8 — after that plan the narrative
   corpus is about eleven pages across three quadrants, each with a landing page and a
-  toctree, and a tag index is navigation for a corpus too large to browse.
+  toctree, and a tag index is navigation for a corpus too large to browse. *Amended
+  2026-09-03 (topics spec §1.1).* Reopened — the corpus had grown to nineteen tagged items
+  and topics spec §1.1 argued the question was one of structure, not volume — and built
+  without the sphinx-tags dependency, per `topics spec §5`.
 
 - **Deferred** (7c — {issue}`66`) — **the reader how-to.** §5 sends the `io` example there.
   The eccodes recipe beside it landed in Plan 7b (scope spec §3.2); the reader how-to

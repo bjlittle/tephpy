@@ -1,3 +1,5 @@
+:tags: isopleths, styling, config
+
 .. _howto-emphasis:
 
 Emphasise a Reference Isopleth
