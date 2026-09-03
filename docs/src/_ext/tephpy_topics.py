@@ -159,12 +159,19 @@ def build_corpus(app: Sphinx) -> dict[str, tuple[str, list[str]]]:
 
 
 def buttons(promoted: frozenset[str]) -> nodes.raw:
-    """Return the filter bar for the promoted terms.
+    """Return the filter bar: a row of quadrants, then a row of promoted terms.
 
     It is emitted ``hidden`` and unhidden by ``topics.js``. A button bar that
     survives with scripting off is a row of controls that do nothing, which is
     worse than the list on its own -- and the list on its own is what topics spec
     decision 1 calls the feature.
+
+    The quadrant row is every quadrant of ``data.QUADRANTS``, not the ones the
+    corpus happens to hold: all four always hold pages, and a row whose membership
+    changed with the corpus would move under a returning reader. It is offered
+    unconditionally, where a topic earns its button by the rule of
+    topics spec §3.4 -- the two rows filter on different axes and are not the same
+    kind of control, which is why they are coloured differently.
 
     Parameters
     ----------
@@ -177,19 +184,29 @@ def buttons(promoted: frozenset[str]) -> nodes.raw:
         The bar, as HTML.
 
     """
-    controls = "".join(
+    quadrants = "".join(
+        f'<button type="button" class="teph-quadrant-button teph-q-{quadrant}" '
+        f'data-quadrant="{quadrant}">{LABELS[quadrant]}</button>'
+        for quadrant in data.QUADRANTS
+    )
+    topics = "".join(
         f'<button type="button" class="teph-topic-button" data-topic="{term}">'
         f"{term}</button>"
         for term in sorted(promoted)
     )
     markup = (
         '<div id="teph-topic-filter" class="teph-topic-filter" hidden>'
-        f"{controls}"
+        '<div class="teph-filter-row teph-filter-quadrants">'
+        f"{quadrants}"
+        "</div>"
+        '<div class="teph-filter-row teph-filter-topics">'
+        f"{topics}"
         '<button type="button" id="teph-topic-clear" class="teph-topic-clear" '
         "hidden>clear</button>"
         "</div>"
+        "</div>"
         '<p id="teph-topic-empty" class="teph-topic-empty" hidden>'
-        "No page carries every selected topic. Clear one to widen the list."
+        "Nothing matches every filter you have set. Clear one to widen the list."
         "</p>"
     )
     return nodes.raw("", markup, format="html")
@@ -220,7 +237,7 @@ def index(app: Sphinx, fromdocname: str) -> list[nodes.Node]:
         corpus, key=lambda name: (order[corpus[name][0]], titles[name])
     ):
         quadrant, tags = corpus[docname]
-        item = topicitem("", topics=sorted(tags))
+        item = topicitem("", topics=sorted(tags), quadrant=quadrant)
         link = nodes.reference(
             "",
             "",
@@ -233,7 +250,11 @@ def index(app: Sphinx, fromdocname: str) -> list[nodes.Node]:
         # container to lay its three parts out in.
         row = nodes.paragraph(classes=["teph-topic-row"])
         row += nodes.inline("", "", link, classes=["teph-topic-title"])
-        row += nodes.inline("", LABELS[quadrant], classes=["teph-topic-quadrant"])
+        row += nodes.inline(
+            "",
+            LABELS[quadrant],
+            classes=["teph-topic-quadrant", f"teph-q-{quadrant}"],
+        )
         row += nodes.inline("", " · ".join(sorted(tags)), classes=["teph-topic-tags"])
         item += row
         listing += item
@@ -258,14 +279,17 @@ def resolve(app: Sphinx, doctree: nodes.document, fromdocname: str) -> None:
 
 
 def visit_topicitem(self, node: topicitem) -> None:  # noqa: ANN001
-    """Open the list item, carrying its tags for the filter."""
+    """Open the list item, carrying its tags and quadrant for the filter."""
     self.body.append(
         self.starttag(
             node,
             "li",
             "",
             CLASS="teph-topic-item",
-            **{"data-topics": json.dumps(node["topics"])},
+            **{
+                "data-topics": json.dumps(node["topics"]),
+                "data-quadrant": node["quadrant"],
+            },
         )
     )
 

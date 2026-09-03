@@ -302,14 +302,39 @@ It gets **no landing-page card**. gallery spec §5 ruled that the landing grid i
 Diátaxis quadrants and that anything sitting in it reads as a fifth; that reasoning
 transfers unchanged, and this page is a way into all four rather than a peer of them.
 
-It lists every item in the corpus with its quadrant labelled and its tags shown, and offers
-the promoted terms of §3.4 as filter buttons. Filtering is client-side over `data-topics`
-attributes — the shape sphinx-gallery's own `sg-tags.js` already demonstrates — so it needs
-no dependency and degrades to the full list with scripting off, which is the list that
-decision 1 says is the actual feature.
+It lists every item in the corpus with its quadrant labelled and its tags shown, above
+**two rows of filter buttons**. Filtering is client-side over `data-topics` and
+`data-quadrant` attributes — the shape sphinx-gallery's own `sg-tags.js` already
+demonstrates — so it needs no dependency and degrades to the full list with scripting off,
+which is the list that decision 1 says is the actual feature.
 
-The selection is reflected in a `?topics=` query parameter, mirroring sphinx-gallery's
-`?sg-tags=`, so a filtered view can be linked to from an issue or a reply.
+The **quadrant row** offers all four groups of §3.1, unconditionally: each always holds
+pages, and a row whose membership moved with the corpus would shift under a returning
+reader. The **topic row** offers only the terms that earned a button under §3.4. The two
+are different kinds of control — one is the coarse cut a reader already knows the shape of,
+the other is earned by a rule — and they are coloured differently so that the difference is
+visible before either is clicked.
+
+**The two rows combine differently, and the data forces it.** Topics are ANDed, as they are
+in `sg-tags.js`: an item carries two to four, so a second term genuinely narrows. Quadrants
+are ORed, because an item sits in exactly one — ANDing two quadrants would select nothing
+every time, and a control whose second click always empties the page is broken rather than
+strict. The rows are then ANDed with each other, which is what makes "how-tos about
+parcels" expressible at all, and that query is the reason this page exists: §1's reader
+arrives with a topic, and the quadrant is how they say what kind of help they want with it.
+
+Each quadrant has a colour, carried by both its button and the badge on every row belonging
+to it, so a filtered list shows at a glance which quadrant answered. The four are
+pydata-sphinx-theme's own semantic colour families rather than invented ones, which is what
+makes them correct in both light and dark without a second palette — the same reasoning
+that has the reading-time banner name the theme's properties instead of hard-coding a
+background. Colour is never the only channel: every button and badge also carries the
+quadrant's name as text.
+
+The selection is reflected in `?topics=` and `?quadrants=` query parameters, mirroring
+sphinx-gallery's `?sg-tags=`, so a filtered view can be linked to from an issue or a reply.
+A term or quadrant in the URL that no button offers is ignored rather than applied, so a
+stale link cannot filter the list down to nothing with no control to undo it.
 
 (topics-spec-3-7)=
 ### 3.7 The gate
@@ -501,6 +526,29 @@ and observed to hold:
    unrecognised term leaves it.
 8. With JavaScript disabled (`browser.new_context(java_script_enabled=False)`), the filter
    bar did not appear and every item was listed.
+
+The quadrant row of §3.6 was added after that check and exercised the same way, on the same
+date, in the same browser. Checked, and observed to hold:
+
+9. Both rows appeared: four quadrant buttons and eight topic buttons, over nineteen items.
+10. `Tutorials` alone left three items — the three the corpus holds.
+11. `Tutorials` and `Explanation` together left **five**, not zero. This is the one that
+    matters: the rows combine differently, and ORing the quadrant row is what the data
+    requires rather than a preference. Under the topic row's AND semantics this click would
+    have emptied the page.
+12. `How-To Guides` with `parcel` left exactly one item, *Frame the View* — the cross-axis
+    query of §3.6, and the reason the feature exists.
+13. `Tutorials` with `metpy`, which share no item, showed the empty notice rather than a
+    blank list.
+14. The selection reached the URL as `?quadrants=tutorials&topics=metpy`; `clear` emptied
+    both rows, restored all nineteen items, stripped the query string and hid itself.
+15. Reloading `?quadrants=gallery&topics=shading` restored one item with both buttons
+    active; `?quadrants=nonsense&topics=nonsense` was ignored in both rows and stripped.
+16. In light **and** dark, each quadrant's badge border resolved to exactly the same colour
+    as its own button when active — `rgb(0, 132, 63)` for Tutorials in light,
+    `rgb(95, 180, 136)` in dark, and so on for the other three — and the four differed from
+    each other in both. Colour is carried by the theme's semantic families, so this is a
+    consequence of §3.6's choice rather than four pairs of values kept in step by hand.
 
 The check also caught a defect the implementation fixed before this record was written:
 Sphinx places an `add_js_file` script in `<head>`, undeferred — the same place it puts

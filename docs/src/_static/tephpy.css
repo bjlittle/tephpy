@@ -121,9 +121,73 @@
  */
 .teph-topic-filter {
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.4em;
+}
+
+.teph-filter-row {
+  display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1.4em;
+}
+
+/*
+ * The quadrant colours, one per group, taken from pydata-sphinx-theme's own
+ * semantic families rather than invented. Each family is a triple the theme
+ * already maintains -- the colour, a tint for backgrounds, and the guarantee
+ * that both are legible in either mode -- so dark mode needs no second palette
+ * here, exactly as the reading-time banner needs none. `danger` is deliberately
+ * unused: red on a documentation quadrant reads as an error, not a category.
+ *
+ * Colour is never the only channel. Every button and every badge also carries
+ * the quadrant's name as text, so nothing here is load-bearing for a reader who
+ * cannot separate the hues.
+ */
+.teph-q-tutorials {
+  --teph-q: var(--pst-color-success);
+  --teph-q-bg: var(--pst-color-success-bg);
+}
+
+.teph-q-howtos {
+  --teph-q: var(--pst-color-info);
+  --teph-q-bg: var(--pst-color-info-bg);
+}
+
+.teph-q-explanation {
+  --teph-q: var(--pst-color-secondary);
+  --teph-q-bg: var(--pst-color-secondary-bg);
+}
+
+.teph-q-gallery {
+  --teph-q: var(--pst-color-warning);
+  --teph-q-bg: var(--pst-color-warning-bg);
+}
+
+/*
+ * A quadrant button is tinted and outlined in its own colour, and fills with it
+ * when active -- the same two states the grey topic buttons have, in a different
+ * key, because the two rows filter on different axes. The topic row stays grey
+ * so that the coloured row reads as the coarser cut through the corpus.
+ */
+.teph-quadrant-button {
+  background: var(--teph-q-bg);
+  border: 1px solid var(--teph-q);
+  border-radius: 999px;
+  color: var(--pst-color-text-base);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2em 0.85em;
+}
+
+.teph-quadrant-button:hover {
+  border-color: var(--pst-color-text-base);
+}
+
+.teph-quadrant-button.active {
+  background: var(--teph-q);
+  border-color: var(--teph-q);
+  color: var(--pst-color-background);
 }
 
 /*
@@ -195,10 +259,15 @@
   flex: 1 1 18rem;
 }
 
+/*
+ * The row's badge, in the same colour as its quadrant's button, so that a reader
+ * who filters by Tutorials can see at a glance which rows answered.
+ */
 .teph-topic-quadrant {
-  background: var(--pst-color-surface);
+  background: var(--teph-q-bg);
+  border: 1px solid var(--teph-q);
   border-radius: 4px;
-  color: var(--pst-color-text-muted);
+  color: var(--pst-color-text-base);
   font-size: 0.75rem;
   padding: 0.1em 0.5em;
   white-space: nowrap;
