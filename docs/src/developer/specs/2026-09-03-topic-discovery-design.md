@@ -133,6 +133,15 @@ quadrants must carry tags, so a page added tomorrow fails the gate until it decl
 A hand-maintained list is one a new page silently misses, which is the failure mode
 reading spec §3.6 already reasons about for its own coverage gate.
 
+Discovery is recursive, so an item is keyed by its **docname** — its whole path under the
+source root, without the suffix — and its quadrant is that path's **top-level** directory.
+For a page sitting directly in a quadrant those are the same string, which is why the
+distinction is easy to lose: taking the immediate parent instead would file
+`howtos/advanced/tuning` under a quadrant called `advanced`, entering §3.4's span count and
+§3.8's matrix as a fifth column that no vocabulary term has ever heard of. Keying by
+docname is also what makes the three readers of §3.5 agree, the extension having no other
+name for a page.
+
 (topics-spec-3-2)=
 ### 3.2 Where tags are declared
 

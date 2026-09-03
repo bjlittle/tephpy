@@ -159,13 +159,17 @@ def corpus(repo: Path) -> dict[str, tuple[str, list[str]]]:
     """
     docs = repo / "docs" / "src"
     examples = repo / "src" / "tephpy" / "examples"
-    found = {
-        f"{page.parent.name}/{page.stem}": (
-            page.parent.name,
+    found: dict[str, tuple[str, list[str]]] = {}
+    for page in narrative_pages(docs):
+        # The quadrant is the top-level directory, not the immediate parent:
+        # discovery is recursive, and `page.parent.name` would call the quadrant
+        # of `howtos/advanced/tuning.rst` `advanced`. The key is the whole
+        # relative path, which is what Sphinx calls the page.
+        relative = page.relative_to(docs)
+        found[relative.with_suffix("").as_posix()] = (
+            relative.parts[0],
             topics.read_page_tags(page.read_text(encoding="utf-8")),
         )
-        for page in narrative_pages(docs)
-    }
     found.update(
         {
             f"gallery/{path.stem}": (

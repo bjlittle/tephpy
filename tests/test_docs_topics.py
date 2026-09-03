@@ -178,22 +178,47 @@ def narrative_pages(docs: Path = DOCS) -> list[Path]:
     return found
 
 
+def narrative_corpus(docs: Path = DOCS) -> dict[str, tuple[str, list[str]]]:
+    """Return the narrative half of the corpus, keyed as Sphinx names it.
+
+    The quadrant is the page's **top-level** directory under `docs`, not its
+    immediate parent, and the key is its whole relative path without the suffix.
+    For a page sitting directly in a quadrant the two are the same string; for
+    `howtos/advanced/tuning.rst` they are not, and `page.parent.name` would call
+    the quadrant `advanced` -- a name the vocabulary has never heard of.
+
+    Parameters
+    ----------
+    docs : Path, optional
+        The documentation source root.
+
+    Returns
+    -------
+    dict
+        Docname to ``(quadrant, tags)``.
+
+    """
+    found: dict[str, tuple[str, list[str]]] = {}
+    for page in narrative_pages(docs):
+        relative = page.relative_to(docs)
+        found[relative.with_suffix("").as_posix()] = (
+            relative.parts[0],
+            topics.read_page_tags(page.read_text(encoding="utf-8")),
+        )
+    return found
+
+
 def corpus() -> dict[str, tuple[str, list[str]]]:
     """Return the tagged corpus of topics spec §3.1.
 
     Returns
     -------
     dict
-        ``"<quadrant>/<stem>"`` to ``(quadrant, tags)``.
+        Docname to ``(quadrant, tags)``, the docname being what Sphinx calls the
+        page and so what the extension keys by.
 
     """
-    found = {
-        f"{page.parent.name}/{page.stem}": (
-            page.parent.name,
-            topics.read_page_tags(page.read_text(encoding="utf-8")),
-        )
-        for page in narrative_pages()
-    }
+    found = narrative_corpus()
     found.update(
         {
             f"gallery/{path.stem}": (
@@ -256,6 +281,36 @@ def test_narrative_pages_discovers_a_synthetic_tree_of_its_own(tmp_path):
         "howtos/a-recipe.rst",
         "explanation/some-background.rst",
     }
+
+
+def test_a_nested_page_keeps_its_top_level_quadrant(tmp_path):
+    """Discovery is recursive, so the quadrant is the top directory, not the parent.
+
+    `page.parent.name` is the same string only for a page sitting directly in a
+    quadrant. For `howtos/advanced/tuning.rst` it yields `advanced` -- a quadrant
+    the vocabulary has never heard of, which would enter the promotion rule's span
+    count and the monthly matrix as a fifth column, while the extension, keying by
+    Sphinx docname, would call the same page `howtos`. The published page and the
+    gate would then describe different corpora.
+
+    Nothing else catches it. The gate and the report share this construction, so
+    `test_the_corpus_matches_the_gate_s` compares two readers that are wrong in
+    the same way and passes -- which is why the invariant is pinned here, against
+    a tree built for it, rather than left to the equivalence test.
+    """
+    for relative in (
+        "howtos/index.rst",
+        "howtos/units.rst",
+        "howtos/advanced/tuning.rst",
+    ):
+        page = tmp_path / relative
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(":tags: units, sounding\n\nTitle\n=====\n", encoding="utf-8")
+
+    found = narrative_corpus(tmp_path)
+    assert set(found) == {"howtos/units", "howtos/advanced/tuning"}
+    assert found["howtos/advanced/tuning"][0] == "howtos"
+    assert all(quadrant in topics.QUADRANTS for quadrant, _ in found.values())
 
 
 @pytest.mark.parametrize("item", sorted(corpus()))
