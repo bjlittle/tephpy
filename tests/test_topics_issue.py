@@ -295,3 +295,106 @@ def test_json_data_written_and_read_by_state_round_trips_arbitrary_terms():
     empty = frozenset()
     text = report.body(FIXTURE, empty, run_url="u")
     assert report.read_state(text) == empty
+
+
+def test_the_matrix_carries_a_column_total_per_quadrant():
+    """The totals read across the grain of the rows (topics spec §3.8).
+
+    A row says where one subject is covered; the totals say how many subjects a
+    quadrant covers at all. `FIXTURE` gives tutorials two terms, how-tos one,
+    explanation two and the gallery two, and the totals must count *distinct*
+    terms rather than tag occurrences -- `analysis` appears in three quadrants
+    and must count once in each, not three times in any.
+    """
+    report = _load()
+    rendered = report.matrix(FIXTURE)
+    totals = [line for line in rendered.splitlines() if "terms covered" in line]
+    assert len(totals) == 1, "the totals row is written once, at the foot"
+    assert totals[0] == "| **terms covered** | 2 | 1 | 2 | 2 |"
+
+
+def test_the_totals_count_a_quadrant_with_no_terms_as_zero():
+    """A quadrant nothing covers is reported as zero, not omitted.
+
+    The same reason every quadrant gets a column even when a term is in none of
+    them: the gap is the finding, and a missing total reads as an oversight.
+    """
+    report = _load()
+    rendered = report.matrix({"a": ("tutorials", ["analysis"])})
+    totals = next(line for line in rendered.splitlines() if "terms covered" in line)
+    assert totals == "| **terms covered** | 1 | 0 | 0 | 0 |"
+
+
+def test_too_broad_reports_a_term_selecting_exactly_half_the_corpus():
+    """The breadth threshold is the exact complement of the promotion rule's.
+
+    `promote` keeps a term selecting *fewer than* half; this reports one
+    selecting half or more. Exactly half must land here, or a term at the
+    boundary would be in neither and disappear from the report while also
+    earning no button.
+    """
+    report = _load()
+    items = {
+        "a": ("tutorials", ["broad", "narrow"]),
+        "b": ("howtos", ["broad"]),
+        "c": ("explanation", ["narrow"]),
+        "d": ("gallery", ["narrow"]),
+    }
+    found = {term: count for term, count, _ in report.too_broad(items)}
+    assert found == {"broad": 2, "narrow": 3}
+
+
+def test_no_term_is_both_promoted_and_too_broad():
+    """The two halves of the report cannot contradict each other.
+
+    Nothing enforces this but the arithmetic agreeing, and the arithmetic lives
+    in two modules -- `promote` in the taxonomy, `too_broad` here -- so a change
+    to either threshold that broke the complement would otherwise show up as a
+    term listed as a filter button and as too broad to be one.
+    """
+    report = _load()
+    data = report._topics_data()
+    for items in (FIXTURE, report.corpus(REPO)):
+        broad = {term for term, _, _ in report.too_broad(items)}
+        assert not (broad & data.promote(items))
+
+
+#: Four items, every term used once, so nothing reaches the breadth threshold.
+DISCRIMINATING = {
+    "a": ("tutorials", ["alpha"]),
+    "b": ("howtos", ["beta"]),
+    "c": ("explanation", ["gamma"]),
+    "d": ("gallery", ["delta"]),
+}
+
+
+def test_the_body_omits_the_broad_section_when_nothing_is_too_broad():
+    """Omitting it is the point: an always-present empty heading is noise."""
+    report = _load()
+    data = report._topics_data()
+    assert not report.too_broad(DISCRIMINATING)
+    text = report.body(
+        DISCRIMINATING, data.promote(DISCRIMINATING), run_url="https://e.invalid/1"
+    )
+    assert "Too broad to filter on" not in text
+
+
+def test_the_body_carries_the_broad_section_when_something_is():
+    """And carries the count, the share and the quadrants when there is one.
+
+    The quadrants are named with this module's own lowercase `LABELS` -- the
+    issue body reads as prose, where the page's buttons read as titles, so the
+    two mappings differ deliberately and this pins the one used here.
+    """
+    report = _load()
+    data = report._topics_data()
+    items = {
+        "a": ("tutorials", ["broad", "one"]),
+        "b": ("howtos", ["broad", "two"]),
+        "c": ("explanation", ["three"]),
+        "d": ("gallery", ["four"]),
+    }
+    assert len(report.too_broad(items)) == 1
+    text = report.body(items, data.promote(items), run_url="https://e.invalid/1")
+    assert "## Too broad to filter on (1)" in text
+    assert "| `broad` | 2 of 4 | 50% | tutorials, how-tos |" in text

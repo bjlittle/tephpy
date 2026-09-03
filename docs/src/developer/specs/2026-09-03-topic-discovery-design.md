@@ -388,7 +388,21 @@ It carries two things:
 
 - **Promotion changes** since the last run: terms newly promoted, terms newly held back.
   This is what makes §3.4's relative thresholds observable rather than merely correct.
-- **The coverage matrix**: for each term, which quadrants hold it and which do not.
+- **The coverage matrix**: for each term, which quadrants hold it and which do not, closing
+  with a **column total** — how many of the vocabulary's terms each quadrant covers at all.
+  The totals read across the grain of the rows: a row says where one subject is covered, a
+  total says how much of the subject matter a quadrant reaches. A quadrant well below its
+  neighbours is breadth worth a look in the way an empty cell is depth worth a look, and it
+  is the cheaper of the two to read, being one line rather than seventeen.
+- **The terms that are too broad to filter on**, when there are any: those selecting half
+  the corpus or more, with their count, their share and the quadrants they hold. This is the
+  breadth half of §3.4's rule reported rather than merely applied. Such a term is not a
+  defect and is not deleted — decision 3 keeps it tagging its pages and driving the
+  gallery's own filter — but a term crossing that line, in either direction, is editorial
+  news. Span is deliberately not part of the test: a term selecting most of the corpus is
+  too broad whether or not it also spans, and its quadrants are printed beside it so the two
+  failures can be told apart. The section is omitted entirely when nothing qualifies, an
+  always-present empty heading being the kind of thing a reader learns to skip.
 
 The matrix is the report's second job and arguably its better one. On the corpus of
 2026-09-03 it already says something actionable: `analysis` and `shading` both appear in

@@ -15,6 +15,7 @@ Notes
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import importlib.util
 import json
 from pathlib import Path
@@ -212,7 +213,59 @@ def matrix(items: Mapping[str, tuple[str, Sequence[str]]]) -> str:
         + " |"
         for term in sorted(covered)
     ]
-    return "\n".join([header, rule, *rows])
+    # The column totals, which read across the grain of the rows: a row says
+    # where one subject is covered, and this says how many subjects a quadrant
+    # covers at all. A quadrant well below its neighbours is breadth worth a
+    # look, in the way an empty cell is depth worth a look -- and it is the
+    # cheaper of the two to read, being one line rather than seventeen.
+    totals = (
+        "| **terms covered** | "
+        + " | ".join(
+            str(sum(1 for quadrants in covered.values() if quadrant in quadrants))
+            for quadrant in topics.QUADRANTS
+        )
+        + " |"
+    )
+    return "\n".join([header, rule, *rows, totals])
+
+
+def too_broad(
+    items: Mapping[str, tuple[str, Sequence[str]]],
+) -> list[tuple[str, int, frozenset[str]]]:
+    """Return the terms that select half the corpus or more.
+
+    The breadth half of topics spec §3.4's rule, reported rather than merely
+    applied. A term here discriminates too little to be a filter -- a button
+    offering it would return most of the page -- but it is not a defect and is
+    not deleted: it still tags its pages and still drives the gallery's own
+    filter (topics spec decision 3). It is worth seeing because a term crossing
+    this line, in either direction, is editorial news.
+
+    Span is not part of the test. A term selecting most of the corpus is too
+    broad whether or not it also spans, and the quadrants it holds are reported
+    beside it so a reader can tell the two failures apart.
+
+    Parameters
+    ----------
+    items : mapping
+        Item name to ``(quadrant, tags)``, as `corpus` returns.
+
+    Returns
+    -------
+    list of tuple
+        ``(term, count, quadrants)`` for each such term, by descending count
+        then by name. Empty when every term discriminates.
+
+    """
+    covered = topics.coverage(items)
+    counts = Counter(tag for _, tags in items.values() for tag in set(tags))
+    total = len(items)
+    found = [
+        (term, count, covered[term])
+        for term, count in counts.items()
+        if count * 2 >= total
+    ]
+    return sorted(found, key=lambda entry: (-entry[1], entry[0]))
 
 
 def _state_line(promoted: frozenset[str]) -> str:
@@ -337,6 +390,34 @@ def body(
             "the complementary demand signal, Read the Docs search analytics."
         ),
         "",
+    ]
+
+    broad = too_broad(items)
+    if broad:
+        lines += [
+            f"## Too broad to filter on ({len(broad)})",
+            "",
+            (
+                "These select half the corpus or more, so a button offering one "
+                "would return most of the page. They are held back from the "
+                "filter and kept everywhere else: each still tags its pages and "
+                "still drives the gallery's own filter (topics spec decision 3). "
+                "A term arriving here, or leaving, is editorial news."
+            ),
+            "",
+            "| term | items | share | quadrants |",
+            "|---|---|---|---|",
+            *[
+                f"| `{term}` | {count} of {len(items)} | "
+                f"{round(100 * count / len(items))}% | "
+                + ", ".join(LABELS[q] for q in topics.QUADRANTS if q in quadrants)
+                + " |"
+                for term, count, quadrants in broad
+            ],
+            "",
+        ]
+
+    lines += [
         f"**Run:** {run_url}",
         "",
         _state_line(promoted),
