@@ -18,7 +18,11 @@
   that records it
 - **Scope:** one taxonomy module, one Sphinx extension, one published page, one pytest
   gate, one scheduled report, and a `:tags:` field list on 14 narrative pages; the five
-  gallery examples keep the tags they already declare; no change to `src/tephpy/`
+  gallery examples keep the tags they already declare; no change to `src/tephpy/`. The
+  amendment to `.github/scripts/check_glossary_links.py`, so the glossary gate skips a
+  leading docinfo field list as metadata rather than reading it as prose (§3.2), is not a
+  companion change but a prerequisite — a scope line omitting it would describe a change
+  that could not have been merged
 - **Parent spec:** [`2026-08-20-examples-gallery-design.md`](2026-08-20-examples-gallery-design.md)
   — gallery spec §3.6 is the closed vocabulary this generalises, and gallery spec §7 is
   where the site-wide index was first deferred
@@ -367,11 +371,22 @@ places. The registration sites are enumerated here so the set is visible in one 
 |---|---|
 | `docs/src/index.rst` | the toctree entry |
 | `tests/test_docs_readingtime.py` | an `EXEMPT` entry — the page is navigated, not read |
-| the reading-time specification | reading spec §3.7's prose list of the same set |
+| the reading-time specification | reading spec §3.7's exemption table, and its carrying-page count |
 | `docs/src/developer/specs/index.rst` | the `topics spec §…` row and the toctree entry |
 | `tests/examples/test_examples.py` | its `VOCABULARY` moves out to the module of §3.5 |
 | `docs/src/_static/tephpy.css` | the filter button and badge styling |
 | `docs/src/conf.py` | the extension in `extensions` |
+| `docs/src/_static/topics.js` | the filter, registered by the extension rather than by `conf.py` |
+| `docs/src/developer/docs-style.rst` | the "Topic Tags" section, the vocabulary's new home in "Gallery Examples", and the topic index in the "Reading Time" exemption sentence |
+| `.github/scripts/check_glossary_links.py` | a leading docinfo field list is metadata, not prose (§3.2) |
+| `tests/ext_modules.py` | the shared `_ext` loader, so the vocabulary's move does not add a third copy of it |
+| `tests/test_floors.py` | its `GUARDED` tuple, so `tests/test_topics_issue.py`'s sdist guard is checked the same way the other `.github`-script tests' are |
+
+The reading-time exemption set (reading spec §3.7) is written in **four** places, not
+three: `tests/test_docs_readingtime.py`'s `EXEMPT` tuple, reading spec §3.7's exemption
+table, reading spec §3.7's own carrying-page count — the "That leaves … pages carrying
+the directive" sentence, which restates the same set as arithmetic and does not update
+itself when the table does — and `docs-style.rst`'s "Reading Time" prose.
 
 The fourteen narrative pages each gain a `:tags:` field list. The five example files are
 untouched.
@@ -413,10 +428,13 @@ and because the proxy's failures are self-correcting as the corpus grows.
 ### 6.1 The tagging this document is measured against
 
 The eight-term promoted set of §3.4 is computed from a tagging proposed on 2026-09-03 by
-reading each page's title, section headings, `ax.*` calls and glossary references. It is a
-**proposal, not a fact**: the gallery's five rows are the tags those files already declare,
-and the fourteen narrative rows are this document's suggestion, to be confirmed or revised
-when the pages are edited.
+reading each page's title, section headings, `ax.*` calls and glossary references, and
+**confirmed on 2026-09-03**: the gallery's five rows are the tags those files already
+declare, and the fourteen narrative rows were checked against the covers/not table of
+§3.3 as each page gained its `:tags:` field list, revising none of them. A reviewer
+independently spot-checked three pages, including the two closest calls, and reached the
+same tags. The promoted set of §3.4 therefore now rests on a measurement of the tagged
+pages rather than on this table's original proposal.
 
 | quadrant | item | tags |
 |---|---|---|

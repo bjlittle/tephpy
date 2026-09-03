@@ -367,10 +367,13 @@ A test asserts every entry still resolves to a file. A renamed page whose exempt
 behind would be silently exempt, which is the failure mode decision 3 exists to prevent.
 The list is checked for staleness, not for length: it is expected to grow.
 
-That leaves **29 pages carrying the directive**, out of 41 published: the nine how-tos,
+That leaves **31 pages carrying the directive**, out of 44 published: the nine how-tos,
 three tutorials, two explanation pages, `developer/docs-style.rst`,
-`developer/packaging.rst`, and the thirteen published specifications, this document among
-them. The counts are stated because §6 pins them by enumeration, not by arithmetic.
+`developer/packaging.rst`, and the fifteen published specifications, this document among
+them. The counts are stated because §6 pins them by enumeration, not by arithmetic — and
+they are a snapshot, measured against `published_pages()`, `carrying_pages()` and
+`EXEMPT` in `tests/test_docs_readingtime.py` on 2026-09-03, not an invariant: nothing
+gates them, and both totals move whenever a page is added, exempted, or unexempted.
 
 (reading-spec-4)=
 ## 4. Companion changes

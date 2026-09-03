@@ -1,0 +1,8 @@
+Added a topic index at :ref:`topics`, listing every tutorial, how-to, explanation
+page and gallery example with the quadrant it belongs to, and filterable by topic.
+Diátaxis sorts the documentation by the reader's intent; this sorts it by subject,
+which is orthogonal to intent and lands in two, three or four quadrants at once.
+The seventeen-term vocabulary is shared with the gallery's own tags, and a term
+earns a filter button by spanning two or more quadrants while selecting fewer than
+half the corpus.
+(:user:`claude`)
