@@ -111,3 +111,104 @@
     transform: translateY(-50%);
   }
 }
+
+/*
+ * The topic index and its filter (topics spec §3.6).
+ *
+ * `.teph-topic-item` is a `<li>` carrying its tags in `data-topics`, hidden by
+ * `topics.js` with the `hidden` property rather than an inline `display`, so that
+ * nothing here has to out-specify a style attribute to lay the row out.
+ */
+.teph-topic-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.4em;
+}
+
+/*
+ * `topics.js` unhides the bar. Without this guard the `display` above would
+ * out-rank the browser's own `[hidden] { display: none }` rule, and a reader with
+ * scripting off would get the row of dead controls the `hidden` attribute
+ * exists to spare them.
+ */
+.teph-topic-filter[hidden] {
+  display: none;
+}
+
+.teph-topic-button,
+.teph-topic-clear {
+  background: var(--pst-color-surface);
+  border: 1px solid var(--pst-color-border);
+  border-radius: 999px;
+  color: var(--pst-color-text-base);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2em 0.85em;
+}
+
+.teph-topic-button:hover,
+.teph-topic-clear:hover {
+  border-color: var(--pst-color-accent);
+}
+
+.teph-topic-button.active {
+  background: var(--pst-color-accent);
+  border-color: var(--pst-color-accent);
+  color: var(--pst-color-background);
+}
+
+.teph-topic-clear {
+  border-style: dashed;
+}
+
+.teph-topic-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.teph-topic-item {
+  border-bottom: 1px solid var(--pst-color-border);
+  padding: 0.5em 0;
+}
+
+/*
+ * `topics.js` hides a row with the `hidden` property, and a `display` on the
+ * element itself would out-rank the browser's own `[hidden] { display: none }`
+ * -- the filter would then mark rows hidden and hide none of them. The layout
+ * therefore sits on the row inside, and this states the rule the JavaScript
+ * depends on rather than leaving it to the absence of a declaration above.
+ */
+.teph-topic-item[hidden] {
+  display: none;
+}
+
+.teph-topic-row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0;
+}
+
+.teph-topic-title {
+  flex: 1 1 18rem;
+}
+
+.teph-topic-quadrant {
+  background: var(--pst-color-surface);
+  border-radius: 4px;
+  color: var(--pst-color-text-muted);
+  font-size: 0.75rem;
+  padding: 0.1em 0.5em;
+  white-space: nowrap;
+}
+
+.teph-topic-tags {
+  color: var(--pst-color-text-muted);
+  font-size: 0.8rem;
+}
+
+.teph-topic-empty {
+  color: var(--pst-color-text-muted);
+}

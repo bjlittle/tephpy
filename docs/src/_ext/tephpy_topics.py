@@ -193,6 +193,9 @@ def buttons(promoted: frozenset[str]) -> nodes.raw:
         '<button type="button" id="teph-topic-clear" class="teph-topic-clear" '
         "hidden>clear</button>"
         "</div>"
+        '<p id="teph-topic-empty" class="teph-topic-empty" hidden>'
+        "No page carries every selected topic. Clear one to widen the list."
+        "</p>"
     )
     return nodes.raw("", markup, format="html")
 
@@ -298,6 +301,11 @@ def setup(app: Sphinx) -> dict[str, object]:
     app.add_node(topicitem, html=(visit_topicitem, depart_topicitem))
     app.add_directive("topicindex", TopicIndexDirective)
     app.connect("doctree-resolved", resolve)
+    # Registered by the extension rather than through `html_js_files` in
+    # `conf.py`: the script exists for the page this extension builds and reads
+    # the hooks this extension emits, so the two move together. It is inert on
+    # every other page -- it returns as soon as the filter bar is absent.
+    app.add_js_file("topics.js")
     return {
         "version": "0.1.0",
         "parallel_read_safe": True,

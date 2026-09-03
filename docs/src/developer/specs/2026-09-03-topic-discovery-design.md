@@ -458,8 +458,33 @@ a rule test pass or fail for the wrong reason.
 
 The page's rendering. Whether the filter buttons work is a browser question, and this
 project gates correctness of content rather than of presentation. The build asserts the
-page exists and carries one `data-topics` attribute per item; the filter itself is checked
-by hand at implementation and recorded here as having been.
+page exists and carries one `data-topics` attribute per item; the filter itself was
+checked by hand on 2026-09-03, against `docs/_build/html/topics.html` loaded as a
+`file://` URL, in Chrome for Testing 151.0.7922.34 driven through Playwright. Checked,
+and observed to hold:
+
+1. The filter bar appeared with one button per promoted term (eight: `analysis`,
+   `data-input`, `diagram`, `indices`, `isopleths`, `metpy`, `parcel`, `shading`), in both
+   themes.
+2. Clicking a button narrowed the nineteen-item list and marked the button active.
+3. A second button narrowed the list further rather than widening it — AND, not OR.
+4. `analysis` and `data-input` together, which share no item, showed the empty notice
+   rather than a blank list.
+5. `clear` appeared on the first selection and restored the full list of nineteen items
+   when clicked.
+6. Selecting a topic added `?topics=…` to the URL, and reloading that URL restored the
+   selection.
+7. A hand-written `?topics=nonsense` was ignored: every item stayed listed and no button
+   showed as active.
+8. With JavaScript disabled (`browser.new_context(java_script_enabled=False)`), the filter
+   bar did not appear and every item was listed.
+
+The check also caught a defect the implementation fixed before this record was written:
+Sphinx places an `add_js_file` script in `<head>`, undeferred — the same place it puts
+sphinx-gallery's own `sg-tags.js` — so the script runs before `<body>` is parsed. A bare
+top-level filter, run at that point, finds `#teph-topic-filter` absent and returns
+immediately, forever; `sg-tags.js` avoids this by deferring its own work to
+`DOMContentLoaded`, and `topics.js` now does the same.
 
 (topics-spec-7)=
 ## 7. Scope
