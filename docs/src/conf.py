@@ -44,6 +44,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "tephpy_config_reference",
     "tephpy_readingtime",
+    "tephpy_topics",
 ]
 
 # -- autoapi -----------------------------------------------------------------

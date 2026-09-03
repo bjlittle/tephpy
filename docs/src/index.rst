@@ -96,4 +96,5 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     explanation/index
     reference/index
     gallery/index
+    topics
     developer/index
