@@ -387,7 +387,15 @@ finding updates its issue instead of filing another one each run.
 It carries two things:
 
 - **Promotion changes** since the last run: terms newly promoted, terms newly held back.
-  This is what makes §3.4's relative thresholds observable rather than merely correct.
+  This is what makes §3.4's relative thresholds observable rather than merely correct. It is
+  said **twice, deliberately**: once as the comment, which is the notification and reaches a
+  reader once; and once in the body, where a newly promoted term is marked `(new)` and a
+  departed one is named on a line of its own. The comment alone would age badly — this issue
+  is a standing dashboard for a package under sustained maintenance, and a reader opening it
+  in a year should learn what recently changed without scrolling a year of comments. The
+  marker means "moved at the most recent run" and clears itself at the next, so it needs no
+  state beyond the promoted set §3.8 already records. The run that *creates* the issue marks
+  nothing: there is no previous set, and calling the whole of it new would say nothing.
 - **The coverage matrix**: for each term, which quadrants hold it and which do not, closing
   with a **column total** — how many of the vocabulary's terms each quadrant covers at all.
   The totals read across the grain of the rows: a row says where one subject is covered, a

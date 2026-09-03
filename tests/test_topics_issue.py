@@ -398,3 +398,75 @@ def test_the_body_carries_the_broad_section_when_something_is():
     text = report.body(items, data.promote(items), run_url="https://e.invalid/1")
     assert "## Too broad to filter on (1)" in text
     assert "| `broad` | 2 of 4 | 50% | tutorials, how-tos |" in text
+
+
+#: A corpus in which `beta` and `gamma` each span two quadrants and earn a
+#: button. Six items, and it has to be at least six: spanning two quadrants
+#: needs a term on two items, and clearing the breadth cap needs it on fewer
+#: than half, so on a corpus of four the two conditions cannot both hold and
+#: nothing can ever promote.
+MOVED = {
+    "a": ("tutorials", ["alpha", "beta"]),
+    "b": ("howtos", ["beta", "gamma"]),
+    "c": ("explanation", ["gamma"]),
+    "d": ("gallery", ["delta"]),
+    "e": ("gallery", ["epsilon"]),
+    "f": ("howtos", ["zeta"]),
+}
+
+
+def test_the_body_marks_a_newly_promoted_term_and_only_that_term():
+    """The body says what moved, not only the comment (topics spec §3.8).
+
+    A reader opening the standing issue in a year should not have to scroll a
+    year of comments to learn what recently changed.
+    """
+    report = _load()
+    data = report._topics_data()
+    promoted = data.promote(MOVED)
+    assert {"beta", "gamma"} <= promoted, "the fixture must promote more than one"
+    # Everything but `beta` was already promoted, so `beta` alone is the arrival.
+    # A `previous` of nothing would mark the whole set and prove far less.
+    text = report.body(MOVED, promoted, "x", previous=promoted - {"beta"})
+    assert "`beta` **(new)**" in text
+    for term in sorted(promoted - {"beta"}):
+        assert f"`{term}` **(new)**" not in text
+
+
+def test_the_body_names_a_term_that_left_the_promoted_set():
+    """The other half of the delta, for the same reason as the marker."""
+    report = _load()
+    data = report._topics_data()
+    promoted = data.promote(MOVED)
+    text = report.body(MOVED, promoted, "x", previous=promoted | {"gone"})
+    assert "Held back since the last run: `gone`." in text
+
+
+def test_the_body_marks_nothing_on_the_run_that_creates_the_issue():
+    """`previous=None` is "there was no last run", not "nothing was promoted".
+
+    Marking all of it new on a first run would say nothing, and reporting the
+    whole set as newly held back would be simply false.
+    """
+    report = _load()
+    data = report._topics_data()
+    text = report.body(MOVED, data.promote(MOVED), "x", previous=None)
+    assert "**(new)**" not in text
+    assert "Held back since the last run" not in text
+
+
+def test_the_body_and_the_comment_never_tell_different_stories():
+    """The one invariant tying the two halves of the report together.
+
+    `changes` composes the comment and the body marks the same delta, from the
+    same two sets but by separate code. If they disagree, one of them is lying
+    to a reader who has no way to tell which -- so the body carries a marker
+    exactly when a comment is posted, and carries none when none is.
+    """
+    report = _load()
+    data = report._topics_data()
+    promoted = data.promote(MOVED)
+    for previous in (frozenset(), promoted, promoted | {"gone"}, frozenset({"alpha"})):
+        text = report.body(MOVED, promoted, "x", previous=previous)
+        marked = "**(new)**" in text or "Held back since the last run" in text
+        assert marked == (report.changes(previous, promoted) is not None)
