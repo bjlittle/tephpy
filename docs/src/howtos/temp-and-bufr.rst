@@ -1,3 +1,5 @@
+:tags: sounding, data-input
+
 .. _howto-temp-and-bufr:
 
 Decode BUFR With ecCodes

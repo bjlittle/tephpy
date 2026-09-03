@@ -137,26 +137,40 @@ gallery spec §3.6 records why that is the single declaration: it is the only sp
 sphinx-gallery reads, a misspelling is discarded in silence, and `remove_config_comments`
 keeps the flag off the rendered page.
 
-**Narrative pages** declare an rST field list under the title:
+**Narrative pages** declare an rST field list on the **first line of the file**, above
+the `.. _label:` target where there is one:
 
 ```rst
+:tags: units, sounding
+
+.. _howto-units:
+
 Work With Units
 ===============
 
-:tags: units, sounding
+.. readingtime::
 ```
 
-Sphinx's metadata collector lifts a docinfo field list into `env.metadata[docname]` and
-removes it from the doctree. The extension therefore reads a plain dict, with no directive
-class to write, and nothing renders on the page — which matters here specifically, because
-a rendering directive would have to coexist with the `readingtime` banner at the top of
-these same pages.
+The position is the whole rule, and it was measured rather than reasoned. Sphinx's
+metadata collector lifts a docinfo field list into `env.metadata[docname]` and removes it
+from the doctree — so it renders nothing, which matters here specifically, because a
+rendering directive would have to coexist with the `readingtime` banner at the top of
+these same pages. But it does that only for a field list **preceding every other piece of
+markup**. A field list written under the title, which this section first proposed, leaves
+`env.metadata` empty and renders a visible definition list at the reader: the exact
+failure this section named as its risk. Measured on 2026-09-03 against a build in the
+`docs` environment, in three placements. `env.metadata` holds the field body as one
+string, `{'tags': 'units, sounding'}`, so the adapter splits on commas.
 
-This mechanism is **unverified as of 2026-09-03** and is the first thing the implementation
-establishes: that a field list declared alongside the `readingtime` directive still reaches
-`env.metadata` rather than rendering as a stray definition list. §8 carries it as an open
-item. If it does not hold, the fallback is a `.. topics::` directive that stores into
-`env` and renders nothing, at the cost of a directive class.
+The declaration has one consequence outside Sphinx. `check_glossary_links.py` reads a
+page's lines as narrative prose and requires the first mention of a glossary term to
+carry `:term:`; a `:tags:` line scanned as prose makes the tag list that first mention,
+and demands a role a docinfo field list cannot carry. Four vocabulary terms are also
+glossary spellings — `isopleths`, `parcel`, `projection`, `sounding` — so this is not a
+corner case; measured over the tagged corpus, the unfixed gate reported sixteen unlinked
+mentions across eleven pages, every one of them the `:tags:` line itself. `prose()`
+therefore skips a leading field list, in the same category as the rule it already carries
+for a directive's options and body.
 
 (topics-spec-3-3)=
 ### 3.3 The vocabulary
@@ -464,10 +478,10 @@ separately as {issue}`261`; and the five example files, whose tags are already c
 
 Tagged per docs spec §3.5.
 
-- **Open** — **the field-list metadata mechanism (§3.2).** That a `:tags:` docinfo field
-  list reaches `env.metadata` while the `readingtime` directive sits at the top of the same
-  page is reasoned but unverified as of 2026-09-03. It is implementation step one, and the
-  fallback is a non-rendering directive.
+- **Closed** (2026-09-03) — **the field-list metadata mechanism (§3.2).** Established by
+  build: a `:tags:` field list reaches `env.metadata` and renders nothing, but only on
+  the first line of the file, not under the title as this document first proposed. §3.2
+  carries the measurement and the correction. The fallback directive was not needed.
 
 - **Open** — **`sphinx-tags` was reasoned about rather than probed (§5).** The rejection
   rests on sphinx-gallery locking its tags into the example source, which is documented

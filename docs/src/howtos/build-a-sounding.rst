@@ -1,3 +1,5 @@
+:tags: sounding, data-input
+
 .. _howto-build-a-sounding:
 
 Build a Sounding From Your Own Data

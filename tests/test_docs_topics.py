@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from tephpy import examples
 from tests.ext_modules import load
 
 topics = load("tephpy_topics_data")
@@ -139,3 +142,174 @@ def test_coverage_reports_the_quadrants_each_term_appears_in():
     assert found["spanning"] == frozenset({"tutorials", "howtos"})
     assert found["solo"] == frozenset({"gallery"})
     assert set(found) == {"spanning", "narrow", "broad", "halved", "solo"}
+
+
+REPO = Path(__file__).parents[1]
+DOCS = REPO / "docs" / "src"
+EXAMPLES = Path(examples.__file__).parent
+
+#: The three quadrants of topics spec §3.1. The reference quadrant is out -- its
+#: pages are lookup surfaces reached by name, and the generated API is ninety-four
+#: objects that would dominate any filter built over the same buttons. The
+#: developer section is out because :issue:`66` is expected to change which pages
+#: exist there, and tagging a set about to be rewritten files the wrong set.
+NARRATIVE = ("tutorials", "howtos", "explanation")
+
+
+def narrative_pages(docs: Path = DOCS) -> list[Path]:
+    """Every hand-written page of the three narrative quadrants.
+
+    Discovered rather than listed (topics spec §3.1), so a page added tomorrow
+    fails this gate until it declares tags. A hand-maintained list is one a new
+    page silently misses.
+
+    Parameters
+    ----------
+    docs : Path, optional
+        The documentation source root. It defaults to this repository's; a test
+        passes a tree of its own.
+
+    Returns
+    -------
+    list of Path
+        The quadrants' pages, sorted, without their landing pages.
+
+    """
+    found: list[Path] = []
+    for quadrant in NARRATIVE:
+        found.extend(
+            path
+            for path in sorted((docs / quadrant).glob("*.rst"))
+            if path.name != "index.rst"
+        )
+    return found
+
+
+def corpus() -> dict[str, tuple[str, list[str]]]:
+    """Return the tagged corpus of topics spec §3.1.
+
+    Returns
+    -------
+    dict
+        ``"<quadrant>/<stem>"`` to ``(quadrant, tags)``.
+
+    """
+    found = {
+        f"{page.parent.name}/{page.stem}": (
+            page.parent.name,
+            topics.read_page_tags(page.read_text(encoding="utf-8")),
+        )
+        for page in narrative_pages()
+    }
+    found.update(
+        {
+            f"gallery/{path.stem}": (
+                "gallery",
+                topics.read_gallery_tags(path.read_text(encoding="utf-8")),
+            )
+            for path in sorted(EXAMPLES.glob("plot_*.py"))
+        }
+    )
+    return found
+
+
+def test_the_corpus_is_not_empty():
+    """A gate that finds nothing passes by never having looked."""
+    assert len(corpus()) > 15
+
+
+def test_the_corpus_holds_a_member_of_every_quadrant_it_governs():
+    """Membership, not a count: a count is a figure that must be re-measured."""
+    found = corpus()
+    for member in (
+        "tutorials/first-tephigram",
+        "howtos/units",
+        "explanation/rotated-axes",
+        "gallery/plot_tephigram",
+    ):
+        assert member in found, f"{member} is missing from the corpus"
+
+
+def test_the_corpus_excludes_the_quadrant_landing_pages():
+    """A landing page is a toctree, and tagging one files the toctree."""
+    assert not any(name.endswith("/index") for name in corpus())
+
+
+def test_narrative_pages_discovers_a_synthetic_tree_of_its_own(tmp_path):
+    """The discovery is exercised directly, not only against this repository.
+
+    Against the real tree every assertion about exclusion passes whether or not
+    the rule is applied, because the tree happens not to contain the thing being
+    excluded. A tree built here always does.
+    """
+    for relative in (
+        "tutorials/index.rst",
+        "tutorials/a-lesson.rst",
+        "howtos/index.rst",
+        "howtos/a-recipe.rst",
+        "explanation/index.rst",
+        "explanation/some-background.rst",
+        "reference/glossary.rst",
+    ):
+        page = tmp_path / relative
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text("Title\n=====\n", encoding="utf-8")
+
+    found = {
+        path.relative_to(tmp_path).as_posix() for path in narrative_pages(tmp_path)
+    }
+    assert found == {
+        "tutorials/a-lesson.rst",
+        "howtos/a-recipe.rst",
+        "explanation/some-background.rst",
+    }
+
+
+@pytest.mark.parametrize("item", sorted(corpus()))
+def test_every_item_declares_two_to_four_tags(item):
+    """Topics spec §3.7, assertion 1, over a discovered corpus (assertion 4).
+
+    An untagged narrative page fails here from the day it lands, which is the
+    whole reason the corpus is discovered rather than listed.
+    """
+    _, tags = corpus()[item]
+    assert tags, (
+        f"{item} declares no tags: put `:tags: <two to four terms>` on the FIRST "
+        f"line of the file, above the `.. _label:` target, followed by a blank "
+        f"line. Sphinx reads a field list into page metadata only where it "
+        f"precedes all other markup; under the title it renders at the reader "
+        f"instead (topics spec §3.2)."
+    )
+    assert topics.MIN_TAGS <= len(tags) <= topics.MAX_TAGS, (
+        f"{item} declares {len(tags)} tags: {tags}"
+    )
+
+
+@pytest.mark.parametrize("item", sorted(corpus()))
+def test_every_declared_tag_is_in_the_vocabulary(item):
+    """Topics spec §3.7, assertion 2, and the growth mechanism of topics spec §3.3.
+
+    An unknown term fails here, and the fix is to add it to `VOCABULARY` *and* to
+    the covers/not table together -- a term with no stated edge is one two people
+    apply differently, and nothing here can see that.
+    """
+    _, tags = corpus()[item]
+    unknown = sorted(set(tags) - topics.VOCABULARY)
+    assert not unknown, (
+        f"{item} declares {unknown}, which is not in the vocabulary of topics "
+        f"spec §3.3. Add the term to VOCABULARY in "
+        f"docs/src/_ext/tephpy_topics_data.py and its covers/not definition to "
+        f"that table, in the same change."
+    )
+
+
+def test_every_vocabulary_term_is_used():
+    """Topics spec §3.7, assertion 3: an unused term is a typo or a residue.
+
+    It is the direction the per-item tests cannot check. A term nothing declares
+    survives every one of them, and is either a misspelling of a term that is used
+    or what a deleted page left behind.
+    """
+    used = set(topics.coverage(corpus()))
+    unused = sorted(topics.VOCABULARY - used)
+    assert not unused, f"no item declares {unused}"

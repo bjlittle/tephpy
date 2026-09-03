@@ -1,3 +1,5 @@
+:tags: diagram, isopleths, projection
+
 .. _explanation-rotated-axes:
 
 Why the Axes Are Rotated

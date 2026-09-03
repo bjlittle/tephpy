@@ -1,3 +1,5 @@
+:tags: diagram, isopleths, sounding
+
 .. _tutorial-first-tephigram:
 
 Your First Tephigram

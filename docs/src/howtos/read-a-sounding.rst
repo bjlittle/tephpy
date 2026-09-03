@@ -1,3 +1,5 @@
+:tags: sounding, data-input
+
 .. _howto-read-a-sounding:
 
 Read a Sounding From an Archive

@@ -1,3 +1,5 @@
+:tags: diagram, labels, isopleths
+
 .. _howto-label-and-compose:
 
 Label and Compose the Diagram
