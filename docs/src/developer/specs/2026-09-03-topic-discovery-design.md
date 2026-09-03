@@ -431,10 +431,9 @@ The eight-term promoted set of §3.4 is computed from a tagging proposed on 2026
 reading each page's title, section headings, `ax.*` calls and glossary references, and
 **confirmed on 2026-09-03**: the gallery's five rows are the tags those files already
 declare, and the fourteen narrative rows were checked against the covers/not table of
-§3.3 as each page gained its `:tags:` field list, revising none of them. A reviewer
-independently spot-checked three pages, including the two closest calls, and reached the
-same tags. The promoted set of §3.4 therefore now rests on a measurement of the tagged
-pages rather than on this table's original proposal.
+§3.3 as each page gained its `:tags:` field list, revising none of them. The promoted set
+of §3.4 therefore now rests on a measurement of the tagged pages rather than on this
+table's original proposal.
 
 | quadrant | item | tags |
 |---|---|---|
