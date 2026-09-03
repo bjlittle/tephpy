@@ -168,9 +168,9 @@ carry `:term:`; a `:tags:` line scanned as prose makes the tag list that first m
 and demands a role a docinfo field list cannot carry. Four vocabulary terms are also
 glossary spellings — `isopleths`, `parcel`, `projection`, `sounding` — so this is not a
 corner case; measured over the tagged corpus, the unfixed gate reported sixteen unlinked
-mentions across eleven pages, every one of them the `:tags:` line itself. `prose()`
-therefore skips a leading field list, in the same category as the rule it already carries
-for a directive's options and body.
+mentions across thirteen of the fourteen pages, every one of them the `:tags:` line
+itself. `prose()` therefore skips a leading field list, in the same category as the rule
+it already carries for a directive's options and body.
 
 (topics-spec-3-3)=
 ### 3.3 The vocabulary
