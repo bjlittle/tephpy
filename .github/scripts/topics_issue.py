@@ -43,13 +43,6 @@ TITLE = "Topic coverage"
 #: moment the table's wording changed.
 STATE = re.compile(r"<!-- topics-state: (?P<value>\{.*?\}) -->", re.DOTALL)
 
-#: The three quadrants whose pages declare tags in page metadata, and the order
-#: `narrative_pages` walks them in. Mirrors `tests/test_docs_topics.py`'s copy of
-#: the same rule -- the two are two readers of one corpus, sharing the extraction
-#: functions (`read_page_tags`, `read_gallery_tags`) and not the traversal, and
-#: `test_the_corpus_matches_the_gate_s` is what pins them to agreement.
-NARRATIVE = ("tutorials", "howtos", "explanation")
-
 #: What each quadrant is called in the rendered matrix. Presentation, not
 #: taxonomy -- `tephpy_topics.py`'s `LABELS` makes the same separation for the
 #: published index, and this report has its own opinion of the word for the
@@ -136,10 +129,10 @@ def narrative_pages(docs: Path) -> list[Path]:
 
     """
     found: list[Path] = []
-    for quadrant in NARRATIVE:
+    for quadrant in topics.NARRATIVE:
         found.extend(
             path
-            for path in sorted((docs / quadrant).glob("*.rst"))
+            for path in sorted((docs / quadrant).rglob("*.rst"))
             if path.name != "index.rst"
         )
     return found

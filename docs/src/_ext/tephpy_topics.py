@@ -37,11 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: The three quadrants whose pages declare tags in page metadata. The gallery's
-#: five declare in their own source, which is the only spelling sphinx-gallery
-#: reads (topics spec §3.2).
-NARRATIVE = ("tutorials", "howtos", "explanation")
-
 #: What each quadrant is called on the page. Presentation rather than taxonomy,
 #: so it lives here and not in the data module -- nothing in the promotion rule
 #: or the gate has an opinion about the word "How-To Guides".
@@ -124,7 +119,7 @@ def build_corpus(app: Sphinx) -> dict[str, tuple[str, list[str]]]:
     found: dict[str, tuple[str, list[str]]] = {}
     for docname in sorted(env.found_docs):
         quadrant, _, stem = docname.partition("/")
-        if quadrant not in NARRATIVE or not stem or stem == "index":
+        if quadrant not in data.NARRATIVE or not stem or stem == "index":
             continue
         tags = data.split_tags(env.metadata.get(docname, {}).get("tags", ""))
         # The gate reads these declarations out of the source text and this reads

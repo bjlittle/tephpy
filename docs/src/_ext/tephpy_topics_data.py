@@ -82,6 +82,15 @@ MIN_QUADRANTS = 2
 #: quadrant and the developer section are out.
 QUADRANTS = ("tutorials", "howtos", "explanation", "gallery")
 
+#: The three quadrants whose pages declare tags in page metadata rather than in
+#: their own source (topics spec §3.2) -- `QUADRANTS` less the gallery, which
+#: declares in `sphinx_gallery_tags` in the example file instead. The one home
+#: for the set: the extension, the gate and the report each traverse it
+#: differently -- the extension walks `env.found_docs`, the other two the
+#: filesystem -- but none of them should own its own copy of which three
+#: quadrants those are.
+NARRATIVE = ("tutorials", "howtos", "explanation")
+
 #: sphinx-gallery reads exactly this flag and silently discards any other
 #: spelling, so this pattern is deliberately as strict as its parser (gallery
 #: spec §3.6). Moved here from ``tests/examples/test_examples.py``, which now

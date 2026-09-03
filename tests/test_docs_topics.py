@@ -148,13 +148,6 @@ REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
 EXAMPLES = Path(examples.__file__).parent
 
-#: The three quadrants of topics spec §3.1. The reference quadrant is out -- its
-#: pages are lookup surfaces reached by name, and the generated API is ninety-four
-#: objects that would dominate any filter built over the same buttons. The
-#: developer section is out because :issue:`66` is expected to change which pages
-#: exist there, and tagging a set about to be rewritten files the wrong set.
-NARRATIVE = ("tutorials", "howtos", "explanation")
-
 
 def narrative_pages(docs: Path = DOCS) -> list[Path]:
     """Every hand-written page of the three narrative quadrants.
@@ -176,10 +169,10 @@ def narrative_pages(docs: Path = DOCS) -> list[Path]:
 
     """
     found: list[Path] = []
-    for quadrant in NARRATIVE:
+    for quadrant in topics.NARRATIVE:
         found.extend(
             path
-            for path in sorted((docs / quadrant).glob("*.rst"))
+            for path in sorted((docs / quadrant).rglob("*.rst"))
             if path.name != "index.rst"
         )
     return found
