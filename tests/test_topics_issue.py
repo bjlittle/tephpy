@@ -470,3 +470,62 @@ def test_the_body_and_the_comment_never_tell_different_stories():
         text = report.body(MOVED, promoted, "x", previous=previous)
         marked = "**(new)**" in text or "Held back since the last run" in text
         assert marked == (report.changes(previous, promoted) is not None)
+
+
+def test_the_dated_record_outlives_the_new_markers():
+    """The finding on :pull:`268`: the markers alone answer for one month only.
+
+    `(new)` means "moved at the most recent run" and is gone at the next, which
+    is correct -- calling a term new a year after it promoted would be false.
+    So the body also carries a dated record of when the set last moved, and that
+    is what a reader arriving in a quiet month reads instead of the comments.
+    """
+    report = _load()
+    data = report._topics_data()
+    promoted = data.promote(MOVED)
+    record = {"at": "2026-10-01", "gained": ["beta"], "lost": []}
+
+    moved = report.body(MOVED, promoted, "x", promoted - {"beta"}, record)
+    assert "`beta` **(new)**" in moved
+    assert "**Last change** — 2026-10-01: `beta` promoted." in moved
+
+    quiet = report.body(MOVED, promoted, "x", promoted, record)
+    assert "**(new)**" not in quiet
+    assert "**Last change** — 2026-10-01: `beta` promoted." in quiet
+
+
+def test_the_record_names_both_directions_when_both_moved():
+    report = _load()
+    data = report._topics_data()
+    record = {"at": "2026-11-01", "gained": ["beta"], "lost": ["gone"]}
+    text = report.body(MOVED, data.promote(MOVED), "x", frozenset(), record)
+    assert "**Last change** — 2026-11-01: `beta` promoted; `gone` held back." in text
+
+
+def test_the_record_round_trips_through_the_state_marker():
+    """The record is state, so it takes the round trip the promoted set takes.
+
+    A record that cannot be read back would be silently dropped on the next
+    quiet run, restoring exactly the one-month lifetime this exists to fix --
+    and the body would still look correct on the run that wrote it.
+    """
+    report = _load()
+    data = report._topics_data()
+    record = {"at": "2026-10-01", "gained": ["beta"], "lost": ["gone"]}
+    text = report.body(MOVED, data.promote(MOVED), "x", frozenset(), record)
+    assert report.read_last_change(text) == record
+    assert report.read_state(text) == data.promote(MOVED)
+
+
+def test_a_body_recording_no_change_yet_reads_as_none_rather_than_failing():
+    """Its absence is ordinary, unlike the promoted set's.
+
+    A body written before this was recorded -- the live issue is one -- and the
+    body the creating run writes both carry no record, and neither is an error.
+    """
+    report = _load()
+    data = report._topics_data()
+    text = report.body(MOVED, data.promote(MOVED), "x", None, None)
+    assert report.read_last_change(text) is None
+    assert "Last change" not in text
+    assert report.read_last_change("no marker here at all") is None
