@@ -1,0 +1,6 @@
+The monthly topic-coverage report now marks in the issue body what moved since
+the last run — a newly promoted term as ``(new)``, and a term that left named
+beneath the list — rather than saying so only in a comment. The body is a
+standing dashboard, and a reader opening it later should not have to scroll the
+comment history to learn what recently changed.
+(:user:`claude`)

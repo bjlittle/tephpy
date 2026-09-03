@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from datetime import UTC, datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -268,10 +269,59 @@ def too_broad(
     return sorted(found, key=lambda entry: (-entry[1], entry[0]))
 
 
-def _state_line(promoted: frozenset[str]) -> str:
-    """Return the `STATE` marker carrying `promoted`, for the end of the body."""
-    payload = json.dumps({"promoted": sorted(promoted)})
-    return f"<!-- topics-state: {payload} -->"
+def _state_line(
+    promoted: frozenset[str], last_change: Mapping[str, object] | None = None
+) -> str:
+    """Return the `STATE` marker, for the end of the body.
+
+    Carries the promoted set, and the last run at which it moved. The second is
+    what lets a quiet month still say when something last happened: a marker
+    meaning "moved at the most recent run" is honest but lives one month, and a
+    dashboard for a package under long-term maintenance has to answer the
+    question later than that.
+    """
+    payload: dict[str, object] = {"promoted": sorted(promoted)}
+    if last_change is not None:
+        payload["last_change"] = last_change
+    return f"<!-- topics-state: {json.dumps(payload)} -->"
+
+
+def read_last_change(text: str) -> dict[str, object] | None:
+    """Return the last recorded change, or None if the body records none.
+
+    Absent from a body written before this was recorded, and from the body the
+    creating run writes, so its absence is ordinary rather than an error --
+    unlike the promoted set, whose absence `read_state` refuses.
+
+    Parameters
+    ----------
+    text : str
+        The issue body, as read back from GitHub.
+
+    Returns
+    -------
+    dict or None
+        ``{"at": <ISO date>, "gained": [...], "lost": [...]}``, or None.
+
+    """
+    match = STATE.search(text)
+    if match is None:
+        return None
+    payload = json.loads(match.group("value"))
+    found = payload.get("last_change")
+    return found if isinstance(found, dict) else None
+
+
+def _last_change_line(record: Mapping[str, object]) -> str:
+    """Render the dated record of when the promoted set last moved."""
+    gained = [str(term) for term in record.get("gained", [])]
+    lost = [str(term) for term in record.get("lost", [])]
+    parts = []
+    if gained:
+        parts.append(", ".join(f"`{term}`" for term in gained) + " promoted")
+    if lost:
+        parts.append(", ".join(f"`{term}`" for term in lost) + " held back")
+    return f"**Last change** — {record.get('at', 'unknown')}: " + "; ".join(parts) + "."
 
 
 def read_state(text: str) -> frozenset[str]:
@@ -343,6 +393,8 @@ def body(
     items: Mapping[str, tuple[str, Sequence[str]]],
     promoted: frozenset[str],
     run_url: str,
+    previous: frozenset[str] | None = None,
+    last_change: Mapping[str, object] | None = None,
 ) -> str:
     """Return the issue body (topics spec §3.8).
 
@@ -358,6 +410,13 @@ def body(
         The terms that currently earn a filter button.
     run_url : str
         A link to the workflow run.
+    previous : frozenset of str, optional
+        The promoted set the last run recorded, used to mark what moved since.
+        ``None`` on the run that creates the issue, where there is no previous
+        set and marking all of it new would say nothing.
+    last_change : mapping, optional
+        The dated record of when the set last moved, carried forward across
+        quiet runs. ``None`` until something has moved at least once.
 
     Returns
     -------
@@ -365,7 +424,19 @@ def body(
         GitHub-flavoured Markdown, ending in the `STATE` marker.
 
     """
-    named = ", ".join(f"`{term}`" for term in sorted(promoted))
+    # What moved is marked in the body and not only announced in a comment.
+    # The comment is the notification and reaches a reader once; the body is
+    # what somebody opens in a year's time, and a dashboard that cannot say
+    # what recently changed sends them scrolling through every comment since.
+    # The marker means "moved at the most recent run" and clears itself at the
+    # next one, which is why it needs no state of its own -- `previous` is
+    # already read to compose the comment.
+    gained = promoted - previous if previous is not None else frozenset()
+    lost = previous - promoted if previous is not None else frozenset()
+    named = ", ".join(
+        f"`{term}` **(new)**" if term in gained else f"`{term}`"
+        for term in sorted(promoted)
+    )
     lines = [
         (
             "The standing coverage report of topics spec §3.8. This body is the "
@@ -378,6 +449,22 @@ def body(
         "",
         named or "None currently promoted.",
         "",
+        *(
+            [
+                "Held back since the last run: "
+                + ", ".join(f"`{term}`" for term in sorted(lost))
+                + ".",
+                "",
+            ]
+            if lost
+            else []
+        ),
+        # The dated record, which outlives the `(new)` markers above. Those mean
+        # "moved at the most recent run" and are gone a month later, by design --
+        # calling a term new a year after it promoted would be false. This says
+        # when the set last moved and what moved, and stays until it moves again,
+        # so a quiet month still answers the question without the comment history.
+        *([_last_change_line(last_change), ""] if last_change else []),
         "## Coverage matrix",
         "",
         matrix(items),
@@ -420,7 +507,7 @@ def body(
     lines += [
         f"**Run:** {run_url}",
         "",
-        _state_line(promoted),
+        _state_line(promoted, last_change),
     ]
     return "\n".join(lines).rstrip() + "\n"
 
@@ -474,14 +561,16 @@ def main() -> int:
     # than one that fails (topics spec §3.4).
     items = corpus(REPO)
     promoted = topics.promote(items)
-    text = body(items, promoted, args.run_url)
 
     if args.dry_run:
-        print(text)
+        print(body(items, promoted, args.run_url))
         return 0
 
+    # Looked up before the body is composed, not after: the body now marks what
+    # moved since the last run, so it needs the previous run's state.
     found = _standing_issue()
     if found is None:
+        text = body(items, promoted, args.run_url)
         try:
             subprocess.run(  # noqa: S603 -- fixed argv, gh resolved off PATH
                 [
@@ -517,7 +606,19 @@ def main() -> int:
     # A body the marker cannot be read from is let raise (topics spec §3.8):
     # treating it as "nothing was promoted before" would report every term as
     # newly promoted, which looks like a working report and is not one.
-    delta = changes(read_state(previous_body), promoted)
+    previous = read_state(previous_body)
+    delta = changes(previous, promoted)
+    # A change stamps a new dated record; a quiet run carries the old one
+    # forward untouched, which is what keeps the dashboard answering "when did
+    # this last move" for longer than the month it moved in.
+    last_change = read_last_change(previous_body)
+    if delta is not None:
+        last_change = {
+            "at": datetime.now(tz=UTC).date().isoformat(),
+            "gained": sorted(promoted - previous),
+            "lost": sorted(previous - promoted),
+        }
+    text = body(items, promoted, args.run_url, previous, last_change)
     subprocess.run(  # noqa: S603 -- fixed argv, gh resolved off PATH
         [_gh(), "issue", "edit", number, "--body", text], check=True
     )
