@@ -370,10 +370,11 @@ The list is checked for staleness, not for length: it is expected to grow.
 That leaves **31 pages carrying the directive**, out of 44 published: the nine how-tos,
 three tutorials, two explanation pages, `developer/docs-style.rst`,
 `developer/packaging.rst`, and the fifteen published specifications, this document among
-them. The counts are stated because §6 pins them by enumeration, not by arithmetic — and
-they are a snapshot, measured against `published_pages()`, `carrying_pages()` and
-`EXEMPT` in `tests/test_docs_readingtime.py` on 2026-09-03, not an invariant: nothing
-gates them, and both totals move whenever a page is added, exempted, or unexempted.
+them. The counts are a snapshot, measured against `published_pages()`, `carrying_pages()`
+and `EXEMPT` in `tests/test_docs_readingtime.py` on 2026-09-03, not an invariant: nothing
+gates them, and both totals move whenever a page is added, exempted, or unexempted. §6's own
+"Membership, not counts" is the reason nothing here does either — a count is a figure that
+has to be re-measured to stay true, which is exactly what this paragraph is doing by hand.
 
 (reading-spec-4)=
 ## 4. Companion changes

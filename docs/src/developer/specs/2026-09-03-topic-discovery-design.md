@@ -474,8 +474,12 @@ a rule test pass or fail for the wrong reason.
 ### 6.3 What is not gated
 
 The page's rendering. Whether the filter buttons work is a browser question, and this
-project gates correctness of content rather than of presentation. The build asserts the
-page exists and carries one `data-topics` attribute per item; the filter itself was
+project gates correctness of content rather than of presentation. Nothing asserts that the
+page carries one `data-topics` attribute per item — that is a property of how `tephpy_topics.py`
+constructs the page, not something checked. What the build does assert, at `doctree-resolved`:
+`build_corpus` raises if the corpus is empty, and — because the build runs
+`--fail-on-warning` — it fails if a narrative page declares no tags, or if its source
+declaration disagrees with what Sphinx read into `env.metadata`. The filter itself was
 checked by hand on 2026-09-03, against `docs/_build/html/topics.html` loaded as a
 `file://` URL, in Chrome for Testing 151.0.7922.34 driven through Playwright. Checked,
 and observed to hold:
@@ -491,8 +495,10 @@ and observed to hold:
    when clicked.
 6. Selecting a topic added `?topics=…` to the URL, and reloading that URL restored the
    selection.
-7. A hand-written `?topics=nonsense` was ignored: every item stayed listed and no button
-   showed as active.
+7. A hand-written `?topics=nonsense` was ignored: every item stayed listed, no button
+   showed as active, and the unrecognised parameter was stripped from the address bar —
+   `topics.js` runs `params.delete(PARAM)` whenever the selection is empty, which an
+   unrecognised term leaves it.
 8. With JavaScript disabled (`browser.new_context(java_script_enabled=False)`), the filter
    bar did not appear and every item was listed.
 
