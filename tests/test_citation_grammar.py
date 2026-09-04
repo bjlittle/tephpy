@@ -9,14 +9,11 @@ from __future__ import annotations
 
 import itertools
 import json
-from pathlib import Path
 
 import nbformat
 import pytest
 
 from tests.by_path import load_ext
-
-REPO = Path(__file__).parents[1]
 
 # As in `test_citations.py`: this file sits inside the corpus the checker reads
 # (docs spec §3.6), so the fixtures below build the section sign rather than

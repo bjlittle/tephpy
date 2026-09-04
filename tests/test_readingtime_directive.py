@@ -6,13 +6,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from tests.by_path import load_ext
-
-REPO = Path(__file__).parents[1]
 
 # The directive imports Sphinx, which only the `docs` feature installs, so this
 # module is unimportable in the `test-py3*` environments the CI matrix runs. It is

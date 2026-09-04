@@ -17,14 +17,9 @@ labels". They are what the unit cases below pin.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from tests.by_path import load_script
-
-REPO = Path(__file__).parents[1]
-
 
 gate = load_script("check_glossary_links")
 

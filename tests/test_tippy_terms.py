@@ -6,13 +6,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from tests.by_path import load_ext
-
-REPO = Path(__file__).parents[1]
 
 # `sphinx_tippy` lives only in the `docs` feature (tooltip spec §3.1), so this
 # module is unimportable in the `test-py3*` environments the CI matrix runs.
