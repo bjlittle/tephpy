@@ -62,7 +62,6 @@ tephpy = [
   # demonstrate both routes into a `Sounding` offline (narrative spec §3.6).
   "samples/*.txt",
   "samples/*.csv",
-  "examples/GALLERY_HEADER.rst",
 ]
 
 [tool.setuptools.packages.find]
