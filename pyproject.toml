@@ -87,8 +87,9 @@ markers = ["mpl_image_compare: matplotlib image comparison tests"]
 minversion = "8.0"
 mpl-baseline-path = "tests/baseline"
 mpl-results-path = ".mpl-results"
-# The tests tree is a package and three of its modules import a sibling through
-# it. Under `--import-mode=importlib` a pytest below 8.2 leaves that dotted name
+# The tests tree is a package and most of its modules import a sibling through
+# it -- `tests/by_path.py` and `tests/pixi_tasks.py` are the two they share
+# (:issue:`265`). Under `--import-mode=importlib` a pytest below 8.2 leaves that dotted name
 # to `sys.path`, where the repository root sits only if pytest was started in a
 # way that puts it there -- `python -m pytest` does, the console script does not.
 # The two halves of `ci-floors` start it the two ways and disagreed for a week

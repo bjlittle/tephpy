@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 
 from tephpy import examples
-from tests.ext_modules import load
+from tests.by_path import load_ext
 
-topics = load("tephpy_topics_data")
+topics = load_ext("tephpy_topics_data")
 
 
 def test_the_vocabulary_is_the_seventeen_terms_the_specification_defines():

@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-import sys
 
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_citations.py"
@@ -40,18 +40,7 @@ tracked = pytest.mark.skipif(
 SECTION = "\N{SECTION SIGN}"
 
 
-def _load():
-    """Import the checker by path; ``.github`` is not an importable package."""
-    spec = importlib.util.spec_from_file_location("check_citations", SCRIPT)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-cc = _load() if SCRIPT.is_file() else None
+cc = load_script("check_citations") if SCRIPT.is_file() else None
 
 
 def test_fenced_blocks_are_skipped():

@@ -8,18 +8,17 @@ from __future__ import annotations
 
 from email.parser import BytesParser
 import hashlib
-import importlib.util
 import json
 import math
 from pathlib import Path
 import subprocess
-import sys
 import tomllib
 from zipfile import ZipFile
 
 import pytest
 
 from tephpy.exceptions import DewpointExceedsTemperatureError
+from tests.by_path import load_path
 
 REPOSITORY = Path(__file__).parents[1]
 DEMO_SOURCE = REPOSITORY / "docs" / "browser" / "browser_demo.py"
@@ -30,17 +29,8 @@ TOOLBAR_ASSETS = REPOSITORY / "docs" / "src" / "_static" / "browser-toolbar"
 DOCS_REQUIREMENTS = REPOSITORY / "requirements" / "pypi-optional-docs.txt"
 
 
-def _load(name, path):
-    """Import a checkout-only documentation helper by path."""
-    specification = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(specification)
-    sys.modules[name] = module
-    specification.loader.exec_module(module)
-    return module
-
-
-demo = _load("tephpy_browser_demo", DEMO_SOURCE)
-builder = _load("tephpy_browser_builder", BUILD_SOURCE)
+demo = load_path("tephpy_browser_demo", DEMO_SOURCE)
+builder = load_path("tephpy_browser_builder", BUILD_SOURCE)
 
 
 def test_read_the_docs_stages_browser_app_before_sphinx():

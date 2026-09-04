@@ -93,7 +93,7 @@ def _topics_data() -> ModuleType:
 
     ``docs/src/_ext`` is a ``sys.path`` entry at Sphinx build time rather than a
     package (:issue:`92`), and this script runs outside that build -- so it
-    loads the module the same way `tests/ext_modules.py` does for the test
+    loads the module the same way `tests/by_path.py` does for the test
     suite, rather than depending on a test helper from a script the sdist does
     not ship.
 

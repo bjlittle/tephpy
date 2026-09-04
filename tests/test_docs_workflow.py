@@ -18,16 +18,15 @@ documentation tier names its tasks the same way (:issue:`178`).
 from __future__ import annotations
 
 import ast
-import importlib.util
 from pathlib import Path
 import re
 import subprocess
-import sys
 import tomllib
 
 import pytest
 import yaml
 
+from tests.by_path import load_script
 from tests.pixi_tasks import commands, invocations, runs, unsatisfied
 
 REPO = Path(__file__).parents[1]
@@ -46,22 +45,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _load(path: Path):
-    """Import a script by path; ``.github`` is not an importable package."""
-    if str(SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS))
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 #: The demo script, imported rather than only parsed. It reaches Playwright from
 #: inside `main()` precisely so that this import needs nothing the `test`
 #: environments lack -- they carry no `docs` feature, and a module-scope import
 #: of Playwright would turn everything below that reads this into a skip.
-demo = _load(SCRIPT) if SCRIPT.is_file() else None
+demo = load_script("check_browser_demo") if SCRIPT.is_file() else None
 
 #: Minutes the job needs for everything that is not one of the bounded steps --
 #: the checkout, the pixi environment, the documentation build and the five

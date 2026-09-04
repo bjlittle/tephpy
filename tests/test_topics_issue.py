@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +14,7 @@ import sys
 import pytest
 import yaml
 
+from tests.by_path import load_script
 from tests.test_docs_topics import corpus as gated
 
 REPO = Path(__file__).parents[1]
@@ -30,17 +30,6 @@ WORKFLOW = REPO / ".github" / "workflows" / "ci-topics.yml"
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
-
-
-def _load():
-    """Import the issue composer by path."""
-    spec = importlib.util.spec_from_file_location("topics_issue", SCRIPT)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["topics_issue"] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 #: A corpus small enough to read at a glance, with one term spanning three
@@ -64,12 +53,12 @@ def test_the_corpus_matches_the_gate_s():
     up as a report quietly describing a different corpus than the one
     published.
     """
-    report = _load()
+    report = load_script("topics_issue")
     assert report.corpus(REPO) == gated()
 
 
 def test_the_matrix_names_every_used_term_and_every_quadrant():
-    report = _load()
+    report = load_script("topics_issue")
     text = report.matrix(FIXTURE)
     for term in ("analysis", "diagram", "shading", "isopleths"):
         assert f"`{term}`" in text
@@ -81,7 +70,7 @@ def test_an_empty_cell_is_rendered_as_a_gap_and_not_omitted():
     # `diagram` sits in `tutorials` alone, so its row has three empty cells --
     # the report's entire second job is making those visible rather than
     # collapsing the row to the one quadrant it is in.
-    report = _load()
+    report = load_script("topics_issue")
     lines = report.matrix(FIXTURE).splitlines()
     row = next(line for line in lines if line.startswith("| `diagram` |"))
     assert row.count("—") == 3
@@ -96,14 +85,14 @@ def test_the_state_marker_round_trips():
     every month report every term as new, and the report would look like it was
     working -- it would be full of findings.
     """
-    report = _load()
+    report = load_script("topics_issue")
     promoted = frozenset({"analysis", "diagram", "isopleths"})
     text = report.body(FIXTURE, promoted, run_url="https://example.invalid/1")
     assert report.read_state(text) == promoted
 
 
 def test_changes_reports_a_newly_promoted_term():
-    report = _load()
+    report = load_script("topics_issue")
     text = report.changes(frozenset({"analysis"}), frozenset({"analysis", "shading"}))
     assert text is not None
     assert "Newly promoted" in text
@@ -112,7 +101,7 @@ def test_changes_reports_a_newly_promoted_term():
 
 
 def test_changes_reports_a_newly_held_back_term():
-    report = _load()
+    report = load_script("topics_issue")
     text = report.changes(frozenset({"analysis", "shading"}), frozenset({"analysis"}))
     assert text is not None
     assert "Newly held back" in text
@@ -121,19 +110,19 @@ def test_changes_reports_a_newly_held_back_term():
 
 
 def test_changes_is_none_when_the_promoted_set_is_unchanged():
-    report = _load()
+    report = load_script("topics_issue")
     same = frozenset({"analysis", "shading"})
     assert report.changes(same, same) is None
 
 
 def test_reading_a_body_with_no_marker_is_an_error():
-    report = _load()
+    report = load_script("topics_issue")
     with pytest.raises(ValueError, match="topics-state"):
         report.read_state("No marker here at all.")
 
 
 def test_the_body_carries_the_run_url_and_the_two_recorded_limits():
-    report = _load()
+    report = load_script("topics_issue")
     text = report.body(FIXTURE, frozenset({"analysis"}), "https://example.invalid/9")
     assert "https://example.invalid/9" in text
     assert "candidate for editorial judgement" in text
@@ -142,7 +131,7 @@ def test_the_body_carries_the_run_url_and_the_two_recorded_limits():
 
 
 def test_main_dry_run_prints_the_body_and_touches_no_network(capsys, monkeypatch):
-    report = _load()
+    report = load_script("topics_issue")
     calls = []
     monkeypatch.setattr(report.subprocess, "run", lambda *a, **_: calls.append(a))
     monkeypatch.setattr(sys, "argv", ["topics_issue.py", "--run-url", "u", "--dry-run"])
@@ -154,7 +143,7 @@ def test_main_dry_run_prints_the_body_and_touches_no_network(capsys, monkeypatch
 
 
 def test_main_creates_the_standing_issue_when_none_exists(monkeypatch):
-    report = _load()
+    report = load_script("topics_issue")
     calls = []
 
     def _run(command, **_):
@@ -171,7 +160,7 @@ def test_main_creates_the_standing_issue_when_none_exists(monkeypatch):
 
 
 def test_main_edits_the_body_and_comments_only_when_something_changed(monkeypatch):
-    report = _load()
+    report = load_script("topics_issue")
     calls = []
 
     def _run(command, **_):
@@ -188,7 +177,7 @@ def test_main_edits_the_body_and_comments_only_when_something_changed(monkeypatc
 
 
 def test_main_edits_the_body_and_posts_no_comment_when_nothing_changed(monkeypatch):
-    report = _load()
+    report = load_script("topics_issue")
     calls = []
 
     def _run(command, **_):
@@ -213,7 +202,7 @@ def test_a_missing_label_is_reported_comprehensibly_rather_than_a_traceback(
     # (confirmed by hand), and `gh issue create --label` fails on a label that
     # does not exist -- that failure would otherwise be the first scheduled
     # run, and it must not be a bare traceback.
-    report = _load()
+    report = load_script("topics_issue")
 
     def _run(command, **_):
         if command[1:3] == ["issue", "create"]:
@@ -231,7 +220,7 @@ def test_a_missing_label_is_reported_comprehensibly_rather_than_a_traceback(
 def test_reading_the_previous_body_with_no_marker_raises_rather_than_reports_nothing(
     monkeypatch,
 ):
-    report = _load()
+    report = load_script("topics_issue")
     calls = []
     monkeypatch.setattr(
         report.subprocess, "run", lambda command, **_: calls.append(command)
@@ -288,7 +277,7 @@ def test_json_data_written_and_read_by_state_round_trips_arbitrary_terms():
     # round trip has to survive a set with no members in common with the
     # fixture used elsewhere in this module -- not just the three terms the
     # headline test above pins.
-    report = _load()
+    report = load_script("topics_issue")
     promoted = frozenset(report.topics.VOCABULARY)
     text = report.body(FIXTURE, promoted, run_url="u")
     assert report.read_state(text) == promoted
@@ -306,7 +295,7 @@ def test_the_matrix_carries_a_column_total_per_quadrant():
     terms rather than tag occurrences -- `analysis` appears in three quadrants
     and must count once in each, not three times in any.
     """
-    report = _load()
+    report = load_script("topics_issue")
     rendered = report.matrix(FIXTURE)
     totals = [line for line in rendered.splitlines() if "terms covered" in line]
     assert len(totals) == 1, "the totals row is written once, at the foot"
@@ -319,7 +308,7 @@ def test_the_totals_count_a_quadrant_with_no_terms_as_zero():
     The same reason every quadrant gets a column even when a term is in none of
     them: the gap is the finding, and a missing total reads as an oversight.
     """
-    report = _load()
+    report = load_script("topics_issue")
     rendered = report.matrix({"a": ("tutorials", ["analysis"])})
     totals = next(line for line in rendered.splitlines() if "terms covered" in line)
     assert totals == "| **terms covered** | 1 | 0 | 0 | 0 |"
@@ -333,7 +322,7 @@ def test_too_broad_reports_a_term_selecting_exactly_half_the_corpus():
     boundary would be in neither and disappear from the report while also
     earning no button.
     """
-    report = _load()
+    report = load_script("topics_issue")
     items = {
         "a": ("tutorials", ["broad", "narrow"]),
         "b": ("howtos", ["broad"]),
@@ -352,7 +341,7 @@ def test_no_term_is_both_promoted_and_too_broad():
     to either threshold that broke the complement would otherwise show up as a
     term listed as a filter button and as too broad to be one.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     for items in (FIXTURE, report.corpus(REPO)):
         broad = {term for term, _, _ in report.too_broad(items)}
@@ -370,7 +359,7 @@ DISCRIMINATING = {
 
 def test_the_body_omits_the_broad_section_when_nothing_is_too_broad():
     """Omitting it is the point: an always-present empty heading is noise."""
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     assert not report.too_broad(DISCRIMINATING)
     text = report.body(
@@ -386,7 +375,7 @@ def test_the_body_carries_the_broad_section_when_something_is():
     issue body reads as prose, where the page's buttons read as titles, so the
     two mappings differ deliberately and this pins the one used here.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     items = {
         "a": ("tutorials", ["broad", "one"]),
@@ -421,7 +410,7 @@ def test_the_body_marks_a_newly_promoted_term_and_only_that_term():
     A reader opening the standing issue in a year should not have to scroll a
     year of comments to learn what recently changed.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     promoted = data.promote(MOVED)
     assert {"beta", "gamma"} <= promoted, "the fixture must promote more than one"
@@ -435,7 +424,7 @@ def test_the_body_marks_a_newly_promoted_term_and_only_that_term():
 
 def test_the_body_names_a_term_that_left_the_promoted_set():
     """The other half of the delta, for the same reason as the marker."""
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     promoted = data.promote(MOVED)
     text = report.body(MOVED, promoted, "x", previous=promoted | {"gone"})
@@ -448,7 +437,7 @@ def test_the_body_marks_nothing_on_the_run_that_creates_the_issue():
     Marking all of it new on a first run would say nothing, and reporting the
     whole set as newly held back would be simply false.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     text = report.body(MOVED, data.promote(MOVED), "x", previous=None)
     assert "**(new)**" not in text
@@ -463,7 +452,7 @@ def test_the_body_and_the_comment_never_tell_different_stories():
     to a reader who has no way to tell which -- so the body carries a marker
     exactly when a comment is posted, and carries none when none is.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     promoted = data.promote(MOVED)
     for previous in (frozenset(), promoted, promoted | {"gone"}, frozenset({"alpha"})):
@@ -480,7 +469,7 @@ def test_the_dated_record_outlives_the_new_markers():
     So the body also carries a dated record of when the set last moved, and that
     is what a reader arriving in a quiet month reads instead of the comments.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     promoted = data.promote(MOVED)
     record = {"at": "2026-10-01", "gained": ["beta"], "lost": []}
@@ -495,7 +484,7 @@ def test_the_dated_record_outlives_the_new_markers():
 
 
 def test_the_record_names_both_directions_when_both_moved():
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     record = {"at": "2026-11-01", "gained": ["beta"], "lost": ["gone"]}
     text = report.body(MOVED, data.promote(MOVED), "x", frozenset(), record)
@@ -509,7 +498,7 @@ def test_the_record_round_trips_through_the_state_marker():
     quiet run, restoring exactly the one-month lifetime this exists to fix --
     and the body would still look correct on the run that wrote it.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     record = {"at": "2026-10-01", "gained": ["beta"], "lost": ["gone"]}
     text = report.body(MOVED, data.promote(MOVED), "x", frozenset(), record)
@@ -523,7 +512,7 @@ def test_a_body_recording_no_change_yet_reads_as_none_rather_than_failing():
     A body written before this was recorded -- the live issue is one -- and the
     body the creating run writes both carry no record, and neither is an error.
     """
-    report = _load()
+    report = load_script("topics_issue")
     data = report._topics_data()
     text = report.body(MOVED, data.promote(MOVED), "x", None, None)
     assert report.read_last_change(text) is None

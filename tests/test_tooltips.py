@@ -7,11 +7,12 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 import sys
 
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_tooltips.py"
@@ -25,16 +26,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _load():
-    """Load the gate from its path, which is not an importable package."""
-    spec = importlib.util.spec_from_file_location("check_tooltips", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-gate = _load() if SCRIPT.is_file() else None
+gate = load_script("check_tooltips") if SCRIPT.is_file() else None
 
 
 PAGE = """<html><body><article class="bd-article">{body}</article>

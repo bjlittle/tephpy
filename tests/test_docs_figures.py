@@ -13,12 +13,12 @@ rejected rather than assumed to be.
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-import sys
 
 import matplotlib.pyplot as plt
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPTS = REPO / ".github" / "scripts"
@@ -36,22 +36,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _load(path: Path):
-    """Import a gate by path; ``.github`` is not an importable package."""
-    # `bless_docs_figures` imports `check_docs_figures` by top-level name, which
-    # resolves when Python runs the script -- the script's own directory becomes
-    # `sys.path[0]` -- and not when it is loaded from here.
-    if str(SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS))
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-gate = _load(CHECK) if CHECK.is_file() else None
-bless = _load(BLESS) if BLESS.is_file() and gate is not None else None
+gate = load_script("check_docs_figures") if CHECK.is_file() else None
+bless = (
+    load_script("bless_docs_figures") if BLESS.is_file() and gate is not None else None
+)
 
 
 def declare(*names: str) -> str:
