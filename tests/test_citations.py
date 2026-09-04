@@ -16,19 +16,20 @@ from tests.by_path import load_script
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_citations.py"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
-# checker they exercise. The gate is a contract about the repository, and that is
-# not the repository, so skip there rather than fail collection.
+# The suite runs from a checkout; a tree without `.github` -- a copy taken
+# without its dotted directories, say -- has no checker to exercise. The gate
+# is a contract about the repository, and that is not the repository, so skip
+# there rather than fail collection.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
 #: The corpus is derived with `git ls-files` (docs spec §3.6), so the three
 #: tests that read the live tree need an index. That is a narrower condition
-#: than the module's: an unpacked sdist ships these tests and no repository,
-#: and every fixture-driven test below still holds there. Guarding the module
-#: on the index instead would skip all twenty wherever history is absent, for a
-#: reason seventeen of them do not have.
+#: than the module's: an export of the committed tree carries these tests and
+#: no repository, and every fixture-driven test below still holds there.
+#: Guarding the module on the index instead would skip all twenty wherever
+#: history is absent, for a reason seventeen of them do not have.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )

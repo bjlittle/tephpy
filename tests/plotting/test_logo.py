@@ -54,9 +54,9 @@ def test_master_matches_the_bundle(name):
 def test_masters_ship_in_the_wheel(tmp_path):
     """A source-tree copy nobody packaged is the failure tests cannot see.
 
-    Skipped without an index rather than left to raise. An unpacked sdist
-    ships these tests and no repository, and ``check=True`` below turns its
-    absence into an error rather than a skip -- one failure there for a
+    Skipped without an index rather than left to raise. An export of the
+    committed tree carries these tests and no repository, and ``check=True``
+    below turns its absence into an error rather than a skip -- one failure there for a
     reason that says nothing about the release being tested. The floors
     probes do carry an index, so this runs in them as it does in the leg
     (floors spec §3.4, :issue:`154`).

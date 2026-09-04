@@ -49,20 +49,19 @@ test = { file = ["requirements/pypi-optional-test.txt"] }
 tephpy = [
   "py.typed",
   "plotting/_static/*.png",
-  # The shipped sounding data, and the gallery's landing page. Only the first is
-  # read from an installed tephpy, by `tephpy.samples`. Nothing reads the second
-  # from one: `docs/src/conf.py`'s `examples_dirs` is a path relative to
-  # `conf.py`, and sphinx-gallery globs that directory, so the header is needed
-  # in the *sdist* -- where a documentation build has a checkout to glob -- and
-  # `MANIFEST.in` is what carries it there. It is listed here so the installed
-  # `tephpy.examples` is whole, every file of it the gallery offers for download
+  # The shipped sounding data, read from an installed tephpy by `tephpy.samples`.
+  #
+  # `examples/GALLERY_HEADER.rst` is deliberately not here. Nothing reads it from
+  # an installed tephpy: `docs/src/conf.py`'s `examples_dirs` is a path relative
+  # to `conf.py`, and sphinx-gallery globs that directory in the checkout a
+  # documentation build runs from. Shipping it would put a file in every install
+  # that only a documentation build reads, and only ever from a checkout
   # (gallery spec §3.7).
   # Two globs because two formats ship: the IGRA station records and the
   # University of Wyoming `TEXT:CSV` body that lets the reader how-to
   # demonstrate both routes into a `Sounding` offline (narrative spec §3.6).
   "samples/*.txt",
   "samples/*.csv",
-  "examples/GALLERY_HEADER.rst",
 ]
 
 [tool.setuptools.packages.find]
@@ -420,6 +419,10 @@ zizmor = ">=1.9.0"
 [tool.pixi.feature.devs.tasks.lint]
 cmd = "pre-commit run --all-files"
 description = "Run all pre-commit hooks"
+
+[tool.pixi.feature.devs.tasks.manifest]
+cmd = "check-manifest"
+description = "Check MANIFEST.in against what the sdist carries"
 
 [tool.pixi.feature.docs.dependencies]
 make = ">=4.3"

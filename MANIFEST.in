@@ -1,10 +1,23 @@
-include LICENSE README.md CHANGELOG.rst CITATION.cff
-include src/tephpy/py.typed
-recursive-include src/tephpy/plotting/_static *.png
-recursive-include src/tephpy/samples *.txt
-include src/tephpy/examples/GALLERY_HEADER.rst
-recursive-include requirements *.txt
-exclude src/tephpy/_version.py
 prune .github
-prune docs/src/developer/plans
-prune docs/baseline
+prune changelog
+prune docs
+prune tests
+
+exclude requirements/tephpy.yml
+exclude src/tephpy/_version.py
+exclude src/tephpy/examples/GALLERY_HEADER.rst
+
+global-exclude AGENTS.md CLAUDE.md
+
+exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude .readthedocs.yml
+exclude CHANGELOG.rst
+exclude CITATION.cff
+exclude CODE_OF_CONDUCT.md
+exclude codecov.yml
+exclude CONTRIBUTING.md
+exclude pixi.lock
+exclude SECURITY.md
+
+include .git_archival.txt

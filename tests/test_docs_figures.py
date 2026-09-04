@@ -26,10 +26,10 @@ CHECK = SCRIPTS / "check_docs_figures.py"
 BLESS = SCRIPTS / "bless_docs_figures.py"
 BASELINE = REPO / "docs" / "baseline"
 
-# As in `test_rendered_citations.py`: `MANIFEST.in` prunes `.github`, so an
-# sdist ships these tests without the scripts they exercise. The guard sits on
-# the module rather than inside each test, because an unconditional import
-# would break collection there rather than skip it.
+# As in `test_rendered_citations.py`: the suite runs from a checkout, and a
+# tree without `.github` has no scripts to exercise. The guard sits on the
+# module rather than inside each test, because an unconditional import would
+# break collection there rather than skip it.
 pytestmark = pytest.mark.skipif(
     not (CHECK.is_file() and BLESS.is_file()),
     reason="not a checkout of the repository",

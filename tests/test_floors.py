@@ -28,10 +28,11 @@ from tests.pixi_tasks import invocations, runs, unsatisfied
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
-# generator they exercise. Guarding the module rather than the test is deliberate:
-# an unguarded import fails *collection* there, taking the rest of the suite with
-# it (floors spec §5). The script, not `.git`, is what the guard asks after,
+# The suite runs from a checkout; a tree without `.github` -- a copy taken
+# without its dotted directories, say -- has no generator to exercise. Guarding
+# the module rather than the test is deliberate: an unguarded import fails
+# *collection* there, taking the rest of the suite with it (floors spec §5).
+# The script, not `.git`, is what the guard asks after,
 # because the script is what this module needs: it reads `.github` on every test
 # and history on four, and a guard naming the index would stand the module down
 # wherever history is absent and the generator is right there.
@@ -71,7 +72,8 @@ def _committed_manifest():
     whose manifest this very generator has rewritten, where every floor is an
     `==` pin and every feature but one is gone (:issue:`155`). The guard is
     here rather than on each caller because this is where the index is needed
-    -- an unpacked sdist has none, and there the tests that call this skip.
+    -- an export of the committed tree has none, and there the tests that call
+    this skip.
     """
     if not (REPO / ".git").exists():
         pytest.skip("no index to read the committed manifest from")
@@ -549,9 +551,9 @@ def test_no_job_reaches_for_a_tool_it_does_not_install():
             assert "pixi" not in command, f"{name}: {step.get('name')} needs pixi"
 
 
-#: The modules that exercise the `.github` scripts, and so carry a guard for the
-#: sdist that ships them without it. The `test` tier's exercise is this suite, so
-#: what their guard skips is what a diagnosis cannot see.
+#: The modules that exercise the `.github` scripts, and so carry a guard for a
+#: tree that has none. The `test` tier's exercise is this suite, so what their
+#: guard skips is what a diagnosis cannot see.
 GUARDED = (
     "test_floors.py",
     "test_floors_issue.py",
@@ -559,6 +561,8 @@ GUARDED = (
     "test_github_references.py",
     "test_topics_issue.py",
     "test_stale.py",
+    "test_docs_api_inventory.py",
+    "test_glossary_links.py",
 )
 
 
@@ -583,7 +587,7 @@ def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
             for target in node.targets
         )
     ]
-    assert len(guards) == 1, "the module must stay guarded for the sdist"
+    assert len(guards) == 1, "the module must stay guarded"
     # `.github` starts with `.git`, so the index is matched as a whole word: a
     # guard written out inline rather than through `SCRIPT` names the directory
     # this test wants to see, and a substring test would read it as the index.
@@ -630,8 +634,8 @@ def _guard(node: ast.FunctionDef) -> str:
 
 
 def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
-    # An unpacked sdist ships this suite and no repository, so a `git` call
-    # there does not skip -- it raises, and with `check=True` it fails, on a
+    # An export of the committed tree carries this suite and no repository, so a
+    # `git` call there does not skip -- it raises, and with `check=True` it fails, on a
     # condition that says nothing about the release under test. The literal form
     # is what is matched, so a call built some other way is caught by that run
     # going red rather than here.

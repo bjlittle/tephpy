@@ -16,10 +16,10 @@ from tests.by_path import load_script
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_documentation_links.py"
 
-# As in `test_rendered_citations.py`: `MANIFEST.in` prunes `.github`, so an sdist
-# ships these tests without the gate they exercise. The guard sits on the module
-# and not inside the tests, because an unconditional import would break
-# collection there rather than skip.
+# As in `test_rendered_citations.py`: the suite runs from a checkout, and a tree
+# without `.github` has no gate to exercise. The guard sits on the module and
+# not inside the tests, because an unconditional import would break collection
+# there rather than skip.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )

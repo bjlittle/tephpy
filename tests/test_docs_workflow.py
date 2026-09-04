@@ -35,8 +35,8 @@ SCRIPTS = REPO / ".github" / "scripts"
 SCRIPT = SCRIPTS / "check_browser_demo.py"
 SPEC = REPO / "docs" / "src" / "developer" / "specs" / "2026-07-22-tephpy-design.md"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without either
-# file they read. The module is guarded rather than each test, because an
+# The suite runs from a checkout; a tree without `.github` has neither file
+# these tests read. The module is guarded rather than each test, because an
 # unguarded read fails *collection* there and takes the rest of the suite with
 # it -- the same reason `tests/test_floors.py` guards itself.
 pytestmark = pytest.mark.skipif(

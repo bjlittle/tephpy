@@ -17,8 +17,8 @@ from tests.by_path import load_script
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_tooltips.py"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships this test without the gate it
-# exercises. The gate is a contract about the repository, and that is not the
+# The suite runs from a checkout; a tree without `.github` has no gate to
+# exercise. The gate is a contract about the repository, and that is not the
 # repository, so skip there rather than fail collection -- the guard
 # `tests/test_citations.py` and `tests/test_github_references.py` both carry.
 pytestmark = pytest.mark.skipif(

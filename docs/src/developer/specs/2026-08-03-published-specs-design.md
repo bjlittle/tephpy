@@ -383,10 +383,10 @@ the disagreement would be silent in both directions — a form the hook accepts 
 transform does not recognise renders as dead text, and a form the transform links but the
 hook does not check is unpoliced.
 
-That module lives under `docs/src/_ext/`, not beside the hook in `.github/scripts/`.
-`MANIFEST.in` prunes `.github` while the rest of `docs/` ships (§5 item 2), so an extension
-importing from `.github` would build here and fail from an sdist. The dependency runs the
-other way: the hook, which only ever runs in a checkout, reads the module out of `docs/`.
+That module lives under `docs/src/_ext/`, not beside the hook in `.github/scripts/`. The
+dependency runs that way round deliberately: a Sphinx extension importing out of `.github`
+would tie the documentation build to a directory that exists only to serve CI, where the
+hook reading a module out of `docs/` only ever runs in a checkout that has both.
 
 **What stays plain text.** Literals, code blocks, comments, raw blocks and API signatures
 are left alone, so the `` `spec §3.2` `` that the style guide quotes as an example stays an
@@ -814,10 +814,11 @@ One-off work, performed once and then finished:
 1. `git mv` both directories under `docs/src/developer/`; add the `exclude_patterns`
    entry; record the superpowers path preference in `AGENTS.md`.
 2. Repoint `MANIFEST.in`. `prune docs/superpowers` is load-bearing — setuptools_scm puts
-   every tracked file in the sdist, and the rest of `docs/` ships — so after the move that
-   line silently stops matching and the plans start shipping. It becomes
-   `prune docs/src/developer/plans`. The specifications ship from then on, which is right:
-   they are published documentation like every other page under `docs/src/`.
+   every tracked file in the sdist, and at the time the rest of `docs/` shipped — so after
+   the move that line silently stops matching and the plans start shipping. It becomes
+   `prune docs/src/developer/plans`. (The sdist has since stopped carrying `docs` at all,
+   and `docs/src/conf.py` is what keeps the plans unpublished —
+   `docs/src/developer/packaging.rst`.)
 3. Add `docs/src/developer/specs/index.rst` and reference it from the developer guide
    toctree.
 4. Add anchors to the 25 numbered headings in the parent specification and the 15 in the
@@ -848,7 +849,9 @@ and `pixi run docs` runs the output gates of §3.7 and of the documentation-link
 after it, so a clean `pixi run docs` exiting 0 is the primary gate. Beyond it:
 
 - `_build/html/developer/plans/` does not exist, and no plan page is reachable.
-- The sdist carries the specifications and not the plans (item 2).
+- The plans are unreachable in the built HTML (item 2). The sdist carries neither them
+  nor the specifications: it ships the package and what a build of it needs, and no
+  documentation at all (`docs/src/developer/packaging.rst`).
 - Both existing specification pages render, and this one alongside them.
 - Every anchor named in §3.3 appears as a section `id` in the built HTML.
 - Every distinct `spec §N` and `logo spec §N` citation in `src/` and `tests/` corresponds

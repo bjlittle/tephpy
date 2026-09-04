@@ -72,10 +72,11 @@ def committed(path: str) -> str:
     Notes
     -----
     Carries its own index guard rather than leaving one to each caller: an
-    unpacked sdist ships this suite and no repository, where `git` does not skip
-    but raises. `tests/test_floors.py::test_every_test_that_shells_out_to_git_is_
-    guarded_on_the_index` names a helper guarding itself as the way a call shared
-    by several tests is guarded once, and holds this module to it.
+    export of the committed tree carries this suite and no repository, where
+    `git` does not skip but raises.
+    `tests/test_floors.py::test_every_test_that_shells_out_to_git_is_guarded_on_
+    the_index` names a helper guarding itself as the way a call shared by several
+    tests is guarded once, and holds this module to it.
 
     """
     if not (REPO / ".git").exists():

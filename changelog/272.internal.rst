@@ -1,0 +1,8 @@
+The distributions now carry the package rather than the repository around it. ``MANIFEST.in``
+listed inclusions layered over a file finder that already took every tracked file, so the
+sdist shipped 450 files for a package of 55; it now names exclusions, and the sdist carries
+the package, its runtime requirements and a build's metadata — not the tests, documentation,
+changelog fragments or CI. A release is tested before it ships, so the tests in every install
+buy a rare failure whose remedy is a development environment anyway. ``pixi run manifest``
+runs ``check-manifest`` and ``ci-wheels`` runs the same task, which the inversion makes
+capable of catching a ``prune`` that silently stops matching (:issue:`77`). (:user:`claude`)
