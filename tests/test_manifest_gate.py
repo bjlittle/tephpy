@@ -26,8 +26,13 @@ from tests.pixi_tasks import invocations
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-wheels.yml"
 
-#: The task the gate is run by, locally and in CI alike.
-TASK = "manifest"
+#: The task the gate is run by, locally and in CI alike, and the job that runs it.
+TASK = JOB = "manifest"
+
+#: What publishes: the action that uploads a distribution to an index. Detected
+#: rather than listed, so a third publisher added later is covered by having to
+#: use it, and not by anyone remembering to name it here.
+PUBLISHER = "pypa/gh-action-pypi-publish"
 
 # `MANIFEST.in` prunes `.github`, so the workflow this module reads is absent
 # wherever the repository is not checked out. The guard asks after the workflow's
@@ -86,6 +91,48 @@ def test_a_task_owns_the_gate_so_a_contributor_can_run_it():
     # command out in the workflow is what stops the two drifting (:issue:`120`).
     assert TASK in _tasks()
     assert "check-manifest" in _tasks()[TASK]["cmd"]
+
+
+def _doc():
+    """Return the workflow, parsed."""
+    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+
+def _needs(doc, name):
+    """Return the jobs one job waits on, whether it names one or several."""
+    needs = doc["jobs"][name].get("needs", [])
+    return [needs] if isinstance(needs, str) else list(needs)
+
+
+def _waits_on(doc, name):
+    """Return every job that must have succeeded before this one starts."""
+    seen, pending = set(), _needs(doc, name)
+    while pending:
+        job = pending.pop()
+        if job not in seen:
+            seen.add(job)
+            pending.extend(_needs(doc, job))
+    return seen
+
+
+def test_nothing_is_published_without_the_gate_having_passed():
+    # A gate beside the thing it guards, rather than in front of it, does not
+    # guard: `build` and the publishers would run whatever this reported, and a
+    # tag push would upload a distribution the manifest no longer describes.
+    #
+    # Asserted over the *transitive* closure, because what matters is that the
+    # gate cannot be skipped and not which job happens to name it. Reached
+    # today through `build`, which is also what keeps a wrong distribution from
+    # being uploaded as a workflow artifact.
+    doc = _doc()
+    publishers = [
+        name
+        for name, job in doc["jobs"].items()
+        if any(PUBLISHER in step.get("uses", "") for step in job["steps"])
+    ]
+    assert publishers, f"no job uses {PUBLISHER}; has the publisher been renamed?"
+    for name in publishers:
+        assert JOB in _waits_on(doc, name), f"`{name}` can publish without `{JOB}`"
 
 
 def test_the_workflow_runs_the_gate_by_task_name():

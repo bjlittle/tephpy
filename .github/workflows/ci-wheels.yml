@@ -39,6 +39,13 @@ jobs:
       - run: pixi run --frozen --environment devs manifest
 
   build:
+    # In front of the build rather than beside it. Both publishers take their
+    # distributions from this job, and the job uploads them as an artifact
+    # besides, so a manifest that no longer describes what ships has to stop
+    # the distribution being made at all -- not merely report while it is
+    # uploaded anyway. `tests/test_manifest_gate.py` holds every publisher to
+    # reaching the gate, however the graph is rearranged later.
+    needs: manifest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
