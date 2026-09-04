@@ -72,34 +72,62 @@ have, and say so in the changelog fragment. Lower one only with a reason.
 What the Distributions Carry
 ----------------------------
 
-The sdist and the wheel do not carry the same tree, and one asymmetry between
-them is load-bearing.
+**The sdist carries the package and what a build of it needs, and nothing
+else.** Not the tests, not the documentation, not the changelog fragments, not
+the CI. A release is tested before it ships — across every supported Python and
+against the declared floors — so the packaging contract is that the artifact
+works on the interpreters and dependencies it names. Tests inside every install
+and every conda package buy the remaining case, which is a host where a tested
+artifact does not work; the answer there is a development environment and a
+checkout, not a copy of the suite the installer happened to carry. Shipping
+them costs every downstream user size for a situation almost none of them will
+meet.
 
-``MANIFEST.in`` prunes ``docs/src/developer/plans``, and ``docs/src/conf.py``
-excludes the same directory from the HTML build. So an implementation plan is
-tracked in the repository, absent from the sdist, and unpublished on the site.
-That is deliberate: a specification is a living document and a plan is a
-point-in-time record of what was intended before implementation (docs spec §3.1).
-The two exclusions are written differently — Sphinx compiles ``*`` to a
-pattern that does not cross a solidus, so the ``exclude_patterns`` entry needs
-``**`` to match what ``prune`` matches recursively — and the direction that
-asymmetry would fail in is the leaking one, which is why both are spelled out
-in ``conf.py``'s comment.
+That makes ``MANIFEST.in`` a list of exclusions. It once read as a list of
+inclusions, which was inert: ``setuptools_scm``'s file finder already takes
+every tracked file, so the ``include`` lines added nothing and the sdist carried
+the repository — 450 files, of which the package was 55.
 
-Beyond the code itself, the wheel carries the sample soundings and the gallery
-header of gallery spec §3.7, the ``py.typed`` marker, and the logo masters under
-``src/tephpy/plotting/_static``. Each has a line in ``MANIFEST.in``.
+The direction matters for more than tidiness. An inclusion layered over a finder
+that takes everything cannot fail visibly: a ``prune`` that stops matching
+leaves the file tracked *and* shipped, which is what happened when
+``docs/superpowers`` moved and nothing noticed. Written as exclusions, the same
+mistake leaves files the manifest does not account for, and ``check-manifest``
+says so.
+
+One asymmetry is load-bearing beyond packaging. ``MANIFEST.in`` prunes ``docs``
+entirely, and ``docs/src/conf.py`` separately excludes
+``docs/src/developer/plans`` from the HTML build. So an implementation plan is
+tracked in the repository and unpublished on the site: a specification is a
+living document and a plan is a point-in-time record of what was intended before
+implementation (docs spec §3.1). Sphinx compiles ``*`` to a pattern that does not
+cross a solidus, so the ``exclude_patterns`` entry needs ``**`` to match what
+``prune`` matches recursively, and the direction that asymmetry fails in is the
+leaking one — which is why ``conf.py``'s comment spells both out.
+
+The wheel is narrower still: the package, the sample soundings, the ``py.typed``
+marker, and the logo masters under ``src/tephpy/plotting/_static``. Each
+non-Python file it carries has a ``package-data`` entry.
+``examples/GALLERY_HEADER.rst`` is not among them — it is sphinx-gallery's
+landing page, read from the checkout a documentation build globs, and nothing
+reads it from an installed ``tephpy``.
 
 check-manifest
 --------------
 
-``check-manifest`` is declared in ``[tool.pixi.feature.devs.dependencies]`` and
-run by nothing — no pixi task, no pre-commit hook, no workflow step. Adopting it
-is :issue:`77`.
+``pixi run manifest`` runs ``check-manifest``, and ``ci-wheels`` runs the same
+task — in the job that builds the distributions, since that is what a manifest
+no longer describing them would spoil.
 
-It is worth knowing that this is a real gap rather than a theoretical one.
-``MANIFEST.in`` has already gone stale once: a ``prune`` entry silently stopped
-matching when the directory it named moved, and only a hand-run ``python -m
-build --sdist`` caught it before the affected files shipped. A declared
-dependency that nothing runs looks from the outside exactly like a check that
-passes.
+The gap it closes was a real one rather than a theoretical one. ``MANIFEST.in``
+has already gone stale once: a ``prune`` entry silently stopped matching when
+the directory it named moved, and only a hand-run ``python -m build --sdist``
+caught it before the affected files shipped (:issue:`77`).
+
+The check is only meaningful because the manifest is written as exclusions.
+Against the old inclusion-shaped manifest it reported 318 files "missing from
+the sdist" that the real sdist carried — ``check-manifest`` copies the tracked
+files to a temporary tree without ``.git``, where ``setuptools_scm``'s finder
+enumerates nothing, so its trial sdist held only what ``MANIFEST.in`` named
+outright. What it compares now is the manifest's own account of what ships
+against what does, which is the question worth asking.

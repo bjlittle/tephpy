@@ -97,8 +97,10 @@ def load_ext(name: str) -> ModuleType:
 def load_script(name: str) -> ModuleType:
     """Import a repository script from ``.github/scripts``.
 
-    An sdist ships this suite without that directory, so a module calling this
-    at import time guards itself for it -- see ``tests/test_floors.py``.
+    A tree without that directory -- a copy taken without its dotted
+    directories, say -- has nothing to load, so a module calling this at import
+    time guards itself for it, since the failure would otherwise be a collection
+    error taking the rest of the suite with it. See ``tests/test_floors.py``.
 
     Parameters
     ----------

@@ -400,10 +400,16 @@ fail `--fail-on-warning`. §3.7 asserts the spacing the removal leaves, for that
 ### 3.7 Packaging and gates
 
 `tephpy.examples` and `tephpy.samples` are picked up by the existing
-`[tool.setuptools.packages.find]` glob. Their non-Python files — the IGRA sample and
-`GALLERY_HEADER.rst` — need a `package-data` entry beside the existing
-`plotting/_static/*.png`, and `MANIFEST.in` a matching `recursive-include`, or the wheel
-carries importable modules with nothing to read.
+`[tool.setuptools.packages.find]` glob. The IGRA sample is a non-Python file an installed
+`tephpy` reads, so it needs a `package-data` entry beside the existing
+`plotting/_static/*.png`, or the wheel carries importable modules with nothing to read.
+
+`GALLERY_HEADER.rst` does not, and no longer has one. It is sphinx-gallery's landing
+page: the extension globs it out of `examples_dirs`, a path relative to
+`docs/src/conf.py`, in the checkout a documentation build runs from. Nothing reads it
+from an installed `tephpy`, so shipping it put a file in every install for the benefit of
+a build that never sees an install. The distributions carry the package and what a build
+of it needs (`docs/src/developer/packaging.rst`).
 
 `ci-wheels`' install smoke test gains `tephpy examples list`. It is the one check that
 exercises the installed artifact rather than the checkout, so it is the only one that can

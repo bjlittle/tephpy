@@ -334,7 +334,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Thirty-two of the `test` tier's tests guard on a repository being there —
+index included. Thirty-three of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
@@ -540,10 +540,10 @@ are yanked, one shut out by its `requires-python`, and one carrying nothing this
 interpreter could install. Each is a release the lookup would otherwise return as a floor,
 where it reads exactly like a floor that resolved.
 
-The module lives under `.github/`, which `MANIFEST.in` prunes, so the test guards on the
-repository being a checkout and imports the script by path, as the gate tests there already
-do. Guarding the module rather than the test is deliberate: an unguarded import fails
-*collection* on an unpacked sdist, taking the rest of the suite with it.
+The module lives under `.github/`, which is not an importable package, so the test guards on
+the repository being a checkout and imports the script by path, as the gate tests there
+already do. Guarding the module rather than the test is deliberate: an unguarded import
+fails *collection* in a tree without that directory, taking the rest of the suite with it.
 
 The workflow itself is verified by running it on `workflow_dispatch` before it is scheduled,
 and once against a deliberately impossible floor, so that the attribution pass, the scan and

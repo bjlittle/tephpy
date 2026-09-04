@@ -17,11 +17,23 @@ labels". They are what the unit cases below pin.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from tests.by_path import load_script
 
-gate = load_script("check_glossary_links")
+REPO = Path(__file__).parents[1]
+GATE = REPO / ".github" / "scripts" / "check_glossary_links.py"
+
+# As in `tests/test_docs_api_inventory.py`: the load below happens at import, so
+# without a module-level guard a tree with no `.github` fails *collection* here
+# and takes the rest of the suite with it.
+pytestmark = pytest.mark.skipif(
+    not GATE.is_file(), reason="not a checkout of the repository"
+)
+
+gate = load_script("check_glossary_links") if GATE.is_file() else None
 
 GLOSSARY = """\
 Glossary

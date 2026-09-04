@@ -68,8 +68,8 @@ def committed(path: str) -> str:
     -----
     Carries its own index guard, as `tests/test_lock.py` does and for the reason
     `tests/test_floors.py::test_every_test_that_shells_out_to_git_is_guarded_on_
-    the_index` gives: an unpacked sdist ships this suite and no repository, where
-    `git` does not skip but raises.
+    the_index` gives: an export of the committed tree carries this suite and no
+    repository, where `git` does not skip but raises.
 
     """
     if not (REPO / ".git").exists():

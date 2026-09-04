@@ -14,6 +14,30 @@ concurrency:
 permissions: {}
 
 jobs:
+  # `MANIFEST.in` says what the distributions leave out, and nothing but a
+  # build reads it. It has gone stale once already, when a `prune` stopped
+  # matching a directory that had moved and only a hand-run build noticed
+  # (:issue:`77`). Here rather than in a workflow of its own: this is where the
+  # distributions are built, so this is where a manifest that no longer
+  # describes them should be reported.
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # `setuptools_scm` reads the tags to resolve a version, and
+          # `check-manifest` builds an sdist twice over.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347  # v0.10.1
+        with:
+          environments: devs
+          frozen: true
+      # Named as a task rather than spelled out, so a contributor reproducing a
+      # failure runs what this job runs and the declared `check-manifest` floor
+      # is the one exercised (:issue:`120`).
+      - run: pixi run --frozen --environment devs manifest
+
   build:
     runs-on: ubuntu-latest
     steps:

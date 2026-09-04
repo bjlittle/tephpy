@@ -264,7 +264,7 @@ automatic wrapping.
 
 **Why the renderer ships.** `render_reference()` lives in the package rather than in the
 Sphinx extension that calls it. Its gates are then ordinary tests that import `tephpy`, with
-no `sys.path` manipulation and no test that fails to collect from an unpacked sdist.
+no `sys.path` manipulation and no test that fails to collect wherever `docs/` is absent.
 `docs/src/_ext/tephpy_config_reference.py` reduces to a directive,
 `.. tephpy-config-options::`, which calls the function and parses what it returns. Nothing
 Sphinx-side is imported by the package.
@@ -613,8 +613,8 @@ chain, and report a loader bug as dozens of differing comparisons rather than on
 failure. It is also incompatible with the complete fixture, which necessarily sets
 `visible: false` and renders almost nothing.
 
-The fixture lives under `tests/`, which the sdist ships, so it is available when the suite
-runs from an unpacked sdist.
+The fixture lives under `tests/`, beside the suite that reads it, so it travels with any
+copy of the tree the suite is run from.
 
 Every new test is mutation-proved: revert the behaviour it guards and confirm that test,
 and only that test, fails.

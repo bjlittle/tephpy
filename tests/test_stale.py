@@ -16,10 +16,10 @@ from tests.by_path import SCRIPTS, load_script
 REPO = Path(__file__).parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "ci-stale.yml"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships this module without the
-# scripts it derives its expectations from. As in `tests/test_floors.py`, the
-# guard asks after what this module needs rather than after the index: nothing
-# here reads history.
+# The suite runs from a checkout; a tree without `.github` has none of the
+# scripts this module derives its expectations from. As in
+# `tests/test_floors.py`, the guard asks after what this module needs rather
+# than after the index: nothing here reads history.
 #
 # It asks after the *directory* and not after the workflow, deliberately. A
 # guard naming the workflow would stand this module down wherever the workflow

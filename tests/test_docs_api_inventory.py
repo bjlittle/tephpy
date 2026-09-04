@@ -28,10 +28,20 @@ import pytest
 from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
+GATE = REPO / ".github" / "scripts" / "check_api_inventory.py"
 INVENTORY = REPO / "docs" / "_build" / "html" / "objects.inv"
 
+# The suite runs from a checkout; a tree without `.github` has no gate to
+# exercise. Guarded at module level for the reason `tests/test_floors.py` gives:
+# the load below happens at import, so without this the module fails
+# *collection* and takes the rest of the suite down with it -- which it did,
+# until measured.
+pytestmark = pytest.mark.skipif(
+    not GATE.is_file(), reason="not a checkout of the repository"
+)
 
-inventory_gate = load_script("check_api_inventory")
+
+inventory_gate = load_script("check_api_inventory") if GATE.is_file() else None
 
 
 def _write_inventory(path, entries):

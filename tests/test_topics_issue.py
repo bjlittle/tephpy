@@ -21,10 +21,10 @@ REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "topics_issue.py"
 WORKFLOW = REPO / ".github" / "workflows" / "ci-topics.yml"
 
-# `MANIFEST.in` prunes `.github`, so an sdist ships these tests without the
-# script they exercise. Guarding the module rather than the test is deliberate:
-# an unguarded import fails *collection* there, taking the rest of the suite
-# with it. As in `test_floors_issue.py`, the guard asks after the script and
+# The suite runs from a checkout; a tree without `.github` has no script to
+# exercise. Guarding the module rather than the test is deliberate: an
+# unguarded import fails *collection* there, taking the rest of the suite with
+# it. As in `test_floors_issue.py`, the guard asks after the script and
 # not `.git`: nothing here reads history, and a guard naming the index would
 # stand the module down wherever history is absent.
 pytestmark = pytest.mark.skipif(
