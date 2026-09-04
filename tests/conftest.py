@@ -24,7 +24,7 @@ import warnings
 import matplotlib as mpl
 import pytest
 
-from tests.by_path import load_script
+from tests.by_path import SCRIPTS, load_script
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -53,9 +53,18 @@ def _pristine_config():
 def gate():
     """Import the API docstring gate, a script rather than an installed module.
 
+    Skipped where ``.github`` is absent -- an export, or a copy taken without
+    its dotted directories -- rather than left to raise. A fixture that raises
+    reports an *error* on every test asking for it, and fifty-two errors say
+    the suite is broken where fifty-two skips say the gate is not here to run
+    (floors spec §5 makes the same distinction for a module-level guard).
+
     Returns
     -------
     module
         ``.github/scripts/check_api_docstrings.py``, executed.
     """
+    script = SCRIPTS / "check_api_docstrings.py"
+    if not script.is_file():
+        pytest.skip("not a checkout of the repository")
     return load_script("check_api_docstrings")
