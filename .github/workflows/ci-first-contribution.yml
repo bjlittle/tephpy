@@ -1,0 +1,73 @@
+name: ci-first-contribution
+
+# Greets someone's first issue and first pull-request, once each. The labels it
+# applies (`first-issue`, `first-pull-request`) are what let a maintainer find
+# a newcomer's thread among everything else, which matters more than the
+# greeting does.
+#
+# The action reads `repos.listCommits` and `issues.listForRepo` to decide
+# whether an author is new here, then reacts, comments and labels. All five
+# calls are covered by the `public_repo` scope the bot token carries.
+
+on:
+  issues:
+    types: [opened]
+
+  # `pull_request_target`, not `pull_request`, and this is the whole reason the
+  # pull-request half works at all: GitHub withholds secrets from a
+  # `pull_request` run triggered by a *fork*, and a first-time contributor is
+  # on a fork by definition. `TEPHPY_BOT_TOKEN` would be empty in precisely the
+  # case this workflow exists for.
+  #
+  # The trigger is safe here because this job checks nothing out and runs no
+  # code from the pull-request: it reacts, comments and labels through the API
+  # and touches the contributor's branch not at all.
+  pull_request_target:  # zizmor: ignore[dangerous-triggers]
+    types: [opened, closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+
+    # Declared so the job can read `TEPHPY_BOT_TOKEN`, and so that nothing which
+    # does not declare it can -- as `ci-locks.yml` does for the same secret.
+    environment: development
+
+    # No `permissions:` block on purpose. The action authenticates as the bot
+    # through the token below, so the workflow's own `GITHUB_TOKEN` is never
+    # used and needs nothing granted to it.
+
+    steps:
+      - uses: plbstl/first-contribution@2c36bdb58684587f60549a69aaa3ec00b9d5f4fe  # v4.3.3
+        with:
+          token: ${{ secrets.TEPHPY_BOT_TOKEN }}
+
+          issue-reactions: eyes
+          pr-reactions: eyes
+          issue-labels: first-issue
+          pr-labels: first-pull-request
+
+          issue-opened-msg: |
+            Welcome @{fc-author}, and thank you — this is your first issue here :tada:
+
+            Telling us what is missing, wrong or confusing is how `tephpy` gets better, so this is genuinely useful.
+
+            If you have not met them yet, the [Code of Conduct](https://github.com/bjlittle/tephpy/blob/main/CODE_OF_CONDUCT.md) says how we treat each other here, and the [contributor guide](https://tephpy.readthedocs.io/en/latest/developer/index.html) covers how the project is put together.
+
+          pr-opened-msg: |
+            Welcome @{fc-author}, and thank you — this is your first pull-request here :tada:
+
+            Someone will read it. If CI turns red, that is normal and not a verdict on the change: the [contributor guide](https://tephpy.readthedocs.io/en/latest/developer/index.html) explains how to run the same checks locally, and asking in a comment is always fine.
+
+            The [Code of Conduct](https://github.com/bjlittle/tephpy/blob/main/CODE_OF_CONDUCT.md) applies here as everywhere else in the project.
+
+          pr-merged-msg: |
+            Merged — your first contribution to `tephpy` @{fc-author} :sparkles:
+
+            Thank you. If you would like another, the issues labelled [good-first-issue](https://github.com/bjlittle/tephpy/issues?q=is%3Aissue+is%3Aopen+label%3Agood-first-issue) are the ones kept ready for exactly this.

@@ -1,0 +1,95 @@
+name: ci-stale
+
+# Keeps the backlog readable by standing down issues and pull-requests nobody
+# has touched in half a year. What it is *not* is a judgement: a stale label
+# says the conversation stopped, not that the item was wrong, and any comment
+# takes it back off.
+#
+# The exemptions carry the weight here, and `tests/test_stale.py` holds two of
+# them to the workflow. The standing reports (`ci-floors`, `ci-topics`) each
+# keep one issue and find it again with `--label <marker> --state open`, so an
+# issue closed for inactivity is not reopened -- the next run files a fresh one
+# and the history in the old one stops being read. Deliberate holds and the
+# spec-tracked backlog are exempt for the plainer reason that inactivity is
+# what they are for.
+
+on:
+  schedule:
+    # Daily, clear of `ci-floors` (04:17 Monday) and `ci-locks` (05:07 Sunday).
+    - cron: "31 4 * * *"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93  # v11.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Idle days before an item is marked stale, and before a stale item
+          # is closed.
+          days-before-stale: 180
+          days-before-close: 28
+
+          stale-issue-label: stale
+          stale-pr-label: stale
+
+          # Written as a bare comma-separated list. The action parses these with
+          # `words.split(',').map(trim)` and does not strip quotes, so a list
+          # wrapped in quotation marks exempts `"status: blocked` and
+          # `topic-coverage"` -- names no label carries, failing silently.
+          # `tests/test_stale.py` holds this shape.
+          #
+          #   status: blocked, status: paused  a hold someone decided on
+          #   design: open                     tracked from a design spec
+          #   dependency-floors, topic-coverage the standing reports' own issues
+          #   good-first-issue, help-wanted    kept open for whoever arrives
+          exempt-issue-labels: >-
+            status: blocked,status: paused,design: open,dependency-floors,topic-coverage,good-first-issue,help-wanted
+          exempt-pr-labels: >-
+            status: blocked,status: paused,design: open,good-first-issue,help-wanted
+
+          # A milestone is a commitment already made; inactivity does not undo it.
+          exempt-all-milestones: true
+
+          stale-issue-message: |
+            To keep the backlog readable, an issue with no activity for 180 days is labelled stale.
+
+            If this still matters to you, comment and the label comes straight back off. Otherwise it will close in 28 days.
+
+          stale-pr-message: |
+            To keep the backlog readable, a pull-request with no activity for 180 days is labelled stale.
+
+            If this still matters to you, comment and the label comes straight back off. Otherwise it will close in 28 days.
+
+          close-issue-message: |
+            Closed after 28 further days without activity. Nothing here says the issue was wrong — only that the conversation stopped.
+
+            If you want it back, either reopen it, or comment naming `@bjlittle` who will reopen it for you.
+
+          close-pr-message: |
+            Closed after 28 further days without activity. Nothing here says the work was wrong — only that the conversation stopped.
+
+            If you want it back, either reopen it, or comment naming `@bjlittle` who will reopen it for you.
+
+          # Taken off the moment someone comments, so the label always describes
+          # the item as it stands rather than as it once was.
+          remove-stale-when-updated: true
+
+          # Oldest first, so a run that hits the cap makes progress through the
+          # backlog rather than revisiting the same recent items.
+          ascending: true
+          operations-per-run: 100
