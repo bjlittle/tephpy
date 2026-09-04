@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import ast
 import fnmatch
-import importlib.util
 import io
 import json
 from pathlib import Path
@@ -23,6 +22,7 @@ from packaging.version import Version
 import pytest
 import yaml
 
+from tests.by_path import load_script
 from tests.pixi_tasks import invocations, runs, unsatisfied
 
 REPO = Path(__file__).parents[1]
@@ -38,41 +38,6 @@ SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
-
-
-def _load():
-    """Import the generator by path; ``.github`` is not an importable package."""
-    spec = importlib.util.spec_from_file_location("floors", SCRIPT)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_diagnose():
-    """Import the diagnosis script by path."""
-    path = REPO / ".github" / "scripts" / "floors_diagnose.py"
-    spec = importlib.util.spec_from_file_location("floors_diagnose", path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["floors_diagnose"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_issue():
-    """Import the issue composer by path, to hold it against the diagnosis."""
-    path = REPO / ".github" / "scripts" / "floors_issue.py"
-    spec = importlib.util.spec_from_file_location("floors_issue", path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["floors_issue"] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 MANIFEST = textwrap.dedent(
@@ -128,7 +93,7 @@ def _lookup(package, specifier, python):  # noqa: ARG001
 def test_a_specifier_that_is_not_a_bare_floor_is_reported(tmp_path):
     # A range floors a version the generator cannot name, and one that quietly
     # converted most of a tier would make the run a weaker claim than it looks.
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST.replace('click = ">=8.1"', 'click = ">=8.1,<9"')
     with pytest.raises(floors.FloorError, match="not a bare"):
         floors.pins(_manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup)
@@ -137,7 +102,7 @@ def test_a_specifier_that_is_not_a_bare_floor_is_reported(tmp_path):
 def test_a_tier_that_converts_nothing_fails(tmp_path):
     # A table emptied or renamed would otherwise exit 0 having pinned nothing, and
     # a green run that checked nothing reads exactly like one that checked all.
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST.replace('sphinx = ">=8.0"', "")
     with pytest.raises(floors.FloorError, match="docs: no floors converted"):
         floors.pins(_manifest(tmp_path, text), Version("3.12.0"), lookup=_lookup)
@@ -146,7 +111,7 @@ def test_a_tier_that_converts_nothing_fails(tmp_path):
 def test_a_floor_with_no_build_for_the_python_fails(tmp_path):
     # An empty candidate list means the pin would be unsolvable, so the run must
     # fail on the declaration rather than later on the generator's arithmetic.
-    floors = _load()
+    floors = load_script("floors")
     with pytest.raises(floors.FloorError, match="no build for Python"):
         floors.pins(
             _manifest(tmp_path),
@@ -158,7 +123,7 @@ def test_a_floor_with_no_build_for_the_python_fails(tmp_path):
 def test_relaxing_one_package_leaves_the_others_pinned(tmp_path):
     # Attribution reads exactly one package off its floor (floors spec §3.4), so a
     # relaxation that also loosened its neighbours would prove nothing about which.
-    floors = _load()
+    floors = load_script("floors")
     resolved = floors.pins(_manifest(tmp_path), Version("3.12.0"), lookup=_lookup)
     text = floors.rewrite(MANIFEST, resolved, relax="click")
     assert 'click = ">=8.1"' in text
@@ -189,7 +154,7 @@ def test_a_pypi_floor_is_resolved_from_the_index_and_not_the_channel(tmp_path):
     # carries `playwright` too -- so a lookup that asked the channel would pin a
     # release of a package the tier never installs, and the pin would either
     # fail to solve or float the real one (:issue:`151`).
-    floors = _load()
+    floors = load_script("floors")
     asked = []
 
     def _channel(package, specifier, python):
@@ -217,7 +182,7 @@ def test_a_pypi_floor_is_pinned_in_the_table_that_declares_it(tmp_path):
     # the table the floor was read from -- and the editable source beside it must
     # come through untouched, a pin there installing a release of tephpy over the
     # checkout the job is testing.
-    floors = _load()
+    floors = load_script("floors")
     resolved = floors.pins(
         _manifest(tmp_path, PYPI_MANIFEST),
         Version("3.12.0"),
@@ -235,7 +200,7 @@ def test_the_project_itself_is_reported_rather_than_pinned(tmp_path):
     # A source entry is the one declaration this generator leaves alone, so it is
     # named in the summary: a job that exercises fewer declarations than the
     # manifest makes reads green for a claim it never tested (:issue:`151`).
-    floors = _load()
+    floors = load_script("floors")
     manifest = _manifest(tmp_path, PYPI_MANIFEST)
     resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
     assert "tephpy" not in resolved["core"]
@@ -249,7 +214,7 @@ def test_the_project_itself_is_reported_rather_than_pinned(tmp_path):
 def test_the_summary_names_the_table_each_floor_was_declared_in(tmp_path):
     # Two tables per tier means the resolved version alone no longer says which
     # declaration moved, and the fix is an edit to one named file and table.
-    floors = _load()
+    floors = load_script("floors")
     resolved = floors.pins(
         _manifest(tmp_path, PYPI_MANIFEST),
         Version("3.12.0"),
@@ -270,7 +235,7 @@ def test_an_entry_that_is_neither_a_floor_nor_a_source_is_refused(tmp_path):
     # pixi takes a table of options there as well -- extras, a marker, an index.
     # Passing one over silently would leave a declared floor unexercised, and
     # pinning its `version` key would drop the rest of the table on the floor.
-    floors = _load()
+    floors = load_script("floors")
     text = PYPI_MANIFEST.replace(
         'playwright = ">=1.55"',
         'playwright = { version = ">=1.55", extras = ["driver"] }',
@@ -285,7 +250,7 @@ def test_a_package_declared_in_both_of_a_tiers_tables_is_refused(tmp_path):
     # One name over two tables is one line in the resolved mapping, so the pin
     # would land in whichever table the line-based rewrite reached and the other
     # declaration would keep floating -- a half-pinned tier that reads as pinned.
-    floors = _load()
+    floors = load_script("floors")
     text = PYPI_MANIFEST.replace(
         "[tool.pixi.feature.docs.pypi-dependencies]\n",
         '[tool.pixi.feature.docs.pypi-dependencies]\nsphinx = ">=8.0"\n',
@@ -301,7 +266,7 @@ def test_a_second_declaration_naming_a_source_is_refused_as_well(tmp_path):
     # passed over, so a floor in one table and a source of the same name in the
     # other met no guard at all and left the tier taking the package from the
     # channel and the index both.
-    floors = _load()
+    floors = load_script("floors")
     text = PYPI_MANIFEST.replace(
         "[tool.pixi.pypi-dependencies]\n",
         '[tool.pixi.pypi-dependencies]\nclick = { path = ".", editable = true }\n',
@@ -339,7 +304,7 @@ def test_a_release_with_no_file_this_target_can_install_is_passed_over(monkeypat
     # them declaring a Python, and the Linux runner cannot install any of them.
     # A pin there turns a floor the tier declares into a solve failure, and the
     # upward scan climbs releases the tier can never reach.
-    floors = _load()
+    floors = load_script("floors")
     _serve(
         monkeypatch,
         floors,
@@ -362,7 +327,7 @@ def test_a_yanked_release_and_one_this_python_is_shut_out_of_are_passed_over(
     # `--resolution lowest-direct` on the other half of the job honours both this
     # and `requires-python` -- so a generator that did not would pin the two
     # halves to different releases and report a floor neither would install.
-    floors = _load()
+    floors = load_script("floors")
     _serve(
         monkeypatch,
         floors,
@@ -386,7 +351,7 @@ def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved(tmp_path)
     # job against whatever release the solver reached -- green, on a floor it had
     # never tested (:issue:`151`). Asserted against the real manifest, so a table
     # added to `pyproject.toml` tomorrow is covered by the same rule.
-    floors = _load()
+    floors = load_script("floors")
     text = _committed_manifest()
     document = tomllib.loads(text)
     manifest = _manifest(tmp_path, text)
@@ -422,7 +387,7 @@ def _root(tmp_path, name):
 
 def _rig(monkeypatch, tmp_path, solves):
     """Replace the solver and the checkout copier; return the module and a probe."""
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     monkeypatch.setattr(diagnose.floors, "pins", lambda *_: RESOLVED)
     # The copier is replaced but still makes the directory, so what a caller
     # does with a probe once it has answered is visible to a test.
@@ -546,7 +511,7 @@ def test_the_probes_pin_a_version_for_the_editable_build(monkeypatch, tmp_path):
     # than the solve, which turns the one relaxation that *does* resolve into
     # another failure and every diagnosis into "nothing attributed" -- the same
     # verdict an honestly unattributable failure gets (floors spec §3.4).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     seen = {}
 
     def _run(command, **kwargs):
@@ -1012,7 +977,7 @@ def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
     # `docs/_build` makes the probe's documentation build an incremental one over
     # pages it did not write. Either way the exercise reports the state of the
     # run being diagnosed instead of its own (floors spec §3.3).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = tmp_path / "checkout"
     (source / "tests" / "__pycache__").mkdir(parents=True)
     (source / "tests" / "__pycache__" / "test_x.pyc").write_bytes(b"stale")
@@ -1036,7 +1001,7 @@ def test_a_probe_copy_carries_the_index_the_exercise_reads(tmp_path):
     # `packaging` at its floor. The probe skipped it, found nothing to reproduce,
     # and filed :issue:`152` saying the failure was in a step it does not run.
     # The step was a test it had (:issue:`154`).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = tmp_path / "checkout"
     (source / ".git" / "objects").mkdir(parents=True)
     (source / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
@@ -1145,7 +1110,7 @@ def test_the_docs_probe_runs_every_gate_the_workflow_does():
     # gates read what the build wrote, so the order is part of the claim, and
     # `--skip-deps` is part of it too -- a probe that skipped what the workflow
     # builds would exercise the gates against no build at all.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     named = [
         invocation
         for script in _docs_steps().values()
@@ -1164,7 +1129,7 @@ def test_the_exercise_reports_the_step_that_failed_and_stops(monkeypatch, tmp_pa
     # The gates read what the build wrote, so running on past a failure reports
     # a cascade of missing-output errors in place of the failure that caused
     # them -- and that text is what the issue quotes verbatim (floors spec §3.6).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     ran = []
 
     def _run(command, **_):
@@ -1189,7 +1154,7 @@ def test_the_forced_pin_is_written_after_the_generator_runs(monkeypatch, tmp_pat
     # pin not being a floor it can resolve. With `check=True` on that call, the
     # refusal raises, and the scan dies on its first candidate having established
     # nothing (floors spec §3.2, §3.5).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     order = []
 
     def _run(command, **_):
@@ -1212,7 +1177,7 @@ LADDER = ["3.10.0", "3.10.1", "3.10.3", "3.11.0", "3.11.1"]
 
 def _rigged(monkeypatch, tmp_path, passes):
     """Replace the solver and the channel; return the module, a probe and the log."""
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     tried = []
 
     def _probe(_probe_arg, root, _package, _pin):
@@ -1275,7 +1240,7 @@ def test_a_candidate_reports_the_step_that_stopped_it(monkeypatch, tmp_path):
     # know which one they are reading: a candidate that never resolved says
     # nothing about the exercise, and one that resolved and failed the exercise
     # says the floors are solvable at that version (floors spec §3.5).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     monkeypatch.setattr(diagnose, "exercise", lambda *_: (False, "the exercise"))
     monkeypatch.setattr(diagnose, "solves", lambda *_, **__: (False, "the solver"))
     probe = diagnose.Probe(
@@ -1311,7 +1276,7 @@ def test_the_scan_climbs_the_index_the_declaring_table_names(monkeypatch, tmp_pa
 def test_the_environment_table_is_replaced_not_appended():
     # pixi solves every environment a manifest declares, so a leftover `default`
     # would let one tier's conflict fail another tier's run (floors spec §3.3).
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST + "\n[tool.pixi.environments]\ndefault = { features = [] }\n"
     out = floors.environments(text, "test", "3.12")
     assert "floors-test" in out
@@ -1322,7 +1287,7 @@ def test_a_feature_the_generated_environment_cannot_reach_is_dropped():
     # One environment survives generation, so every other feature is defined and
     # used by nothing, and pixi says so once per orphan -- ahead of the solver
     # output, in text the diagnosis quotes into the issue it files (:issue:`150`).
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST + '\n[tool.pixi.feature.py312.dependencies]\npython = "3.12.*"\n'
     out = floors.features(text, "test", "3.12")
     assert "[tool.pixi.dependencies]" in out
@@ -1337,7 +1302,7 @@ def test_a_dropped_feature_takes_every_table_and_comment_it_owns():
     # generator knows by name would leave the tasks behind, and pixi warns on the
     # feature, not on the table. The comment above a table was written about that
     # table, so leaving it behind would caption the next one instead.
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST + textwrap.dedent(
         """
         [tool.pixi.feature.test.tasks.tests]
@@ -1366,7 +1331,7 @@ def test_the_tier_keeps_the_tables_that_are_not_dependencies():
     # The docs tier declares `playwright` in a `pypi-dependencies` table and
     # builds through its own tasks. A prune keyed on the dependency table alone
     # would take both, and the tier would install and then fail to run.
-    floors = _load()
+    floors = load_script("floors")
     text = MANIFEST + textwrap.dedent(
         """
         [tool.pixi.feature.docs.pypi-dependencies]
@@ -1387,7 +1352,7 @@ def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
     # manifest rather than a fixture: a feature added to `pyproject.toml`
     # tomorrow is dropped by the same rule, and one the generated environment
     # does reference is never dropped by it.
-    floors = _load()
+    floors = load_script("floors")
     text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
@@ -1407,7 +1372,7 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
     # allowed, and a manifest that grew one would generate a dangling reference.
     # Every `depends-on` in `pyproject.toml` names a task of its own feature
     # today; this is what notices the day one does not.
-    floors = _load()
+    floors = load_script("floors")
     text = _committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
@@ -1478,7 +1443,7 @@ def test_each_half_reads_its_floors_from_the_site_it_installs_from(
     # manifest for conda, the requirements files for PyPI (:issue:`142`). A PyPI
     # diagnosis reading the manifest would relax `matplotlib-base` -- a name the
     # package index has never heard of -- and attribute nothing, every week.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = _sites(tmp_path)
     assert diagnose.declared(_probe(diagnose, source)) == {
         "matplotlib": (">=3.11", "core", "pypi-dependencies"),
@@ -1503,7 +1468,7 @@ def test_a_pypi_relaxation_pins_the_version_the_default_resolution_chose(
     # requirement at all: unconstrained under `lowest-direct` it resolves
     # *lower*, to the oldest release the index carries, and the loop would then
     # report every floor as unattributable (floors spec §3.4).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = _sites(tmp_path)
     monkeypatch.setattr(diagnose, "defaults", lambda _probe: {"click": "8.4.2"})
     monkeypatch.setattr(
@@ -1528,7 +1493,7 @@ def test_a_package_the_default_resolution_skips_is_not_pinned_to_a_guess(
     # platform excludes -- has no version to be relaxed to. That is reported as a
     # probe that did not solve, and the loop moves on: pinning it to whatever the
     # index carries latest would attribute the failure to a resolve nobody makes.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = _sites(tmp_path)
     monkeypatch.setattr(diagnose, "defaults", lambda _probe: {})
     ran = []
@@ -1547,7 +1512,7 @@ def test_the_pypi_exercise_runs_the_interpreter_the_probe_installed_into(
     # exercise has to run *that* interpreter: the one this script runs under has
     # the versions the diagnosis job resolved, not the floors under test, and a
     # suite green there is green about the wrong environment (floors spec §3.3).
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     seen = []
 
     def _run(command, **_):
@@ -1577,7 +1542,7 @@ def test_one_floor_keys_on_one_name_where_the_two_sites_spell_it_two_ways(tmp_pa
     # the halves reach that key from `matplotlib` and from `matplotlib-base` --
     # without this they file two issues, each sending its reader to the other's
     # file as well.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = _sites(tmp_path)
     for half, package in (("pypi", "matplotlib"), ("conda", "matplotlib-base")):
         probe = _probe(diagnose, source, half=half)
@@ -1605,7 +1570,7 @@ def test_every_package_the_two_sites_spell_differently_is_reconciled(tmp_path):
     # legitimate, `make` being a build tool the pip declaration does not carry
     # (floors spec §3.1) -- and it is the direction that matters, a PyPI finding
     # needing a manifest name to be keyed on.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     # The committed manifest, not the working tree's: the conda half of
     # `ci-floors` runs this suite in a checkout the generator has rewritten,
     # where every feature but the tier's own is gone and half these
@@ -1627,7 +1592,7 @@ def test_the_pixi_table_named_is_the_manifest_s_not_the_requirement_s_tier(tmp_p
     # manifest. Carrying the requirements file's tier over would send the reader
     # to `[tool.pixi.feature.test.dependencies]`, where the edit is to add a
     # second declaration -- and the manifest would then floor it twice.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     probe = _probe(diagnose, _sites(tmp_path))
     assert diagnose._pixi_site(probe, "setuptools-scm", "test") == (
         "core",
@@ -1649,7 +1614,7 @@ def test_a_probe_copy_leaves_the_leg_s_virtual_environment_behind(tmp_path):
     # diagnosis rather than its own copy -- and every probe would then report on
     # the same environment, whatever it had just pinned. Each makes its own, and
     # dropping the copy drops it.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = tmp_path / "checkout"
     (source / diagnose.VENV / "bin").mkdir(parents=True)
     (source / diagnose.VENV / "bin" / "python").write_text("#!/bin/sh\n")
@@ -1671,7 +1636,7 @@ def test_both_scripts_name_the_same_requirements_files():
     # one job that has to work when everything it reports on is red. A rename
     # reaching one and not the other sends the reader to a file the diagnosis was
     # never looking at.
-    diagnose, issue = _load_diagnose(), _load_issue()
+    diagnose, issue = load_script("floors_diagnose"), load_script("floors_issue")
     assert {
         tier: site["requirements"] for tier, site in issue.SITES.items()
     } == diagnose.REQUIREMENTS
@@ -1684,7 +1649,7 @@ def test_both_scripts_name_the_same_stages():
     # holding them together matters more: a stage the composer does not know is
     # not a blank in the issue body, it is the wrong sentence -- which is the
     # defect the field was added to fix (:issue:`188`).
-    diagnose, issue = _load_diagnose(), _load_issue()
+    diagnose, issue = load_script("floors_diagnose"), load_script("floors_issue")
     assert diagnose.STAGES == issue.STAGES
     # And the composer has prose for each, plus the fallback its own reader
     # hands back for a stage it does not recognise. A stage added to both lists
@@ -1706,7 +1671,7 @@ def test_the_diagnosis_returns_no_stage_the_composer_has_not_heard_of():
     # it, because what needs catching is a *fifth* branch added later -- the
     # four that exist are exercised above, and no test written today reaches one
     # that does not exist yet.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     path = REPO / ".github" / "scripts" / "floors_diagnose.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found = next(
@@ -1744,7 +1709,7 @@ def test_the_two_halves_run_the_same_tier_names():
     conda = set(jobs["conda"]["strategy"]["matrix"]["tier"])
     pypi = {entry["tier"] for entry in jobs["pypi"]["strategy"]["matrix"]["include"]}
     assert conda == pypi
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     assert conda == set(diagnose.EXERCISE) == set(diagnose.PYPI_EXERCISE)
 
 
@@ -1794,7 +1759,7 @@ def test_both_halves_record_the_same_two_lines_to_edit(monkeypatch, tmp_path):
     # `setuptools_scm` -- a `test` requirement and a core declaration -- the
     # fallback is `requirements/pypi-core.txt`, which declares no such line.
     # Neither site can be read off the other, so both are asked on both halves.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     source = _sites(tmp_path)
     monkeypatch.setattr(
         diagnose.floors,
@@ -1850,7 +1815,7 @@ def test_a_floor_the_pip_requirements_do_not_carry_names_no_file(tmp_path):
     # would send the reader to a file with no such line, which reads exactly
     # like a line they failed to find -- so the empty answer is kept, and the
     # issue says the floor is declared once rather than naming a second site.
-    diagnose = _load_diagnose()
+    diagnose = load_script("floors_diagnose")
     probe = _probe(diagnose, _sites(tmp_path), half="conda")
     assert diagnose._pypi_site(probe, "make") == ""
     assert diagnose._pypi_site(probe, "click") == "requirements/pypi-core.txt"

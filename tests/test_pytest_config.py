@@ -4,8 +4,9 @@
 # See the LICENSE file in the package root directory for licensing details.
 """What keeps the `tests` package importable however pytest was started.
 
-The tests tree is a real package (spec §8.5) and three modules reach a sibling
-through it by dotted name, `tests/pixi_tasks.py` being the one they share. Under
+The tests tree is a real package (spec §8.5) and most of its modules reach a
+sibling through it by dotted name -- `tests/by_path.py` and `tests/pixi_tasks.py`
+are the two they share. Under
 `--import-mode=importlib` that import is not served by the import of the test
 module itself: pytest below 8.2 puts a *placeholder* `tests` in `sys.modules`
 with no `__path__` on it, so resolving `tests.pixi_tasks` falls back to
@@ -35,14 +36,18 @@ REPO = Path(__file__).parents[1]
 #: The tests tree's own name, as `tests/io/__init__.py` is reached by.
 PACKAGE = "tests"
 
-#: The modules importing through `PACKAGE` today. The list is asserted on rather
-#: than merely counted: a corpus that emptied would leave the declaration below
-#: passing with nothing behind it, and the honest reading of an empty scan is
-#: that the scan broke -- these three have imported a sibling since :pull:`179`.
+#: Modules that import through `PACKAGE`, asserted as a subset of what the scan
+#: finds rather than as the whole of it: a corpus that emptied would leave the
+#: declaration below passing with nothing behind it, and the honest reading of an
+#: empty scan is that the scan broke. Named rather than counted, so that the
+#: assertion says which modules it is standing on. The first three have imported
+#: a sibling since :pull:`179`; the by-path loader (:issue:`265`) brought the rest
+#: of the tree with it, `tests/test_by_path.py` standing for those here.
 IMPORTERS = {
     "test_docs_workflow.py",
     "test_floors.py",
     "test_pixi_tasks.py",
+    "test_by_path.py",
 }
 
 
@@ -68,8 +73,8 @@ def _import_module_call(node):
 def _dotted_imports(source):
     """Report every line reaching into the `tests` package by its dotted name.
 
-    Wider than the three lines that need it today, because what the declaration
-    below buys is the whole class: `from tests.pixi_tasks import runs` is the
+    Wider than the lines that need it today, because what the declaration below
+    buys is the whole class: `from tests.pixi_tasks import runs` is the
     shape in the tree, but `import tests.pixi_tasks`, `from tests import
     pixi_tasks` and an `import_module` of the same string all resolve through
     the same absent parent, and a detector reading only the first would report

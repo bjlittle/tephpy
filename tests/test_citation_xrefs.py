@@ -7,17 +7,16 @@
 
 from __future__ import annotations
 
-import importlib.util
 import logging
 from pathlib import Path
-import sys
 import types
 
 import pytest
 
+from tests.by_path import load_ext
+
 REPO = Path(__file__).parents[1]
 SRC = REPO / "docs" / "src"
-EXT = SRC / "_ext"
 
 # The transform imports Sphinx, which only the `docs` feature installs, so this
 # module is unimportable in the `test-py3*` environments the CI matrix runs. It
@@ -37,25 +36,8 @@ new_document = pytest.importorskip("docutils.utils").new_document
 CITED = "docs spec §3.7"
 TITLED = f"Rendering and {CITED}"
 
-# `_ext` is a `sys.path` entry at build time rather than a package, so the module
-# resolves its sibling `tephpy_citations` by top-level name and cannot be imported
-# until that entry exists.
-if str(EXT) not in sys.path:
-    sys.path.insert(0, str(EXT))
 
-
-def _load():
-    """Import the transform by path; ``_ext`` is not an importable package."""
-    path = EXT / "tephpy_citation_xrefs.py"
-    assert path.is_file(), f"the citation transform is missing from {path}"
-    spec = importlib.util.spec_from_file_location("tephpy_citation_xrefs", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-cx = _load()
+cx = load_ext("tephpy_citation_xrefs")
 
 
 def app(srcdir):

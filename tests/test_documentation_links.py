@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-import sys
 
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_documentation_links.py"
@@ -30,17 +30,7 @@ STYLE = "developer/docs-style.html"
 PREVIEW = "https://tephpy--99.org.readthedocs.build/en/99/reference/glossary.html"
 
 
-def _load():
-    """Import the gate by path; ``.github`` is not an importable package."""
-    assert SCRIPT.is_file(), f"the documentation link gate is missing from {SCRIPT}"
-    spec = importlib.util.spec_from_file_location("check_documentation_links", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-gate = _load() if SCRIPT.is_file() else None
+gate = load_script("check_documentation_links") if SCRIPT.is_file() else None
 
 
 def url(page, anchor=""):

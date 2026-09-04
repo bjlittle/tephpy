@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-import sys
 
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_rendered_citations.py"
@@ -36,17 +36,7 @@ def cite(text):
     return text.replace("@", SECTION)
 
 
-def _load():
-    """Import the gate by path; ``.github`` is not an importable package."""
-    assert SCRIPT.is_file(), f"the rendered-citation gate is missing from {SCRIPT}"
-    spec = importlib.util.spec_from_file_location("check_rendered_citations", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-crc = _load() if SCRIPT.is_file() else None
+crc = load_script("check_rendered_citations") if SCRIPT.is_file() else None
 
 
 def scan(html):

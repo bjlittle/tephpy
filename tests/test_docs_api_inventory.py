@@ -19,30 +19,19 @@ asserted in a comment.
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 import sys
 import zlib
 
 import pytest
 
+from tests.by_path import load_script
+
 REPO = Path(__file__).parents[1]
-GATE = REPO / ".github" / "scripts" / "check_api_inventory.py"
 INVENTORY = REPO / "docs" / "_build" / "html" / "objects.inv"
 
 
-def _load():
-    """Import the gate, which is a script rather than an installed module."""
-    spec = importlib.util.spec_from_file_location("check_api_inventory", GATE)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-inventory_gate = _load()
+inventory_gate = load_script("check_api_inventory")
 
 
 def _write_inventory(path, entries):

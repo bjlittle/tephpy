@@ -7,13 +7,14 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import sys
 
 import pytest
+
+from tests.by_path import load_script
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "floors_issue.py"
@@ -29,17 +30,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _load():
-    """Import the issue composer by path."""
-    spec = importlib.util.spec_from_file_location("floors_issue", SCRIPT)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["floors_issue"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 FINDING = {
     "tier": "core",
     "half": "conda",
@@ -52,14 +42,14 @@ FINDING = {
 
 
 def test_the_key_omits_the_half_so_one_floor_raises_one_issue():
-    module = _load()
+    module = load_script("floors_issue")
     conda = module.key(FINDING)
     pypi = module.key({**FINDING, "half": "pypi"})
     assert conda == pypi
 
 
 def test_the_body_carries_the_caveat_and_both_declaration_sites():
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body(FINDING, "https://example.invalid/run/1")
     assert "lowest version that passes what tephpy runs" in text
     assert "requirements/pypi-core.txt" in text
@@ -73,7 +63,7 @@ def test_the_scan_line_is_one_sentence_in_both_outcomes():
     # the reader as a filed issue that does not parse. Both branches are asserted
     # because only one of them was wrong: a clause where the other returns a noun
     # phrase gave "The scan found no version at or above the floor passed".
-    module = _load()
+    module = load_script("floors_issue")
     found = module.body(FINDING, "url")
     assert "The scan found **3.10.3**, the lowest that passes, of 3 tried." in found
     none = module.body({**FINDING, "lowest": None}, "url")
@@ -90,7 +80,7 @@ def test_an_unattributed_finding_says_so_and_names_no_declaration_site():
     # into every tier (floors spec §3.1). The `test` tier is expected to produce
     # a finding of exactly this shape on the first run, so this is the issue a
     # reader meets before any other.
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**FINDING, "tier": "test", "package": None, "lowest": None}
     text = module.body(finding, "url")
     assert "no attribution was reached" in text
@@ -121,7 +111,7 @@ def test_only_the_verdict_that_relaxed_anything_says_it_relaxed_anything():
     # that never ran, and sent after a dependency conflict that did not exist:
     # :issue:`185` was the exercise branch, and what it quoted was a pytest
     # traceback.
-    module = _load()
+    module = load_script("floors_issue")
     claim = "Relaxing each declared floor in turn resolved nothing"
     bodies = {
         stage: module.body(finding, "url") for stage, finding in NO_CULPRIT.items()
@@ -142,7 +132,7 @@ def test_the_solved_verdicts_say_what_is_quoted_and_that_nothing_was_relaxed():
     # tell its reader that no floor was relaxed and what the block below it
     # actually holds -- calling a pytest traceback "the solver output" is half
     # of why :issue:`185` read as a dependency conflict.
-    module = _load()
+    module = load_script("floors_issue")
     exercised = module.body(NO_CULPRIT["exercise"], "url")
     assert "no floor was relaxed" in exercised
     assert "the tier's exercise then failed" in exercised
@@ -160,7 +150,7 @@ def test_the_quoted_block_is_labelled_with_what_produced_it():
     # "failure at the declared floors" is true of all three in the sense that
     # those were the floors in force, and reads as the solve having failed --
     # which is the one thing it was not in two of them.
-    module = _load()
+    module = load_script("floors_issue")
     assert "exercise failure at the declared floors (conda)" in module.body(
         NO_CULPRIT["exercise"], "url"
     )
@@ -177,7 +167,7 @@ def test_a_finding_written_before_the_stage_keeps_the_wording_it_had():
     # this field wrote, and the sentence it was written under is the solve one.
     # Reading it as anything else would put a claim in the body that the run
     # producing it never made.
-    module = _load()
+    module = load_script("floors_issue")
     assert module.stage({"tier": "test"}) == module.STAGE_SOLVE
     # Built by removing the key rather than by leaning on the fixture's own
     # `solve`: that one carries the stage explicitly, so asserting against it
@@ -195,7 +185,7 @@ def test_a_stage_this_composer_does_not_know_asserts_nothing_about_what_ran():
     # still compose -- the filing job runs when everything it reports on is red,
     # and a `KeyError` there loses the issue entirely -- and it must not guess,
     # because a confident wrong sentence is the whole of what is being fixed.
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**NO_CULPRIT["solve"], "stage": "nonesuch"}
     assert module.stage(finding) == module.STAGE_UNKNOWN
     text = module.body(finding, "url")
@@ -211,7 +201,7 @@ def test_two_halves_that_got_different_distances_are_not_described_as_one():
     # other. Each block is labelled by its own half's stage; the sentence that
     # sends the reader to them cannot be, so it names neither rather than
     # naming the primary's and being wrong about the other.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body(
         NO_CULPRIT["solve"],
         "url",
@@ -244,7 +234,7 @@ def test_a_two_half_issue_says_what_each_half_did_and_what_that_means():
     # from" pointer and none of the sentences that say what ran (:issue:`188`).
     # The unreproduced pair is the sharp instance: two halves, nothing
     # attributed, and no word anywhere that both probes *passed*.
-    module = _load()
+    module = load_script("floors_issue")
     for name, ran, means in (
         (
             "exercise",
@@ -279,7 +269,7 @@ def test_an_attributed_pair_still_lists_the_two_scans_and_nothing_else():
     # attributed. With a culprit the scan is what that half established and the
     # two genuinely differ, so this list has always been worth reading -- and a
     # stage clause bolted onto it would be the relaxation loop described twice.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body(FINDING, "url", [{**FINDING, "half": "pypi", "lowest": None}])
     assert "- **conda:** **3.10.3**, the lowest that passes, of 3 tried" in text
     assert (
@@ -295,7 +285,7 @@ def test_an_unattributed_pair_is_not_described_as_having_scanned():
     # with nothing attributed ran none -- and "each half scanned its own source"
     # over two lines that both say nothing was attributed is the same assertion
     # of work that never ran as the sentence above.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body(
         NO_CULPRIT["solve"],
         "url",
@@ -315,7 +305,7 @@ def test_the_stage_is_not_in_the_dedupe_key_or_the_title():
     # one broken thing, so the stage must not reach the key -- and because
     # `_open_issues` rebuilds the key from the *title*, it must not reach that
     # either, or the second week files a fresh issue rather than commenting.
-    module = _load()
+    module = load_script("floors_issue")
     keys = {module.key(finding) for finding in NO_CULPRIT.values()}
     titles = {module.title(finding) for finding in NO_CULPRIT.values()}
     assert len(keys) == 1
@@ -333,7 +323,7 @@ def test_a_tier_whose_failure_changes_shape_comments_rather_than_refiling(
     # failure and this week's finding is an exercise failure, and the two are
     # one issue -- the tier is broken either way, and a second issue every time
     # the failure changes shape is the weekly noise the dedupe exists to stop.
-    module = _load()
+    module = load_script("floors_issue")
     finding = NO_CULPRIT["exercise"]
     calls = _stub(monkeypatch, module, existing={module.key(finding): "9"})
     paths = _write(tmp_path, [finding])
@@ -347,7 +337,7 @@ def test_the_declaration_sites_follow_the_declaring_table_not_the_tier():
     # a package declared in `[tool.pixi.dependencies]` -- which is exactly the
     # first finding expected of this job, `matplotlib-base`. Naming the tier's
     # sites would send the fix to two files that do not declare it.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body({**FINDING, "tier": "test", "site": "core"}, "url")
     assert "requirements/pypi-core.txt" in text
     assert "[tool.pixi.dependencies]" in text
@@ -363,7 +353,7 @@ def test_the_issue_quotes_what_the_highest_version_tried_failed_on():
     # floor. Naming the version the trace belongs to matters as much as the
     # trace: a reader who cannot see how far the scan got cannot tell an
     # unsolvable package from one blocked by something else (:issue:`149`).
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**FINDING, "lowest": None, "blocked": "Unable to read file"}
     text = module.body(finding, "url")
     assert "3.10.3, the highest version tried, and what it failed on" in text
@@ -377,7 +367,7 @@ def test_the_issue_says_why_no_passing_version_is_not_a_contradiction():
     # questions -- relaxation asks whether the tier resolves, the scan asks for
     # resolve *and* exercise -- and the gap is where the second broken floor
     # sits. Tied to a quoted trace, since the sentence ends by pointing at one.
-    module = _load()
+    module = load_script("floors_issue")
     stalled = module.body({**FINDING, "lowest": None, "blocked": "trace"}, "url")
     assert "ask different questions" in stalled
     found = module.body({**FINDING, "blocked": "trace"}, "url")
@@ -392,7 +382,7 @@ def test_the_pixi_table_named_is_the_one_the_floor_is_declared_in():
     # requirements file. Naming the dependency table by default would send the
     # reader to a table the package is not in, where the fix is to add a second
     # declaration of it -- the manifest then floors it twice (:issue:`151`).
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**FINDING, "tier": "docs", "package": "playwright"}
     text = module.body({**finding, "table": "pypi-dependencies"}, "url")
     assert "[tool.pixi.feature.docs.pypi-dependencies]" in text
@@ -432,7 +422,7 @@ def test_an_unattributed_finding_comments_rather_than_refiling(monkeypatch, tmp_
     # weekly run files another. The unattributed finding is the one whose two can
     # differ, and it is not hypothetical: the `test` tier solves and fails its
     # exercise today, which is exactly the finding that carries no package.
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**FINDING, "package": None, "lowest": None}
     titled = module.title(finding).removeprefix("Dependency floor: ")
     assert module.key(finding) == titled.replace(" / ", "/")
@@ -449,7 +439,7 @@ def test_both_halves_of_one_floor_file_one_issue(monkeypatch, tmp_path):
     # half cannot see the issue the conda half just created, and files a second
     # under the same title. The `key` equality above holds either way, which is
     # why telling the two apart takes filing two artifacts (floors spec §3.6).
-    module = _load()
+    module = load_script("floors_issue")
     calls = _stub(monkeypatch, module)
     paths = _write(tmp_path, [FINDING, {**FINDING, "half": "pypi"}])
     monkeypatch.setattr(sys, "argv", ["floors_issue.py", *paths, "--run-url", "u"])
@@ -469,7 +459,7 @@ def test_no_artifacts_is_refused_rather_than_reported_as_nothing_wrong(
     # read means the diagnosis did not produce its artifact. Exiting 0 there is
     # indistinguishable from a run that found nothing to file, which is the one
     # thing this job must never say while something is broken.
-    module = _load()
+    module = load_script("floors_issue")
     calls = _stub(monkeypatch, module)
     missing = str(tmp_path / "findings" / "*.json")
     monkeypatch.setattr(sys, "argv", ["floors_issue.py", missing, "--run-url", "u"])
@@ -483,7 +473,7 @@ def test_the_issue_names_the_package_as_the_file_it_sends_you_to_spells_it():
     # sent to the requirements file with only that name finds no such line, the
     # package being `matplotlib` there. The body sends them to both files to make
     # the same edit, so it has to name both lines.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body({**FINDING, "alias": "matplotlib"}, "url")
     assert "`requirements/pypi-core.txt` — declared there as `matplotlib`" in text
     # And says nothing where the two sites agree, which is most of them: an
@@ -496,7 +486,7 @@ def test_the_requirements_file_named_is_the_one_declaring_the_floor():
     # is a `test` requirement and a core declaration in the manifest, so reading
     # both files off one key names one of them wrongly -- and names it as a file
     # to make the same edit in, where there is no such line to edit.
-    module = _load()
+    module = load_script("floors_issue")
     text = module.body(
         {
             **FINDING,
@@ -520,7 +510,7 @@ def test_a_floor_declared_for_pixi_alone_names_one_line():
     # such line reads as a line they failed to find, so the body says instead
     # that this floor is declared once. An absent key is a finding from before
     # the diagnosis answered this, and keeps the pairing it was read with.
-    module = _load()
+    module = load_script("floors_issue")
     finding = {**FINDING, "tier": "docs", "package": "make", "site": "docs"}
     text = module.body({**finding, "requirements": ""}, "url")
     assert "Declared for pixi alone" in text

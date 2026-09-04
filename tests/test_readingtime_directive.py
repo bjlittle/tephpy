@@ -6,14 +6,9 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-
 import pytest
 
-REPO = Path(__file__).parents[1]
-EXT = REPO / "docs" / "src" / "_ext"
+from tests.by_path import load_ext
 
 # The directive imports Sphinx, which only the `docs` feature installs, so this
 # module is unimportable in the `test-py3*` environments the CI matrix runs. It is
@@ -28,23 +23,9 @@ frontend = pytest.importorskip("docutils.frontend")
 parsers = pytest.importorskip("docutils.parsers.rst")
 core = pytest.importorskip("docutils.core")
 
-if str(EXT) not in sys.path:
-    sys.path.insert(0, str(EXT))
 
-
-def _load(name: str):
-    """Import an extension module by path; ``_ext`` is not an importable package."""
-    path = EXT / f"{name}.py"
-    assert path.is_file(), f"the module is missing from {path}"
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-reading = _load("tephpy_reading")
-readingtime = _load("tephpy_readingtime")
+reading = load_ext("tephpy_reading")
+readingtime = load_ext("tephpy_readingtime")
 
 # Registered once, in the plain docutils registry, so `_publish` can drive
 # `ReadingTimeDirective.run()` the way an actual `.. readingtime::` in an `.rst`

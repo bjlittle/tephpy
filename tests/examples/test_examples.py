@@ -16,7 +16,7 @@ import pytest
 
 from tephpy import examples
 from tephpy.examples import REGISTRY
-from tests.ext_modules import load
+from tests.by_path import load_ext
 
 #: The taxonomy of topics spec §3.5. The vocabulary and the flag pattern moved
 #: there when the site-wide topic index started reading the same two things: a
@@ -25,7 +25,7 @@ from tests.ext_modules import load
 #: (:issue:`92`), and imported here with no `importorskip` guard, because this
 #: module holds nothing outside the standard library and these assertions run on
 #: every supported Python.
-topics = load("tephpy_topics_data")
+topics = load_ext("tephpy_topics_data")
 
 #: sphinx-gallery's own in-file flag pattern, transcribed from
 #: ``py_source_parser.INFILE_CONFIG_PATTERN`` (0.21.0) -- what

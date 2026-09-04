@@ -19,13 +19,12 @@ unknown key in the file is no longer among those warnings:
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import warnings
 
 import matplotlib as mpl
 import pytest
+
+from tests.by_path import load_script
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -59,13 +58,4 @@ def gate():
     module
         ``.github/scripts/check_api_docstrings.py``, executed.
     """
-    script = (
-        Path(__file__).parents[1] / ".github" / "scripts" / "check_api_docstrings.py"
-    )
-    spec = importlib.util.spec_from_file_location("check_api_docstrings", script)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_script("check_api_docstrings")

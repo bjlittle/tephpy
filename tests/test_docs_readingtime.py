@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from tests.ext_modules import load
+from tests.by_path import load_ext
 
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
 
-reading = load("tephpy_reading")
+reading = load_ext("tephpy_reading")
 
 
 def test_the_default_rate_is_the_one_the_specification_cites():

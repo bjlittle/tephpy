@@ -17,28 +17,11 @@ labels". They are what the unit cases below pin.
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-
 import pytest
 
-REPO = Path(__file__).parents[1]
-GATE = REPO / ".github" / "scripts" / "check_glossary_links.py"
+from tests.by_path import load_script
 
-
-def _load():
-    """Import the gate, which is a script rather than an installed module."""
-    spec = importlib.util.spec_from_file_location("check_glossary_links", GATE)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-gate = _load()
+gate = load_script("check_glossary_links")
 
 GLOSSARY = """\
 Glossary

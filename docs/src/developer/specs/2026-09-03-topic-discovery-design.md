@@ -453,7 +453,7 @@ places. The registration sites are enumerated here so the set is visible in one 
 | `docs/src/_static/topics.js` | the filter, registered by the extension rather than by `conf.py` |
 | `docs/src/developer/docs-style.rst` | the "Topic Tags" section, the vocabulary's new home in "Gallery Examples", and the topic index in the "Reading Time" exemption sentence |
 | `.github/scripts/check_glossary_links.py` | a leading docinfo field list is metadata, not prose (§3.2) |
-| `tests/ext_modules.py` | the shared `_ext` loader, so the vocabulary's move does not add a third copy of it |
+| `tests/by_path.py` | the shared `_ext` loader, so the vocabulary's move does not add a third copy of it |
 | `tests/test_floors.py` | its `GUARDED` tuple, so `tests/test_topics_issue.py`'s sdist guard is checked the same way the other `.github`-script tests' are |
 
 The reading-time exemption set (reading spec §3.7) is written in **four** places, not

@@ -6,14 +6,9 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-
 import pytest
 
-REPO = Path(__file__).parents[1]
-EXT = REPO / "docs" / "src" / "_ext"
+from tests.by_path import load_ext
 
 # `sphinx_tippy` lives only in the `docs` feature (tooltip spec §3.1), so this
 # module is unimportable in the `test-py3*` environments the CI matrix runs.
@@ -23,22 +18,8 @@ sphinx_tippy = pytest.importorskip(
 )
 bs4 = pytest.importorskip("bs4", reason="the docs feature is not installed here")
 
-if str(EXT) not in sys.path:
-    sys.path.insert(0, str(EXT))
 
-
-def _load(name: str):
-    """Import an extension module by path; ``_ext`` is not an importable package."""
-    path = EXT / f"{name}.py"
-    assert path.is_file(), f"the module is missing from {path}"
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-tippy_terms = _load("tephpy_tippy_terms")
+tippy_terms = load_ext("tephpy_tippy_terms")
 
 
 class _FakeConfig:

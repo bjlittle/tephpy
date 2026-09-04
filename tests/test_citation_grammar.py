@@ -7,17 +7,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import itertools
 import json
-from pathlib import Path
-import sys
 
 import nbformat
 import pytest
 
-REPO = Path(__file__).parents[1]
-MODULE = REPO / "docs" / "src" / "_ext" / "tephpy_citations.py"
+from tests.by_path import load_ext
 
 # As in `test_citations.py`: this file sits inside the corpus the checker reads
 # (docs spec §3.6), so the fixtures below build the section sign rather than
@@ -32,20 +28,7 @@ def cite(text):
     return text.replace("@", SECTION)
 
 
-def _load():
-    """Import the grammar by path; ``docs/src/_ext`` is not an importable package."""
-    # The file is asserted on rather than the ``ModuleSpec``: a spec comes back
-    # populated even for a path that does not exist, so the checks it invites are
-    # dead, and a missing module surfaces as a ``FileNotFoundError`` instead.
-    assert MODULE.is_file(), f"the citation grammar is missing from {MODULE}"
-    spec = importlib.util.spec_from_file_location("tephpy_citations", MODULE)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-citations = _load()
+citations = load_ext("tephpy_citations")
 
 ANCHORS = [
     "spec-3-1",
