@@ -26,8 +26,22 @@ on:
     types: [opened, closed]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Keyed by the thread, and not by `github.ref`: an `issues` event carries the
+  # default branch, and a `pull_request_target` event carries the *base* branch
+  # (unlike `pull_request`, which carries `refs/pull/<n>/merge`), so a ref-keyed
+  # group would hold every issue and every pull-request in the repository.
+  #
+  # Never cancelling, either. Cancellation is for work a later run supersedes,
+  # and nothing here is superseded: each event is one message to one person, and
+  # a cancelled run is that message silently not sent -- including the merge
+  # message, which would otherwise be cancelled by the greeting on a
+  # quickly-closed pull-request. What the group still buys is order: two runs on
+  # the same thread would otherwise both count that thread's contributions while
+  # the other was mid-flight.
+  group: >-
+    ${{ github.workflow }}-${{ github.event.issue.number
+    || github.event.pull_request.number }}
+  cancel-in-progress: false
 
 permissions: {}
 
