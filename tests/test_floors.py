@@ -558,6 +558,7 @@ GUARDED = (
     "test_citations.py",
     "test_github_references.py",
     "test_topics_issue.py",
+    "test_stale.py",
 )
 
 
