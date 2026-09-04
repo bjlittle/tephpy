@@ -156,9 +156,10 @@ stops running is exactly the failure this project writes gates against, so the n
 convention is stated here and asserted in §3.7.
 
 `GALLERY_HEADER.rst` is the header sphinx-gallery requires in an examples directory
-(`GALLERY_HEADER.[ext]`, or `README.[ext]` for backward compatibility). It ships inside the
-package, which is where the extension insists on finding it, and it is the natural place
-for the IGRA attribution to appear on the rendered index.
+(`GALLERY_HEADER.[ext]`, or `README.[ext]` for backward compatibility). It lives inside the
+package directory, which is where the extension insists on finding it — in the tree, that
+is, and not in the distributions (§3.7) — and it is the natural place for the IGRA
+attribution to appear on the rendered index.
 
 `__init__.py` is not scraped — sphinx-gallery's `ignore_pattern` excludes it by default —
 and so is free to hold the registry: an explicit ordered mapping of CLI name to module,

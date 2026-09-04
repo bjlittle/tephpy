@@ -58,20 +58,20 @@ jobs:
           import tephpy
           fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
           assert type(ax).__name__ == "TephigramAxes", type(ax)
-          # The sample data and the gallery header are package data, not
-          # Python, so only an installed wheel can prove they were shipped
-          # (gallery spec §3.7). Reading a sounding covers the sample file,
-          # which `tephpy.samples` genuinely reads from an installed tephpy.
-          # Nothing reads the header from one -- sphinx-gallery globs the
-          # checkout directory `examples_dirs` names -- so the assertion below
-          # guards the `package-data` entry alone: without it the wheel's
-          # `tephpy.examples` is missing a file the sdist ships and the gallery
-          # offers for download.
-          from importlib.resources import files
+          # The sample data is package data, not Python, so only an installed
+          # wheel can prove it was shipped (gallery spec §3.7). Reading a
+          # sounding covers it, and `tephpy.samples` is what genuinely reads it
+          # from an installed tephpy.
+          #
+          # `GALLERY_HEADER.rst` was asserted here too, until the distributions
+          # stopped carrying the repository around the package. That assertion
+          # rested on the header being a file "the sdist ships and the gallery
+          # offers for download": the sdist no longer ships it, and the download
+          # sphinx-gallery offers is built from the checkout it globs, never
+          # from an install. Nothing reads it from one, so nothing needs it in
+          # one (`docs/src/developer/packaging.rst`).
           snd = tephpy.samples.sounding("norman-12z")
           assert snd.wind_speed is not None
-          header = files("tephpy.examples") / "GALLERY_HEADER.rst"
-          assert header.is_file(), header
           print("wheel smoke OK:", tephpy.__version__)
           PY
           /tmp/smoke/bin/tephpy examples list
