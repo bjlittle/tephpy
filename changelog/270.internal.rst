@@ -1,0 +1,9 @@
+Two workflows now carry over from ``geovista``. ``ci-first-contribution`` greets and
+labels an author's first issue and first pull-request, triggering on
+``pull_request_target`` because GitHub withholds secrets from a ``pull_request`` run
+raised from a fork — which is where a first contribution comes from. ``ci-stale``
+labels an item stale after 180 idle days and closes it 28 days later, exempting the
+standing reports' own issues: each finds its issue again with ``--state open``, so one
+closed for inactivity would cost the history it carries. ``tests/test_stale.py`` derives
+those exemptions from the report scripts and parses them the way ``actions/stale`` does.
+(:user:`claude`)
