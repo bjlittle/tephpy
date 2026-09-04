@@ -1,0 +1,8 @@
+The by-path module loader is written once. ``importlib.util.spec_from_file_location``
+was open-coded in 18 test modules (:issue:`265`), and the copies had drifted over
+whether the directory goes on ``sys.path`` before the module runs — load-bearing
+wherever a module resolves a sibling by top-level name, as ``docs/src/_ext`` and
+``.github/scripts`` both do. ``tests/ext_modules.py`` becomes ``tests/by_path.py``,
+with ``load_ext``, ``load_script`` and the ``load_path`` primitive beneath them, and a
+test holds the tree to one copy by reading each module as syntax rather than as text.
+(:user:`claude`)
