@@ -1,0 +1,8 @@
+The tutorials, how-to and explanation landing pages now open with what their
+quadrant is for and then list its pages in a table, one terse description each,
+in place of a paragraph that summarised them one at a time
+(``narrative spec §3.9``). That paragraph had to be extended by hand whenever a
+page was added — the how-to quadrant's had grown from six clauses to nine — and
+nothing checked it. ``tests/test_docs_landing_pages.py`` now holds each table and
+its toctree to one ordered list, so the two can no longer drift in membership or
+in order. (:user:`claude`)
