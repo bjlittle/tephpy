@@ -17,7 +17,8 @@ Take them in order, and bring nothing with you — ``tephpy`` ships the
     * - :doc:`analyse-a-sounding`
       - Lift a parcel through that same ascent, and read what it says.
     * - :doc:`browser-demo`
-      - Not a lesson but an exhibit: the package running in your browser.
+      - Not a lesson but an exhibit: the package in your browser, nothing
+        installed.
 
 .. toctree::
     :hidden:

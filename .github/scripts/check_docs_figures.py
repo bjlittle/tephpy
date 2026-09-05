@@ -64,14 +64,16 @@ from matplotlib.image import imread
 from matplotlib.testing.compare import compare_images
 from matplotlib.testing.exceptions import ImageComparisonFailure
 
-#: The Diátaxis quadrants written for users, which are the pages that may publish
-#: a figure (plots spec §3.2).
-QUADRANTS = ("howtos", "tutorials", "explanation")
+#: The sections written for users, which are the pages that may publish a figure
+#: (plots spec §3.2). Named for the audience rather than for Diátaxis, because the
+#: getting-started section is one of them and is not a quadrant (start spec §3.6).
+USER_SECTIONS = ("start", "howtos", "tutorials", "explanation")
 #: The pages known to publish figures. Membership, not a count: a count is a
 #: figure that has to be re-measured to stay true. This is what fails when the
 #: declaration pattern stops matching, instead of the gate finding nothing and
 #: reporting that nothing was wrong.
 PUBLISHES = (
+    "start/quick-start.rst",
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
     "howtos/build-a-sounding.rst",
@@ -279,7 +281,7 @@ def collect(source: Path, images: Path, baselines: Path) -> list[Figure]:
 
     """
     found: list[Figure] = []
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         for page in sorted((source / quadrant).rglob("*.rst")):
             text = page.read_text(encoding="utf-8")
             found.extend(
@@ -348,7 +350,7 @@ def unreadable(source: Path, figures: list[Figure]) -> bool:
 
     """
     garbled = []
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         for page in sorted((source / quadrant).rglob("*.rst")):
             text = page.read_text(encoding="utf-8")
             relative = page.relative_to(source).as_posix()

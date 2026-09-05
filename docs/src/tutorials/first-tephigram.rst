@@ -9,7 +9,8 @@ Your First Tephigram
 
 By the end of this page you will have drawn a real :term:`radiosonde` ascent on a
 :term:`tephigram` and be able to say what every line on it is. No meteorology is assumed.
-The only thing you need is ``tephpy`` installed.
+The only thing you need is ``tephpy``
+:doc:`installed <../start/installation>`.
 
 A tephigram is a chart for reading the vertical structure of the atmosphere —
 what the temperature and humidity are doing as you go up. It looks unusual

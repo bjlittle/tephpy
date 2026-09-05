@@ -38,7 +38,7 @@ gate = load_script("check_glossary_links") if GATE.is_file() else None
 #: A `parametrize` decorator is evaluated at import, before any `skipif` on the
 #: module is consulted, so the guard above cannot cover a read of `gate` from
 #: one. Empty where the gate is absent, which pytest reports as a skip.
-QUADRANTS = gate.QUADRANTS if gate is not None else ()
+USER_SECTIONS = gate.USER_SECTIONS if gate is not None else ()
 
 GLOSSARY = """\
 Glossary
@@ -226,8 +226,8 @@ def test_the_corpus_is_covered():
     assert gate.corpus(), "no pages found in the user quadrants"
 
 
-@pytest.mark.parametrize("quadrant", QUADRANTS)
-def test_every_quadrant_directory_exists(quadrant):
+@pytest.mark.parametrize("quadrant", USER_SECTIONS)
+def test_every_section_directory_exists(quadrant):
     """A renamed quadrant would empty the corpus without touching this file."""
     assert (gate.DOCS / quadrant).is_dir()
 

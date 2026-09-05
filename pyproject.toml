@@ -444,6 +444,8 @@ towncrier = ">=24.8"
 
 [tool.pixi.feature.docs.pypi-dependencies]
 playwright = ">=1.55"
+# PyPI rather than conda: sphinx-iconify has no conda-forge package.
+sphinx-iconify = ">=0.3"
 
 [tool.pixi.feature.docs.tasks.docs-html]
 cmd = "make html"

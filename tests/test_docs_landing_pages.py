@@ -14,10 +14,12 @@ import pytest
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
 
-#: The quadrants whose landing page carries a table. The reference quadrant is out:
+#: The sections whose landing page carries a table. The reference quadrant is out:
 #: its entries are reached by name rather than chosen between, and narrative spec §7
-#: records the question rather than answering it here.
-QUADRANTS = ("tutorials", "howtos", "explanation")
+#: records the question rather than answering it here. Named for the audience
+#: rather than for Diátaxis, because the getting-started section takes the same
+#: landing shape without being a quadrant (start spec §3.1).
+USER_SECTIONS = ("start", "tutorials", "howtos", "explanation")
 
 #: A ``:doc:`` role, with the explicit target that wins over the display text when
 #: one is written -- the same two-part shape ``check_glossary_links.py`` reads a
@@ -238,13 +240,13 @@ def test_a_second_toctree_fails_rather_than_being_half_read():
         toctree_entries(source)
 
 
-def test_every_quadrant_this_gate_governs_is_on_disk():
+def test_every_section_this_gate_governs_is_on_disk():
     """A gate that finds nothing passes by never having looked."""
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         assert (DOCS / quadrant).is_dir(), f"{quadrant} is missing"
 
 
-@pytest.mark.parametrize("quadrant", QUADRANTS)
+@pytest.mark.parametrize("quadrant", USER_SECTIONS)
 def test_the_table_and_the_toctree_are_one_ordered_list(quadrant):
     """Narrative spec §3.9: the visible index and the navigation are one list.
 
@@ -257,7 +259,7 @@ def test_the_table_and_the_toctree_are_one_ordered_list(quadrant):
     assert table_targets(source) == toctree_entries(source)
 
 
-@pytest.mark.parametrize("quadrant", QUADRANTS)
+@pytest.mark.parametrize("quadrant", USER_SECTIONS)
 def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
     for target in table_targets(landing(quadrant)):
         assert target is not None, (
@@ -268,7 +270,7 @@ def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
         )
 
 
-@pytest.mark.parametrize("quadrant", QUADRANTS)
+@pytest.mark.parametrize("quadrant", USER_SECTIONS)
 def test_the_table_lists_every_page_in_the_quadrant(quadrant):
     """The table is the quadrant's index, so it indexes the quadrant.
 
@@ -283,7 +285,7 @@ def test_the_table_lists_every_page_in_the_quadrant(quadrant):
     assert listed == pages(quadrant)
 
 
-@pytest.mark.parametrize("quadrant", QUADRANTS)
+@pytest.mark.parametrize("quadrant", USER_SECTIONS)
 def test_the_toctree_is_hidden(quadrant):
     """Narrative spec §3.9: the table is the visible index, and it is the only one.
 

@@ -47,4 +47,5 @@ dependencies:
 - pip
 - pip:
   - playwright>=1.55
+  - sphinx-iconify>=0.3
   - -e .
