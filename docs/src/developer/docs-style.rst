@@ -438,8 +438,10 @@ or adding the reason.
 Landing Pages
 -------------
 
-A quadrant landing page is navigation rather than prose, which is the rule above
-read forwards: it carries no reading-time banner because nobody reads it through.
+A section landing page — each of the four Diátaxis quadrants, and
+:doc:`getting started <../start/index>` — is navigation rather than prose, which is
+the rule above read forwards: it carries no reading-time banner because nobody reads
+it through.
 It carries, in order, an introduction, one two-column ``list-table``, and a hidden
 ``toctree``.
 

@@ -280,6 +280,11 @@ because no author has yet forgotten. A prose list that has to track a directory 
 **The shape.** A landing page in the tutorials, how-to and explanation quadrants is, in
 order: the title; an introduction; one two-column `list-table`; and the `toctree`, hidden.
 
+*Amended 2026-09-05 (`start spec §3.1`).* The shape is not quadrant-only. The
+getting-started section takes it too, so `tests/test_docs_landing_pages.py` governs four
+sections rather than three — which is why its constant names the audience rather than
+Diátaxis.
+
 The **introduction** says what the quadrant is for, who it assumes the reader is, what it
 guarantees of every page in it, and where to go if this is the wrong quadrant. It says
 nothing about an individual page. It keeps the job {pull}`210` gave it rather than taking a

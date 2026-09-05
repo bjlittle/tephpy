@@ -189,7 +189,8 @@ Six constants in this repository name the Diátaxis quadrants. **Four widen to i
 | `.github/scripts/check_glossary_links.py::QUADRANTS` | yes | its prose names glossary terms |
 | `tests/test_docs_landing_pages.py::QUADRANTS` | yes | the section's landing page is `narrative spec §3.9`'s shape |
 | `docs/src/_ext/tephpy_topics_data.py::QUADRANTS` | **no** | the on-ramp is the way in, not corpus to browse by topic; its pages declare no `:tags:` |
-| `tests/test_glossary_links.py::QUADRANTS` | **no** | it reads the gate's own tuple, so it follows without an edit |
+| `tests/test_glossary_links.py` | **no** | it reads the gate's own tuple, so it follows the *widening* without an edit — though the **rename** touched it, because it names the constant |
+| `tests/test_docs_figures.py` | **no** | the same, and this table missed it when first written: it reads `gate.QUADRANTS` too, so the rename touched two mirrors rather than one |
 
 Each of the four is named `QUADRANTS` and documented as the Diátaxis quadrants. A fifth
 name makes both the identifier and its comment false, so **each is renamed and its comment
@@ -232,10 +233,17 @@ How-To Guides, Explanation, Reference, Examples Gallery — and *Browse by Topic
 *Developer Guide* are already in the dropdown.
 
 Four new top-level entries would take that to eleven and push *Reference* and
-*Examples Gallery* into the dropdown behind them. The section's landing page is what
-prevents it: one entry, *Getting Started*, first in the root toctree, and the four pages
-below it in the sidebar. Six visible entries becomes five plus one, rather than five plus
-six.
+*Examples Gallery* into the dropdown behind them. The section's landing page limits that
+to one new entry, *Getting Started*, first in the root toctree, with the four pages below
+it in the sidebar.
+
+*Corrected 2026-09-05 from the implementation.* The landing page **reduces** the
+displacement; it does not prevent it. Measured after the section landed: one new entry is
+enough to push *Examples Gallery* into the dropdown, because the theme still shows five.
+`html_theme_options["header_links_before_dropdown"]` is therefore set to **6**, and all
+six section entries stay visible. The landing page remains the right shape — four new
+entries would have needed nine, which is a navigation bar rather than a header — but the
+number moved with it rather than the gallery being demoted as a side effect.
 
 This is the second reason for the landing page of §3.1, and it is the one that would
 survive even if the first were waived.
@@ -246,7 +254,8 @@ survive even if the first were waived.
 - `docs/src/index.rst` — the root toctree gains `start/index` **first**, so the section
   leads the header and the previous/next chain starts at the on-ramp.
 - `pyproject.toml` — `sphinx-iconify` joins the docs feature's dependencies, with a floor.
-- `docs/src/conf.py` — `sphinx_iconify` joins `extensions`.
+- `docs/src/conf.py` — `sphinx_iconify` joins `extensions`, and
+  `html_theme_options["header_links_before_dropdown"]` is set to 6 (§3.8, as corrected).
 - `tests/test_docs_readingtime.py` — `start/index.rst` joins `EXEMPT` with its reason;
   the other four pages carry banners and need no entry, because the corpus is derived.
 - `docs/src/developer/specs/index.rst` — the prefix table gains a `start spec §…` row,
@@ -294,24 +303,32 @@ scoped and neither is a prerequisite of this one. The reference quadrant's landi
 which narrative spec §7 holds open. Any change to the non-goals themselves, which are
 scope spec §3.1's.
 
-**Tranches.** The gates first, widened and renamed while the section does not yet exist,
-so the rename is provably behaviour-preserving. Then the pages, which land against gates
-already able to see them.
+**Tranches.** *Corrected 2026-09-05 from the implementation.* The **rename** goes first
+and alone, which is what is provably behaviour-preserving: 2177 tests passed before it and
+2177 after. The **widening** cannot precede the pages — `tests/test_docs_landing_pages.py`
+and `tests/test_glossary_links.py` each assert every section they name is a directory on
+disk, and widening either before `docs/src/start/` exists fails with `start is missing`.
+So each widening lands with the pages it governs, and the section's landing table grows a
+row as each page arrives rather than naming pages that do not yet exist.
 
 (start-spec-7)=
 ## 7. Open items
 
 Tagged per docs spec §3.5.
 
-- **Open, not blocking** — whether `sphinx-iconify` embeds its icons into the built HTML
-  or renders an `<iconify-icon>` element that fetches icon data from the Iconify API in
-  the reader's browser. It could not be established from the package's published
-  description on 2026-09-05, and it matters: tooltip spec §3.3 switched off tippy's three
-  network-reaching sources so that this documentation neither builds nor reads over the
-  network, and an icon set that resolves at read time is a departure from that, whether or
-  not it is one worth making. The implementation measures it against a real build and
-  records the answer here; the decision to adopt the dependency is already taken, and this
-  item settles what is *said* about it rather than whether it lands.
+- **Closed 2026-09-05** — `sphinx-iconify` does **not** embed its icons. Measured against
+  a probe build and then against this project's own: it emits `<iconify-icon>` elements —
+  the built installation page carries 52 of them and no inline `<svg>` — and adds one
+  script tag, `https://code.iconify.design/iconify-icon/3.0.1/iconify-icon.min.js`. Loaded
+  in Chromium with every request captured, a page with two icons made three external
+  calls: that script, and one `api.iconify.design` request per icon collection. So the
+  installation page costs each reader a third-party script and per-collection data
+  fetches, at read time. That is a departure from tooltip spec §3.3, which switched off
+  tippy's three network-reaching sources so this documentation neither builds nor reads
+  over the network — made knowingly, for parity with the page {issue}`66` names as the
+  bar. `iconify_script_url` is a configuration value defaulting to that CDN, so the script
+  could be vendored into `_static`; the data fetches belong to the web component and the
+  extension exposes no control over them. Revisit if the cost proves unwelcome.
 - **Open, not blocking** — whether the specification collection's own index should be
   held by `tests/test_docs_landing_pages.py`. It carries a hand-written prefix table and a
   hand-written toctree over the same sixteen documents, and they can disagree: writing one
