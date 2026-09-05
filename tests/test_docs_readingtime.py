@@ -256,6 +256,7 @@ GENERATED_PAGES = ("sg_execution_times.rst",)
 #: to prevent.
 EXEMPT = (
     "index.rst",  # the site landing page: a card grid and a toctree
+    "start/index.rst",  # section landing page: an introduction and a table
     "tutorials/index.rst",  # quadrant landing page
     "howtos/index.rst",  # quadrant landing page
     "explanation/index.rst",  # quadrant landing page

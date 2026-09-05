@@ -91,6 +91,7 @@ Plot and analyse :term:`tephigrams <tephigram>`.
 .. toctree::
     :hidden:
 
+    start/index
     tutorials/index
     howtos/index
     explanation/index

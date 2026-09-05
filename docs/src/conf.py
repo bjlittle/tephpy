@@ -278,6 +278,12 @@ html_theme_options = {
         "image_dark": "_static/brand/svg/lockup-tiera-dark.svg",
     },
     "navbar_align": "left",
+    # Six, not the theme's default five. The getting-started section adds a
+    # sixth top-level entry, and at five the theme pushes "Examples Gallery"
+    # into the More dropdown -- measured, not predicted. start spec §3.8 chose a
+    # section landing page to avoid exactly that displacement, so the number
+    # moves with it rather than the gallery being demoted as a side effect.
+    "header_links_before_dropdown": 6,
 }
 
 # -- nitpicky ----------------------------------------------------------------

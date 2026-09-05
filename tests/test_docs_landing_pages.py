@@ -19,7 +19,7 @@ DOCS = REPO / "docs" / "src"
 #: records the question rather than answering it here. Named for the audience
 #: rather than for Diátaxis, because the getting-started section takes the same
 #: landing shape without being a quadrant (start spec §3.1).
-USER_SECTIONS = ("tutorials", "howtos", "explanation")
+USER_SECTIONS = ("start", "tutorials", "howtos", "explanation")
 
 #: A ``:doc:`` role, with the explicit target that wins over the display text when
 #: one is written -- the same two-part shape ``check_glossary_links.py`` reads a

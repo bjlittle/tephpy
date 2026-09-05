@@ -61,7 +61,7 @@ DOCS = REPO / "docs" / "src"
 #: are not the audience the glossary serves. Named for the audience rather than
 #: for Diátaxis, since the getting-started section is neither a quadrant nor
 #: excluded (start spec §3.6).
-USER_SECTIONS = ("howtos", "tutorials", "explanation")
+USER_SECTIONS = ("start", "howtos", "tutorials", "explanation")
 
 #: A term line in the ``glossary`` directive: one indent, no trailing colon,
 #: and no markup. Consecutive matches share the definition that follows them,
