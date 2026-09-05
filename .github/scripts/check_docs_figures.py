@@ -67,12 +67,13 @@ from matplotlib.testing.exceptions import ImageComparisonFailure
 #: The sections written for users, which are the pages that may publish a figure
 #: (plots spec §3.2). Named for the audience rather than for Diátaxis, because the
 #: getting-started section is one of them and is not a quadrant (start spec §3.6).
-USER_SECTIONS = ("howtos", "tutorials", "explanation")
+USER_SECTIONS = ("start", "howtos", "tutorials", "explanation")
 #: The pages known to publish figures. Membership, not a count: a count is a
 #: figure that has to be re-measured to stay true. This is what fails when the
 #: declaration pattern stops matching, instead of the gate finding nothing and
 #: reporting that nothing was wrong.
 PUBLISHES = (
+    "start/quick-start.rst",
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
     "howtos/build-a-sounding.rst",

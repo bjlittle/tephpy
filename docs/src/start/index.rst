@@ -11,6 +11,8 @@ Everything you need before the rest of this documentation makes sense: what
       - What ``tephpy`` draws, what it delegates, and what it declines.
     * - :doc:`installation`
       - conda, pip, pixi or uv — released, development, or a working clone.
+    * - :doc:`quick-start`
+      - A real ascent on a real diagram, in a few lines.
     * - :doc:`next-steps`
       - Where to go once it works.
 
@@ -19,4 +21,5 @@ Everything you need before the rest of this documentation makes sense: what
 
     overview
     installation
+    quick-start
     next-steps

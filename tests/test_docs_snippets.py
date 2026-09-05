@@ -38,7 +38,7 @@ DOCS = REPO / "docs" / "src"
 #: (docs spec §3.9). Named for the audience rather than for Diátaxis, because
 #: the getting-started section is one of them and is not a quadrant
 #: (start spec §3.6).
-USER_SECTIONS = ("howtos", "tutorials", "explanation")
+USER_SECTIONS = ("start", "howtos", "tutorials", "explanation")
 
 #: The source suffixes Sphinx reads here that this gate does not. ``source_suffix``
 #: is unset, so Sphinx reads ``.rst``; myst-nb, loaded to parse the published ``.md``
@@ -51,6 +51,7 @@ UNREAD_SUFFIXES = (".md", ".ipynb")
 #: that has to be re-measured to stay true. This is what fails when the extractor
 #: stops recognising a directive, instead of every page passing by not being found.
 DOCUMENTED = (
+    "start/quick-start.rst",
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
     "howtos/build-a-sounding.rst",
@@ -71,6 +72,7 @@ DOCUMENTED = (
 #: so a converted page that stopped being recognised would not fail those checks
 #: -- it would pass all of them, having been asked nothing.
 PUBLISHES_FIGURES = (
+    "start/quick-start.rst",
     "explanation/parcel-ascent.rst",
     "explanation/rotated-axes.rst",
     "howtos/build-a-sounding.rst",
