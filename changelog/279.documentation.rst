@@ -1,0 +1,7 @@
+A getting started section: an overview, installation instructions for conda, pip,
+pixi and uv, a quick start that draws a real ascent, and a page of next steps
+(``start spec §…``). Until now nothing in the documentation or the ``README``
+said how to install ``tephpy`` at all, while every page assumed the reader
+already had it. The quick start's code is executed by the test suite and its
+figure compared against a baseline, like every other user page, which is what the
+four renamed section constants now reach. (:user:`claude`)
