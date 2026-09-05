@@ -73,6 +73,58 @@ def toctree_entries(source: str) -> list[str]:
     ]
 
 
+def toctree_options(source: str) -> list[str]:
+    """Return the options a page's toctree declares.
+
+    `toctree_entries` drops these, because an option is not a document. They are
+    read back here so the one option narrative spec §3.9 requires can be asserted.
+
+    Parameters
+    ----------
+    source : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    list of str
+        Each option line, stripped, e.g. ``:hidden:``.
+
+    """
+    return [
+        line.strip()
+        for line in _body(source, ".. toctree::")
+        if line.strip().startswith(":")
+    ]
+
+
+def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
+    """Return every page in a quadrant, as a landing table would name it.
+
+    A `:doc:` target on a landing page is relative to the quadrant, so that is
+    what these are made relative to. An ``index.rst`` at any depth is a landing
+    page rather than an entry in one, and is left out.
+
+    Parameters
+    ----------
+    quadrant : str
+        The quadrant's directory name under ``docs``.
+    docs : Path, optional
+        The documentation source root.
+
+    Returns
+    -------
+    list of str
+        The quadrant's pages, sorted.
+
+    """
+    root = docs / quadrant
+    return sorted(
+        path.relative_to(root).with_suffix("").as_posix()
+        for path in root.rglob("*.rst")
+        if path.name != "index.rst"
+    )
+
+
 def table_targets(source: str) -> list[str | None]:
     """Return the documents a page's landing table links to, in row order.
 
@@ -143,6 +195,15 @@ def test_toctree_entries_does_not_read_an_option_as_an_entry():
     assert toctree_entries(".. toctree::\n    :maxdepth: 1\n\n    one\n") == ["one"]
 
 
+def test_toctree_options_reads_the_options_the_entries_drop():
+    source = ".. toctree::\n    :hidden:\n    :maxdepth: 1\n\n    one\n"
+    assert toctree_options(source) == [":hidden:", ":maxdepth: 1"]
+
+
+def test_toctree_options_finds_none_on_a_bare_directive():
+    assert toctree_options(".. toctree::\n\n    one\n") == []
+
+
 @pytest.mark.parametrize(
     ("row", "expected"),
     [
@@ -205,3 +266,28 @@ def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
         assert (DOCS / quadrant / f"{target}.rst").is_file(), (
             f"{quadrant}'s table links to {target}, which is not a page in it"
         )
+
+
+@pytest.mark.parametrize("quadrant", QUADRANTS)
+def test_the_table_lists_every_page_in_the_quadrant(quadrant):
+    """The table is the quadrant's index, so it indexes the quadrant.
+
+    The ordered comparison above holds the table and the toctree to each other and
+    would not notice a page missing from both, which is how a page goes unlisted:
+    one commit that adds a page and neither list. The fail-on-warning build catches
+    the ordinary case -- Sphinx reports a document in no toctree -- but not an
+    `:orphan:` page, which builds clean and would sit in the quadrant unreachable
+    from its own landing page.
+    """
+    listed = sorted(target for target in table_targets(landing(quadrant)) if target)
+    assert listed == pages(quadrant)
+
+
+@pytest.mark.parametrize("quadrant", QUADRANTS)
+def test_the_toctree_is_hidden(quadrant):
+    """Narrative spec §3.9: the table is the visible index, and it is the only one.
+
+    Without this the page renders the same list twice, the table and the toctree
+    under it, which is the duplication the shape exists to remove.
+    """
+    assert ":hidden:" in toctree_options(landing(quadrant))

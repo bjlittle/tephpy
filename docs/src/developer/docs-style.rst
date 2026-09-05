@@ -459,7 +459,10 @@ The rows and the toctree carry the same pages in the same order, and it is the
 order a reader needs rather than the alphabet. Hiding a toctree hides it from the
 page body only: the sidebar, the breadcrumb and the previous and next footer all
 read its order. ``tests/test_docs_landing_pages.py`` fails when the two disagree,
-in membership or in order.
+in membership or in order; when the table omits a page the quadrant holds, which
+an ``:orphan:`` page would otherwise do silently, since the build's own
+toctree check never sees one; and when the toctree is not hidden, which would
+publish the same list twice.
 
 Glossary terms stay out of the cells. A table is a directive, and :ref:`the
 first-mention rule <glossary-rule>` already passes over a directive's body, so a
