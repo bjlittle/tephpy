@@ -210,13 +210,24 @@ to be rewritten rather than edited at v0.1.0.
 
 The page therefore opens with a note saying the commands do not work yet. That note is a
 claim about the world, and this project does not leave those to memory: a test reads
-`tephpy.__version__` and asserts the note is present exactly while the version carries
-`.dev`. setuptools_scm reports `0.1.0.dev190` today and will report `0.1.0` from the first
-tag, so the assertion inverts by itself at release and CI says so.
+`tephpy.__version__` and asserts the note is present exactly while tephpy has never been
+released.
+
+*Corrected 2026-09-05 in review.* This section first specified that test as "while the
+version carries `.dev`", which answers a different question — whether this checkout sits
+exactly on a tag — and deadlocks on the real one. setuptools_scm reports `0.1.0.dev190`
+before the first tag, `0.1.0` on it, and `0.1.1.dev1` on the very next commit. A `.dev`
+test reads that third state as unreleased and demands the now-false note back, and there
+is no commit at which the note could be removed, because removing it happens on a `.dev`
+commit too. The signal is therefore a comparison against the first release,
+`Version(tephpy.__version__) >= Version("0.1.0")`: `packaging` sorts `0.1.0.dev190` below
+it and both `0.1.0` and `0.1.1.dev1` above. `tests/test_docs_installation.py`
+parametrises that sequence so the deadlock cannot return.
 
 It is offline, which spec §8.5 requires — nothing queries PyPI to ask whether the package
 is there. It reads the version of the installed package, which in every environment that
-runs the suite is this checkout.
+runs the suite is this checkout. `packaging` is already a member of the `test` extra, so
+the comparison adds no dependency.
 
 The failure it produces on the release commit is the intended behaviour and not a
 side effect: the tag is cut, the test fails, the note comes out, and the page is true
@@ -253,7 +264,12 @@ survive even if the first were waived.
 
 - `docs/src/index.rst` — the root toctree gains `start/index` **first**, so the section
   leads the header and the previous/next chain starts at the on-ramp.
-- `pyproject.toml` — `sphinx-iconify` joins the docs feature's dependencies, with a floor.
+- `pyproject.toml` — `sphinx-iconify` joins the docs feature's `pypi-dependencies`, with
+  a floor; it has no conda-forge package. **And `requirements/pypi-optional-docs.txt`**,
+  which is what `[project.optional-dependencies].docs` is generated from: the pixi table
+  and that file are two parallel lists, as `playwright` already demonstrates, and
+  populating only the first leaves `pip install ".[docs]"` without an extension
+  `conf.py` imports. Found in review rather than by this specification.
 - `docs/src/conf.py` — `sphinx_iconify` joins `extensions`, and
   `html_theme_options["header_links_before_dropdown"]` is set to 6 (§3.8, as corrected).
 - `tests/test_docs_readingtime.py` — `start/index.rst` joins `EXEMPT` with its reason;

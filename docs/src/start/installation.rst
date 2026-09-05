@@ -61,6 +61,8 @@ or `PyPI <https://pypi.org/project/tephpy/>`__:
 
         .. code:: console
 
+            $ uv venv
+            $ source .venv/bin/activate
             $ uv pip install tephpy
 
         :iconify:`twemoji:information` Consult the ``uv``
@@ -107,6 +109,8 @@ The **development version**, from the ``main`` branch:
 
         .. code:: console
 
+            $ uv venv
+            $ source .venv/bin/activate
             $ uv pip install "tephpy @ git+https://github.com/bjlittle/tephpy.git@main"
 
 :iconify:`mdi:tools` Developer
@@ -145,14 +149,14 @@ extras:
 
             $ conda create --name tephpy-dev --channel conda-forge python pip
             $ conda activate tephpy-dev
-            $ pip install --editable ".[devs]"
+            $ pip install --editable ".[devs,docs,test]"
 
     .. tab-item:: :iconify:`devicon:pypi` pip
         :sync: pip
 
         .. code:: console
 
-            $ pip install --editable ".[devs]"
+            $ pip install --editable ".[devs,docs,test]"
 
     .. tab-item:: :iconify:`fa6-solid:puzzle-piece` pixi
         :sync: pixi
@@ -167,4 +171,6 @@ extras:
 
         .. code:: console
 
-            $ uv pip install --editable ".[devs]"
+            $ uv venv
+            $ source .venv/bin/activate
+            $ uv pip install --editable ".[devs,docs,test]"
