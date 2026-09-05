@@ -106,6 +106,19 @@ Naming the landing page's own title *Getting Started* rather than *Start* is del
 the directory is short because it appears in every URL under it, and the title is
 explicit because it appears in the header.
 
+*Added 2026-09-06.* Each of the four pages carries an `:iconify:` glyph before its title,
+from the `mdi` set and distinct from the four §3.3 already spends on that page's own
+sections. This is **local to this section and deliberately not a site rule**: the theme
+renders a title's icon in the *Section Navigation* sidebar as well, so one page having one
+and three not reads as an omission rather than as emphasis. Either every page in a section
+carries one or none does. Nothing gates it, because the cost of getting it wrong is a
+slightly ragged sidebar and the cost of a gate is a rule the rest of the documentation
+would then have to obey.
+
+A name is checked against the Iconify API before it is written. A name that does not
+resolve renders **blank, with no build error** — `mdi:signpost` and `devicon:pixi` were
+both reached for here and neither exists.
+
 (start-spec-3-2)=
 ### 3.2 *Overview*
 

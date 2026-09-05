@@ -1,7 +1,7 @@
 .. _start-quick-start:
 
-Quick Start
-===========
+:iconify:`mdi:flash` Quick Start
+================================
 
 .. readingtime::
 

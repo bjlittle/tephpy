@@ -1,7 +1,7 @@
 .. _start-overview:
 
-Overview
-========
+:iconify:`mdi:map-outline` Overview
+===================================
 
 .. readingtime::
 

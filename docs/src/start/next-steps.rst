@@ -1,7 +1,7 @@
 .. _start-next-steps:
 
-Next Steps
-==========
+:iconify:`mdi:arrow-right-circle` Next Steps
+============================================
 
 .. readingtime::
 
