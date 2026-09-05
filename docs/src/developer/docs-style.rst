@@ -435,6 +435,41 @@ beside each, and ``test_every_page_a_reader_reads_carries_a_reading_time``
 fails for any other page that omits one. Adding a page means adding the banner
 or adding the reason.
 
+Landing Pages
+-------------
+
+A quadrant landing page is navigation rather than prose, which is the rule above
+read forwards: it carries no reading-time banner because nobody reads it through.
+It carries, in order, an introduction, one two-column ``list-table``, and a hidden
+``toctree``.
+
+The introduction says what the quadrant is for, who it assumes the reader is, what
+it guarantees of every page in it, and where to go if this is the wrong quadrant.
+It says nothing about an individual page. A paragraph that summarises the quadrant
+page by page is a list that has to track a directory, and the how-to page's grew
+from six clauses to nine by hand before this rule existed.
+
+Each row is a ``:doc:`` link against one sentence. The sentence is editorial rather
+than descriptive: it is there so a reader can tell this page from its siblings, and
+it is deliberately not the page's opening line, which a hover already shows. Write
+``:widths: auto`` and no header row, which is the shape the API reference's own
+summary tables already take.
+
+The rows and the toctree carry the same pages in the same order, and it is the
+order a reader needs rather than the alphabet. Hiding a toctree hides it from the
+page body only: the sidebar, the breadcrumb and the previous and next footer all
+read its order. ``tests/test_docs_landing_pages.py`` fails when the two disagree,
+in membership or in order.
+
+Glossary terms stay out of the cells. A table is a directive, and :ref:`the
+first-mention rule <glossary-rule>` already passes over a directive's body, so a
+``:term:`` in a cell neither satisfies that rule nor breaks it. Write first
+mentions in the introduction, and let a cell take the plain word.
+
+The reference quadrant is outside this rule for now: its entries are reached by
+name rather than chosen between, and ``narrative spec §3.9`` records the question
+rather than answering it.
+
 Topic Tags
 ----------
 
