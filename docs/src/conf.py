@@ -36,6 +36,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_gallery.gen_gallery",
+    "sphinx_iconify",
     "sphinx_tippy",
     # Vendored correction for a shared-definition group's starved <dt>s -- a
     # multi-term glossary entry or a multi-signature directive (tooltip spec §3.7).

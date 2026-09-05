@@ -9,6 +9,8 @@ Everything you need before the rest of this documentation makes sense: what
 
     * - :doc:`overview`
       - What ``tephpy`` draws, what it delegates, and what it declines.
+    * - :doc:`installation`
+      - conda, pip, pixi or uv — released, development, or a working clone.
     * - :doc:`next-steps`
       - Where to go once it works.
 
@@ -16,4 +18,5 @@ Everything you need before the rest of this documentation makes sense: what
     :hidden:
 
     overview
+    installation
     next-steps
