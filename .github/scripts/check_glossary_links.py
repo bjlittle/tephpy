@@ -55,11 +55,13 @@ import sys
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs" / "src"
-#: The Diátaxis quadrants written for users. The reference quadrant is excluded
-#: because the glossary lives there and an entry naming another term is the
-#: rule's own exception; the developer section, because it is written for
-#: contributors who are not the audience the glossary serves.
-QUADRANTS = ("howtos", "tutorials", "explanation")
+#: The sections written for users. The reference quadrant is excluded because the
+#: glossary lives there and an entry naming another term is the rule's own
+#: exception; the developer section, because it is written for contributors who
+#: are not the audience the glossary serves. Named for the audience rather than
+#: for Diátaxis, since the getting-started section is neither a quadrant nor
+#: excluded (start spec §3.6).
+USER_SECTIONS = ("howtos", "tutorials", "explanation")
 
 #: A term line in the ``glossary`` directive: one indent, no trailing colon,
 #: and no markup. Consecutive matches share the definition that follows them,
@@ -254,7 +256,7 @@ def corpus() -> list[Path]:
 
     """
     found: list[Path] = []
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         found.extend(sorted((DOCS / quadrant).rglob("*.rst")))
     return found
 
@@ -278,7 +280,7 @@ def main() -> int:
         return 1
     pages = corpus()
     if not pages:
-        print(f"no pages found under {DOCS.relative_to(REPO)} in {QUADRANTS}")
+        print(f"no pages found under {DOCS.relative_to(REPO)} in {USER_SECTIONS}")
         return 1
 
     offenders = [

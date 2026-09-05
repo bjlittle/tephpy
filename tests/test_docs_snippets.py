@@ -34,8 +34,11 @@ import pytest
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
 
-#: The Diátaxis quadrants written for users (docs spec §3.9).
-QUADRANTS = ("howtos", "tutorials", "explanation")
+#: The sections written for users, whose python this gate executes
+#: (docs spec §3.9). Named for the audience rather than for Diátaxis, because
+#: the getting-started section is one of them and is not a quadrant
+#: (start spec §3.6).
+USER_SECTIONS = ("howtos", "tutorials", "explanation")
 
 #: The source suffixes Sphinx reads here that this gate does not. ``source_suffix``
 #: is unset, so Sphinx reads ``.rst``; myst-nb, loaded to parse the published ``.md``
@@ -523,7 +526,7 @@ def user_pages(docs: Path = DOCS) -> list[Path]:
 
     """
     found: list[Path] = []
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         found.extend(sorted((docs / quadrant).rglob("*.rst")))
     return found
 
@@ -748,7 +751,7 @@ def test_the_script_ends_with_the_draw_epilogue():
 def test_a_page_in_a_subdirectory_is_found(tmp_path):
     """A quadrant's pages are every page under it, not its top level only."""
     nested = []
-    for quadrant in QUADRANTS:
+    for quadrant in USER_SECTIONS:
         page = tmp_path / quadrant / "series" / "index.rst"
         page.parent.mkdir(parents=True)
         page.write_text("Prose.\n", encoding="utf-8")
@@ -850,7 +853,7 @@ def test_the_page_runs(page, tmp_path):
 
 def test_the_quadrant_directories_exist():
     """A renamed quadrant would empty the corpus without touching this file."""
-    missing = [name for name in QUADRANTS if not (DOCS / name).is_dir()]
+    missing = [name for name in USER_SECTIONS if not (DOCS / name).is_dir()]
     assert missing == [], (
         f"these user quadrants are not where this gate looks: {missing}. "
         "A gate that checks nothing is a green tick over nothing (docs spec §3.9)"
@@ -860,7 +863,7 @@ def test_the_quadrant_directories_exist():
 def test_pages_are_discovered():
     """An empty corpus is a gate failure, not a quiet pass."""
     assert user_pages(), (
-        f"no .rst pages found under {DOCS} in {QUADRANTS} (docs spec §3.9)"
+        f"no .rst pages found under {DOCS} in {USER_SECTIONS} (docs spec §3.9)"
     )
 
 
@@ -868,7 +871,7 @@ def test_no_user_page_is_written_in_a_format_this_gate_cannot_read():
     """The .rst boundary is a mechanism here rather than an argument elsewhere."""
     unread = sorted(
         str(path.relative_to(DOCS))
-        for quadrant in QUADRANTS
+        for quadrant in USER_SECTIONS
         for suffix in UNREAD_SUFFIXES
         for path in (DOCS / quadrant).rglob(f"*{suffix}")
     )

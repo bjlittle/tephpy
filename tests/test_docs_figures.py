@@ -76,7 +76,7 @@ def build(tmp_path, pages, built, approved):
     tables differing in one colour are a figure that has drifted.
     """
     source = tmp_path / "src"
-    for quadrant in gate.QUADRANTS:
+    for quadrant in gate.USER_SECTIONS:
         (source / quadrant).mkdir(parents=True, exist_ok=True)
     for relative, text in pages.items():
         page = source / relative
