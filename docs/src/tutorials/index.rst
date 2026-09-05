@@ -6,17 +6,21 @@ These are lessons to work through rather than references to consult: each one is
 followed start to finish, assumes no meteorology, and leaves you with a diagram you
 made yourself.
 
-Take them in order. *Your First Tephigram* draws a real
-:term:`radiosonde` ascent and names everything on it; *Analyse a Sounding*
-continues with the same ascent and asks what it says about the weather that day.
-Neither asks you to find data — ``tephpy`` ships the :term:`soundings <sounding>`
-they use.
+Take them in order, and bring nothing with you — ``tephpy`` ships the
+:term:`soundings <sounding>` they use, so neither asks you to find data first.
 
-The browser demo below is not a lesson but an exhibit: it runs the package
-entirely in your browser, so you can draw a sounding without installing anything.
+.. list-table::
+    :widths: auto
+
+    * - :doc:`first-tephigram`
+      - Draw a real ascent, and name every line on it.
+    * - :doc:`analyse-a-sounding`
+      - Lift a parcel through that same ascent, and read what it says.
+    * - :doc:`browser-demo`
+      - Not a lesson but an exhibit: the package running in your browser.
 
 .. toctree::
-    :maxdepth: 1
+    :hidden:
 
     first-tephigram
     analyse-a-sounding
