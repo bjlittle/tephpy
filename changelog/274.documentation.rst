@@ -1,0 +1,12 @@
+An amendment to the narrative quadrants design specification, specifying the
+shape of the tutorials, how-to and explanation landing pages
+(``narrative spec §3.9``). Reading spec §3.7 already rules those pages
+*navigated rather than read*, yet each still opens with a paragraph summarising
+its quadrant page by page — a prose list that has to track a directory, extended
+by hand in three separate pull requests and correct today only because no author
+has yet forgotten, which is the defect :issue:`193` names. The section sets an
+introduction stating what the quadrant is for without restating the site landing
+page's Diátaxis one-liners, a headerless two-column table of links against terse
+descriptions matching the ``table.autosummary`` the reference quadrant already
+renders, a hidden toctree ordered as the table is rather than alphabetically,
+and a gate holding the two to one ordered list. (:user:`claude`)

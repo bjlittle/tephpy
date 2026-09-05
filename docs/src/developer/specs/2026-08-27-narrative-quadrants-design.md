@@ -256,6 +256,77 @@ how a reader arrives, which volume does not settle either way. The corpus had al
 nineteen tagged items by then. `topics spec §3.6` builds the index without the sphinx-tags
 dependency this section's own reasoning left rejected.
 
+(narrative-spec-3-9)=
+### 3.9 The quadrant landing pages
+
+*Added 2026-09-05.*
+
+A quadrant landing page is navigation. Reading spec §3.7 says so already — all four are
+exempt from the reading-time banner under the rule that "a page is exempt when it is
+navigated rather than read" — and nothing followed that ruling through into what the pages
+contain. Each opens with three paragraphs, the middle of which summarises the quadrant's
+pages one at a time, in prose the reader has to hold in mind and match against the toctree
+below it. On the how-to page the two are not even in the same order: the prose runs by
+subject, the toctree by filename, and nothing joins a clause to the link it describes.
+
+**What is wrong is the arithmetic, not the prose.** {pull}`210` wrote that sentence as six
+clauses for six pages, having caught it at five, and recorded the correction. It has since
+been extended three times by hand — {pull}`215` for the `DataFrame` route, {pull}`216` for
+units, {pull}`220` for labelling and composition — each time in the same commit as the
+toctree line it belongs beside. It is nine clauses for nine pages today, and correct only
+because no author has yet forgotten. A prose list that has to track a directory is the shape
+{issue}`193` is about, and on these pages it is the one claim no gate can see.
+
+**The shape.** A landing page in the tutorials, how-to and explanation quadrants is, in
+order: the title; an introduction; one two-column `list-table`; and the `toctree`, hidden.
+
+The **introduction** says what the quadrant is for, who it assumes the reader is, what it
+guarantees of every page in it, and where to go if this is the wrong quadrant. It says
+nothing about an individual page. It keeps the job {pull}`210` gave it rather than taking a
+new one: that commit ruled out repeating the root page's canonical Diátaxis one-liners —
+"Learning-oriented lessons", "Goal-oriented recipes" — because the grid cards already carry
+them, and the ruling stands. The intent of the quadrant is put in the reader's own terms,
+not by quoting the framework at them.
+
+The **table** is headerless, a `:doc:` link on the left and one sentence on the right.
+Headerless because the reference quadrant already renders this shape: every API page's
+summary is a `table.autosummary` with a `tbody` and no `thead`, a link in the left cell and
+one sentence in the right. Matching it means the site grows no second table style, and two
+columns whose meaning is evident from the first row would spend a header row on every
+landing page to say so.
+
+A **row's sentence is editorial rather than descriptive**: it is there so a reader can tell
+this page from its siblings, and it is contrastive where two of them are adjacent — an
+archive `tephpy` reads, against a format it does not. It is deliberately not the page's
+opening line. Tooltip spec §3.3 puts a tip on every internal link inside `article.bd-article`,
+so the opening is already what a hover shows, and a cell repeating it would spend a row on
+something the reader can have without one.
+
+**The rows and the toctree carry the same order, and it is the order a reader needs rather
+than the alphabet.** The toctree being hidden does not make its order private: the sidebar,
+the breadcrumb and the previous/next footer all read it. Two orders would set the visible
+table against the navigation around it on every page of the quadrant.
+
+**Glossary terms stay out of the cells.** `check_glossary_links.py`'s `prose()` skips a
+directive and everything indented under it, so a `list-table`'s cells are invisible to the
+first-mention rule: a `:term:` there is neither required nor able to satisfy that rule for
+the page, and a term first appearing in a cell without one loses its link with nothing
+reporting it. First mentions belong in the introduction, and a cell takes the plain word.
+
+**The gate.** `tests/test_docs_landing_pages.py` discovers the quadrant directories rather
+than listing them, as `tests/test_docs_topics.py` does, and asserts for each that the
+sequence of `toctree` entries is the sequence of `:doc:` targets in the table. A page added
+to one and not the other fails; a row pointing outside its own quadrant fails; the two
+orders drifting apart fails. What it holds is that a quadrant's visible index and its
+navigation are one list — which is the thing the prose sentence never was and could not have
+been.
+
+**The reference quadrant is not covered.** Its landing page carries prose of the same shape,
+but its entries are not pages a reader chooses between: four have bodies a directive
+generates, the API is generated wholesale, and the glossary is a lookup table — which is
+reading spec §3.7's own grouping of them. The case for a chooser is not the case made here.
+§7 records it.
+
 (narrative-spec-4)=
 ## 4. Companion changes
 
@@ -273,6 +344,16 @@ dependency this section's own reasoning left rejected.
   `[tool.setuptools.package-data]` gains the glob that carries the second format:
   `samples/*.txt` names text alone today.
 
+*Added 2026-09-05 (§3.9).*
+
+- `docs/src/tutorials/index.rst`, `docs/src/howtos/index.rst` and
+  `docs/src/explanation/index.rst` take the shape of §3.9, and their toctrees become hidden
+  and reordered to match their tables.
+- `tests/test_docs_landing_pages.py` holds them there.
+- `docs/src/developer/docs-style.rst` gains the rule, beside its *Reading Time* section —
+  which is where reading spec §3.7's "navigated rather than read" already stands, and where
+  a page author looks.
+
 (narrative-spec-5)=
 ## 5. Testing
 
@@ -286,9 +367,16 @@ dependency this section's own reasoning left rejected.
 | every `narrative spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
 | the shipped Wyoming sample | `tests/test_samples.py` — it reads through a public reader and yields a `Sounding`, like every other sample |
 | the prose | review, against docs-style's *Reviewing Claims* ({pull}`195`) |
+| a quadrant's landing table against its toctree (§3.9) | `tests/test_docs_landing_pages.py` — the two are one ordered list, or neither is |
 
-No new gate. The machinery that holds this plan's output was built by the four plans before
-it, and needing none is the evidence that those plans were the right shape.
+The five pages of §3.2–§3.6 needed no new gate. The machinery that holds them was built by
+the four plans before it, and needing none is the evidence that those plans were the right
+shape.
+
+§3.9 is the exception, and the reason is worth stating rather than waiving: what it holds is
+not a property of a page's content, which the gates above already cover, but an agreement
+between two lists on one page. Nothing that existed could see it, and three PRs kept that
+agreement by hand.
 
 (narrative-spec-6)=
 ## 6. Scope
@@ -321,6 +409,10 @@ Tagged per docs spec §3.5.
   paragraph rather than a redesign. *Shipped 2026-08-29* ({pull}`210`): the sample is in
   `tephpy.samples` and in the wheel, with its attribution, so the question is now live
   rather than hypothetical.
+- **Open** (§3.9) — whether the reference quadrant's landing page takes the table of §3.9
+  too. Its entries are reached by name rather than chosen between, so the argument §3.9
+  makes does not carry over unexamined. Decided when {issue}`66`'s developer half is taken
+  up, which is the change that will be reading these pages anyway.
 - **Open** ({issue}`66`) — the developer and contributor guide. This plan closes the user
   half of that issue and leaves the developer half open, which is the honest split: the two
   share an issue and not an audience.
