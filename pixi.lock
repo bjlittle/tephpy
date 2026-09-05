@@ -6634,6 +6634,7 @@ packages:
   - sphinx-copybutton>=0.5 ; extra == 'docs'
   - sphinx-design>=0.6.1 ; extra == 'docs'
   - sphinx-gallery>=0.17 ; extra == 'docs'
+  - sphinx-iconify>=0.3 ; extra == 'docs'
   - sphinx-tippy>=0.4.3 ; extra == 'docs'
   - sphinx-togglebutton>=0.3 ; extra == 'docs'
   - sphinx-changelog>=1.6 ; extra == 'docs'
