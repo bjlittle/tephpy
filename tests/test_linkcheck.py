@@ -102,11 +102,23 @@ def test_the_workflow_parses_as_yaml_and_the_schedule_is_weekly():
     assert month == "*", "pinned to a month, so it is not weekly"
 
 
-def test_both_jobs_are_scoped_to_issues_write_and_nothing_more_at_top():
+def test_both_jobs_declare_the_least_they_need_and_nothing_at_the_top():
+    # Equality, not membership: declaring any permission sets every other to
+    # `none`, so this block is the whole grant and a fourth entry appearing here
+    # is a widening that should have to be argued for.
+    #
+    # `contents: read` is written out rather than left implicit. It is not what
+    # makes `checkout` work today -- this repository is public, and `ci-topics`
+    # runs the same shape without it, measured green -- but relying on that is a
+    # dependency on the repository's visibility that nothing in the workflow
+    # states (:pull:`285` review).
     doc = workflow()
     assert doc["permissions"] == {}
     for name in ("links", "endpoint"):
-        assert doc["jobs"][name]["permissions"] == {"issues": "write"}
+        assert doc["jobs"][name]["permissions"] == {
+            "contents": "read",
+            "issues": "write",
+        }
 
 
 def test_the_checkout_pin_matches_the_topics_workflow():

@@ -47,6 +47,14 @@ jobs:
   links:
     runs-on: ubuntu-latest
     permissions:
+      # Declaring any permission sets every other to `none`, so `contents: read`
+      # is written out rather than inherited. It is not what makes `checkout`
+      # work today -- this repository is public, and `ci-topics` runs the same
+      # shape without it -- but that is a dependency on the repository's
+      # visibility which nothing in this file states, and which would surface as
+      # a scheduled run failing at step one. Read, not write: the job clones and
+      # reads, and writes only issues.
+      contents: read
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -138,6 +146,9 @@ jobs:
   endpoint:
     runs-on: ubuntu-latest
     permissions:
+      # As above: written out because declaring any permission sets every other
+      # to `none`.
+      contents: read
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
