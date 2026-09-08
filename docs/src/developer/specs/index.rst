@@ -54,14 +54,16 @@ counterpart in the parent specification.
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
 
-The implementation plans derived from these specifications are tracked in the repository
-under `docs/src/developer/plans/
-<https://github.com/bjlittle/tephpy/tree/main/docs/src/developer/plans>`__, but are
-deliberately not published here. Unlike a specification, a plan records what was intended
-before implementation and is not updated afterwards.
+.. note::
+
+   The implementation plans derived from these specifications are tracked in the repository
+   under `docs/src/developer/plans/
+   <https://github.com/bjlittle/tephpy/tree/main/docs/src/developer/plans>`__, but are
+   deliberately not published here. Unlike a specification, a plan records what was intended
+   before implementation and is not updated afterwards.
 
 .. toctree::
-    :maxdepth: 1
+    :hidden:
 
     2026-07-22-tephpy-design
     2026-08-01-add-logo-design
