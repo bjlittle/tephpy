@@ -93,15 +93,23 @@ def test_the_ci_page_names_no_workflow_that_does_not_exist():
     # over a page describing a workflow that was deleted.
     page = CI_PAGE.read_text(encoding="utf-8")
     claimed = set(re.findall(r"``(ci-[\w-]+|codeql)``", page))
+    assert claimed, "ci.rst names no workflow at all, so this gate proves nothing"
     unknown = sorted(claimed - workflow_names())
     assert not unknown, f"ci.rst names {unknown}, which do not exist"
 
 
 def test_every_pixi_task_is_named_or_reachable_from_one_that_is():
     # A task the page does not name is excused exactly when running a task it
-    # does name runs it. Measured 2026-09-08: nine named tasks reach the other
-    # eight, nothing left over -- so this needs no exemption list, which is the
-    # correction contributor spec §3.8 records.
+    # does name runs it -- the correction contributor spec §3.8 records.
+    # Measured 2026-09-08 against the page as shipped: all seventeen tasks are
+    # named directly (nine in the Task Graph table, the other eight spelled
+    # out in the ASCII diagram above it), so `closure()` excuses nothing
+    # today -- there is no task reachable-but-unnamed for it to reach. It
+    # stays regardless, because it is what keeps this passing rather than
+    # failing spuriously if the diagram is ever redrawn without spelling out
+    # every task, or a task is added that only a named one depends on;
+    # test_a_named_tasks_dependency_is_excused_without_being_named_itself
+    # exercises that mechanism directly, since nothing on the real page does.
     tasks = pixi_tasks()
     named = named_in(CONTRIBUTING, set(tasks))
     assert named, "contributing.rst names no pixi task at all"
@@ -109,6 +117,19 @@ def test_every_pixi_task_is_named_or_reachable_from_one_that_is():
     assert not orphans, (
         f"contributing.rst neither names {orphans} nor names anything that runs them"
     )
+
+
+def test_a_named_tasks_dependency_is_excused_without_being_named_itself():
+    # A synthetic graph, since the real page currently names every real task
+    # directly (see the comment above) and so never exercises `closure()`.
+    # `clean` is named nowhere here; it is excused only because `build`,
+    # which is named, depends on it.
+    tasks = {
+        "build": {"cmd": "make html", "depends-on": ["clean"]},
+        "clean": {"cmd": "make clean"},
+    }
+    orphans = set(tasks) - closure({"build"}, tasks)
+    assert not orphans, f"closure() failed to excuse {orphans} through depends-on"
 
 
 def test_the_contributing_page_names_no_task_that_does_not_exist():

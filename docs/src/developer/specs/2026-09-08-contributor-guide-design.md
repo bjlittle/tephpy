@@ -282,20 +282,33 @@ a fourteenth workflow fails the gate rather than quietly going undocumented. Thi
 `tests/test_docs_landing_pages.py` its corpus assertion.
 
 **Task coverage.** Every task in `pyproject.toml` is either named on `contributing.rst` or
-reachable from a named one through `depends-on`, and nothing named on the page is absent
-from `pyproject.toml`. `tests/pixi_tasks.py` already reads that table for
-`tests/test_docs_workflow.py` and the `ci-floors` gate, so the reader exists and this adds
-a third consumer rather than a second parser.
+reachable from a named one through `depends-on`. In the other direction, nothing the
+Task Graph table names is absent from `pyproject.toml` — the table, not the whole page:
+it is the one place the page asserts "this is a task", where a whole-page scan would read
+a bare word like ```` ``tephpy`` ```` or a `pixi run` target that names a real external
+command rather than a task (```` ``playwright`` ````, in the browser-demo prose) as a false
+claim. The gap this leaves is real and recorded rather than hidden: a bogus task name
+written into the page's prose, outside the table, is not caught. `tests/pixi_tasks.py`
+already reads the manifest for `tests/test_docs_workflow.py` and the `ci-floors` gate, so
+the reader exists and this adds a third consumer rather than a second parser.
 
 *Corrected 2026-09-08, before implementation.* This section first said "or carries an
 explicit internal marker in the gate", which would have been a hand-written list of
 exemptions — the very shape these gates exist to remove. `tests/pixi_tasks.py` already
 exports `closure(names, tasks)`, which walks `depends-on`, so the exemption derives itself:
 a task the page does not name is excused exactly when running something the page *does*
-name runs it. Measured against the current tree: nine tasks named on the page reach the
-other eight, and **nothing is left over** — so the rule is satisfiable with no exemption
-list at all, and a task that is neither named nor reachable is a real gap rather than a
-missing entry in a list.
+name runs it.
+
+*Corrected 2026-09-08, again, against the implementation.* The paragraph above measured
+the wrong page: "nine tasks reach the other eight" was projected from a draft naming set,
+not from what `contributing.rst` shipped with. The page that landed spells out all
+seventeen tasks directly — nine in the Task Graph table, the other eight in the ASCII
+diagram above it (`docs-clean`, `docs-html`, and the five `docs-check-*` gates among
+them) — so today `closure()` excuses nothing: every task is already named, and the
+reachable-but-unnamed set is empty. The mechanism stays regardless, held to a synthetic
+graph in `tests/test_contributor_guide.py` rather than to the manifest, because that is
+what keeps the gate from breaking should the diagram ever be redrawn without spelling out
+every task, or a task ever be added that only something named depends on.
 
 Both assert in **both directions**. A gate checking only that the page names nothing false
 passes over a page that names half the set.
@@ -321,7 +334,7 @@ passes over a page that names half the set.
 | what lands | what holds it |
 |---|---|
 | every workflow named on `ci.rst`, and nothing false | a new assertion, §3.8 |
-| every pixi task named on `contributing.rst`, or marked internal | a new assertion, §3.8 |
+| every pixi task named on `contributing.rst` or reachable from one that is, and nothing the task table names absent | a new assertion, §3.8 |
 | the shared literals agreeing across page and `AGENTS.md` | `tests/test_docs_workflow.py`, widened (§3.6) |
 | the four pages carrying a reading-time banner | `tests/test_docs_readingtime.py`, already derived over the tree |
 | every `contributor spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
