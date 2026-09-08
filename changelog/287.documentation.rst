@@ -1,0 +1,7 @@
+A design specification for the contributor guide (``contributor spec §…``): four
+new pages — contributing, testing, changelog and continuous integration — and
+the relationship between published prose and the agent-facing ``AGENTS.md``
+files. The measurement behind it is that five of six sampled rules are already
+written in three places, none of them published, while thirteen workflows and
+seventeen pixi tasks are documented nowhere a contributor would look.
+(:user:`claude`)
