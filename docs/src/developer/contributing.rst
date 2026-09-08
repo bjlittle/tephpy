@@ -28,9 +28,9 @@ Three commands are what a pull request must pass:
     $ pixi run lint
     $ pixi run docs
 
-``pixi run docs`` builds the documentation and runs every gate over the result. It is the
-one to reach for. ``pixi run docs-all`` adds the gate it leaves out — a smoke test of the
-browser demo in Chromium.
+``pixi run docs`` builds the documentation and runs every gate over the result except one.
+It is the one to reach for. ``pixi run docs-all`` adds the gate it leaves out — a smoke
+test of the browser demo in Chromium.
 
 The Task Graph
 ---------------
@@ -62,7 +62,8 @@ on your behalf:
     * - ``lint``
       - Every pre-commit hook, over every file
     * - ``docs``
-      - Builds the documentation and runs every gate over the result
+      - Builds the documentation and runs every gate over the result except the
+        browser demo's smoke test
     * - ``docs-all``
       - ``docs``, plus the browser demo's smoke test
     * - ``docs-figures``
@@ -91,7 +92,7 @@ What a Pull Request Carries
 -----------------------------
 
 - A changelog fragment — see :doc:`changelog`.
-- A passing ``pixi run docs`` where the documentation changed.
+- A passing ``pixi run docs``.
 - Prose reviewed against *Reviewing Claims* in :doc:`docs-style`.
 
 :doc:`ci` describes what runs once the pull request is open.

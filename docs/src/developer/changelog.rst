@@ -40,3 +40,7 @@ way through intersphinx.
 
 Reserve a plain double-backtick literal for a name with no documentation target: a private
 member, an external tool, a filename, a configuration key.
+
+``ci-changelog`` checks that a fragment is present and well formed; :doc:`ci` describes
+what its failure means, and :doc:`contributing` describes the rest of what a pull request
+carries.

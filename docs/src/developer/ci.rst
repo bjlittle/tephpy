@@ -26,8 +26,9 @@ On Your Pull Request
     * - ``ci-tests``
       - The suite, on every supported Python
     * - ``ci-docs``
-      - Builds the documentation and runs every gate over it — the same set
-        ``pixi run docs`` runs locally, named by task so the two cannot diverge
+      - Builds the documentation and runs every gate over it, including the browser
+        demo — the same set ``pixi run docs-all`` runs locally, named by task so the
+        two cannot diverge
     * - ``ci-changelog``
       - Checks the news fragment: that there is one, and that it is well formed
     * - ``ci-citation``
@@ -37,13 +38,16 @@ On Your Pull Request
       - Builds the sdist and wheel, and checks ``MANIFEST.in`` against what the
         sdist carries
     * - ``ci-label``
-      - Labels the pull request from the paths it touches
+      - Labels the pull request from the paths it touches, from its branch name — a
+        ``fix/…`` branch earns ``type: bug`` with no file needing to match — and,
+        for ``dependabot[bot]`` and ``pre-commit-ci[bot]``, from its author
     * - ``codeql``
       - Static security analysis
 
-Every one of these except ``ci-citation`` runs on every pull request; ``ci-citation``
-is the one workflow in this repository scoped to a path, so it stays quiet unless
-``CITATION.cff`` itself changes.
+Every one of these runs on every pull request except two. ``ci-citation`` is scoped to
+a path, so it stays quiet unless ``CITATION.cff`` itself changes. ``codeql`` is scoped
+to pull requests targeting ``main``, so a pull request opened against another base does
+not run it.
 
 On a Schedule
 --------------
@@ -62,9 +66,12 @@ On a Schedule
       - Resolves each declared minimum version and exercises what it resolves,
         so a floor that has become untrue is found rather than assumed
     * - ``ci-linkcheck``
-      - Checks every external link, and separately that the University of Wyoming
-        archive still answers ``tephpy.io`` — the one external URL this project
-        calls rather than links, which no link checker can judge
+      - Checks the external links in ``README.md``, the changelog fragments and the
+        documentation and package sources — excluding the frozen implementation plans
+        and the handful of URLs ``.lycheeignore`` records as unreachable by
+        construction — and separately that the University of Wyoming archive still
+        answers ``tephpy.io``, the one external URL this project calls rather than
+        links, which no link checker can judge
     * - ``ci-topics``
       - Reports monthly on which glossary topics the documentation covers
     * - ``ci-stale``

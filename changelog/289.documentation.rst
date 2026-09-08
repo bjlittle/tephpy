@@ -1,7 +1,8 @@
-A contributor guide in the published documentation (``contributor spec §3.6``): how to get
-an environment and what to run, how the tests are laid out, what a changelog fragment
-carries, and what each of the thirteen continuous-integration workflows is for — including
-what it means when one of the six scheduled ones reaches you unbidden. ``CONTRIBUTING.md``
-and ``changelog/README.md`` become pointers keeping only the commands a gate holds them
-to, rather than a third copy of rules that were already written three times.
+A contributor guide in the published documentation
+(contributor spec §3.2, §3.3, §3.4, §3.5, §3.6): how to get an environment and what to
+run, how the tests are laid out, what a changelog fragment carries, and what each of the
+thirteen continuous-integration workflows is for — including what it means when one of
+the six scheduled ones reaches you unbidden. ``CONTRIBUTING.md`` and
+``changelog/README.md`` become pointers keeping only the commands a gate holds them to,
+rather than a third copy of rules that were already written three times.
 (:user:`claude`)

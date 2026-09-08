@@ -21,6 +21,7 @@ INDEX = DEVELOPER / "index.rst"
 WORKFLOWS = REPO / ".github" / "workflows"
 CI_PAGE = DEVELOPER / "ci.rst"
 CONTRIBUTING = DEVELOPER / "contributing.rst"
+CHANGELOG_PAGE = DEVELOPER / "changelog.rst"
 
 #: The pages contributor spec §3.1 adds, in the order contributor spec §4 gives
 #: the toctree.
@@ -66,13 +67,18 @@ def workflow_names() -> set[str]:
 def _committed_manifest() -> str:
     """Return the manifest this repository declares, not the one it was given.
 
-    Read from the index for the reason `tests/test_floors.py` reads it there:
-    the conda half of `ci-floors` runs this suite in a checkout whose
+    Read from the committed tree via ``git show HEAD:pyproject.toml`` -- not
+    the working tree, and not the index either (``git show :pyproject.toml``
+    would be that) -- for the reason `tests/test_floors.py` reads it the same
+    way: the conda half of `ci-floors` runs this suite in a checkout whose
     `pyproject.toml` the floors generator has rewritten, down to one
     environment with every feature that tier cannot reach dropped outright
     (:issue:`155`). A working-tree read would find some of the task table
     below missing, or none of it at all -- failing weekly, hours after the
-    push, in a job that would then file an issue about a floor.
+    push, in a job that would then file an issue about a floor. The distinction
+    from the index is live too: a contributor who stages a new task and runs
+    this suite before committing would otherwise get a pass from a manifest
+    that does not yet have it.
 
     Guarded here rather than on the module, because history is not what the
     rest of this module needs: the four pages are, and they are on disk
@@ -174,3 +180,36 @@ def test_the_contributing_page_names_no_task_that_does_not_exist():
     assert claimed, "contributing.rst's task table names no task at all"
     unknown = sorted(set(claimed) - set(pixi_tasks()))
     assert not unknown, f"contributing.rst names {unknown}, which are not pixi tasks"
+
+
+def changelog_types_on_page() -> set[str]:
+    """Return the fragment types ``changelog.rst`` names, read out of its own prose."""
+    text = CHANGELOG_PAGE.read_text(encoding="utf-8")
+    match = re.search(r"is one of(.*?)\.", text, flags=re.DOTALL)
+    assert match, "changelog.rst does not name the fragment types"
+    return set(re.findall(r"``([a-z]+)``", match[1]))
+
+
+def towncrier_types() -> set[str]:
+    """Every towncrier fragment type the manifest configures, by directory."""
+    data = tomllib.loads(_committed_manifest())
+    types = {entry["directory"] for entry in data["tool"]["towncrier"]["type"]}
+    assert types, "no towncrier types found, so this gate proves nothing"
+    return types
+
+
+def test_the_changelog_page_names_the_same_types_towncrier_is_configured_with():
+    # contributor spec §3.6 gates this pair of literals, not the fragment name
+    # pattern or the `:user:` role -- both of those sit in prose that varies
+    # legitimately by audience, where a literal-match gate would fire on a
+    # rewording rather than on drift. The eight types are different: they are
+    # a closed set copied by hand into the page's prose, and towncrier's own
+    # configuration is the one place that set is declared.
+    page = changelog_types_on_page()
+    manifest = towncrier_types()
+    missing = sorted(manifest - page)
+    assert not missing, f"changelog.rst does not name {missing}"
+    extra = sorted(page - manifest)
+    assert not extra, (
+        f"changelog.rst names {extra}, which pyproject.toml does not configure"
+    )
