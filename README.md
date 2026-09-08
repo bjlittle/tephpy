@@ -23,6 +23,20 @@ temperature-entropy coordinate system and delegates thermodynamic analysis
 ([parcel ascent][parcel-ascent], [CAPE][cape], [CIN][cin],
 [LCL][lcl]/[LFC][lfc]/[EL][el]) to [MetPy](https://github.com/Unidata/MetPy).
 
+## Installation
+
+```console
+$ pip install tephpy
+```
+
+> [!NOTE]
+> tephpy has not had its first release yet, so the command above does not work
+> today. Until then, install the development version from `main`:
+> `pip install git+https://github.com/bjlittle/tephpy.git@main`
+
+The [installation][install] page covers conda, pixi and uv as well, and the setup
+for working on `tephpy` itself.
+
 ## Non-Goals
 
 Decisions, not omissions — most with somewhere to go instead.
@@ -54,6 +68,7 @@ Decisions, not omissions — most with somewhere to go instead.
 [lcl]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LCL
 [lfc]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-LFC
 [el]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-EL
+[install]: https://tephpy.readthedocs.io/en/latest/start/installation.html
 [specs]: https://tephpy.readthedocs.io/en/latest/developer/specs/index.html
 [temp-and-bufr]: https://tephpy.readthedocs.io/en/latest/howtos/temp-and-bufr.html
 [hodograph]: https://tephpy.readthedocs.io/en/latest/reference/glossary.html#term-hodograph
