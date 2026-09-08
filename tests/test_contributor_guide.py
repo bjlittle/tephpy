@@ -18,7 +18,7 @@ INDEX = DEVELOPER / "index.rst"
 #: the toctree.
 #: Each page task appends its own as it lands, so every commit is green and
 #: each keeps its own red-to-green.
-PAGES = ("contributing", "testing", "changelog")
+PAGES = ("contributing", "testing", "changelog", "ci")
 
 
 @pytest.mark.parametrize("page", PAGES)

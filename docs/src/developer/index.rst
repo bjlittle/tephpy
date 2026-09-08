@@ -9,4 +9,5 @@ Developer Guide
     changelog
     docs-style
     packaging
+    ci
     specs/index
