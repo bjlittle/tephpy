@@ -221,14 +221,14 @@ what, and the literals they both name are held equal by a test.
 **The gated literals** are the strings where disagreement is a defect rather than a
 difference in voice, and only two groups of them are actually held equal by a test:
 
-- the pixi task invocations — `pixi run tests`, `lint`, `docs`, `docs-all`, and the
-  `pixi run -e docs …` form Playwright needs — held across two carriers, the published
-  page and `CONTRIBUTING.md`;
+- the two `pixi run -e docs playwright install …` remedies the browser-demo check emits
+  on failure, held across two carriers, the published page and `CONTRIBUTING.md`;
 - the changelog's eight types, held against `pyproject.toml`'s `[[tool.towncrier.type]]`
   blocks, in both directions.
 
 **Not gated, and deliberately.** The changelog fragment's name pattern,
-`changelog/<PR>.<type>.rst`, and the attribution role, `:user:`, sit in prose that varies
+`changelog/<PR>.<type>.rst`, the attribution role, `:user:`, and the bare pixi task
+invocations — `pixi run tests`, `lint`, `docs`, `docs-all` — sit in prose that varies
 legitimately by audience — a sentence explaining *why* the pattern looks the way it does
 is not the pattern itself, and a gate matching the literal text would fire on a rewording
 rather than on drift. Neither test reads an `AGENTS.md` file: the first carrier pair is
@@ -354,7 +354,7 @@ passes over a page that names half the set.
 |---|---|
 | every workflow named on `ci.rst`, and nothing false | a new assertion, §3.8 |
 | every pixi task named on `contributing.rst` or reachable from one that is, and nothing the task table names absent | a new assertion, §3.8 |
-| the pixi task invocations agreeing across `contributing.rst` and `CONTRIBUTING.md` | `tests/test_docs_workflow.py`, widened (§3.6) |
+| the two Playwright remedy commands agreeing across `contributing.rst` and `CONTRIBUTING.md` | `tests/test_docs_workflow.py`, widened (§3.6) |
 | the changelog's eight types agreeing with `pyproject.toml`'s towncrier configuration | a new assertion, §3.6 |
 | the four pages carrying a reading-time banner | `tests/test_docs_readingtime.py`, already derived over the tree |
 | every `contributor spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
