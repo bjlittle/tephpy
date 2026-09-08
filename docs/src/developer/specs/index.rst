@@ -50,6 +50,8 @@ counterpart in the parent specification.
       - :doc:`2026-09-03-topic-discovery-design`
     * - ``start spec §…``
       - :doc:`2026-09-05-getting-started-design`
+    * - ``contributor spec §…``
+      - :doc:`2026-09-08-contributor-guide-design`
 
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
@@ -81,3 +83,4 @@ own header banner.
     2026-09-01-tooltips-design
     2026-09-03-topic-discovery-design
     2026-09-05-getting-started-design
+    2026-09-08-contributor-guide-design
