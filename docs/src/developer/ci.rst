@@ -31,7 +31,8 @@ On Your Pull Request
     * - ``ci-changelog``
       - Checks the news fragment: that there is one, and that it is well formed
     * - ``ci-citation``
-      - Checks that every ``spec §…`` citation names a section that exists
+      - Validates ``CITATION.cff``, the machine-readable record of how to cite this
+        software. It runs only when that file changes
     * - ``ci-wheels``
       - Builds the sdist and wheel, and checks ``MANIFEST.in`` against what the
         sdist carries
@@ -39,6 +40,10 @@ On Your Pull Request
       - Labels the pull request from the paths it touches
     * - ``codeql``
       - Static security analysis
+
+Every one of these except ``ci-citation`` runs on every pull request; ``ci-citation``
+is the one workflow in this repository scoped to a path, so it stays quiet unless
+``CITATION.cff`` itself changes.
 
 On a Schedule
 --------------
