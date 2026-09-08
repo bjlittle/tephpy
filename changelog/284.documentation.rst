@@ -1,0 +1,11 @@
+An installation section in the ``README``, which until now had one heading and it
+was *Non-Goals*: a reader arriving by the GitHub or PyPI door was told what
+``tephpy`` declines to do and never how to install it (``start spec §3.9``). It
+shows ``pip install tephpy`` and links the installation page for the conda, pixi
+and uv routes rather than reproducing four of them in a file with no tabs. A
+warning directly beneath that command says it does not work yet — ``tephpy`` has
+cut no release — and is held to the version by the same test that retires the
+installation page's note, now reading both carriers, so the release that makes
+one of them false cannot leave the other standing. ``scope spec §3.1`` is
+corrected in passing: it had described the status note as sitting *above*
+*Non-Goals* since :pull:`245` switched the two a week earlier. (:user:`claude`)

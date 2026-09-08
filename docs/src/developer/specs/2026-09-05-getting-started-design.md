@@ -226,6 +226,15 @@ claim about the world, and this project does not leave those to memory: a test r
 `tephpy.__version__` and asserts the note is present exactly while tephpy has never been
 released.
 
+*Extended 2026-09-08.* `README.md` now carries the same claim — §3.9's installation
+section shows `pip install tephpy` and says in a note that it does not work yet — so the
+gate reads a tuple of carriers rather than one path, parametrised so a failure names the
+file still to edit. Gating the page alone would have gone green on the release commit
+while the README went on saying tephpy had never been published, which is the failure
+this section exists to prevent, one surface over. The sentence itself is shared verbatim
+between the two: one wording to keep true rather than two that can drift into disagreeing
+about the same fact.
+
 *Corrected 2026-09-05 in review.* This section first specified that test as "while the
 version carries `.dev`", which answers a different question — whether this checkout sits
 exactly on a tag — and deadlocks on the real one. setuptools_scm reports `0.1.0.dev190`
@@ -272,6 +281,66 @@ number moved with it rather than the gallery being demoted as a side effect.
 This is the second reason for the landing page of §3.1, and it is the one that would
 survive even if the first were waived.
 
+(start-spec-3-9)=
+### 3.9 The README's installation section
+
+*Added 2026-09-08, closing §7's open item.*
+
+`README.md` gains an **Installation** section between the opening paragraph and
+*Non-Goals* — what tephpy is, how to get it, then what it declines. It is the same reader
+as §3.3's arriving by the GitHub or PyPI door, and before this the README sent them
+nowhere: its only heading was *Non-Goals*. `scope spec §3.1` carries the README's ordering
+as a whole, including the status note that follows *Non-Goals*.
+
+The section shows **one** command, `pip install tephpy`, and links §3.3 for the rest.
+Reproducing that page's four routes across three sections in Markdown, which has no tab
+directive, would be a second truth about installing that nothing holds to the first. What
+the README owes the reader is the shortest true path plus a door; the page owes them the
+choice.
+
+The three tools named in that sentence — conda, pixi and uv — are each linked to their own
+documentation, as a convenience to a reader who does not already know what they are. The
+links go to the tools' front doors rather than to their install instructions, which is
+where §3.3's per-tab *Consult the …* links point: that page is helping a reader who has
+chosen a tool, and this sentence is met by one who has not. `pixi.sh` redirects to
+`pixi.prefix.dev`; it is written the short way because the README's badge and §3.3 both
+already write it that way, and three spellings of one project's home is one more than a
+reader benefits from.
+
+The pre-release note follows the shape §3.7 gives the page, for the same reason: the
+headline command is the *released* one, so the whole edit at v0.1.0 is deleting the note,
+and everything left standing is already true. A section showing only the `main` install
+would instead need rewriting at the tag, by someone who has to remember to.
+
+Two constraints the wording obeys rather than chooses:
+
+- **The link is an absolute `https://tephpy.readthedocs.io/en/latest/start/installation.html`
+  written as a Markdown reference**, per docs-style's *Documentation Links* — GitHub and
+  PyPI resolve no Sphinx role. It names no fragment, so there is no derived anchor to
+  break. `check_documentation_links.py` already reads `README.md` and now resolves this
+  URL against the build.
+- **The `main` install is written as a repository URL**, which `check_github_references.py`
+  passes because it names nothing by number; that gate forbids a hand-written *issue* or
+  *pull request* URL. `docs/src/start/installation.rst` already carries the identical URL.
+
+**The admonition is a `> [!WARNING]`, and the README's two blocks differ deliberately.**
+It was first written as a `> [!NOTE]` to match the status note, which was the wrong thing
+to match on: the two blocks do different work. The status note describes the project's
+maturity, which a reader may act on or not. This one sits directly beneath a command and
+says that command does not work — a reader who skims it copies a line that fails. The
+alert level is chosen for what the reader loses by missing it, not for consistency with
+the nearest other block.
+
+It is louder than the page's own admonition of §3.7, which stays a `.. note::`. That is
+not a contradiction: the page shows the working routes a scroll below the note, in tabs
+the reader is already choosing between, while the README shows one command and that
+command is the broken one. The same fact deserves different volume where the cost of
+missing it differs.
+
+`> [!WARNING]` renders as a GitHub alert and degrades on PyPI to a blockquote showing the
+literal `[!WARNING]`, exactly as the status note's `[!NOTE]` already does. The degradation
+is the same shape at either level, so it argues for neither.
+
 (start-spec-4)=
 ## 4. Companion changes
 
@@ -299,8 +368,8 @@ survive even if the first were waived.
   `start spec §3.1`. The rule does not change; what changes is the set it is stated over.
 - `docs/baseline/` — one baseline for the quick start's figure, generated rather than
   hand-written.
-- `README.md` — an installation section is **not** part of this specification; §7 records
-  the question.
+- `README.md` — an installation section was **not** part of this specification as first
+  written; §7 recorded the question and §3.9 now answers it, in a later change.
 
 (start-spec-5)=
 ## 5. Testing
@@ -312,7 +381,8 @@ survive even if the first were waived.
 | the landing page's table against its toctree | `tests/test_docs_landing_pages.py`, once §3.6 widens its sweep |
 | every `:term:` on the four pages | `check_glossary_links.py`, once §3.6 widens its sweep |
 | the four read pages carrying a reading-time banner | `tests/test_docs_readingtime.py`, already derived over the whole tree |
-| the pre-release note matching the version | a new assertion, §3.7 |
+| the pre-release note matching the version, on the page and in `README.md` alike | a new assertion, §3.7, parametrised over both carriers once §3.9 added the second |
+| the README's link into this section | `check_documentation_links.py`, which already reads `README.md` |
 | every `start spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
 | the prose | review, against docs-style's *Reviewing Claims* |
 
@@ -324,7 +394,9 @@ the section is held by machinery that already exists, and joins it by naming a d
 
 **In scope.** The five pages of §3.1–§3.5, the quick start's baseline, the gate changes
 and renames of §3.6, the admonition and its assertion of §3.7, the navigation change of
-§3.8, and the companion changes of §4.
+§3.8, and the companion changes of §4. The README's installation section of §3.9 joined
+them on 2026-09-08, in a change of its own — this specification is living, and §7's open
+item was closed by answering it rather than by dropping it.
 
 **Out of scope.** {issue}`66`'s other two halves: the developer and contributor guide, and
 the split of the parent specification's §3.2 into a `plotting` tour. Both are separately
@@ -366,10 +438,10 @@ Tagged per docs spec §3.5.
   row naming a document the toctree omits. Not taken here because the gate's rows are
   `:doc:` links and the prefix table's second column is one, which may or may not survive
   contact with the parser.
-- **Open** — whether `README.md` gains an installation section pointing at this page. It
-  is the same reader arriving by a different door, and the README currently sends them
-  nowhere. Out of scope above because the README is scope spec §3.1's surface and this
-  specification should not edit it in passing.
+- **Closed 2026-09-08** — `README.md` gains an installation section pointing at this page.
+  It was out of scope as first written because the README is scope spec §3.1's surface and
+  this specification should not have edited it in passing; taken up as its own change, it
+  is specified in §3.9 and the note it carries is gated with the page's by §3.7's test.
 
 (start-spec-8)=
 ## 8. References
