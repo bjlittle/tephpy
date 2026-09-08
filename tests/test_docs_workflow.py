@@ -427,13 +427,18 @@ def test_the_demo_names_what_to_install_when_chromium_will_not_start(
 #: that the two copies of these commands say the same thing.
 PREFIX = "pixi run -e docs "
 
-#: Where the second copy lives: the guide names both commands for the reader who
-#: has not met the failure yet, which is where they are found before there is a
-#: browser log to translate.
-GUIDE = REPO / "CONTRIBUTING.md"
+#: Where the commands are written for a reader who has not met the failure yet.
+#: Two carriers since contributor spec §3.6: the published page explains them, and
+#: `CONTRIBUTING.md` keeps them because GitHub puts it in front of a first-time
+#: contributor who may never reach the documentation.
+GUIDES = (
+    REPO / "CONTRIBUTING.md",
+    REPO / "docs" / "src" / "developer" / "contributing.rst",
+)
 
 
-def test_the_advice_runs_where_it_is_read_and_the_guide_says_the_same():
+@pytest.mark.parametrize("guide", GUIDES, ids=lambda path: path.name)
+def test_the_advice_runs_where_it_is_read_and_the_guide_says_the_same(guide):
     # Both halves are needed. The prefix alone leaves the guide free to drift
     # from the message; the guide alone is satisfied by two copies that agree on
     # a command neither shell can run -- which is what they did agree on until
@@ -444,11 +449,11 @@ def test_the_advice_runs_where_it_is_read_and_the_guide_says_the_same():
     # enough to be wrapped mid-command in the source, and the reader sees one
     # line however the paragraph is filled.
     assert all(command.startswith(PREFIX) for _markers, command, _why in demo.MISSING)
-    guide = " ".join(GUIDE.read_text(encoding="utf-8").split())
+    text = " ".join(guide.read_text(encoding="utf-8").split())
     missing = [
-        command for _markers, command, _why in demo.MISSING if command not in guide
+        command for _markers, command, _why in demo.MISSING if command not in text
     ]
-    assert not missing, f"{GUIDE.name} does not name {missing}"
+    assert not missing, f"{guide.name} does not name {missing}"
 
 
 @pytest.mark.parametrize(
