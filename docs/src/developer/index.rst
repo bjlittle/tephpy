@@ -6,6 +6,7 @@ Developer Guide
 
     contributing
     testing
+    changelog
     docs-style
     packaging
     specs/index
