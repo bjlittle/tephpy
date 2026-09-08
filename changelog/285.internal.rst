@@ -1,0 +1,16 @@
+A scheduled ``ci-linkcheck`` workflow, ported from ``bjlittle/geovista``, for the
+external links nothing here has ever checked — ``check_documentation_links.py``
+judges only URLs onto this project's own documentation host, leaving 110 distinct
+URLs in the published documentation and 16 more in the ``README`` unwatched. It is
+weekly and never a pull-request gate, for the reason ``ci-locks`` and ``ci-topics``
+both record: it reaches the network, so it fails for causes no pull request
+created. Findings land in one standing issue, edited in place.
+
+A second job covers ``WYOMING_URL``, which is the one external URL ``tephpy``
+*calls* rather than links and which a link checker cannot judge: the constant holds
+its ``{datetime}`` and ``{station}`` braces unformatted, and the archive answers
+that literal string ``400`` while it is perfectly healthy. Scanning it as text
+would report a break every week and stay silent on the day it truly broke — so
+``.lycheeignore`` excludes it and ``check_wyoming_endpoint.py`` asks
+``tephpy.io.wyoming.fetch`` for the ascent ``tests/fixtures/io/`` recorded,
+which is the same code path a user's request takes. (:user:`claude`)

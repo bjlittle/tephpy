@@ -1,0 +1,43 @@
+# URLs `ci-linkcheck` must not report, as regular expressions, one per line.
+#
+# The list is short and each entry says why it is here. An exclusion is a promise
+# that nothing behind it can rot in a way anyone needs to hear about, so a URL
+# earns its place by being unreachable *by construction* rather than by being
+# inconvenient — a link that merely fails intermittently belongs in the retry
+# settings, not here.
+#
+# Paths are excluded in the workflow instead (`--exclude-path`), because this file
+# matches URLs.
+
+# A template, not a URL. `tephpy.io.wyoming.fetch` formats the braces before
+# requesting it; fetched literally the archive answers 400 while it is perfectly
+# healthy — measured 2026-09-08 against a formatted request answered 200 the same
+# minute. Reported here it would be a permanent false positive that says nothing
+# on the day the endpoint truly moves, which is why
+# `.github/scripts/check_wyoming_endpoint.py` covers it properly instead.
+^https://weather\.uwyo\.edu/wsgi/sounding\?datetime=\{datetime\}
+
+# The clone URL the README's installation warning tells a reader to pip-install.
+# `git+https://…/tephpy.git@main` is a git transport, not a page; GitHub answers
+# the browsable form and this one is not it. geovista excludes its own for the
+# same reason.
+#
+# The `git+` prefix is part of the pattern because lychee keeps it: measured
+# 2026-09-08 with `lychee --dump`, the extracted link is
+# `git+https://github.com/bjlittle/tephpy.git@main`, so a pattern anchored at
+# `^https` matches nothing and the URL is checked anyway. It is optional here so
+# that a bare clone URL written somewhere later is covered too.
+^(git\+)?https://github\.com/bjlittle/tephpy\.git
+
+# Documentation examples that are deliberately not real. `example.invalid` is the
+# reserved TLD for exactly this (RFC 2606) and must never resolve; the localhost
+# port is the browser demo's own dev server, which exists only while a reader is
+# running it.
+^https?://([\w.-]+\.)?example\.invalid
+^https?://localhost:
+
+# A per-pull-request Read the Docs preview, written with the number left as a
+# placeholder. `check_documentation_links.py` already rejects a preview host
+# written into tracked source; where one is *quoted* — in docs-style, explaining
+# the rule — it is an illustration and resolves nowhere.
+^https://tephpy--

@@ -94,7 +94,7 @@ work is configuration rather than code.
 
 The cost of that choice is recorded rather than hidden. Upstream is dormant: `0.4.3`
 released 2024-04-23 is the latest, seven pull requests stand unmerged, and one of them
-([#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33)) fixes a defect this project
+([#33](https://github.com/sphinx-extensions2/sphinx-tippy/pull/33)) fixes a defect this project
 meets, described in §3.5. The declared floor `>=0.4.3` is therefore also the ceiling in
 practice, and `ci-floors` will pin it to `==0.4.3` because that is the only release
 conda-forge carries.
@@ -227,8 +227,8 @@ While `interactive` is `False` a reader cannot reach any of them. They render as
 text inside a panel that disappears before it can be clicked — misleading, but not a broken
 journey. Setting `interactive: True` would convert every one of them into a dead link in
 one line, which is why §3.6 asserts the value rather than trusting the default,
-and why upstream [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and
-[#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are cited in §8 as the thing to
+and why upstream [#32](https://github.com/sphinx-extensions2/sphinx-tippy/issues/32) and
+[#33](https://github.com/sphinx-extensions2/sphinx-tippy/pull/33) are cited in §8 as the thing to
 watch.
 
 (tooltip-spec-3-6)=
@@ -494,7 +494,7 @@ that, and no gate detects it.
 
 - **Open** — the dead in-tip fragment links of §3.5 (about 790). They are unreachable
   today and remain so while `interactive` is `False`, which check 4 enforces. Upstream
-  [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) is the fix; it has stood
+  [#33](https://github.com/sphinx-extensions2/sphinx-tippy/pull/33) is the fix; it has stood
   unmerged since 2025-12-16, and if it stays that way the alternative is to vendor the
   correction as a small `docs/src/_ext/` post-processing step. Not attempted here, because
   the defect has no reader-visible consequence under the current configuration.
@@ -523,9 +523,9 @@ that, and no gate detects it.
 (tooltip-spec-9)=
 ## 9. References
 
-- [`sphinx-tippy`](https://github.com/chrisjsewell/sphinx-tippy) — the extension, at
-  `0.4.3`. Issue [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and pull
-  request [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are the defect of
+- [`sphinx-tippy`](https://github.com/sphinx-extensions2/sphinx-tippy) — the extension, at
+  `0.4.3`. Issue [#32](https://github.com/sphinx-extensions2/sphinx-tippy/issues/32) and pull
+  request [#33](https://github.com/sphinx-extensions2/sphinx-tippy/pull/33) are the defect of
   §3.5. Issue
   [sphinx-extensions2/sphinx-tippy#35](https://github.com/sphinx-extensions2/sphinx-tippy/issues/35)
   is the multi-term glossary defect of §3.7.

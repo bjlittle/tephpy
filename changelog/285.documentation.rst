@@ -1,0 +1,9 @@
+Dead and stale links repaired in the design specifications, found by the new
+``ci-linkcheck``. Two were failing: ``matplotlib``'s ``AnnotationBbox`` and
+``OffsetImage`` pages have moved from ``_as_gen/`` into ``offsetbox_api.html``
+(``add logo spec §8``). The rest are one upstream move — ``sphinx-tippy`` now
+belongs to ``sphinx-extensions2`` rather than ``chrisjsewell`` — of which the two
+citations of its issue 32 were answering 404 while six further occurrences, of two
+other URLs under the same moved repository, were resting on a redirect that will
+not last forever. The frozen implementation plan keeps the URL
+it named, which is why ``ci-linkcheck`` does not read the plans. (:user:`claude`)
