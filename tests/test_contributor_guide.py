@@ -14,7 +14,8 @@ REPO = Path(__file__).parents[1]
 DEVELOPER = REPO / "docs" / "src" / "developer"
 INDEX = DEVELOPER / "index.rst"
 
-#: The pages contributor spec §3.1 adds, in the order spec §4 gives the toctree.
+#: The pages contributor spec §3.1 adds, in the order contributor spec §4 gives
+#: the toctree.
 #: Each page task appends its own as it lands, so every commit is green and
 #: each keeps its own red-to-green.
 PAGES = ("testing",)
