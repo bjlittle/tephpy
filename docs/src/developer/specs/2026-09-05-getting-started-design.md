@@ -298,6 +298,15 @@ directive, would be a second truth about installing that nothing holds to the fi
 the README owes the reader is the shortest true path plus a door; the page owes them the
 choice.
 
+The three tools named in that sentence — conda, pixi and uv — are each linked to their own
+documentation, as a convenience to a reader who does not already know what they are. The
+links go to the tools' front doors rather than to their install instructions, which is
+where §3.3's per-tab *Consult the …* links point: that page is helping a reader who has
+chosen a tool, and this sentence is met by one who has not. `pixi.sh` redirects to
+`pixi.prefix.dev`; it is written the short way because the README's badge and §3.3 both
+already write it that way, and three spellings of one project's home is one more than a
+reader benefits from.
+
 The pre-release note follows the shape §3.7 gives the page, for the same reason: the
 headline command is the *released* one, so the whole edit at v0.1.0 is deleting the note,
 and everything left standing is already true. A section showing only the `main` install
