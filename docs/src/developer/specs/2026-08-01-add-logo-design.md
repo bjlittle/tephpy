@@ -390,9 +390,9 @@ intention, so none carries an issue (docs spec §3.5).
 - MetPy `add_metpy_logo`:
   <https://github.com/Unidata/MetPy/blob/v1.7.1/src/metpy/plots/_util.py#L106-L131>
 - matplotlib `AnnotationBbox`:
-  <https://matplotlib.org/stable/api/_as_gen/matplotlib.offsetbox.AnnotationBbox.html>
+  <https://matplotlib.org/stable/api/offsetbox_api.html#matplotlib.offsetbox.AnnotationBbox>
 - matplotlib `OffsetImage`:
-  <https://matplotlib.org/stable/api/_as_gen/matplotlib.offsetbox.OffsetImage.html>
+  <https://matplotlib.org/stable/api/offsetbox_api.html#matplotlib.offsetbox.OffsetImage>
 - matplotlib `legend` `loc` vocabulary:
   <https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html>
 - Brand assets and their provenance: `docs/src/_static/brand/assets/README.md` (PR {pull}`69`)

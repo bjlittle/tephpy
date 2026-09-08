@@ -232,3 +232,6 @@ src/tephpy/_version.py
 
 # pytest-mpl results
 .mpl-results/
+
+# lychee's link cache, restored by `ci-linkcheck`
+.lycheecache

@@ -1,0 +1,7 @@
+Four dead links repaired in the design specifications, found by the new
+``ci-linkcheck`` on its first run: ``matplotlib``'s ``AnnotationBbox`` and
+``OffsetImage`` pages have moved from ``_as_gen/`` into ``offsetbox_api.html``
+(``add logo spec §8``), and ``sphinx-tippy`` has moved owner, so the two citations
+of its issue 32 now name ``sphinx-extensions2`` rather than ``chrisjsewell``
+(``tooltip spec §…``). Both had been rotting unnoticed, which is the gap that
+workflow exists to close. (:user:`claude`)

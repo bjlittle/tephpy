@@ -1,0 +1,183 @@
+name: ci-linkcheck
+
+# The external links nothing else checks. `check_documentation_links.py` judges
+# only URLs onto this project's own documentation host -- by design, since it
+# resolves them against the HTML the build just produced -- so every link
+# pointing anywhere else has been unchecked since the repository began. Measured
+# 2026-09-08 on `main`: 110 distinct external URLs in the published documentation
+# sources and 16 more in `README.md`, with no `linkcheck` configuration, task or
+# job anywhere.
+#
+# Ported from `bjlittle/geovista`'s workflow of the same name, with four
+# departures recorded below. Two jobs, because the two things being checked fail
+# differently and a reader of one report should not have to sift the other.
+#
+# Scheduled, never a pull-request gate, for the reason `ci-locks` and `ci-topics`
+# both record for themselves: it reaches the network, so it goes red for causes no
+# pull request created, and a check that fails for somebody else's outage teaches
+# people to ignore a red tick.
+#
+# Weekly, not daily as geovista runs it. tephpy's schedules each state an
+# interval and a reason -- `ci-topics` is monthly because "a documentation corpus
+# moves on pull-request timescales" -- and a link corpus moves slower still. The
+# cache makes a daily run cheap in minutes, not in attention.
+
+on:
+  schedule:
+    - cron: "41 6 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  # Departure 1: `README.md` is scanned. geovista's globs do not name it, and it
+  # is the surface a reader meets first on GitHub and on PyPI -- 16 URLs,
+  # including the three the installation section of `start spec §3.9` added.
+  #
+  # Departure 2: `docs/src/developer/plans/` is excluded. geovista has no such
+  # tree. A plan here is frozen once its implementation merges (docs spec §3.4)
+  # and is *meant* to go on naming the URL it named -- the same reasoning that
+  # makes `check_documentation_links.py`'s SOURCES an explicit list rather than a
+  # sweep of the repository. 38 plans carrying 105 distinct URLs between them
+  # would otherwise manufacture work on documents nobody should edit.
+  links:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: .lycheecache
+          key: cache-lychee
+
+      - name: Check every external link
+        id: lychee
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8  # v2.9.0
+        with:
+          # `--accept 200, 429` counts a rate-limited reply as reachable: 429 is
+          # the host declining to answer this minute, which says nothing about
+          # whether the link is good. The concurrency and interval settings are
+          # what keep the 96 github.com URLs from provoking it in the first place.
+          #
+          # Exclusions live in `.lycheeignore`, which lychee reads from the
+          # working directory, so that each one is a line with a reason beside it
+          # rather than an argument in a list nobody can annotate.
+          #
+          # `--exclude-path` takes a **bare** relative path. Measured with lychee
+          # 0.24.2 on 2026-09-08: `docs/src/developer/plans` drops the 45 links
+          # those files carry, while `./docs/src/developer/plans` and an absolute
+          # path are both accepted and silently ignored. The input globs keep the
+          # `./` that geovista writes, which is fine there and fatal here -- so
+          # the two forms differ on purpose, and `tests/test_linkcheck.py` holds
+          # this one to the form that works.
+          args: |
+            --accept '200, 429'
+            --cache
+            --exclude-path 'docs/src/developer/plans'
+            --host-concurrency 2
+            --host-request-interval 1s
+            --no-progress
+            --retry-wait-time 3
+            --verbose
+            './README.md'
+            './changelog/*.rst'
+            './docs/src/**/*.md'
+            './docs/src/**/*.rst'
+            './src/**/*.py'
+          output: ./lychee/out.md
+          fail: false
+
+      # Departure 3: one standing issue, edited in place, rather than a new issue
+      # per failing run. `ci-topics` states the reason -- "a monthly finding that
+      # filed a new issue each run would bury the one before it" -- and a dead
+      # link outlives many runs, so geovista's shape would file the same finding
+      # every week until somebody fixed it.
+      - name: Find the standing issue
+        id: standing
+        if: ${{ fromJSON(steps.lychee.outputs.exit_code) != 0 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --state open --label linkcheck \
+            --limit 1 --json number --jq '.[0].number // empty')
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+          echo "Standing issue: ${number:-none open, filing a new one}"
+
+      - name: File or update the report
+        if: ${{ fromJSON(steps.lychee.outputs.exit_code) != 0 }}
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710  # v6.0.0
+        with:
+          issue-number: ${{ steps.standing.outputs.number }}
+          title: "Broken external links"
+          content-filepath: ./lychee/out.md
+          labels: |
+            bot
+            linkcheck
+            type: documentation
+
+      - name: Fail the run so the schedule shows red
+        if: ${{ fromJSON(steps.lychee.outputs.exit_code) != 0 }}
+        run: exit ${{ fromJSON(steps.lychee.outputs.exit_code) }}
+
+  # Departure 4, and the reason this workflow is not geovista's unchanged.
+  # `WYOMING_URL` is the one external URL tephpy *calls*, and a text scanner
+  # cannot check it: the constant holds `{datetime}` and `{station}` unformatted,
+  # which the archive answers 400 while healthy. Scanning `src/**/*.py` therefore
+  # reports it broken every run and stays silent on the day it breaks, so
+  # `.lycheeignore` excludes it and this job checks it properly -- by asking
+  # `tephpy.io.wyoming.fetch` for a sounding, which is the same code path a user's
+  # request takes.
+  endpoint:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e  # v0.10.2
+        with:
+          environments: test
+
+      - name: Ask the archive for the fixtures' ascent
+        id: probe
+        continue-on-error: true
+        run: |
+          pixi run --environment test \
+            python .github/scripts/check_wyoming_endpoint.py 2>&1 | tee ./endpoint.md
+
+      - name: Find the standing issue
+        id: standing
+        if: ${{ steps.probe.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --state open --label wyoming-endpoint \
+            --limit 1 --json number --jq '.[0].number // empty')
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+          echo "Standing issue: ${number:-none open, filing a new one}"
+
+      - name: File or update the report
+        if: ${{ steps.probe.outcome == 'failure' }}
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710  # v6.0.0
+        with:
+          issue-number: ${{ steps.standing.outputs.number }}
+          title: "The Wyoming archive is not answering tephpy.io"
+          content-filepath: ./endpoint.md
+          labels: |
+            bot
+            wyoming-endpoint
+            type: bug
+
+      - name: Fail the run so the schedule shows red
+        if: ${{ steps.probe.outcome == 'failure' }}
+        run: exit 1

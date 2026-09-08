@@ -227,7 +227,7 @@ While `interactive` is `False` a reader cannot reach any of them. They render as
 text inside a panel that disappears before it can be clicked — misleading, but not a broken
 journey. Setting `interactive: True` would convert every one of them into a dead link in
 one line, which is why §3.6 asserts the value rather than trusting the default,
-and why upstream [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and
+and why upstream [#32](https://github.com/sphinx-extensions2/sphinx-tippy/issues/32) and
 [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are cited in §8 as the thing to
 watch.
 
@@ -524,7 +524,7 @@ that, and no gate detects it.
 ## 9. References
 
 - [`sphinx-tippy`](https://github.com/chrisjsewell/sphinx-tippy) — the extension, at
-  `0.4.3`. Issue [#32](https://github.com/chrisjsewell/sphinx-tippy/issues/32) and pull
+  `0.4.3`. Issue [#32](https://github.com/sphinx-extensions2/sphinx-tippy/issues/32) and pull
   request [#33](https://github.com/chrisjsewell/sphinx-tippy/pull/33) are the defect of
   §3.5. Issue
   [sphinx-extensions2/sphinx-tippy#35](https://github.com/sphinx-extensions2/sphinx-tippy/issues/35)
