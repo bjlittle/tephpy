@@ -107,13 +107,17 @@ geovista does not document and which tephpy's schedule-driven machinery makes un
 | `packaging.rst` | *(exists)* what tephpy runs on and what it ships |
 | `specs/index.rst` | *(exists)* the design record |
 
-**No landing table.** `narrative spec §3.9`'s two-column table plus hidden toctree governs
-the four `USER_SECTIONS` — measured: `start`, `tutorials`, `howtos`, `explanation` in
-`tests/test_docs_landing_pages.py`, and the same four in `check_glossary_links.py` and
-`tests/test_docs_snippets.py`. `developer` is in none of them, and `narrative spec §7`
-holds open whether the reference quadrant should take one. This section does not settle
-that question for a fifth section in passing; `developer/index.rst` keeps its bare
-toctree, and gains the four entries.
+**No landing table, deliberately and for now.** `narrative spec §3.9`'s two-column table
+plus hidden toctree governs the four `USER_SECTIONS` — measured: `start`, `tutorials`,
+`howtos`, `explanation` in `tests/test_docs_landing_pages.py`, and the same four in
+`check_glossary_links.py` and `tests/test_docs_snippets.py`. `developer` is in none of
+them, and `narrative spec §7` holds open whether the reference quadrant should take one.
+
+The reason for declining it here is not that the shape would be wrong but that **the
+content is still maturing**, and a table commits to a description of each page before
+there is a settled page to describe. Simple and clean while the section grows; revisited
+once it has stopped moving. `developer/index.rst` therefore keeps its bare toctree and
+gains the four entries, and §7 carries the question rather than this section closing it.
 
 **Reading-time banners apply.** `tests/test_docs_readingtime.py` derives its corpus over
 the whole tree and exempts `developer/index.rst` and `developer/specs/index.rst` by name
@@ -351,6 +355,13 @@ Tagged per docs spec §3.5.
 - **Open** — whether `packaging.rst` should cross-reference §3.7's task graph now that the
   two pages sit beside each other. It names `pixi run manifest` today without saying where
   the task table is documented.
+- **Deferred 2026-09-08, deliberately** — whether `developer/` takes a landing table in
+  `narrative spec §3.9`'s shape. Declined for now because the section's content is still
+  maturing and a table fixes a one-line description of each page before the page has
+  settled: the bias while a section grows is toward simple and clean. Revisit once the
+  four pages have stopped moving, alongside `narrative spec §7`'s open question about the
+  reference quadrant — the two are one decision about which sections the shape governs,
+  and answering them separately is how a rule ends up stated over a set nobody chose.
 
 (contributor-spec-8)=
 ## 8. References
