@@ -1,5 +1,5 @@
 Added hover tooltips across the documentation, drawn by `sphinx-tippy
-<https://github.com/chrisjsewell/sphinx-tippy>`_. Every glossary term and every
+<https://github.com/sphinx-extensions2/sphinx-tippy>`_. Every glossary term and every
 API cross-reference now shows its definition on hover, without leaving the page,
 including every term of a glossary entry that defines several at once and every
 signature of an overloaded API method -- a vendored correction for an upstream
