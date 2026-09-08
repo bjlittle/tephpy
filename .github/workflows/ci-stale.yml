@@ -55,10 +55,11 @@ jobs:
           #
           #   status: blocked, status: paused  a hold someone decided on
           #   design: open                     tracked from a design spec
-          #   dependency-floors, topic-coverage the standing reports' own issues
+          #   dependency-floors, topic-coverage, linkcheck,
+          #   wyoming-endpoint                 the standing reports' own issues
           #   good-first-issue, help-wanted    kept open for whoever arrives
           exempt-issue-labels: >-
-            status: blocked,status: paused,design: open,dependency-floors,topic-coverage,good-first-issue,help-wanted
+            status: blocked,status: paused,design: open,dependency-floors,topic-coverage,linkcheck,wyoming-endpoint,good-first-issue,help-wanted
           exempt-pr-labels: >-
             status: blocked,status: paused,design: open,good-first-issue,help-wanted
 

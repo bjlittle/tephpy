@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import pytest
 import yaml
@@ -47,14 +48,47 @@ def _exempt(field: str) -> list[str]:
     return [word.strip() for word in step["with"][field].split(",")]
 
 
-def _markers() -> set[str]:
-    """Return the label each standing report files its issue under."""
+#: How a workflow looks up the standing issue it keeps: the label given to
+#: ``gh issue list``. That lookup label *is* the marker -- it is what decides
+#: whether the next run edits the existing report or files a second one -- so it
+#: is the thing the exemption has to match, wherever it happens to be written.
+LOOKUP = re.compile(r"gh issue list[^\n]*--label (?P<marker>[\w:-]+)")
+
+
+def _script_markers() -> set[str]:
+    """Return the label each standing report *script* files its issue under."""
     scripts = sorted(SCRIPTS.glob("*_issue.py"))
     # A scan that found nothing would leave every assertion below passing with
     # nothing behind it, and the honest reading of an empty scan is that the
     # scan broke.
     assert scripts, f"no report scripts found under {SCRIPTS}"
     return {load_script(path.stem).MARKER for path in scripts}
+
+
+def _workflow_markers() -> set[str]:
+    """Return the label each standing report declared *in a workflow* uses.
+
+    Not every standing report has a script. ``ci-linkcheck`` keeps two issues
+    and looks each up with ``gh issue list --label`` written inline in the
+    workflow, so a gate reading only ``*_issue.py`` passed over both of them --
+    which is how they reached :pull:`285` unexempt, one dispatch away from a
+    report that stales, closes, and is replaced by a fresh issue carrying none
+    of its history.
+    """
+    workflows = sorted((REPO / ".github" / "workflows").glob("*.yml"))
+    assert workflows, "no workflows found"
+    return {
+        match["marker"]
+        for path in workflows
+        for match in LOOKUP.finditer(path.read_text(encoding="utf-8"))
+    }
+
+
+def _markers() -> set[str]:
+    """Return every label a standing report finds its issue by."""
+    markers = _script_markers() | _workflow_markers()
+    assert markers, "no standing-report markers found, so the scan broke"
+    return markers
 
 
 def test_every_label_a_standing_report_files_under_is_exempt_from_staling():
