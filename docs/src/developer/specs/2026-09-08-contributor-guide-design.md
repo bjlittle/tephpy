@@ -282,10 +282,20 @@ a fourteenth workflow fails the gate rather than quietly going undocumented. Thi
 `tests/test_docs_landing_pages.py` its corpus assertion.
 
 **Task coverage.** Every task in `pyproject.toml` is either named on `contributing.rst` or
-carries an explicit internal marker in the gate, and nothing named on the page is absent
+reachable from a named one through `depends-on`, and nothing named on the page is absent
 from `pyproject.toml`. `tests/pixi_tasks.py` already reads that table for
 `tests/test_docs_workflow.py` and the `ci-floors` gate, so the reader exists and this adds
 a third consumer rather than a second parser.
+
+*Corrected 2026-09-08, before implementation.* This section first said "or carries an
+explicit internal marker in the gate", which would have been a hand-written list of
+exemptions — the very shape these gates exist to remove. `tests/pixi_tasks.py` already
+exports `closure(names, tasks)`, which walks `depends-on`, so the exemption derives itself:
+a task the page does not name is excused exactly when running something the page *does*
+name runs it. Measured against the current tree: nine tasks named on the page reach the
+other eight, and **nothing is left over** — so the rule is satisfiable with no exemption
+list at all, and a task that is neither named nor reachable is a real gap rather than a
+missing entry in a list.
 
 Both assert in **both directions**. A gate checking only that the page names nothing false
 passes over a page that names half the set.
