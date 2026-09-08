@@ -29,7 +29,7 @@ temperature-entropy coordinate system and delegates thermodynamic analysis
 $ pip install tephpy
 ```
 
-> [!NOTE]
+> [!WARNING]
 > tephpy has not had its first release yet, so the command above does not work
 > today. Until then, install the development version from `main`:
 > `pip install git+https://github.com/bjlittle/tephpy.git@main`

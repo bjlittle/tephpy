@@ -289,7 +289,8 @@ survive even if the first were waived.
 `README.md` gains an **Installation** section between the opening paragraph and
 *Non-Goals* — what tephpy is, how to get it, then what it declines. It is the same reader
 as §3.3's arriving by the GitHub or PyPI door, and before this the README sent them
-nowhere: its only heading was *Non-Goals*.
+nowhere: its only heading was *Non-Goals*. `scope spec §3.1` carries the README's ordering
+as a whole, including the status note that follows *Non-Goals*.
 
 The section shows **one** command, `pip install tephpy`, and links §3.3 for the rest.
 Reproducing that page's four routes across three sections in Markdown, which has no tab
@@ -313,9 +314,23 @@ Two constraints the wording obeys rather than chooses:
   passes because it names nothing by number; that gate forbids a hand-written *issue* or
   *pull request* URL. `docs/src/start/installation.rst` already carries the identical URL.
 
-`> [!NOTE]` renders as a GitHub alert and degrades on PyPI to a blockquote showing the
-literal `[!NOTE]`. The README's status note already takes that hit, so this matches it
-rather than introducing a second style for the same thing.
+**The admonition is a `> [!WARNING]`, and the README's two blocks differ deliberately.**
+It was first written as a `> [!NOTE]` to match the status note, which was the wrong thing
+to match on: the two blocks do different work. The status note describes the project's
+maturity, which a reader may act on or not. This one sits directly beneath a command and
+says that command does not work — a reader who skims it copies a line that fails. The
+alert level is chosen for what the reader loses by missing it, not for consistency with
+the nearest other block.
+
+It is louder than the page's own admonition of §3.7, which stays a `.. note::`. That is
+not a contradiction: the page shows the working routes a scroll below the note, in tabs
+the reader is already choosing between, while the README shows one command and that
+command is the broken one. The same fact deserves different volume where the cost of
+missing it differs.
+
+`> [!WARNING]` renders as a GitHub alert and degrades on PyPI to a blockquote showing the
+literal `[!WARNING]`, exactly as the status note's `[!NOTE]` already does. The degradation
+is the same shape at either level, so it argues for neither.
 
 (start-spec-4)=
 ## 4. Companion changes

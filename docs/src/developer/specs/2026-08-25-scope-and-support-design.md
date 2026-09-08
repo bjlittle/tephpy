@@ -89,10 +89,26 @@ documentation is held to account.
 (scope-spec-3-1)=
 ### 3.1 The non-goals statement
 
-`README.md` gains a **Non-Goals** section below the status note, reproducing spec §9's six
-entries in spec §9's order. The order is not alphabetical and not by importance: it is the
-order the parent specification chose, and keeping it means the two can be read side by side
-and any drift between them is a diff rather than a search.
+`README.md` gains a **Non-Goals** section reproducing spec §9's six entries in spec §9's
+order. The order is not alphabetical and not by importance: it is the order the parent
+specification chose, and keeping it means the two can be read side by side and any drift
+between them is a diff rather than a search.
+
+*Corrected 2026-09-08.* This section first placed the section **below the status note**,
+which is where {pull}`191` put it. {pull}`245` switched the two on 2026-09-01, so the
+status note now sits at the foot of the README, below *Non-Goals* and above the link
+definitions, and this specification went on describing the old order for a week. The
+switch is the right one and is adopted here rather than reverted: the note is a statement
+about the project's maturity, which a reader wants after the substance rather than before
+it, and the non-goals are substance. What the ordering of these two is **not** is
+load-bearing — nothing derives from it and no gate reads it — so it is recorded rather
+than enforced.
+
+Ordering within the README is otherwise by what a reader needs first: the badges and the
+one-line description, `start spec §3.9`'s installation section, *Non-Goals*, then the
+status note. Both blocks the README now carries are pre-release statements, and they
+retire on different schedules — `start spec §3.7`'s test removes the installation warning
+at v0.1.0, while the status note goes when the API stops being built out plan by plan.
 
 Each entry is one sentence of what tephpy does not do, followed by where to go instead.
 That second half is the part that makes the section worth a reader's time, and most of them
