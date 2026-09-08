@@ -118,8 +118,16 @@ REPO = Path(__file__).parents[1]
 DEVELOPER = REPO / "docs" / "src" / "developer"
 INDEX = DEVELOPER / "index.rst"
 
-#: The pages contributor spec §3.1 adds, in the order §4 gives the toctree.
-PAGES = ("contributing", "testing", "changelog", "ci")
+#: The pages contributor spec §3.1 adds, in the order contributor spec §4 gives
+#: the toctree. Each page task appends its own as it lands, so every commit is
+#: green and each keeps its own red-to-green.
+#:
+#: The citation is qualified deliberately. A bare ``spec §4`` resolves — to the
+#: PARENT specification's "Canonical usage" — and the pre-commit citation gate
+#: checks that a citation resolves, not that it names the document meant. Bare
+#: ``§4`` fails that gate outright in a real file, though not in this plan: plans
+#: are dropped from the citation corpus, so only the code blocks are exposed.
+PAGES = ("testing",)
 
 
 @pytest.mark.parametrize("page", PAGES)
@@ -371,10 +379,13 @@ Expected: six PASS.
 
 Run: `pixi run docs`
 
-Expected: `build succeeded`. A `:doc:` naming a page that does not yet exist —
-`changelog`, `ci` — **will** warn and fail the build. Comment those two cross-references
-out with a note, and Task 4 restores them; or write Tasks 3 and 4 first if executing out of
-order.
+Expected: **do not run the build in this task.** A `:doc:` naming a page that does not
+yet exist warns and fails the fail-on-warning build, and no task ordering avoids that:
+the four pages cross-reference each other in a **cycle** — `testing`→`ci`,
+`ci`→`contributing`+`testing`, `contributing`→all three — so whichever lands first
+points at pages that do not exist. Tasks 1–3 therefore verify with pytest alone and
+Task 4 runs `pixi run docs` once, when the cycle closes. Do not comment the references
+out: a commented-out cross-reference is the kind of thing that survives to merge.
 
 - [ ] **Step 4: Commit**
 
@@ -536,7 +547,10 @@ On Your Pull Request
     * - ``ci-changelog``
       - Checks the news fragment: that there is one, and that it is well formed
     * - ``ci-citation``
-      - Checks that every ``spec §…`` citation names a section that exists
+      - Validates ``CITATION.cff``, the machine-readable record of how to cite
+        this software. It runs only when that file changes — the one
+        path-filtered workflow in the repository. (The ``spec §…`` citation
+        check is the ``check_citations.py`` pre-commit hook, not a workflow.)
     * - ``ci-wheels``
       - Builds the sdist and wheel, and checks ``MANIFEST.in`` against what the
         sdist carries
@@ -641,11 +655,13 @@ git commit -m "Publish what CI is for, and what it means when it finds something
 
 Append to `tests/test_contributor_guide.py`:
 
-```python
-import re
-import tomllib
+**The three imports below go in the module header** alongside Task 1's, not mid-file:
+ruff rejects `import-outside-top-level` and the commit will be refused. Standard
+library first, then third-party, then first-party, each group sorted.
 
-from tests.pixi_tasks import closure
+```python
+# these join the header: `import re`, `import subprocess`, `import tomllib`,
+# and `from tests.pixi_tasks import closure`
 
 WORKFLOWS = REPO / ".github" / "workflows"
 CI_PAGE = DEVELOPER / "ci.rst"
@@ -709,13 +725,19 @@ def test_every_pixi_task_is_named_or_reachable_from_one_that_is():
 
 
 def test_the_contributing_page_names_no_task_that_does_not_exist():
-    page = CONTRIBUTING.read_text(encoding="utf-8")
-    claimed = set(re.findall(r"``(?:pixi run (?:-e \w+ )?)?([a-z][\w-]*)``", page))
-    tasks = set(pixi_tasks())
-    # Only judge tokens that look like task names; the page names commands and
-    # filenames in literals too, and those are not this gate's business.
-    suspect = {name for name in claimed if name.startswith(("docs", "tests")) }
-    unknown = sorted(suspect - tasks - {"docs", "tests"})
+    # The Task Graph table is the one place the page asserts "this is a pixi
+    # task": each row is a literal ``    * - ``name``  `` line. Reading every
+    # double-backtick literal on the page instead over-claims: a bare-word
+    # pattern also matches ``tephpy`` with nothing to exempt it, and
+    # ``pixi run -e docs playwright install --with-deps chromium`` names a
+    # real external command, not a task, so "``pixi run <token>``" cannot be
+    # read as a claim of task existence either -- the module docstring of
+    # `tests/pixi_tasks.py` makes the same point about workflow steps. The
+    # table has neither problem, so this reads only it (contributor spec §3.8).
+    text = CONTRIBUTING.read_text(encoding="utf-8")
+    claimed = re.findall(r"^    \* - ``([a-z][\w-]*)``$", text, flags=re.MULTILINE)
+    assert claimed, "contributing.rst's task table names no task at all"
+    unknown = sorted(set(claimed) - set(pixi_tasks()))
     assert not unknown, f"contributing.rst names {unknown}, which are not pixi tasks"
 ```
 
@@ -874,8 +896,16 @@ pixi run docs
 ```
 
 Expected: suite passes; lint clean; `build succeeded` with every gate ok, including
-`Documentation links ok` — which now resolves four new `CONTRIBUTING.md` URLs against the
-build. A `Missing pages` failure means a page path in Step 3 does not match what the build
+`Documentation links ok`.
+
+**That line covers the new pointer URLs only if this task also adds both pointer files
+to `SOURCES`.** `check_documentation_links.py` reads an explicit list, and before this
+task it held only `README.md`, `.github/scripts/changelog.py` and
+`.github/pull_request_template.md` — so without that change the pointers ship unchecked,
+which is worse than the duplication they replaced. Update
+`tests/test_documentation_links.py`'s membership assertion to match.
+
+A `Missing pages` failure means a page path in Step 3 does not match what the build
 produced.
 
 ---
