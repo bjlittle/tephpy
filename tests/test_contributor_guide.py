@@ -57,10 +57,31 @@ def test_each_new_page_carries_a_reading_time_banner(page):
     assert ".. readingtime::" in text
 
 
-def workflow_names() -> set[str]:
-    """Every workflow in the directory, by the name the page writes."""
-    found = {path.stem for path in WORKFLOWS.glob("*.yml")}
-    assert found, "no workflows found, so this gate proves nothing"
+#: The suffixes GitHub Actions reads from ``.github/workflows``. Both, because
+#: globbing one of them lets a workflow added under the other escape this gate
+#: entirely: `ci.rst` would go incomplete while the check stayed green, which is
+#: the one failure a coverage gate must not have. Every workflow here is ``.yml``
+#: today and the gate does not depend on that staying true (:pull:`290` review).
+SUFFIXES = ("*.yml", "*.yaml")
+
+
+def workflow_names(directory: Path = WORKFLOWS) -> set[str]:
+    """Every workflow in `directory`, by the name the page writes.
+
+    Parameters
+    ----------
+    directory : pathlib.Path, optional
+        Where to look. Defaults to this repository's workflows; the parameter
+        exists so the suffix coverage above can be tested against a directory
+        holding a ``.yaml`` workflow, which this repository does not.
+
+    Returns
+    -------
+    set of str
+        Each workflow's stem.
+    """
+    found = {path.stem for suffix in SUFFIXES for path in directory.glob(suffix)}
+    assert found, f"no workflows found under {directory}, so this gate proves nothing"
     return found
 
 
@@ -111,6 +132,25 @@ def named_in(page: Path, candidates: set[str]) -> set[str]:
     """Which of `candidates` the page names, matched on whole words."""
     text = page.read_text(encoding="utf-8")
     return {name for name in candidates if re.search(rf"\b{re.escape(name)}\b", text)}
+
+
+def test_a_yaml_workflow_is_collected_too(tmp_path):
+    # GitHub Actions reads `.yml` and `.yaml` alike, so a gate globbing one of
+    # them would let a workflow added under the other go undocumented while
+    # staying green -- reported on :pull:`290` by review. Tested against a
+    # temporary directory because this repository has no `.yaml` workflow to
+    # collect, and a gate whose coverage cannot be demonstrated is a gate
+    # nobody has watched work.
+    (tmp_path / "ci-yml-one.yml").write_text("on: {}\n", encoding="utf-8")
+    (tmp_path / "ci-yaml-one.yaml").write_text("on: {}\n", encoding="utf-8")
+    assert workflow_names(tmp_path) == {"ci-yml-one", "ci-yaml-one"}
+
+
+def test_the_workflow_scan_fails_rather_than_reporting_nothing(tmp_path):
+    # The empty-directory case: a scan that found nothing would leave both
+    # coverage assertions passing over an empty set.
+    with pytest.raises(AssertionError, match="no workflows found"):
+        workflow_names(tmp_path)
 
 
 def test_every_workflow_is_named_on_the_ci_page():
