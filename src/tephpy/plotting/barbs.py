@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""The wind-barb gutter staff (spec §3.2).
+"""The wind-barb gutter staff (spec §3.2.5).
 
 Free geometry builders — bare numpy in diagram-native units, headlessly
 testable (the ``isopleths.py``/``shading.py`` pattern) — plus
@@ -113,7 +113,7 @@ def select_barbs(
     always survives — keeps each position at least `minimum_separation`
     from the last kept one; non-finite positions are dropped. Positions
     and separation share one space (the staff uses display points), so
-    zooming in spreads the ys and reveals more levels (spec §3.2).
+    zooming in spreads the ys and reveals more levels (spec §3.2.5).
 
     Parameters
     ----------
@@ -145,7 +145,7 @@ def select_barbs(
 
 
 class BarbStaff(martist.Artist):
-    """One sounding's wind barbs on the gutter staff (spec §3.2).
+    """One sounding's wind barbs on the gutter staff (spec §3.2.5).
 
     A zoom-aware artist (the ``IsoplethFamily`` refresh pattern) that
     manages a :class:`matplotlib.quiver.Barbs` child. Each draw reads the

@@ -8,7 +8,7 @@ One definition of "what colour is the background", shared by the two places
 that need it: ``logo.add_logo`` thresholds it to choose a light or dark brand
 master (logo spec §3.5), and ``isopleths.IsoplethFamily`` takes it directly to
 tint its inline label boxes, so a label masks the lines behind it on a dark
-canvas as well as on a white one (spec §3.2).
+canvas as well as on a white one (spec §3.2.2).
 
 Asked about one artist rather than handed a list of layers, because the layers
 are the part that is easy to get wrong: a subfigure paints nothing by default,

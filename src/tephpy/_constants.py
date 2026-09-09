@@ -302,7 +302,7 @@ BARB_MIN_SEPARATION: Final[float] = 18.0
 
 #: Wind-barb speed increments in knots — half barb 5 kt, full barb 10 kt,
 #: flag 50 kt, with speeds rounded to the nearest increment (5 kt binning):
-#: the Met Office/WMO symbology (Met Office Factsheet 13; spec §1, §3.2).
+#: the Met Office/WMO symbology (Met Office Factsheet 13; spec §1, §3.2.5).
 BARB_INCREMENTS: Final[dict[str, float]] = {"half": 5.0, "full": 10.0, "flag": 50.0}
 
 #: Wind-barb glyph length in points.

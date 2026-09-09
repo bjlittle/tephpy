@@ -61,7 +61,7 @@ class LineOptions:
     #: labelled inline — the default), ``False`` (none), or the diagram edge
     #: names ``"bottom"``, ``"top"``, ``"left"`` and ``"right"``, singly as a
     #: bare string or together as a tuple. What each choice draws is
-    #: specified in spec §3.2 and published from
+    #: specified in spec §3.2.2 and published from
     #: ``_configfile.CONFIG_DETAILS["<family>"]["labels"]`` (configfile spec §3.6).
     labels: bool | str | tuple[str, ...] | None = None
 
@@ -74,7 +74,7 @@ class LineOptions:
     #: draws the member at ``EMPHASIS_LINEWIDTH`` in the family's own colour,
     #: while a ``linewidth`` override replaces it. An emphasised member is
     #: always drawn, whatever the zoom-adaptive ladder would otherwise select.
-    #: Spec §3.2 specifies the behaviour;
+    #: Spec §3.2.4 specifies the behaviour;
     #: ``_configfile.CONFIG_DETAILS["<family>"]["emphasis"]`` publishes it
     #: (configfile spec §3.6).
     emphasis: Mapping[float, Mapping[str, object]] | None = None
@@ -124,7 +124,7 @@ class DiagramOptions:
 
 @dataclasses.dataclass
 class CursorOptions:
-    """Options for the interactive cursor readout (spec §3.2)."""
+    """Options for the interactive cursor readout (spec §3.2.6)."""
 
     #: Readout fields in display order, naming entries in the
     #: ``TephigramAxes.format_coord`` registry; ``None`` falls through to
