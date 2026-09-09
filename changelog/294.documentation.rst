@@ -1,7 +1,0 @@
-A design specification for re-anchoring the parent specification's ``plotting``
-section (``anchor spec §…``). Measured first: that section is 413 lines under no
-subheadings at all, and **169 of the 364** citations of the parent specification
-in ``src`` and ``tests`` — 46% of them — resolve to it, every one landing on the
-same target. It gains seven thematic subsections, verified as a clean partition
-of all 413 lines, and every citation moves onto the one it means, in six batches
-by file. (:user:`claude`)
