@@ -7,7 +7,8 @@ Changelog Fragments
 
 Every pull request adds a news fragment under ``changelog/``, named ``<PR>.<type>.rst``,
 where ``<type>`` is one of ``breaking``, ``feature``, ``enhancement``, ``bugfix``,
-``dependency``, ``documentation``, ``internal`` or ``misc``. towncrier assembles them into
+``dependency``, ``documentation``, ``internal`` or ``misc``.
+`towncrier <https://towncrier.readthedocs.io/>`__ assembles them into
 ``CHANGELOG.rst`` at release time, and the fragment is deleted then — so it is a pending
 release note, not a permanent record.
 
@@ -27,7 +28,8 @@ fragment describes what the issue reported, rather than trailing it at the end:
 Choosing a Role
 ---------------
 
-When an entry names a documented API, cross-reference it with the matching Sphinx domain
+When an entry names a documented API, cross-reference it with the matching
+`Sphinx <https://www.sphinx-doc.org/>`__ domain
 role — ``:class:``, ``:func:``, ``:meth:``, ``:mod:``, ``:obj:`` — so a reader can follow
 the link into the API documentation:
 

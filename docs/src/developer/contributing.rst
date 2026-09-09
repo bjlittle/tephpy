@@ -30,7 +30,8 @@ Three commands are what a pull request must pass:
 
 ``pixi run docs`` builds the documentation and runs every gate over the result except one.
 It is the one to reach for. ``pixi run docs-all`` adds the gate it leaves out — a smoke
-test of the :doc:`browser demo </tutorials/browser-demo>` in Chromium.
+test of the :doc:`browser demo </tutorials/browser-demo>` in
+`Chromium <https://www.chromium.org/Home/>`__.
 
 The Task Graph
 ---------------
@@ -45,7 +46,7 @@ on your behalf:
                             ─→ docs-check-figures     ├─→ docs ─┐
                             ─→ docs-check-links       │         ├─→ docs-all
                             ─→ docs-check-tooltips   ─┘         │
-                            ─→ docs-browser-test ────────────────┘
+                            ─→ docs-browser-test ───────────────┘
 
 .. list-table::
     :header-rows: 1
@@ -58,7 +59,8 @@ on your behalf:
     * - ``tests-clean``
       - Removes what a test run leaves behind
     * - ``baselines``
-      - Regenerates the pytest-mpl baselines
+      - Regenerates the `pytest-mpl <https://pytest-mpl.readthedocs.io/>`__
+        baselines
     * - ``lint``
       - Every pre-commit hook, over every file
     * - ``docs``
@@ -76,7 +78,8 @@ on your behalf:
 The Browser Demo Needs a Browser
 ----------------------------------
 
-``pixi run docs-all`` runs Playwright, which lives in the ``docs`` environment and is on no
+``pixi run docs-all`` runs `Playwright <https://playwright.dev/python/>`__, which
+lives in the ``docs`` environment and is on no
 other ``PATH``. Install a browser once:
 
 .. code:: console

@@ -22,7 +22,7 @@ Running the Suite
 
     $ pixi run tests
 
-pytest runs with a strict configuration and ``filterwarnings = ["error"]``, so a warning
+`pytest <https://docs.pytest.org/>`__ runs with a strict configuration and ``filterwarnings = ["error"]``, so a warning
 is a failure. ``pixi run tests-clean`` removes the artifacts a run leaves behind.
 
 Image Comparison
@@ -36,8 +36,8 @@ so the comparison is enforced rather than skipped.
 
     $ pixi run baselines
 
-regenerates ``tests/baseline``. Reach for it when a lockfile bump moves matplotlib or
-freetype, and re-verify across all three test environments afterwards — the baselines are
+regenerates ``tests/baseline``. Reach for it when a lockfile bump moves
+`matplotlib <https://matplotlib.org/>`__ or `freetype <https://freetype.org/>`__, and re-verify across all three test environments afterwards — the baselines are
 shared, and a regeneration that satisfies one Python can fail another.
 
 .. tip::
