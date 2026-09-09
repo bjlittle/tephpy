@@ -45,7 +45,7 @@ Y_MAXIMUM_TEMPERATURE: Final[float] = MA - KELVIN_ZERO
 #: Default diagram extent as pressure and temperature ranges in hPa and
 #: degrees Celsius (see ``TephigramAxes.set_extent``). Chosen to frame a
 #: mid-latitude ascent from the surface to 200 hPa, centred and near 2:1
-#: (spec §3.2). A mapping rather than nested pairs because the view is
+#: (spec §3.2.7). A mapping rather than nested pairs because the view is
 #: named by ranges and not by points: naming points in a rotated space is
 #: what framing spec §1 records going wrong.
 DEFAULT_EXTENT: Final[Mapping[str, tuple[float, float]]] = MappingProxyType(
@@ -159,14 +159,14 @@ ISOPLETH_LINEWIDTH: Final[float] = 0.5
 #: Isopleth line and label alpha.
 ISOPLETH_ALPHA: Final[float] = 1.0
 
-#: Line width in points for an emphasised isopleth member (spec §3.2). Emphasis
+#: Line width in points for an emphasised isopleth member (spec §3.2.4). Emphasis
 #: follows the monochrome printed-chart idiom -- same ink, heavier line -- so a
 #: distinguished member needs no colour convention; a call supplies ``color`` to
 #: override that.
 EMPHASIS_LINEWIDTH: Final[float] = 1.5
 
 #: Style keys one emphasised isopleth member may override; an omitted key falls
-#: back to the family's own style (spec §3.2). Here rather than in
+#: back to the family's own style (spec §3.2.4). Here rather than in
 #: ``plotting.isopleths`` so that the configuration loader can check an
 #: ``emphasis`` style key against the same tuple the draw uses, without
 #: importing ``plotting`` and reversing the configfile spec §3 dependency arrow
@@ -194,7 +194,7 @@ MIXING_RATIO_ZORDER: Final[float] = 1.4
 MOIST_ADIABAT_ZORDER: Final[float] = 1.5
 
 #: Temperature profile line colour (the operational/MetPy convention:
-#: temperature red, dewpoint green; spec §3.2).
+#: temperature red, dewpoint green; spec §3.2.5).
 PROFILE_TEMPERATURE_COLOR: Final[str] = "red"
 
 #: Dewpoint profile line colour (the operational/MetPy convention).
@@ -210,7 +210,7 @@ PROFILE_ZORDER: Final[float] = 2.5
 #: Derived sounding legend label (spec §3.4), e.g. ``"72357 2013-05-20 12Z"``.
 SOUNDING_LABEL_FORMAT: Final[str] = "{station} {time:%Y-%m-%d %H}Z"
 
-#: Default interactive cursor readout fields (spec §3.2), in display order;
+#: Default interactive cursor readout fields (spec §3.2.6), in display order;
 #: names index the ``plotting.axes`` cursor formatter registry.
 CURSOR_FIELDS: Final[tuple[str, ...]] = ("pressure", "temperature", "theta")
 
@@ -241,7 +241,7 @@ CURSOR_FIELD_NAMES: Final[tuple[str, ...]] = (
 CLOUD_BASE_CORRECTION: Final[float] = -25.0
 
 #: CAPE shading fill colour (the operational/MetPy convention: positive
-#: buoyancy red, negative blue; spec §3.2).
+#: buoyancy red, negative blue; spec §3.2.5).
 CAPE_COLOR: Final[str] = "tab:red"
 
 #: CIN shading fill colour (the operational/MetPy convention).
@@ -254,11 +254,11 @@ SHADING_ALPHA: Final[float] = 0.3
 #: profile line -- including parcel paths drawn via ``plot_profile``, which
 #: sets no zorder and so sits at Matplotlib's default ``Line2D`` zorder of 2.
 #: Kept strictly below 2 so the shading never renders over a profile line
-#: (spec §3.2).
+#: (spec §3.2.5).
 SHADING_ZORDER: Final[float] = 1.75
 
 #: Indices panel width, as an ``axes_grid1`` fraction of the diagram width
-#: (spec §3.2).
+#: (spec §3.2.5).
 INDICES_PANEL_WIDTH: Final[str] = "35%"
 
 #: Indices panel padding from the diagram, in inches.
@@ -269,7 +269,7 @@ INDICES_PANEL_FONTSIZE: Final[float] = 8.0
 
 #: Indices panel rows, one per ``SoundingIndices`` field, in display order:
 #: (field name, display label, pint unit to convert to, display unit,
-#: format spec). NaN values render as an em dash (spec §3.2).
+#: format spec). NaN values render as an em dash (spec §3.2.5).
 INDICES_PANEL_ROWS: Final[tuple[tuple[str, str, str, str, str], ...]] = (
     ("cape", "CAPE", "J/kg", "J/kg", ".0f"),
     ("cin", "CIN", "J/kg", "J/kg", ".0f"),
@@ -284,7 +284,7 @@ INDICES_PANEL_ROWS: Final[tuple[tuple[str, str, str, str, str], ...]] = (
 )
 
 #: Wind-barb gutter width, as an ``axes_grid1`` fraction of the diagram
-#: width (spec §3.2).
+#: width (spec §3.2.5).
 BARB_GUTTER_WIDTH: Final[str] = "15%"
 
 #: Wind-barb gutter padding from the diagram, in inches.
@@ -297,7 +297,7 @@ BARB_STAFF_POSITION: Final[float] = 0.5
 #: Default minimum vertical separation between drawn barbs, in points; the
 #: staff keeps the densest subset at least this far apart, so zooming in
 #: reveals more levels. A call picks another separation via
-#: ``plot_barbs(..., minimum_separation=...)`` (spec §3.2).
+#: ``plot_barbs(..., minimum_separation=...)`` (spec §3.2.5).
 BARB_MIN_SEPARATION: Final[float] = 18.0
 
 #: Wind-barb speed increments in knots — half barb 5 kt, full barb 10 kt,
@@ -332,10 +332,10 @@ LABEL_BOXSTYLE: Final[str] = "round,pad=0.3"
 
 #: Isopleth label box alpha. The box takes no colour of its own: it is tinted
 #: from the canvas it sits on, so it masks the lines under the label without
-#: assuming the canvas is white (spec §3.2).
+#: assuming the canvas is white (spec §3.2.2).
 LABEL_BOX_ALPHA: Final[float] = 0.6
 
-#: The diagram edges an isopleth family may claim for its labels (spec §3.2).
+#: The diagram edges an isopleth family may claim for its labels (spec §3.2.2).
 #: Here rather than in ``plotting.isopleths`` so that the configuration loader
 #: can check a ``labels`` value against the same tuple the draw uses, without
 #: importing ``plotting`` and reversing the configfile spec §3 dependency arrow
@@ -345,7 +345,7 @@ EDGES: Final[tuple[str, ...]] = ("bottom", "top", "left", "right")
 #: Axis titles for edge-labelled isopleth families, keyed by accessor name.
 #: A claimed edge takes its family's title only when the axis has none, so a
 #: user's ``set_xlabel`` wins whichever side of the accessor call it lands on,
-#: and releasing the edge clears the title again (spec §3.2).
+#: and releasing the edge clears the title again (spec §3.2.3).
 EDGE_AXIS_TITLES: Final[dict[str, str]] = {
     "isotherms": "Temperature (°C)",
     "isobars": "Pressure (hPa)",
@@ -365,7 +365,7 @@ EDGE_TICK_PAD: Final[float] = 2.0
 #: pads (0.1 in) are narrower than an 8 pt tick label, so right-edge labels
 #: would land on whichever panel abuts the diagram. Measured 2026-07-29: a
 #: right axis needs 0.479 in for its ticks, labels and title, so this leaves
-#: 0.07 in of clearance (spec §3.2).
+#: 0.07 in of clearance (spec §3.2.7).
 EDGE_LABEL_GUTTER_PAD: Final[float] = 0.55
 
 #: Points per inch, the typographic unit matplotlib sizes text and offsets in.
@@ -419,7 +419,7 @@ CONFIG_DEFAULTS: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType(
                 "labels": True,
                 "visible": True,
                 # The one shipped emphasis, and the only family with one
-                # (spec §3.2): Factsheet 13 draws the 0 °C isotherm
+                # (spec §3.2.4): Factsheet 13 draws the 0 °C isotherm
                 # distinctively, so tephpy does too.
                 "emphasis": {0.0: {}},
                 "values": None,
