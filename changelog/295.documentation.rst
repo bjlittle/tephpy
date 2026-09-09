@@ -1,0 +1,9 @@
+An implementation plan for re-anchoring the parent specification's ``plotting``
+section (``anchor spec §…``), in seven tasks: the headings and anchors first and
+alone, then the citations in six batches by file. Written after measuring, and
+one finding corrected the specification before a task was written — five of the
+seven cuts land inside a bullet list rather than on a paragraph boundary, so
+each interrupted subsection gains a lead line and the list's own lead-in moves.
+A second found the one citation that must **not** be re-pointed: a grammar
+fixture in ``tests/test_citations.py`` that is test data rather than a
+reference. (:user:`claude`)
