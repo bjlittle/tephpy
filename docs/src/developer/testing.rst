@@ -40,6 +40,20 @@ regenerates ``tests/baseline``. Reach for it when a lockfile bump moves matplotl
 freetype, and re-verify across all three test environments afterwards — the baselines are
 shared, and a regeneration that satisfies one Python can fail another.
 
+.. tip::
+    A failed comparison is far easier to read as a report than as a diff of two
+    numbers. `pytest-mpl <https://pytest-mpl.readthedocs.io/>`__ writes one on
+    request:
+
+    .. code:: console
+
+        $ pixi run tests --mpl-generate-summary=html --mpl-results-path=mpl-results
+
+    The report puts the baseline, the render and their difference side by side for
+    every failure, which usually says at a glance whether a change is a real
+    regression or a font moving underneath it. ``json`` and ``basic-html`` are the
+    other supported forms.
+
 No Test Touches the Network
 ---------------------------
 

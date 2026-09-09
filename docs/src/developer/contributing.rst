@@ -30,7 +30,7 @@ Three commands are what a pull request must pass:
 
 ``pixi run docs`` builds the documentation and runs every gate over the result except one.
 It is the one to reach for. ``pixi run docs-all`` adds the gate it leaves out — a smoke
-test of the browser demo in Chromium.
+test of the :doc:`browser demo </tutorials/browser-demo>` in Chromium.
 
 The Task Graph
 ---------------
