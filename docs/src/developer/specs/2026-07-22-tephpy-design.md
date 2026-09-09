@@ -130,6 +130,9 @@ version) — generated outputs, not copied source.
 > [`2026-08-01-add-logo-design.md`](2026-08-01-add-logo-design.md), which inherits this
 > document's error-handling (§6), testing (§7) and engineering-standards (§8) rules unchanged.
 
+(spec-3-2-1)=
+#### 3.2.1 The Diagram, and What Is Drawn by Default
+
 `TephigramAxes` draws the exactly-orthogonal isotherm/dry-adiabat grid and the three
 curved families as zoom-aware artists, reimplementing tephi's locator/refresh design
 as one custom `IsoplethFamily` artist per family (`plotting/isopleths.py`). Member
@@ -151,6 +154,12 @@ Differences from tephi:
   `ax.moist_adiabats(...)`, `ax.mixing_ratios(...)`. With no arguments an accessor
   returns the family artist; with kwargs (`values=`/`interval=`, `color=`, `labels=`,
   `visible=`, …) it reconfigures and returns it.
+
+(spec-3-2-2)=
+#### 3.2.2 Isopleth Labels: Inline or on the Edges
+
+Where a label goes, and what it does to the diagram it sits on:
+
 - Isopleth labels place **inline or on the diagram's edges** — the declutter control,
   and the existing `labels=` widened rather than joined by a new option, so the API
   grows no names. A placement is `True` (every member labelled inline — the default,
@@ -206,6 +215,12 @@ Differences from tephi:
   instead — the hard-coded `"white"` this replaced ({issue}`173`) — is a bet that the
   canvas is white, and it loses under any dark style, where every label became a pale blob
   over the diagram it was labelling.
+
+(spec-3-2-3)=
+#### 3.2.3 Claimed Edges, Their Ticks and the Title
+
+What claiming an edge takes over, and what it hands back:
+
 - **A claimed edge's ticks are stock matplotlib and yours to style.** tephpy stamps its
   tick conventions on an edge axis **once, when that axis is created** — `LABEL_FONTSIZE`,
   the `_constants` tick length and pad, the bottom/left ticks-position pin (the classic
@@ -258,6 +273,12 @@ Differences from tephi:
   that has just been claimed; an invisible secondary returns `None` from
   `get_tightbbox` and `Axes.clear` empties `child_axes` (both verified 2026-07-30), so the
   persistence costs nothing in layout and `TephigramAxes.clear` still reaps them.
+
+(spec-3-2-4)=
+#### 3.2.4 Emphasis
+
+Singling a member out, on every accessor that draws one:
+
 - **Any member of any family can be emphasised.** `emphasis=` on all five accessors and on
   every `tephpy.config` family section maps a member value to a mapping of style overrides
   — `color`, `linewidth`, `linestyle`, `alpha` — and an omitted key falls back to the
@@ -341,6 +362,12 @@ Differences from tephi:
   the canonical members by their canonical position. The resolved mapping is deep-copied
   when it resolves, for the same reason `values` materialises a generator to a tuple: the
   snapshot must not alias a dict the caller can still mutate.
+
+(spec-3-2-5)=
+#### 3.2.5 The Plotting Accessors
+
+The methods that put a sounding on the diagram:
+
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
   to diagram-native units, plots through the tephigram transform machinery, and
@@ -427,6 +454,12 @@ Differences from tephi:
   successive figures are directly comparable; disables autoscaling so overlays don't
   drift the window (the earlier `set_anchor` name collided with matplotlib's own
   `Axes.set_anchor`). The ranges shape and its reasoning are framing spec §3.1.
+
+(spec-3-2-6)=
+#### 3.2.6 The Cursor Readout
+
+What the toolbar shows as the pointer moves:
+
 - `ax.format_coord(x, y)` — the interactive cursor readout (the navigation
   toolbar's coordinate text) reports diagram-meaningful values instead of the raw
   rotated data-space (x, y): the cursor position inverts through
@@ -448,6 +481,9 @@ Differences from tephi:
   garbage; an unknown field name raises `TypeError` naming it and the valid
   names (the family-`configure` style), surfacing on the first mouse move.
   Headlessly testable — `format_coord` is a plain string-returning method.
+
+(spec-3-2-7)=
+#### 3.2.7 Extent, Edge Coverage and the Panel Layout
 
 `DEFAULT_EXTENT` is `pressure=(900.0, 200.0), temperature=(-65.0, 5.0)` — narrowed 2026-08-21
 from `pressure=(1050.0, 200.0), temperature=(-40.0, 40.0)`, the window the projection shipped
