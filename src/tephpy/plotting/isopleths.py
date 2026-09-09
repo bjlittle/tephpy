@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Isopleth families for the tephigram projection (spec §3.2).
+"""Isopleth families for the tephigram projection (spec §3.2.1).
 
 Each of the five background families — isotherms, isobars, dry adiabats,
 moist adiabats, and humidity mixing-ratio lines — is drawn by one
@@ -110,7 +110,7 @@ __all__ = [
 #: :meth:`IsoplethFamily.configure` decides whether to rebuild by comparing the
 #: resolved values rather than by inspecting which keywords a caller passed.
 #: ``emphasis`` is here as well as in the style keys because an emphasised value
-#: the zoom ladder would never select is added to the build (spec §3.2).
+#: the zoom ladder would never select is added to the build (spec §3.2.4).
 _GEOMETRY_KEYS: Final[frozenset[str]] = frozenset(
     {"values", "interval", "truncation", "emphasis"}
 )
@@ -123,7 +123,7 @@ _STYLE_KEYS: Final[frozenset[str]] = frozenset(
 #: Options accepted by the interval-based families.
 _INTERVAL_KEYS: Final[frozenset[str]] = _STYLE_KEYS | {"values", "interval"}
 
-#: The diagram edges an isopleth family may claim for its labels (spec §3.2).
+#: The diagram edges an isopleth family may claim for its labels (spec §3.2.2).
 #: The tuple itself lives in ``tephpy._constants``, below the
 #: configfile spec §3 dependency arrow, so the configuration loader can check a
 #: ``labels`` value against it (domain spec §3.2). Re-bound here, rather than
@@ -140,7 +140,7 @@ _EMPHASIS_RTOL: Final[float] = 1e-9
 _EMPHASIS_ATOL: Final[float] = 1e-9
 
 #: The linestyle a member draws with unless an emphasis override says otherwise.
-#: A family has no family-level ``linestyle`` (spec §3.2), so this is the
+#: A family has no family-level ``linestyle`` (spec §3.2.4), so this is the
 #: ``LineCollection`` default rather than a convention a caller can set.
 #: Bare ``Final`` so the value narrows to ``Literal["solid"]``, which is what
 #: ``Collection.set_linestyle`` accepts.
@@ -151,7 +151,7 @@ _DEFAULT_LINESTYLE: Final = "solid"
 #: into the snapshot of a family that has none.
 _NO_EMPHASIS: Final[Mapping[float, Mapping[str, object]]] = MappingProxyType({})
 
-#: The one member tephpy emphasises out of the box (spec §3.2). Met Office
+#: The one member tephpy emphasises out of the box (spec §3.2.4). Met Office
 #: Factsheet 13 draws the isotherm grid at 10 °C intervals -- which tephpy
 #: already follows -- and states in the next sentence that "the line
 #: representing the 0°C isotherm is coloured red on the diagram". The
@@ -178,7 +178,7 @@ def edge_crossings(
     segment it ends when it is the polyline's last vertex; a segment with a
     non-finite endpoint never counts. A member may cross the
     same edge more than once — a curved isobar leaving and re-entering the
-    view — and every crossing is returned (spec §3.2).
+    view — and every crossing is returned (spec §3.2.2).
 
     Parameters
     ----------
@@ -248,7 +248,7 @@ def _normalize_labels(value: object, name: str) -> tuple[bool, tuple[str, ...]]:
     ``True``/``None`` mean every member is labelled inline, ``False`` means
     none is, and one or more edge names claim those edges — a bare string
     and a one-tuple are identical, and duplicates collapse in first-seen
-    order (spec §3.2). The bare-string case is handled before the iterable
+    order (spec §3.2.2). The bare-string case is handled before the iterable
     case so ``"bottom"`` is never iterated character by character.
 
     Parameters
@@ -343,7 +343,7 @@ def _emphasis_number(value: object, key: str, name: str, member: float) -> float
 def _normalize_emphasis(
     value: object, name: str
 ) -> Mapping[float, Mapping[str, object]]:
-    """Validate and copy a raw ``emphasis`` option (spec §3.2).
+    """Validate and copy a raw ``emphasis`` option (spec §3.2.4).
 
     Keys become floats and each style mapping is copied into a fresh dict, so
     the family's snapshot never aliases a mapping the caller can still mutate --
@@ -609,7 +609,7 @@ def moist_adiabat_members(
     .. versionadded:: 0.1.0
 
     """
-    # Function-local so `import tephpy` stays light (spec §3.2, §10 item 10).
+    # Function-local so `import tephpy` stays light (spec §3.2.1, §10 item 10).
     from metpy.calc import moist_lapse  # noqa: PLC0415
     from metpy.units import units  # noqa: PLC0415
 
@@ -656,7 +656,7 @@ def mixing_ratio_members(values: npt.ArrayLike) -> list[Member]:
     .. versionadded:: 0.1.0
 
     """
-    # Function-local so `import tephpy` stays light (spec §3.2, §10 item 10).
+    # Function-local so `import tephpy` stays light (spec §3.2.1, §10 item 10).
     from metpy.calc import dewpoint, vapor_pressure  # noqa: PLC0415
     from metpy.units import units  # noqa: PLC0415
 
@@ -887,7 +887,7 @@ _FAMILY_SPECS: Final[dict[str, FamilySpec]] = {
 
 
 class IsoplethFamily(martist.Artist):
-    """One zoom-aware background isopleth family (spec §3.2).
+    """One zoom-aware background isopleth family (spec §3.2.1).
 
     Member polylines are built lazily on first draw and cached; each draw
     clips the cache to the current view rectangle, selects the members
@@ -908,12 +908,12 @@ class IsoplethFamily(martist.Artist):
         Called with ``(family name, candidate options)`` whenever the
         options resolve; raising rejects the change. The owning axes
         passes its one-family-per-edge check here so the rejection
-        lands inside this class's rollback (spec §3.2).
+        lands inside this class's rollback (spec §3.2.3).
     on_change : callable, optional
         Called with no arguments after the options resolve successfully,
         whichever entry point resolved them. The owning axes passes its
         edge-ownership sync here so a direct :meth:`configure` or
-        :meth:`set_visible` reaches it too (spec §3.2).
+        :meth:`set_visible` reaches it too (spec §3.2.3).
 
     Notes
     -----
@@ -941,13 +941,13 @@ class IsoplethFamily(martist.Artist):
             Called with ``(family name, candidate options)`` whenever the
             options resolve; raising rejects the change. The owning axes
             passes its one-family-per-edge check here so the rejection
-            lands inside this class's rollback (spec §3.2).
+            lands inside this class's rollback (spec §3.2.3).
         on_change : callable, optional
             Called with no arguments after the options resolve
             successfully, whichever entry point resolved them. The owning
             axes passes its edge-ownership sync here so a direct
             :meth:`configure` or :meth:`set_visible` reaches it too
-            (spec §3.2).
+            (spec §3.2.3).
         """
         super().__init__()
         self._spec = spec
@@ -955,7 +955,7 @@ class IsoplethFamily(martist.Artist):
         self._validate = validate
         # Armed at the end of construction: the owner builds all five
         # families before its first sync, and a half-built one calling back
-        # into that sync would find itself missing (spec §3.2).
+        # into that sync would find itself missing (spec §3.2.3).
         self._on_change: Callable[[], None] | None = None
         self._overrides: dict[str, object] = {}
         self._members: list[Member] | None = None
@@ -1001,7 +1001,7 @@ class IsoplethFamily(martist.Artist):
         falls back to ``tephpy.config`` and then ``_constants``. A call
         that raises leaves the family unchanged, and only a call that
         succeeds notifies the owner's ``on_change`` — which is how an edge
-        claimed or released here reaches the diagram (spec §3.2).
+        claimed or released here reaches the diagram (spec §3.2.3).
 
         Parameters
         ----------
@@ -1079,7 +1079,7 @@ class IsoplethFamily(martist.Artist):
 
         The inherited ``Artist.set_visible`` only flips a flag; an isopleth
         family's visibility is one of its resolved options, and an invisible
-        family draws nothing so it holds no edge (spec §3.2). Hiding is
+        family draws nothing so it holds no edge (spec §3.2.2). Hiding is
         therefore ``configure(visible=False)``, which releases any claimed
         edge, and showing is ``configure(visible=True)``, which reclaims it.
         Setting the value the family already has changes nothing, exactly as
@@ -1153,7 +1153,7 @@ class IsoplethFamily(martist.Artist):
         """
         if not self.get_visible():
             # A hidden family holds nothing: it gives its pooled labels up on
-            # the same terms as its claimed edge (spec §3.2).
+            # the same terms as its claimed edge (spec §3.2.2).
             self._texts.clear()
             return
         axes = self.axes
@@ -1169,7 +1169,7 @@ class IsoplethFamily(martist.Artist):
         # linewidth and alpha, exactly as it did before emphasis existed, so a
         # diagram with no ``emphasis`` renders identically -- including in
         # vector output, where per-path stroke state would otherwise be emitted
-        # for every member.  ``_order_members`` is gated the same way (spec §3.2).
+        # for every member.  ``_order_members`` is gated the same way (spec §3.2.4).
         if selected and opts.emphasis:
             styles = [self._member_style(m.value) for m in selected]
             # Bake alpha into the RGBA colour rather than calling set_alpha with
@@ -1300,7 +1300,7 @@ class IsoplethFamily(martist.Artist):
                 else float(cast("SupportsFloat", raw_alpha))
             ),
             labels=labels,
-            # An invisible family draws nothing, so it holds no edge (spec §3.2).
+            # An invisible family draws nothing, so it holds no edge (spec §3.2.2).
             label_edges=label_edges if visible else (),
             visible=visible,
             emphasis=emphasis,
@@ -1353,7 +1353,7 @@ class IsoplethFamily(martist.Artist):
 
         Emphasised values the canonical set does not already carry are appended
         to the build, so a member the zoom ladder would never select still
-        exists to be forced in by :meth:`_zoom_mask` (spec §3.2). Which members
+        exists to be forced in by :meth:`_zoom_mask` (spec §3.2.4). Which members
         those are is recorded, because a list family strides by member index and
         an addition must not shift that phase.
         """
@@ -1393,7 +1393,7 @@ class IsoplethFamily(martist.Artist):
 
         An emphasised member is always selected, whatever the ladder would pick
         — that is what lets emphasis mark a reference isopleth the interval
-        never lands on (spec §3.2). A list family strides by member index, so
+        never lands on (spec §3.2.4). A list family strides by member index, so
         the stride runs over the canonical members by their canonical position
         and an emphasis-only addition cannot shift its phase.
 
@@ -1465,7 +1465,7 @@ class IsoplethFamily(martist.Artist):
         The family's own resolved style, with an emphasised member's overrides
         applied over it. Emphasis with no overrides still thickens the line to
         ``EMPHASIS_LINEWIDTH`` — the monochrome printed-chart idiom of same ink,
-        heavier line (spec §3.2).
+        heavier line (spec §3.2.4).
 
         Parameters
         ----------
@@ -1495,7 +1495,7 @@ class IsoplethFamily(martist.Artist):
 
         Draw order stays inside the family: an emphasised member wins against
         its own family's neighbours, while the families drawn above this one
-        still cross it (spec §3.2).
+        still cross it (spec §3.2.4).
 
         Parameters
         ----------
@@ -1541,7 +1541,7 @@ class IsoplethFamily(martist.Artist):
 
         The box carries no colour here: :meth:`_draw_labels` tints it from
         the canvas on every draw, because a pooled label outlives the
-        background it was created against (spec §3.2).
+        background it was created against (spec §3.2.2).
 
         Returns
         -------
@@ -1591,7 +1591,7 @@ class IsoplethFamily(martist.Artist):
     ) -> list[Member]:
         """Return the selected members no claimed edge already labels.
 
-        The automatic remainder of spec §3.2: listed edges label the members
+        The automatic remainder of spec §3.2.2: listed edges label the members
         that reach them, and every member left over is labelled inline. With
         no claimed edge every selected member is inline, which is the default.
         The crossings are recomputed here rather than shared with the locator
@@ -1623,12 +1623,12 @@ class IsoplethFamily(martist.Artist):
 
         The label anchors at the middle in-view vertex, rotated to the
         local line direction in screen space and folded upright. Members
-        a claimed edge already ticks are dropped first (spec §3.2). An
+        a claimed edge already ticks are dropped first (spec §3.2.2). An
         emphasised member's label takes the emphasis colour and alpha.
 
         Each label's box is tinted from the composited canvas, so at
         ``LABEL_BOX_ALPHA`` it dims the lines under the value rather than
-        blotting them out, on a dark canvas as on a white one (spec §3.2).
+        blotting them out, on a dark canvas as on a white one (spec §3.2.2).
 
         Parameters
         ----------
@@ -1702,7 +1702,7 @@ class _EdgeLocator(Locator):
     """Locate one family's crossings of one diagram edge as ticks.
 
     Matplotlib calls the locator on every draw, so pan, zoom, resize and
-    ``set_extent`` stay correct with no refresh machinery (spec §3.2). Each
+    ``set_extent`` stay correct with no refresh machinery (spec §3.2.3). Each
     call caches the member value beside each position for
     :class:`_EdgeFormatter`, which is why the formatter needs no inverse
     math and works identically for all five families.
