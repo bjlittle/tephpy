@@ -36,6 +36,7 @@ section has nowhere specific to land.** Measured 2026-09-09 on `main` at `e2bd34
 | citations of it in `src/` and `tests/` | **169 of 364** — **46%** |
 | files carrying them | 15, of which five carry 87% |
 | citations naming a subsection of it | **0** — there are no subsections to name |
+| of the 169, references to re-point | **168**; one is a grammar fixture (§3.3) |
 | internal structure | 15 top-level bullets and ~90 lines of discrete topics, under **no subheadings at all** |
 
 So §3.2 absorbs 46% of the citations in 28% of the text, and each of the 169 resolves to the
@@ -118,7 +119,24 @@ cursor readout, and the field registry is exactly the kind of specific target th
 exists to provide. Folding it into the accessors would put those citations back on an
 108-line section.
 
-*A correction worth recording.* The cursor-readout cut was first sized at ~63 lines.
+*Corrected 2026-09-09, while the plan was being written.* This section first said the cuts
+fall on existing paragraph boundaries and that no prose is rewritten. **That is true of two
+of the seven.** Measured: the first cut and the last fall on clean boundaries; the other five land
+*inside a bullet list* — the fifteen bullets are one list introduced by `Differences from
+tephi:`, and a heading between two of them splits that list into six, orphaning bullets from
+their lead-in.
+
+The granularity stands and the constraint narrows: **no paragraph is rewritten, and each new
+subsection gains a lead line.** `Differences from tephi:` is re-sited into the first
+subsection's prose, where it introduces the bullet that stays with it. The five interrupted subsections open with
+a one-line lead naming what they cover, so a reader arriving at a heading is not dropped into
+an unintroduced list. Nothing inside a bullet is edited.
+
+The alternative was cutting only on clean boundaries — about three subsections, leaving
+citations on a ~300-line list, which is barely better than today and would not have justified
+the work.
+
+*A second correction.* The cursor-readout cut was first sized at ~63 lines.
 That figure came from a flat bullet scan that measured `format_coord`'s bullet to the next
 `- ` line, which lies beyond the section boundary — the true extent is 22. The partition
 above is measured from the boundaries themselves.
@@ -156,6 +174,12 @@ one commit, one review:
 | 4 | `tests/plotting/test_isopleths.py` | 17 | 78% |
 | 5 | `src/tephpy/_constants.py` | 16 | 87% |
 | 6 | the remaining ten files | 22 | 100% |
+
+**One of the 169 is not re-pointed.** `tests/test_citations.py` carries ``Spec §3.2``
+inside an inline literal as a *grammar fixture* — test data demonstrating a sentence that
+opens with a citation, not a reference to the design. Re-pointing it would edit the input
+to a test about citation grammar. It is the only one: every other citation of §3.2 sits in
+prose. So 168 move and one stays, in batch 6.
 
 Batch order is by size and not by dependency: the batches are independent, because a citation
 is a comment and re-pointing one cannot affect another. Ordering by size front-loads the
@@ -226,8 +250,10 @@ says plainly what they do not.
 all 169 citations, and the companion changes of §4.
 
 **Out of scope.** {issue}`66`'s third part — the `plotting` tour in the developer guide — which
-this unblocks rather than performs. Any rewrite of §3.2's prose: this is re-anchoring, not
-re-drafting, and a cut that needed the prose changed to work would be the wrong cut. Any
+this unblocks rather than performs. Any rewrite of §3.2's paragraphs: this is re-anchoring, not
+re-drafting. Each subsection gains a lead line and `Differences from tephi:` moves, as §3.1
+records; nothing inside a bullet or a paragraph is edited, and a cut that needed more than a
+lead line to work would be the wrong cut. Any
 change to the other sixteen specifications, whose §3.2 citations are a different document's.
 
 **Tranches.** The headings and anchors land first and alone, in one commit: until they exist
