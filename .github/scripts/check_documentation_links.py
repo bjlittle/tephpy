@@ -72,6 +72,8 @@ SOURCES = (
     "README.md",
     ".github/scripts/changelog.py",
     ".github/pull_request_template.md",
+    "CONTRIBUTING.md",
+    "changelog/README.md",
 )
 #: A link into a documentation page, with the fragment it names, if any. Only a
 #: path ending in ``.html`` is a page: the Read the Docs badge points at the base

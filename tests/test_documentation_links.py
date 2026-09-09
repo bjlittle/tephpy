@@ -452,6 +452,12 @@ def test_sources_names_the_deliverables_of_this_gate():
     # any Sphinx build. An unchecked link to a review checklist is the defect
     # that checklist exists to stop (:issue:`193`).
     assert ".github/pull_request_template.md" in gate.SOURCES
+    # `CONTRIBUTING.md` and `changelog/README.md` are the two root files GitHub
+    # renders outside any Sphinx build, each reduced to a pointer at the
+    # published contributor guide (contributor spec §3.6). A pointer is only as
+    # good as the links it names, so both are checked rather than trusted.
+    assert "CONTRIBUTING.md" in gate.SOURCES
+    assert "changelog/README.md" in gate.SOURCES
 
 
 def test_an_empty_sources_fails(tmp_path, monkeypatch, capsys):

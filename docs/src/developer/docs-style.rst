@@ -86,7 +86,7 @@ plain double-backtick literals for names with no documentation target: private
 members, dataclass fields already reachable through their linked owner,
 external tools without an intersphinx inventory (pixi), option strings, and
 keyword arguments. This mirrors the changelog fragment convention documented in
-``changelog/README.md``.
+:doc:`changelog`.
 
 .. _cross-references:
 

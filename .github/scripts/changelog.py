@@ -28,7 +28,7 @@ GITHUB_STEP_SUMMARY = os.getenv("GITHUB_STEP_SUMMARY")
 PATTERN_AUTHOR = re.compile(r":user:`[^`]+`", flags=re.MULTILINE)
 PATTERN_PR = re.compile(r"^\d+$")
 PULL = "https://github.com/bjlittle/tephpy/pull"
-URL = "https://tephpy.readthedocs.io/en/latest/developer/docs-style.html"
+URL = "https://tephpy.readthedocs.io/en/latest/developer/changelog.html"
 
 
 @dataclass

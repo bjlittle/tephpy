@@ -129,8 +129,8 @@ as landing pages. The four new pages are read through, so each carries a banner.
 `docs/src/developer/contributing.rst`. Promoted from `CONTRIBUTING.md` and expanded.
 
 What it owns: getting an environment, the task graph of §3.7, and what a pull request is
-expected to carry — a changelog fragment, a passing `pixi run docs` where documentation
-changed, and prose reviewed against docs-style's *Reviewing Claims*.
+expected to carry — a changelog fragment, a passing `pixi run docs`, and prose reviewed
+against docs-style's *Reviewing Claims*.
 
 It is the page a contributor opens in order to *do* something, which is why the task graph
 lands here and not in `packaging.rst`.
@@ -219,18 +219,28 @@ resolved by *kind* rather than by deletion: the page carries why, the `AGENTS.md
 what, and the literals they both name are held equal by a test.
 
 **The gated literals** are the strings where disagreement is a defect rather than a
-difference in voice:
+difference in voice, and only two groups of them are actually held equal by a test:
 
-- the pixi task invocations — `pixi run tests`, `lint`, `docs`, `docs-all`, and the
-  `pixi run -e docs …` form Playwright needs;
-- the changelog fragment's name pattern, `changelog/<PR>.<type>.rst`, and its eight types;
-- the attribution role, `:user:`.
+- the two `pixi run -e docs playwright install …` remedies the browser-demo check emits
+  on failure, held across two carriers, the published page and `CONTRIBUTING.md`;
+- the changelog's eight types, held against `pyproject.toml`'s `[[tool.towncrier.type]]`
+  blocks, in both directions.
+
+**Not gated, and deliberately.** The changelog fragment's name pattern,
+`changelog/<PR>.<type>.rst`, the attribution role, `:user:`, and the bare pixi task
+invocations — `pixi run tests`, `lint`, `docs`, `docs-all` — sit in prose that varies
+legitimately by audience — a sentence explaining *why* the pattern looks the way it does
+is not the pattern itself, and a gate matching the literal text would fire on a rewording
+rather than on drift. Neither test reads an `AGENTS.md` file: the first carrier pair is
+the published page and `CONTRIBUTING.md`, the second is the published page and the
+manifest.
 
 `tests/test_docs_workflow.py::test_the_advice_runs_where_it_is_read_and_the_guide_says_the_same`
-is the precedent and the mechanism. It already holds `CONTRIBUTING.md` against the
-commands the browser-demo check emits on failure, after the two agreed for a while on
-`playwright install chromium` — a command neither shell can run ({pull}`177`). The new
-assertion is the same shape over a wider corpus.
+is the precedent and the mechanism for the first group. It already holds `CONTRIBUTING.md`
+against the commands the browser-demo check emits on failure, after the two agreed for a
+while on `playwright install chromium` — a command neither shell can run ({pull}`177`). The
+new assertion widens it to a second carrier, `contributing.rst`, rather than a wider set of
+literals. The second group is a separate, new assertion in `tests/test_contributor_guide.py`.
 
 **`CONTRIBUTING.md` and `changelog/README.md` become pointers**, each keeping only the
 gated literals and a link to the page that explains them. This is `start spec §3.9`'s move
@@ -282,20 +292,42 @@ a fourteenth workflow fails the gate rather than quietly going undocumented. Thi
 `tests/test_docs_landing_pages.py` its corpus assertion.
 
 **Task coverage.** Every task in `pyproject.toml` is either named on `contributing.rst` or
-reachable from a named one through `depends-on`, and nothing named on the page is absent
-from `pyproject.toml`. `tests/pixi_tasks.py` already reads that table for
-`tests/test_docs_workflow.py` and the `ci-floors` gate, so the reader exists and this adds
-a third consumer rather than a second parser.
+reachable from a named one through `depends-on`. In the other direction, nothing the
+Task Graph table names is absent from `pyproject.toml` — the table, not the whole page:
+it is the one place the page asserts "this is a task", where a whole-page scan would read
+a bare word like ```` ``tephpy`` ```` or a `pixi run` target that names a real external
+command rather than a task (```` ``playwright`` ````, in the browser-demo prose) as a false
+claim. The gap this leaves is real and recorded rather than hidden: a bogus task name
+written into the page's prose, outside the table, is not caught. `tests/pixi_tasks.py`
+already reads the manifest for `tests/test_docs_workflow.py` and the `ci-floors` gate, so
+the reader exists and this adds a third consumer rather than a second parser.
 
 *Corrected 2026-09-08, before implementation.* This section first said "or carries an
 explicit internal marker in the gate", which would have been a hand-written list of
 exemptions — the very shape these gates exist to remove. `tests/pixi_tasks.py` already
 exports `closure(names, tasks)`, which walks `depends-on`, so the exemption derives itself:
 a task the page does not name is excused exactly when running something the page *does*
-name runs it. Measured against the current tree: nine tasks named on the page reach the
-other eight, and **nothing is left over** — so the rule is satisfiable with no exemption
-list at all, and a task that is neither named nor reachable is a real gap rather than a
-missing entry in a list.
+name runs it.
+
+*Corrected 2026-09-08, again, against the implementation.* The paragraph above measured
+the wrong page: "nine tasks reach the other eight" was projected from a draft naming set,
+not from what `contributing.rst` shipped with. The page that landed spells out all
+seventeen tasks directly — nine in the Task Graph table, the other eight in the ASCII
+diagram above it (`docs-clean`, `docs-html`, and the five `docs-check-*` gates among
+them) — so today `closure()` excuses nothing: every task is already named, and the
+reachable-but-unnamed set is empty. The mechanism stays regardless, held to a synthetic
+graph in `tests/test_contributor_guide.py` rather than to the manifest, because that is
+what keeps the gate from breaking should the diagram ever be redrawn without spelling out
+every task, or a task ever be added that only something named depends on.
+
+What still rots, and is recorded rather than fixed: a task added to an *existing*
+aggregate's `depends-on` — a sixth `docs-check-*`, say, wired into `docs` beside the five
+already there — is reachable from a named task on day one, through the very mechanism
+`closure()` provides. The coverage gate passes without complaint, while the ASCII diagram
+above and the word "Seventeen" in the paragraph that introduces it both go stale with
+nothing red anywhere. This is the cost of keeping `closure()` rather than requiring every
+task to be named directly: the gate proves reachability, not that the picture of the graph
+a reader sees still matches the graph that runs.
 
 Both assert in **both directions**. A gate checking only that the page names nothing false
 passes over a page that names half the set.
@@ -309,8 +341,8 @@ passes over a page that names half the set.
 - `CONTRIBUTING.md` — reduced to the gated literals and a pointer (§3.6).
 - `changelog/README.md` — the same.
 - `AGENTS.md`, `tests/AGENTS.md`, `docs/AGENTS.md` — unchanged in kind, edited only where
-  a rule they state is wrong or absent; the BSD-header rule of §1 gains a home on a
-  published page for the first time.
+  a rule they state is wrong or absent. The BSD-header rule of §1 gains no published home
+  here — §7 holds open whether a future `codecraft` page takes it.
 - `docs/src/developer/specs/index.rst` — the prefix table gains a `contributor spec §…`
   row **and its toctree the matching entry**. Two hand-written lists over one set; writing
   one without the other is a mistake made before.
@@ -321,14 +353,15 @@ passes over a page that names half the set.
 | what lands | what holds it |
 |---|---|
 | every workflow named on `ci.rst`, and nothing false | a new assertion, §3.8 |
-| every pixi task named on `contributing.rst`, or marked internal | a new assertion, §3.8 |
-| the shared literals agreeing across page and `AGENTS.md` | `tests/test_docs_workflow.py`, widened (§3.6) |
+| every pixi task named on `contributing.rst` or reachable from one that is, and nothing the task table names absent | a new assertion, §3.8 |
+| the two Playwright remedy commands agreeing across `contributing.rst` and `CONTRIBUTING.md` | `tests/test_docs_workflow.py`, widened (§3.6) |
+| the changelog's eight types agreeing with `pyproject.toml`'s towncrier configuration | a new assertion, §3.6 |
 | the four pages carrying a reading-time banner | `tests/test_docs_readingtime.py`, already derived over the tree |
 | every `contributor spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
 | the prose | review, against docs-style's *Reviewing Claims* |
 
-Two new assertions and one widened. The pages are otherwise held by machinery that already
-exists and that they join by being in the tree.
+Three new assertions and one widened. The pages are otherwise held by machinery that
+already exists and that they join by being in the tree.
 
 (contributor-spec-6)=
 ## 6. Scope

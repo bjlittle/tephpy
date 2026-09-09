@@ -34,6 +34,13 @@ pytestmark = pytest.mark.skipif(
 #: Both of the action's exemption inputs, which are parsed identically.
 FIELDS = ("exempt-issue-labels", "exempt-pr-labels")
 
+#: The suffixes GitHub Actions reads from ``.github/workflows``. Both, because a
+#: standing report declared in a ``.yaml`` workflow would otherwise go uncollected
+#: here -- its marker would not be required in `exempt-issue-labels`, and the
+#: issue it keeps could stale, close, and be replaced by one carrying none of its
+#: history, which is the failure this module exists to prevent (:pull:`290`).
+SUFFIXES = ("*.yml", "*.yaml")
+
 
 def _exempt(field: str) -> list[str]:
     """Return the labels ``actions/stale`` will read from one exemption input.
@@ -65,7 +72,7 @@ def _script_markers() -> set[str]:
     return {load_script(path.stem).MARKER for path in scripts}
 
 
-def _workflow_markers() -> set[str]:
+def _workflow_markers(directory: Path | None = None) -> set[str]:
     """Return the label each standing report declared *in a workflow* uses.
 
     Not every standing report has a script. ``ci-linkcheck`` keeps two issues
@@ -75,7 +82,11 @@ def _workflow_markers() -> set[str]:
     report that stales, closes, and is replaced by a fresh issue carrying none
     of its history.
     """
-    workflows = sorted((REPO / ".github" / "workflows").glob("*.yml"))
+    workflows = sorted(
+        path
+        for suffix in SUFFIXES
+        for path in (directory or REPO / ".github" / "workflows").glob(suffix)
+    )
     assert workflows, "no workflows found"
     return {
         match["marker"]
@@ -89,6 +100,25 @@ def _markers() -> set[str]:
     markers = _script_markers() | _workflow_markers()
     assert markers, "no standing-report markers found, so the scan broke"
     return markers
+
+
+def test_a_standing_report_declared_in_a_yaml_workflow_is_collected(tmp_path):
+    # GitHub Actions reads `.yml` and `.yaml` alike, so a scan globbing one of
+    # them would pass over a standing report declared in the other -- its marker
+    # would not be required below, and the issue it keeps could stale, close,
+    # and be replaced by a fresh one carrying none of its history. That is the
+    # same shape as the hole `_workflow_markers` was written to close, one
+    # suffix over (:pull:`290` review).
+    #
+    # Against a temporary directory because this repository has no `.yaml`
+    # workflow: coverage that cannot be demonstrated is coverage nobody has
+    # watched work.
+    lookup = "          number=$(gh issue list --state open --label {} \\\n"
+    (tmp_path / "ci-in-yml.yml").write_text(lookup.format("from-yml"), encoding="utf-8")
+    (tmp_path / "ci-in-yaml.yaml").write_text(
+        lookup.format("from-yaml"), encoding="utf-8"
+    )
+    assert _workflow_markers(tmp_path) == {"from-yml", "from-yaml"}
 
 
 def test_every_label_a_standing_report_files_under_is_exempt_from_staling():
