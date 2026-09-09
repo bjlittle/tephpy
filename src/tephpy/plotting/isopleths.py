@@ -908,7 +908,7 @@ class IsoplethFamily(martist.Artist):
         Called with ``(family name, candidate options)`` whenever the
         options resolve; raising rejects the change. The owning axes
         passes its one-family-per-edge check here so the rejection
-        lands inside this class's rollback (spec §3.2.3).
+        lands inside this class's rollback (spec §3.2.2).
     on_change : callable, optional
         Called with no arguments after the options resolve successfully,
         whichever entry point resolved them. The owning axes passes its
@@ -941,7 +941,7 @@ class IsoplethFamily(martist.Artist):
             Called with ``(family name, candidate options)`` whenever the
             options resolve; raising rejects the change. The owning axes
             passes its one-family-per-edge check here so the rejection
-            lands inside this class's rollback (spec §3.2.3).
+            lands inside this class's rollback (spec §3.2.2).
         on_change : callable, optional
             Called with no arguments after the options resolve
             successfully, whichever entry point resolved them. The owning
@@ -1702,7 +1702,7 @@ class _EdgeLocator(Locator):
     """Locate one family's crossings of one diagram edge as ticks.
 
     Matplotlib calls the locator on every draw, so pan, zoom, resize and
-    ``set_extent`` stay correct with no refresh machinery (spec §3.2.3). Each
+    ``set_extent`` stay correct with no refresh machinery (spec §3.2.2). Each
     call caches the member value beside each position for
     :class:`_EdgeFormatter`, which is why the formatter needs no inverse
     math and works identically for all five families.
