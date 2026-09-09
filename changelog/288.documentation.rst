@@ -1,0 +1,6 @@
+An implementation plan for the contributor guide (``contributor spec §…``), in six
+tasks. Written after measuring: four findings shaped it and one corrected the
+specification before any page was written — ``pixi_tasks.closure()`` removes the
+need for the hand-written exemption list ``contributor spec §3.8`` had specified,
+since a task the page does not name is excused exactly when running a named task
+runs it. (:user:`claude`)
