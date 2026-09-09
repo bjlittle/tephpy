@@ -8,7 +8,7 @@
 native rotated x-y plane as its data space, with the temperature/theta
 mapping exposed as an invertible matplotlib transform and the five
 background isopleth families drawn by default as zoom-aware artists
-(spec §3.2).
+(spec §3.2.1).
 
 Side-of-axes layout contract (spec §10 item 7): panels beside the diagram
 are appended with ``mpl_toolkits.axes_grid1``'s axes divider, which tracks
@@ -17,7 +17,7 @@ gutter, then the indices panel. One divider is created per axes, cached,
 and shared by every side-panel method; ``_relayout_side_panels`` rebuilds
 the divider's horizontal stack and reassigns every locator whenever a
 panel appears, so the inside-out order holds regardless of the order the
-panel methods are called in (spec §3.2).
+panel methods are called in (spec §3.2.7).
 
 Notes
 -----
@@ -104,7 +104,7 @@ _FIGURE_CLEAR_CODE = FigureBase.clear.__code__
 
 
 def _cursor_pressure(pressure: float, _temperature: float, _theta: float) -> str:
-    """Format the cursor point's pressure (spec §3.2).
+    """Format the cursor point's pressure (spec §3.2.6).
 
     Parameters
     ----------
@@ -124,7 +124,7 @@ def _cursor_pressure(pressure: float, _temperature: float, _theta: float) -> str
 
 
 def _cursor_temperature(_pressure: float, temperature: float, _theta: float) -> str:
-    """Format the cursor point's temperature (spec §3.2).
+    """Format the cursor point's temperature (spec §3.2.6).
 
     Parameters
     ----------
@@ -144,7 +144,7 @@ def _cursor_temperature(_pressure: float, temperature: float, _theta: float) -> 
 
 
 def _cursor_theta(_pressure: float, _temperature: float, theta: float) -> str:
-    """Format the cursor point's potential temperature (spec §3.2).
+    """Format the cursor point's potential temperature (spec §3.2.6).
 
     Parameters
     ----------
@@ -164,7 +164,7 @@ def _cursor_theta(_pressure: float, _temperature: float, theta: float) -> str:
 
 
 def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> str:
-    """Format the saturation mixing ratio through the cursor point (spec §3.2).
+    """Format the saturation mixing ratio through the cursor point (spec §3.2.6).
 
     Parameters
     ----------
@@ -202,11 +202,11 @@ def _cursor_mixing_ratio(pressure: float, temperature: float, _theta: float) -> 
 
 
 def _cursor_theta_w(pressure: float, temperature: float, _theta: float) -> str:
-    """Format the moist adiabat (θw) through the cursor point (spec §3.2).
+    """Format the moist adiabat (θw) through the cursor point (spec §3.2.6).
 
     The point is treated as saturated (``dewpoint=temperature``), giving
     the wet-bulb potential temperature of the pseudoadiabat through it —
-    the moist-adiabat family's member value (the spec §3.2/§3.3
+    the moist-adiabat family's member value (the spec §3.2.6/§3.3
     one-source-of-truth idiom).
 
     Parameters
@@ -248,7 +248,7 @@ def _cursor_theta_w(pressure: float, temperature: float, _theta: float) -> str:
     return f"θw {float(theta_w):.1f} °C"
 
 
-#: The cursor readout field registry (spec §3.2): field name to a
+#: The cursor readout field registry (spec §3.2.6): field name to a
 #: ``(pressure, temperature, theta) -> str`` formatter.
 _CURSOR_FORMATTERS: Final[dict[str, Callable[[float, float, float], str]]] = {
     "pressure": _cursor_pressure,
@@ -480,7 +480,7 @@ class TephigramAxes(Axes):
     space via ``transform=ax.tephigram_transform + ax.transData``. Native
     x/y ticks carry no meteorological meaning and are hidden until
     a family claims an edge for its labels — ``labels=("bottom", "left")``
-    turns them into that family's scale (spec §3.2).
+    turns them into that family's scale (spec §3.2.2).
 
     Notes
     -----
@@ -503,7 +503,7 @@ class TephigramAxes(Axes):
     #: Survives release, which is what makes a family visibility toggle a
     #: true round trip; the owner is part of the key so a new owner's colour
     #: still lands when it matches the last one's. Only :meth:`clear` empties
-    #: it (spec §3.2).
+    #: it (spec §3.2.3).
     _edge_tick_colors: dict[str, tuple[str, tuple[float, float, float, float]]]
     #: Re-entrancy guard for ``_sync_edge_labels``; a class default so it is
     #: live before ``Axes.__init__`` reaches :meth:`clear`.
@@ -548,7 +548,7 @@ class TephigramAxes(Axes):
         self.xaxis.set_visible(False)
         self.yaxis.set_visible(False)
         # Presentation is stamped once, here, and never re-asserted, so it is
-        # the user's from a claim onwards (spec §3.2).
+        # the user's from a claim onwards (spec §3.2.3).
         self._style_edge_axis(self.xaxis)
         self._style_edge_axis(self.yaxis)
         # The classic style mirrors ticks onto the opposite edge, which would
@@ -599,7 +599,7 @@ class TephigramAxes(Axes):
         visit — the panel is then cleared and deleted with no figure,
         raising deep in matplotlib. The side panels are the diagram's to
         remove on a direct ``ax.clear()``; on a figure clear they are the
-        figure's, so the teardown stands down (spec §3.2). Recognising
+        figure's, so the teardown stands down (spec §3.2.7). Recognising
         the caller by its frame is the only signal: the figure's state is
         identical either way.
 
@@ -632,7 +632,7 @@ class TephigramAxes(Axes):
     ) -> None:
         """Fix the view to a pressure range and a temperature range.
 
-        For directly comparable figures (spec §3.2). Both ranges are
+        For directly comparable figures (spec §3.2.5). Both ranges are
         keyword-only and both are required: two positional sequences that
         cannot be told apart is the defect this replaces, and fixing one
         axis while leaving the other is a different operation
@@ -811,7 +811,7 @@ class TephigramAxes(Axes):
         self.set_autoscale_on(False)
 
     def format_coord(self, x: float, y: float) -> str:
-        """Report diagram-meaningful values for the cursor position (spec §3.2).
+        """Report diagram-meaningful values for the cursor position (spec §3.2.6).
 
         The navigation toolbar's readout: the data-space cursor position
         inverts to (temperature, theta), pressure derives via Poisson's
@@ -906,7 +906,7 @@ class TephigramAxes(Axes):
         label: str | None = None,
         **kwargs: Any,
     ) -> Line2D:
-        """Plot one profile of temperature against pressure (spec §3.2).
+        """Plot one profile of temperature against pressure (spec §3.2.5).
 
         Both arrays are pint quantities — or bare arrays with the
         ``units=`` mapping (spec §5) — converted to diagram-native units
@@ -1016,7 +1016,7 @@ class TephigramAxes(Axes):
         label: str | None = None,
         **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
     ) -> tuple[Line2D, Line2D | None]:
-        """Plot a sounding's temperature and dewpoint profiles (spec §3.2).
+        """Plot a sounding's temperature and dewpoint profiles (spec §3.2.5).
 
         Temperature and dewpoint-when-present draw as two profile lines in
         the conventional colours (temperature red, dewpoint green), with
@@ -1080,7 +1080,7 @@ class TephigramAxes(Axes):
         and the parcel path, bounded as :func:`metpy.calc.cape_cin`
         integrates — from the LFC to the EL, to the profile top when the
         parcel is still buoyant there — so the shading matches the
-        annotated numbers (spec §3.2). Drawn as one compound-path patch;
+        annotated numbers (spec §3.2.5). Drawn as one compound-path patch;
         interrupted regions become multiple polygons in the same patch.
 
         Parameters
@@ -1117,7 +1117,7 @@ class TephigramAxes(Axes):
         The negative-buoyancy region between the environment temperature
         and the parcel path, bounded as :func:`metpy.calc.cape_cin`
         integrates — from the parcel start to the LFC — so the shading
-        matches the annotated numbers (spec §3.2). Drawn as one
+        matches the annotated numbers (spec §3.2.5). Drawn as one
         compound-path patch; with no LFC there is no CIN region.
 
         Parameters
@@ -1216,7 +1216,7 @@ class TephigramAxes(Axes):
 
         The divider is created on first use and reused by every
         side-panel method — a second ``make_axes_locatable`` call would
-        build a fresh divider and detach the earlier panel (spec §3.2).
+        build a fresh divider and detach the earlier panel (spec §3.2.7).
         The caller stores the returned axes on its slot attribute and
         must call :meth:`_relayout_side_panels` afterwards.
 
@@ -1249,11 +1249,11 @@ class TephigramAxes(Axes):
         ``append_axes`` stacks panels in call order; this rebuilds the
         divider's horizontal sizes as diagram, barb gutter, indices
         panel — skipping absent panels — and reassigns every locator, so
-        the spec §3.2 order holds regardless of the order the panel
+        the spec §3.2.7 order holds regardless of the order the panel
         methods were called in. The panel nearest the diagram takes
         ``EDGE_LABEL_GUTTER_PAD`` in place of its own pad while the right
         edge carries isopleth ticks, which are wider than the 0.1 in
-        conventions (spec §3.2).
+        conventions (spec §3.2.7).
         """
         divider = self._side_divider
         if divider is None:
@@ -1269,7 +1269,7 @@ class TephigramAxes(Axes):
             if panel is None:
                 continue
             # The first panel abuts the diagram, so it is the one the right
-            # edge's tick labels would land on (spec §3.2).
+            # edge's tick labels would land on (spec §3.2.7).
             gap = EDGE_LABEL_GUTTER_PAD if right_labelled and not slots else pad
             horizontal.append(axes_size.Fixed(gap))
             horizontal.append(axes_size.from_any(width, fraction_ref=horizontal[0]))
@@ -1282,7 +1282,7 @@ class TephigramAxes(Axes):
     def edge_axis(self, edge: str) -> Axis:
         """Return the matplotlib axis drawing one diagram edge's ticks.
 
-        The uniform handle on all four edges (spec §3.2), keyed by the same
+        The uniform handle on all four edges (spec §3.2.3), keyed by the same
         names the ``labels`` option takes. Bottom and left are the axes' own
         ``xaxis``/``yaxis``; top and right belong to a secondary axes that
         has no other public handle. tephpy stamps its tick conventions on an
@@ -1325,7 +1325,7 @@ class TephigramAxes(Axes):
         if edge not in self._edge_owners:
             msg = (
                 f"the {edge!r} edge carries no isopleth labels; claim it "
-                f'first, e.g. ax.isobars(labels="{edge}") (spec §3.2)'
+                f'first, e.g. ax.isobars(labels="{edge}") (spec §3.2.3)'
             )
             raise ValueError(msg)
         return self._edge_axis(edge)
@@ -1337,7 +1337,7 @@ class TephigramAxes(Axes):
         a collision; handing this to each family as its validator puts the
         rejection inside ``IsoplethFamily.configure``'s rollback, and running
         it during family creation surfaces a ``tephpy.config`` conflict at
-        axes creation rather than at first draw (spec §3.2).
+        axes creation rather than at first draw (spec §3.2.2).
 
         Parameters
         ----------
@@ -1362,7 +1362,7 @@ class TephigramAxes(Axes):
                 msg = (
                     f"the {min(clash)!r} edge is already labelled by "
                     f"{other_name!r}: one family per edge, so release it "
-                    f"before {name!r} can claim it (spec §3.2)"
+                    f"before {name!r} can claim it (spec §3.2.2)"
                 )
                 raise TypeError(msg)
 
@@ -1373,7 +1373,7 @@ class TephigramAxes(Axes):
         the axes' own ``xaxis``/``yaxis``, the lazy build in
         :meth:`_edge_axis` for a top or right secondary — and never
         re-applied, so a user's ``tick_params`` on a claimed edge survives
-        every later family resolve (spec §3.2). Matplotlib offers no
+        every later family resolve (spec §3.2.3). Matplotlib offers no
         provenance on ``set_tick_params``, so *when* is the only guard
         available. The conventions replay onto the tick artists matplotlib
         rebuilds when a claim swaps the locator, because they live in the
@@ -1393,7 +1393,7 @@ class TephigramAxes(Axes):
         # ticks are the crossings, not a scale to rule off. Suppressing here
         # lands after ``Axes.clear`` has read ``rcParams["axes.grid"]``, which
         # several styles set, so a style cannot smuggle them in — while an
-        # explicit later ``ax.grid(True)`` is the user's call (spec §3.2).
+        # explicit later ``ax.grid(True)`` is the user's call (spec §3.2.3).
         axis.grid(visible=False, which="both")
 
     def _edge_axis(self, edge: str) -> Axis:
@@ -1435,7 +1435,7 @@ class TephigramAxes(Axes):
 
         Identity only — locator, formatter, visibility, colour and title.
         How the ticks look is stamped once by :meth:`_style_edge_axis` when
-        the edge axis is created and is the user's thereafter (spec §3.2).
+        the edge axis is created and is the user's thereafter (spec §3.2.3).
 
         Parameters
         ----------
@@ -1448,7 +1448,7 @@ class TephigramAxes(Axes):
             Whether this claim is the edge's first under this owner — the
             edge was unowned, or another family held it and has just been
             released. Identity is installed only then; a repeat claim
-            re-applies nothing but a changed colour (spec §3.2).
+            re-applies nothing but a changed colour (spec §3.2.3).
         """
         family = self._families[name]
         axis = self._edge_axis(edge)
@@ -1464,7 +1464,7 @@ class TephigramAxes(Axes):
             # the ``Axis`` on every edge, and for top or right the secondary
             # axes that hid with it, spine included. Showing the container
             # alone would leave an ``Axis`` the user had hidden drawing no
-            # ticks on an edge that has just been claimed (spec §3.2).
+            # ticks on an edge that has just been claimed (spec §3.2.3).
             axis.set_visible(True)
             secondary = self._secondary_axes.get(edge)
             if secondary is not None:
@@ -1492,7 +1492,7 @@ class TephigramAxes(Axes):
         linear-axis defaults, tephpy's own axis title is cleared and
         forgotten, and the edge hides. Presentation is left exactly as it
         is — it belongs to the user, and the hidden axis renders none of it
-        (spec §3.2).
+        (spec §3.2.3).
 
         Parameters
         ----------
@@ -1517,7 +1517,7 @@ class TephigramAxes(Axes):
             # The whole secondary axes hides, not merely its ``Axis``, or the
             # spine it owns would keep drawing. It is kept, not removed, so a
             # handle held across a release stays live and its ticks and title
-            # survive the reclaim exactly as bottom and left do (spec §3.2).
+            # survive the reclaim exactly as bottom and left do (spec §3.2.3).
             secondary.set_visible(False)
 
     def _sync_edge_labels(self) -> None:
@@ -1528,7 +1528,7 @@ class TephigramAxes(Axes):
         ``Artist.set_visible`` — plus the end of :meth:`clear`. Ownership
         conflicts were already rejected by :meth:`_check_label_edges`, so this
         only applies the outcome. A change on the right edge also relayouts the
-        side panels, whose pad widens to clear the tick labels (spec §3.2).
+        side panels, whose pad widens to clear the tick labels (spec §3.2.7).
 
         Nothing on this path resolves a family's options, so a nested call
         would have nothing new to apply; the guard makes that structural rather
@@ -1566,7 +1566,7 @@ class TephigramAxes(Axes):
         minimum_separation: float | None = None,
         **kwargs: Any,  # noqa: ANN401 -- pass-through to matplotlib
     ) -> BarbStaff:
-        """Plot the sounding's wind barbs on the gutter staff (spec §3.2).
+        """Plot the sounding's wind barbs on the gutter staff (spec §3.2.5).
 
         The barbs draw on a right-hand gutter appended with the shared
         divider, each level at the y where its isobar meets the
@@ -1644,13 +1644,13 @@ class TephigramAxes(Axes):
     def annotate_indices(self, indices: SoundingIndices) -> Axes:
         """Display derived parameters in a panel beside the diagram.
 
-        The first consumer of the side-of-axes contract (spec §3.2):
+        The first consumer of the side-of-axes contract (spec §3.2.7):
         the panel is appended with the ``axes_grid1`` divider, one
         formatted line per ``SoundingIndices`` field, NaN rendered as an
         em dash. Calling it again updates the panel in place rather than
         stacking a second one, and the side-panel layout is rebuilt
         inside-out (barb gutter, then this panel) whichever order the
-        panel methods are called in (spec §3.2).
+        panel methods are called in (spec §3.2.7).
 
         Parameters
         ----------
@@ -1705,7 +1705,7 @@ class TephigramAxes(Axes):
 
         The family's own ``on_change`` runs :meth:`_sync_edge_labels`, so a
         claim made here reaches the edges by the same route a direct
-        ``family.configure(...)`` takes (spec §3.2).
+        ``family.configure(...)`` takes (spec §3.2.2).
 
         Parameters
         ----------
@@ -1756,7 +1756,7 @@ class TephigramAxes(Axes):
         """Return (and optionally reconfigure) the isotherm family.
 
         With no arguments this returns the family artist unchanged; any
-        keyword given reconfigures it first (spec §3.2). Values are in
+        keyword given reconfigures it first (spec §3.2.1). Values are in
         degrees Celsius.
 
         Parameters
@@ -1840,7 +1840,7 @@ class TephigramAxes(Axes):
         """Return (and optionally reconfigure) the isobar family.
 
         With no arguments this returns the family artist unchanged; any
-        keyword given reconfigures it first (spec §3.2). Values are in
+        keyword given reconfigures it first (spec §3.2.1). Values are in
         hPa.
 
         Parameters
@@ -1924,7 +1924,7 @@ class TephigramAxes(Axes):
         """Return (and optionally reconfigure) the dry-adiabat family.
 
         With no arguments this returns the family artist unchanged; any
-        keyword given reconfigures it first (spec §3.2). Values are
+        keyword given reconfigures it first (spec §3.2.1). Values are
         potential temperatures in degrees Celsius.
 
         Parameters
@@ -2010,7 +2010,7 @@ class TephigramAxes(Axes):
         """Return (and optionally reconfigure) the moist-adiabat family.
 
         With no arguments this returns the family artist unchanged; any
-        keyword given reconfigures it first (spec §3.2). Values are
+        keyword given reconfigures it first (spec §3.2.1). Values are
         wet-bulb potential temperatures in degrees Celsius.
 
         Parameters
@@ -2097,7 +2097,7 @@ class TephigramAxes(Axes):
         """Return (and optionally reconfigure) the mixing-ratio family.
 
         With no arguments this returns the family artist unchanged; any
-        keyword given reconfigures it first (spec §3.2). Values are
+        keyword given reconfigures it first (spec §3.2.1). Values are
         humidity mixing ratios in g/kg; this family has no ``interval``
         (its members come from the ``MIXING_RATIO_VALUES`` ladder).
 
