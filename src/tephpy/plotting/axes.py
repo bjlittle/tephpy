@@ -599,7 +599,7 @@ class TephigramAxes(Axes):
         visit — the panel is then cleared and deleted with no figure,
         raising deep in matplotlib. The side panels are the diagram's to
         remove on a direct ``ax.clear()``; on a figure clear they are the
-        figure's, so the teardown stands down (spec §3.2.7). Recognising
+        figure's, so the teardown stands down (spec §3.2). Recognising
         the caller by its frame is the only signal: the figure's state is
         identical either way.
 
