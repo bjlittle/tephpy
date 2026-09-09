@@ -366,7 +366,7 @@ Singling a member out, on every accessor that draws one:
 (spec-3-2-5)=
 #### 3.2.5 The Plotting Accessors
 
-The methods that put a sounding on the diagram:
+What a user calls to put a sounding on the diagram, and to frame it:
 
 - `ax.plot_profile(pressure, temperature, *, units=None, label=None, **kwargs)`
   accepts pint quantities — or bare arrays with the §5 `units=` mapping — converts
