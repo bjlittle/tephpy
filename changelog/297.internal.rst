@@ -1,0 +1,18 @@
+A citation of a section that has subsections resolves, and no rule can say
+whether it should: a claim spanning the whole section has nowhere better to
+point, while a claim about one paragraph leaves the reader to find it. Rather
+than gate a judgement no gate can make, ``tests/test_citations.py`` now keeps a
+**census** — ``containers()`` finds every anchor another anchor's slug extends,
+and the test records which citations land on one, outside the specifications
+themselves. The record is keyed by file and anchor rather than by a total, so a
+citation removed from one file cannot pay for one arriving in another, and by
+file rather than by line, so an edit above a citation does not churn it. A
+change fails, and the message names the file and both counts.
+
+Recorded at 36 citations over 21 file-and-anchor pairs, across six of the 23
+container anchors. Measuring it corrected
+the premise of the open item that asked for it (:issue:`293`): the ``plotting``
+section is not the only subdivided one, and section 5 of the configuration-file
+specification carries as many container citations over two subsections as
+``plotting`` has left over seven — filed as :issue:`296` to be measured rather
+than assumed. (:user:`claude`)

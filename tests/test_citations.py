@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -24,12 +25,12 @@ pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )
 
-#: The corpus is derived with `git ls-files` (docs spec §3.6), so the three
+#: The corpus is derived with `git ls-files` (docs spec §3.6), so the four
 #: tests that read the live tree need an index. That is a narrower condition
 #: than the module's: an export of the committed tree carries these tests and
 #: no repository, and every fixture-driven test below still holds there.
-#: Guarding the module on the index instead would skip all twenty wherever
-#: history is absent, for a reason seventeen of them do not have.
+#: Guarding the module on the index instead would skip all twenty-three wherever
+#: history is absent, for a reason nineteen of them do not have.
 tracked = pytest.mark.skipif(
     not (REPO / ".git").exists(), reason="no index to enumerate the corpus from"
 )
@@ -210,6 +211,25 @@ def test_an_anchor_whose_heading_is_gone_is_reported(tmp_path):
     assert "names no heading" in violations[0].message
 
 
+def test_a_container_is_an_anchor_a_subsection_extends():
+    """An anchor with subsections beneath it can be cited without naming one.
+
+    The slug carries the section number, so the relationship is in the name:
+    ``spec-3-2-1`` extends ``spec-3-2``. Sibling and prefix lookalikes must not
+    be mistaken for children -- ``spec-3-20`` is a different section, not a
+    subsection of ``spec-3-2``, and the hyphen is what separates them.
+    """
+    anchors = dict.fromkeys(
+        ["spec-1", "spec-3", "spec-3-2", "spec-3-2-1", "spec-3-2-7", "spec-3-20"]
+    )
+    assert cc.containers(anchors) == {"spec-3", "spec-3-2"}
+
+
+def test_a_leaf_anchor_is_not_a_container():
+    """A collection whose sections are all flat has no containers at all."""
+    assert cc.containers(dict.fromkeys(["logo-spec-1", "logo-spec-2"])) == set()
+
+
 @tracked
 def test_the_corpus_covers_every_tracked_text_file():
     """A glob by extension silently omits citation-bearing files (docs spec §3.6)."""
@@ -220,6 +240,106 @@ def test_the_corpus_covers_every_tracked_text_file():
     frozen = "the plans are point-in-time records (docs spec §3.4)"
     assert not any("plans" in path.parts for path in paths), frozen
     assert not any(path.suffix == ".png" for path in paths), "images are not text"
+
+
+def _container_citations() -> list[str]:
+    """Census every citation of a container anchor, outside the specifications.
+
+    The specifications are excluded because a specification naming another's
+    section as a topic is ordinary prose, and there is a great deal of it: 111
+    citations land on a container across the whole corpus and 36 outside this
+    collection, the difference being cross-references between specifications
+    and the anchor specification discussing the plotting section at length. What
+    the census is for is the other kind — a docstring or a page sending a reader
+    to a section that has since been subdivided.
+
+    Returns
+    -------
+    list of tuple
+        One ``(path, slug)`` per citation. The line is deliberately not carried:
+        the record is what a reader has already judged, and an edit that moves a
+        citation down its file changes nothing they need to judge again.
+
+    """
+    anchors, owners = cc.collect_anchors(sorted(cc.SPECS.glob("*.md")))
+    pattern = cc.citation_pattern(anchors)
+    held = cc.containers(anchors)
+    found = []
+    for path in cc.corpus():
+        if path.parent == cc.SPECS:
+            continue
+        own = owners.get(path)
+        text = path.read_text(encoding="utf-8")
+        for _, line in cc.citations.source_lines(path, text):
+            found += [
+                (cc.display(path), citation.slug)
+                for citation in cc.citations.scan(line, pattern, own)
+                if citation.slug in held
+            ]
+    return found
+
+
+#: Citations naming a section that another anchor subdivides, by file and
+#: anchor (`anchor spec §7`). Recorded 2026-09-10 over six of the twenty-three
+#: container anchors: `spec-3-2`, the plotting section subdivided by
+#: :pull:`295`, 14; `configfile-spec-5`, two subsections, 14 (:issue:`296`);
+#: `configfile-spec-3`, six subsections, 5; and one each on `spec-3`,
+#: `logo-spec-3` and `topics-spec-6`, all three grammar specimens in the tests
+#: and the extensions rather than references to those sections.
+#:
+#: Keyed by file rather than by line, so ordinary edits above a citation do not
+#: churn it, and counted per file rather than in total, so a citation removed
+#: from one file cannot pay for one arriving in another.
+CONTAINER_CITATIONS = {
+    ("changelog/201.enhancement.rst", "spec-3-2"): 1,
+    ("changelog/90.documentation.rst", "spec-3-2"): 1,
+    ("docs/src/_ext/tephpy_citation_xrefs.py", "spec-3-2"): 1,
+    ("docs/src/_ext/tephpy_citations.py", "spec-3-2"): 2,
+    ("docs/src/_ext/tephpy_topics_data.py", "spec-3-2"): 1,
+    ("docs/src/developer/docs-style.rst", "spec-3-2"): 2,
+    ("src/tephpy/__init__.py", "configfile-spec-5"): 1,
+    ("src/tephpy/_config.py", "configfile-spec-5"): 1,
+    ("src/tephpy/_configfile.py", "configfile-spec-3"): 2,
+    ("src/tephpy/_configfile.py", "configfile-spec-5"): 8,
+    ("src/tephpy/_constants.py", "configfile-spec-3"): 2,
+    ("src/tephpy/exceptions.py", "configfile-spec-5"): 3,
+    ("src/tephpy/plotting/axes.py", "spec-3-2"): 3,
+    ("src/tephpy/plotting/isopleths.py", "configfile-spec-3"): 1,
+    ("tests/plotting/test_axes.py", "spec-3-2"): 1,
+    ("tests/plotting/test_isopleths.py", "spec-3-2"): 1,
+    ("tests/test_citations.py", "logo-spec-3"): 1,
+    ("tests/test_citations.py", "spec-3"): 1,
+    ("tests/test_citations.py", "spec-3-2"): 1,
+    ("tests/test_configfile_domain.py", "configfile-spec-5"): 1,
+    ("tests/test_docs_topics.py", "topics-spec-6"): 1,
+}
+
+
+@tracked
+def test_the_container_census_is_what_was_recorded():
+    """Watch the sections that have been subdivided for citations left behind.
+
+    A citation of a section that has subsections resolves, and no rule can say
+    whether it should: a claim spanning the whole section has nowhere better to
+    point, while a claim about one paragraph leaves the reader to find it. So
+    this counts rather than judges, and a change to the count is the trigger
+    that `anchor spec §7` asks for.
+
+    **If this fails, do not simply update the record.** Read the file the
+    message names and decide which kind the citation is. A spanning claim
+    belongs on the container and the record moves with a note saying so; a
+    claim about one paragraph should name the subsection instead.
+    """
+    found = Counter(_container_citations())
+    recorded = CONTAINER_CITATIONS
+    moved = sorted(
+        key for key in recorded.keys() | found.keys() if recorded.get(key) != found[key]
+    )
+    assert not moved, "\n".join(
+        f"{path} {slug}: recorded {recorded.get(key, 0)}, found {found[key]}"
+        for key in moved
+        for path, slug in [key]
+    )
 
 
 @tracked

@@ -138,6 +138,39 @@ def collect_anchors(
         raise SystemExit(1) from None
 
 
+def containers(anchors: Iterable[str]) -> set[str]:
+    """Find the anchors that name a section another anchor subdivides.
+
+    A citation of one resolves and is sometimes exactly right — a claim that
+    spans the whole section has nowhere better to point — and is sometimes a
+    reader left to find the paragraph themselves. Nothing here tells the two
+    apart, and nothing should try: that is the judgement ``tests/test_citations``
+    records a census for rather than a rule (anchor spec §7).
+
+    The relationship is in the slug, because the slug carries the section
+    number: ``spec-3-2-1`` extends ``spec-3-2``. The separator is matched
+    explicitly, so ``spec-3-20`` — a different section — is not read as a
+    subsection of ``spec-3-2``.
+
+    Parameters
+    ----------
+    anchors : iterable of str
+        The anchor slugs, as :func:`collect_anchors` keys them.
+
+    Returns
+    -------
+    set of str
+        The slugs another slug extends.
+
+    """
+    slugs = set(anchors)
+    return {
+        slug
+        for slug in slugs
+        if any(other.startswith(f"{slug}-") for other in slugs - {slug})
+    }
+
+
 @dataclass(frozen=True)
 class Violation:
     """One failed assertion, rendered as ``path:line: message``."""
