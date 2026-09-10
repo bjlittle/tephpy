@@ -99,7 +99,8 @@ if TYPE_CHECKING:
 __all__ = ["TephigramAxes", "TephigramInvertedTransform", "TephigramTransform"]
 
 #: ``Figure.clear``'s frame, recognised so the side-panel teardown can
-#: stand down for that caller (see ``TephigramAxes._figure_is_clearing``).
+#: stand down for that caller (spec §3.2.7; see
+#: ``TephigramAxes._figure_is_clearing``).
 _FIGURE_CLEAR_CODE = FigureBase.clear.__code__
 
 
@@ -599,7 +600,7 @@ class TephigramAxes(Axes):
         visit — the panel is then cleared and deleted with no figure,
         raising deep in matplotlib. The side panels are the diagram's to
         remove on a direct ``ax.clear()``; on a figure clear they are the
-        figure's, so the teardown stands down (spec §3.2). Recognising
+        figure's, so the teardown stands down (spec §3.2.7). Recognising
         the caller by its frame is the only signal: the figure's state is
         identical either way.
 
