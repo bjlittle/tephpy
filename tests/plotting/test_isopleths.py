@@ -185,7 +185,7 @@ def test_mixing_ratio_default_values_all_build():
 
 
 def test_import_tephpy_does_not_import_metpy():
-    """Importing tephpy must not import metpy (spec §3.2/§10 item 10).
+    """Importing tephpy must not import metpy (spec §3.2.1/§10 item 10).
 
     metpy loads on the first isopleth build instead. Run in a subprocess
     so the check is independent of what this session already imported.
@@ -421,7 +421,7 @@ def test_labels_drawn_and_upright(plain_axes):
 
 
 def test_label_pool_does_not_outgrow_the_labelled_set(plain_axes):
-    """The pool tracks what is labelled, in both directions (spec §3.2).
+    """The pool tracks what is labelled, in both directions (spec §3.2.2).
 
     ``_draw_labels`` grows the pool to fit, and a zoom that promotes a finer
     ladder step grows it further. Zooming back out must give the surplus up
@@ -509,7 +509,7 @@ def test_label_box_matches_a_white_canvas(plain_axes):
 
     This is the no-change half of the pair below: every published figure and
     image baseline is rendered on a white canvas, and reading the canvas
-    rather than assuming it must leave them all untouched (spec §3.2).
+    rather than assuming it must leave them all untouched (spec §3.2.2).
     """
     family = _drawn_family(plain_axes)
     boxes = _label_box_colors(family)
@@ -762,7 +762,7 @@ def test_normalize_labels_rejects_unknown_placements(raw):
 
 
 def test_resolved_label_edges_and_invisibility():
-    """An invisible family labels nothing and holds no edge (spec §3.2)."""
+    """An invisible family labels nothing and holds no edge (spec §3.2.2)."""
     spec = isopleths._FAMILY_SPECS["isobars"]
     family = isopleths.IsoplethFamily(spec, config.isobars)
     assert family.options.labels is True
@@ -838,7 +838,7 @@ def test_set_visible_re_reads_config_in_either_direction(target, section, error,
     ``set_visible`` is ``configure(visible=...)``, which re-resolves every
     tier before it touches the flag: ``labels`` and ``emphasis`` normalize
     unconditionally, and only then is ``label_edges`` zeroed for an invisible
-    family. The direction of travel therefore does not matter (spec §3.2).
+    family. The direction of travel therefore does not matter (spec §3.2.2).
     """
     family = _make_family("isotherms")
     # Start from the opposite state, so the call under test is a real
@@ -854,7 +854,7 @@ def test_set_visible_no_op_re_reads_nothing():
 
     The other half of the re-read contract: a call that does not change the
     visibility never reaches ``configure``, so even a configuration that
-    would fail to resolve passes straight through (spec §3.2).
+    would fail to resolve passes straight through (spec §3.2.2).
     """
     family = _make_family("isotherms")
     assert family.get_visible() is True
@@ -889,7 +889,7 @@ def test_set_visible_resolves_and_notifies_only_on_a_change():
 
 
 def test_selected_and_inline_members_at_the_default_extent():
-    """Spec §3.2's coverage table, exercised through the family."""
+    """Spec §3.2.7's coverage table, exercised through the family."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         fig.canvas.draw()
@@ -919,7 +919,7 @@ def test_selected_and_inline_members_at_the_default_extent():
 
 
 def test_edge_locator_matches_the_coverage_table():
-    """Spec §3.2's measured coverage, through the locator (spec §7)."""
+    """Spec §3.2.7's measured coverage, through the locator (spec §7)."""
     fig, ax = plt.subplots(subplot_kw={"projection": "tephigram"})
     try:
         fig.canvas.draw()
@@ -946,7 +946,7 @@ def test_edge_locator_ticks_every_crossing():
     The extent is given rather than defaulted: no member double-crosses an
     edge at ``DEFAULT_EXTENT``, so a test that took the view it is handed
     would assert the ordinary single-crossing case under a name promising
-    the doubled one (spec §3.2).
+    the doubled one (spec §3.2.2).
 
     750 hPa sits just outside the named pressure range, (50, 700): the view
     is an axis-aligned rectangle in a rotated space and so always reaches
@@ -1124,7 +1124,7 @@ def test_emphasis_non_finite_key_raises(member):
     """A non-finite member key builds a NaN polyline the view mask hides.
 
     Rejected up front instead, alongside the ``linewidth``, ``alpha`` and
-    ``interval`` finiteness checks (spec §3.2).
+    ``interval`` finiteness checks (spec §3.2.4).
     """
     family = _make_family("isotherms")
     with pytest.raises(ValueError, match="member value must be a finite number"):
@@ -1166,7 +1166,7 @@ def test_emphasis_failure_leaves_family_unchanged():
 
 
 def test_emphasis_is_a_geometry_key():
-    """Changing emphasis invalidates the cached member geometry (spec §3.2)."""
+    """Changing emphasis invalidates the cached member geometry (spec §3.2.4)."""
     family = _make_family("isobars")
     family._build()
     assert family._members is not None
@@ -1340,7 +1340,7 @@ def test_member_style_defaults_to_the_family_style():
 
 
 def test_the_zero_isotherm_is_emphasised_by_default():
-    """Factsheet 13 draws it distinctively, so tephpy does (spec §3.2)."""
+    """Factsheet 13 draws it distinctively, so tephpy does (spec §3.2.4)."""
     assert set(_make_family("isotherms").options.emphasis) == {0.0}
 
 
@@ -1364,7 +1364,7 @@ def test_the_default_zero_isotherm_draws_in_the_family_ink(plain_axes):
 
 
 def test_member_style_empty_emphasis_only_thickens():
-    """`{}` is the printed-chart idiom: same ink, heavier line (spec §3.2)."""
+    """`{}` is the printed-chart idiom: same ink, heavier line (spec §3.2.4)."""
     family = _make_family("isotherms")
     family.configure(emphasis={0.0: {}})
     style = family._member_style(0.0)
@@ -1381,7 +1381,7 @@ def test_member_style_overrides_win_over_the_emphasis_default():
 
 
 def test_emphasised_member_draws_last(plain_axes):
-    """Emphasis wins against its own family's neighbours (spec §3.2)."""
+    """Emphasis wins against its own family's neighbours (spec §3.2.4)."""
     family = _make_family("isotherms")
     family.configure(emphasis={0.0: {}})
     plain_axes.add_artist(family)
@@ -1414,7 +1414,7 @@ def test_plain_family_still_draws_one_colour(plain_axes):
     Uniform *and* scalar: the per-segment path is gated on ``emphasis``, so an
     un-emphasised family carries one linewidth and a scalar alpha rather than
     an N-long sequence of each. Pixels are the same either way; vector output
-    and the per-draw cost are not (spec §3.2).
+    and the per-draw cost are not (spec §3.2.4).
 
     Isobars rather than isotherms: the isotherm family emphasises its 0 °C
     member out of the box, so it is no longer an example of this path.
@@ -1434,7 +1434,7 @@ def test_clearing_emphasis_restores_the_plain_collection(plain_axes):
 
     The per-segment path is gated on ``emphasis``, so the plain path has to
     undo what an earlier emphasised draw left on the collection — a dashed
-    linestyle above all, which nothing else would overwrite (spec §3.2).
+    linestyle above all, which nothing else would overwrite (spec §3.2.4).
     """
     family = _make_family("isotherms")
     plain_axes.add_artist(family)

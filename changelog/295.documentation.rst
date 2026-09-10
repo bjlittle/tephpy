@@ -1,0 +1,26 @@
+The parent design specification's ``plotting`` section now has an internal
+structure, and every citation that lands on it names the part it means. The
+section was 413 lines under no subheadings at all, and **178** citations across
+the repository resolved to it — 170 of them in ``src`` and ``tests``, 42% of
+every citation of that specification — each one arriving at the same target. A
+reader following one arrived at a section and then had to find the paragraph.
+
+It gains seven thematic subsections, verified as a partition of all 413 lines
+with no prose rewritten: 22 lines added and none removed, five of them leads for
+the subsections whose cut falls inside a bullet list rather than on a paragraph
+boundary. 164 citations move onto the one each means, spread
+11/32/33/24/33/14/17, and the 14 that stay on the section itself do so
+deliberately — eight are specimens of the citation grammar rather than
+references to the section, one is a changelog entry recording what the section
+*had* ruled before a later release reversed it, and five make a claim that
+genuinely spans the subsections. A design specification and an implementation
+plan are published alongside, and record the measurements the work was decided
+on.
+
+The inventory was measured twice, and the second count is the one that holds.
+The first was one short, because the scan behind it required the word ``spec``
+beside the section number and one constant cites this section second in a
+compound run, where no such word stands next to it. Counting is now done with
+the project's own citation grammar — the resolver the integrity gate itself uses
+— so no compound run, capitalisation or prefix fallback can hide from it.
+(:user:`claude`)

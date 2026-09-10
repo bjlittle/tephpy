@@ -109,7 +109,7 @@ def test_context_non_mapping_override_restores_prior_sections():
 
 
 def test_labels_accepts_placements():
-    """`labels` widened from bool to bool-or-edge-names (spec §3.2)."""
+    """`labels` widened from bool to bool-or-edge-names (spec §3.2.2)."""
     with tephpy.config.context(isobars={"labels": ("bottom", "left")}):
         assert tephpy.config.isobars.labels == ("bottom", "left")
     assert tephpy.config.isobars.labels is None

@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""Tests for the CAPE/CIN shading builders (spec §3.2).
+"""Tests for the CAPE/CIN shading builders (spec §3.2.5).
 
 Headless geometry tests against an analytic fixture: an isothermal 0 °C
 environment and a parcel curve whose drawn segments (straight in
@@ -73,7 +73,7 @@ def _vertex_pressures(polygon):
 
 
 def test_cape_region_bounded_by_the_drawn_curve_crossings():
-    """Crossings sit where the drawn segments intersect (spec §3.2)."""
+    """Crossings sit where the drawn segments intersect (spec §3.2.5)."""
     (polygon,) = _cape(lcl_pressure=950.0)
     pressures = _vertex_pressures(polygon)
     np.testing.assert_allclose(pressures.max(), CROSS_LOW, rtol=1e-9)
@@ -108,7 +108,7 @@ def test_cin_region_spans_start_to_the_lfc():
 
 
 def test_interrupted_cape_yields_plural_polygons():
-    """An embedded stable layer splits the region (spec §3.2)."""
+    """An embedded stable layer splits the region (spec §3.2.5)."""
     pressure = np.array([1000.0, 900.0, 800.0, 600.0, 300.0])
     environment = np.zeros(5)
     parcel = np.array([-4.0, 5.0, -3.0, 4.0, -6.0])
@@ -128,7 +128,7 @@ def test_no_positive_buoyancy_yields_no_regions():
 
 
 def test_positive_buoyancy_only_below_the_lcl_is_not_cape():
-    """A superadiabatic surface layer is no LFC (spec §3.2)."""
+    """A superadiabatic surface layer is no LFC (spec §3.2.5)."""
     parcel = np.array([2.0, -2.0, -4.0, -8.0])
     assert _cape(lcl_pressure=700.0, parcel_temperature=parcel) == []
     assert _cin(lcl_pressure=700.0, parcel_temperature=parcel) == []

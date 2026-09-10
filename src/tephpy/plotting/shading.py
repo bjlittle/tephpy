@@ -2,7 +2,7 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""CAPE/CIN shading geometry for the tephigram (spec §3.2).
+"""CAPE/CIN shading geometry for the tephigram (spec §3.2.5).
 
 Free builders in the ``isopleths`` pattern: pure functions over bare numpy
 arrays in diagram-native units (hPa, °C — the spec §5 exemption) that
@@ -59,7 +59,7 @@ def cape_polygons(
     *,
     lcl_pressure: float,
 ) -> list[npt.NDArray[np.float64]]:
-    """Build the CAPE region's closed polygons (spec §3.2).
+    """Build the CAPE region's closed polygons (spec §3.2.5).
 
     Parameters
     ----------
@@ -115,7 +115,7 @@ def cin_polygons(
     *,
     lcl_pressure: float,
 ) -> list[npt.NDArray[np.float64]]:
-    """Build the CIN region's closed polygons (spec §3.2).
+    """Build the CIN region's closed polygons (spec §3.2.5).
 
     Parameters
     ----------
@@ -395,7 +395,7 @@ def _lfc(
     diff: npt.NDArray[np.float64],
     lcl_pressure: float,
 ) -> float | None:
-    """Locate the LFC bound the way ``cape_cin`` does (spec §3.2).
+    """Locate the LFC bound the way ``cape_cin`` does (spec §3.2.5).
 
     The bottom of the lowest positive-buoyancy run reaching above the
     LCL, clamped to the LCL itself when that run starts below it

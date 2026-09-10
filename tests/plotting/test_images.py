@@ -205,7 +205,7 @@ def _windy_sounding():
 
 @pytest.mark.mpl_image_compare
 def test_barbs_staff():
-    """The wind-barb gutter staff beside the diagram (spec §3.2)."""
+    """The wind-barb gutter staff beside the diagram (spec §3.2.5)."""
     fig, ax = _tephigram_figure()
     snd = _windy_sounding()
     ax.plot_sounding(snd)
@@ -229,7 +229,7 @@ def test_barbs_with_indices_panel():
 
 @pytest.mark.mpl_image_compare(savefig_kwargs={"bbox_inches": "tight"})
 def test_printed_chart_edges():
-    """The printed-chart edge-labelling configuration (spec §3.2/§7)."""
+    """The printed-chart edge-labelling configuration (spec §3.2.7/§7)."""
     fig, ax = _tephigram_figure()
     ax.isobars(labels=("bottom", "left"), interval=150)
     ax.mixing_ratios(labels="top")

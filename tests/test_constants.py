@@ -100,7 +100,7 @@ def test_sounding_label_format():
 
 
 def test_cursor_fields():
-    """The default cursor readout trio, in display order (spec §3.2)."""
+    """The default cursor readout trio, in display order (spec §3.2.6)."""
     assert constants.CURSOR_FIELDS == ("pressure", "temperature", "theta")
 
 
