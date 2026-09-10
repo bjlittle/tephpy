@@ -306,9 +306,12 @@ Tagged per docs spec §3.5.
   and sometimes laziness, and **no gate can tell them apart**, so none tries. What this
   section asked for instead — a way to notice the container accumulating citations again — is
   now a **census**: `containers()` in `check_citations.py` finds every anchor another anchor's
-  slug extends, and `tests/test_citations.py` records how many citations land on one, outside
-  the specifications themselves. Growth fails the test and the message names the citation, so
-  the judgement is made once, by a reader, at the moment it arrives.
+  slug extends, and `tests/test_citations.py` records which citations land on one, outside the
+  specifications themselves. The record is keyed by file and anchor, not by a total — a total
+  lets a citation removed from one file pay for one arriving in another, and neither gets
+  read (:pull:`297` review) — and by file rather than by line, so an edit above a citation
+  does not churn it. A change fails the test and the message names the file and both counts,
+  so the judgement is made once, by a reader, at the moment it arrives.
 
   Measuring it corrected this section's premise. §3.2 is **not** the only subdivided section:
   **23 anchors have children**, and 36 citations outside this collection land on one. §3.2

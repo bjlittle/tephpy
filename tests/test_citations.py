@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -254,8 +255,10 @@ def _container_citations() -> list[str]:
 
     Returns
     -------
-    list of str
-        One ``path:line: slug`` per citation, for the failure message.
+    list of tuple
+        One ``(path, slug)`` per citation. The line is deliberately not carried:
+        the record is what a reader has already judged, and an edit that moves a
+        citation down its file changes nothing they need to judge again.
 
     """
     anchors, owners = cc.collect_anchors(sorted(cc.SPECS.glob("*.md")))
@@ -267,13 +270,49 @@ def _container_citations() -> list[str]:
             continue
         own = owners.get(path)
         text = path.read_text(encoding="utf-8")
-        for number, line in cc.citations.source_lines(path, text):
+        for _, line in cc.citations.source_lines(path, text):
             found += [
-                f"{cc.display(path)}:{number}: {citation.slug}"
+                (cc.display(path), citation.slug)
                 for citation in cc.citations.scan(line, pattern, own)
                 if citation.slug in held
             ]
     return found
+
+
+#: Citations naming a section that another anchor subdivides, by file and
+#: anchor (`anchor spec §7`). Recorded 2026-09-10 over six of the twenty-three
+#: container anchors: `spec-3-2`, the plotting section subdivided by
+#: :pull:`295`, 14; `configfile-spec-5`, two subsections, 14 (:issue:`296`);
+#: `configfile-spec-3`, six subsections, 5; and one each on `spec-3`,
+#: `logo-spec-3` and `topics-spec-6`, all three grammar specimens in the tests
+#: and the extensions rather than references to those sections.
+#:
+#: Keyed by file rather than by line, so ordinary edits above a citation do not
+#: churn it, and counted per file rather than in total, so a citation removed
+#: from one file cannot pay for one arriving in another.
+CONTAINER_CITATIONS = {
+    ("changelog/201.enhancement.rst", "spec-3-2"): 1,
+    ("changelog/90.documentation.rst", "spec-3-2"): 1,
+    ("docs/src/_ext/tephpy_citation_xrefs.py", "spec-3-2"): 1,
+    ("docs/src/_ext/tephpy_citations.py", "spec-3-2"): 2,
+    ("docs/src/_ext/tephpy_topics_data.py", "spec-3-2"): 1,
+    ("docs/src/developer/docs-style.rst", "spec-3-2"): 2,
+    ("src/tephpy/__init__.py", "configfile-spec-5"): 1,
+    ("src/tephpy/_config.py", "configfile-spec-5"): 1,
+    ("src/tephpy/_configfile.py", "configfile-spec-3"): 2,
+    ("src/tephpy/_configfile.py", "configfile-spec-5"): 8,
+    ("src/tephpy/_constants.py", "configfile-spec-3"): 2,
+    ("src/tephpy/exceptions.py", "configfile-spec-5"): 3,
+    ("src/tephpy/plotting/axes.py", "spec-3-2"): 3,
+    ("src/tephpy/plotting/isopleths.py", "configfile-spec-3"): 1,
+    ("tests/plotting/test_axes.py", "spec-3-2"): 1,
+    ("tests/plotting/test_isopleths.py", "spec-3-2"): 1,
+    ("tests/test_citations.py", "logo-spec-3"): 1,
+    ("tests/test_citations.py", "spec-3"): 1,
+    ("tests/test_citations.py", "spec-3-2"): 1,
+    ("tests/test_configfile_domain.py", "configfile-spec-5"): 1,
+    ("tests/test_docs_topics.py", "topics-spec-6"): 1,
+}
 
 
 @tracked
@@ -283,31 +322,24 @@ def test_the_container_census_is_what_was_recorded():
     A citation of a section that has subsections resolves, and no rule can say
     whether it should: a claim spanning the whole section has nowhere better to
     point, while a claim about one paragraph leaves the reader to find it. So
-    this counts rather than judges, and the count is the trigger that
-    `anchor spec §7` asks for.
+    this counts rather than judges, and a change to the count is the trigger
+    that `anchor spec §7` asks for.
 
-    Recorded 2026-09-10, over six of the twenty-three container anchors:
-
-    ===================  ===  ==================================================
-    anchor               n    what they are
-    ===================  ===  ==================================================
-    `spec-3-2`           14   subdivided by :pull:`295`; eight specimens of the
-                              citation grammar rather than references, one
-                              changelog entry, five spanning claims
-    `configfile-spec-5`  14   two subsections; unmeasured
-    `configfile-spec-3`  5    six subsections; unmeasured
-    `spec-3`             1    the whole Design section, cited as a whole
-    `logo-spec-3`        1    "
-    `topics-spec-6`      1    "
-    ===================  ===  ==================================================
-
-    **If this fails, do not simply bump the number.** Read the citation the
-    message names and decide which kind it is. A spanning claim belongs on the
-    container and the number moves with a note saying so; a claim about one
-    paragraph should name the subsection instead.
+    **If this fails, do not simply update the record.** Read the file the
+    message names and decide which kind the citation is. A spanning claim
+    belongs on the container and the record moves with a note saying so; a
+    claim about one paragraph should name the subsection instead.
     """
-    found = _container_citations()
-    assert len(found) == 36, "\n".join(sorted(found))
+    found = Counter(_container_citations())
+    recorded = CONTAINER_CITATIONS
+    moved = sorted(
+        key for key in recorded.keys() | found.keys() if recorded.get(key) != found[key]
+    )
+    assert not moved, "\n".join(
+        f"{path} {slug}: recorded {recorded.get(key, 0)}, found {found[key]}"
+        for key in moved
+        for path, slug in [key]
+    )
 
 
 @tracked
