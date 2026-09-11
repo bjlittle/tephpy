@@ -1,0 +1,17 @@
+The plotting tour implementation is planned: three tasks covering the page, the
+two gates that hold its names to the package, and the changelog fragment
+(:issue:`66`).
+
+The plan carries the page and both gates in full, so the only value it defers is
+the pull request number. Its gates were run against its own page text before it
+was saved, which returned three defects — a name that belongs to a sibling
+package, a method that lands on no module, and a name the page mentions only
+inside a longer expression — all fixed in the text the plan carries rather than
+left for an executor to meet.
+
+Two constraints are recorded because no gate would report them. A developer
+page's python blocks are never executed, since ``developer`` is outside the user
+sections in all three lists holding them, so the page carries no code blocks at
+all; and the citation corpus excludes plans by design, being point-in-time
+records, so a plan's own citations are checked by nothing and this one's were
+verified by hand. (:user:`claude`)
