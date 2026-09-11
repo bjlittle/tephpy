@@ -124,9 +124,32 @@ quadrants, and the five gallery examples.
 The reference quadrant is out. Its pages — the glossary, the CLI and configuration
 references, the bibliography, the changelog — are lookup surfaces a reader reaches by name,
 and the generated API is ninety-four objects that would dominate any filter built over the
-same buttons. The developer section is out for the reason its landing cards are: {issue}`66`
-is expected to change which pages exist there, and tagging a set about to be rewritten
-files the wrong set.
+same buttons.
+
+**The developer section is out, and §8 records why the reason changed.** It was first
+excluded because {issue}`66` was expected to change which pages existed there, and tagging
+a set about to be rewritten files the wrong set. That reason expired when the rewrite
+landed. What replaces it is durable and is three things at once. The vocabulary of §3.3 is
+about the diagram: measured 2026-09-11 against the eight pages the section now holds, seven
+of them — contributing, testing, changelog, docs-style, packaging, continuous integration,
+and the specification index — are described by no term in it, and the corpus being
+discovered rather than listed, they would fail the gate until it grew terms for them.
+
+That measurement is of each page's **subject**, checked one page at a time against §3.3's
+covers/not table, and it has to be: a scan for the words instead reports `docs-style.rst`
+carrying twelve of the seventeen, because the page quotes example prose about soundings,
+parcels and MetPy to illustrate what a review question catches. The other two collisions
+are plain homonyms — `ci.rst`'s "analysis" is the CodeQL job and its "labels" are GitHub's,
+and the specification index's "config" is the `configfile spec` prefix in a table of
+prefixes. A term covers a page when it says what the page is *about*, which is the one
+question a word count cannot answer. Those
+terms would be process terms, confined to one section by construction, which §3.4 promotes
+never and for the stated reason that a term confined to one quadrant describes something
+browsing that section already solves — and since {pull}`306` that section has a landing
+table doing exactly that. The eighth page, the `plotting` tour, *is* described by four
+existing terms, and tagging it alone is the worst of the three: its terms do span quadrants,
+so a reader filtering `isopleths` for a tutorial would be handed a contributor's map of
+module ownership from a page this index labels by quadrant.
 
 The corpus is **discovered, not listed**. Every published page under the three narrative
 quadrants must carry tags, so a page added tomorrow fails the gate until it declares them.
@@ -647,11 +670,15 @@ Tagged per docs spec §3.5.
   that broad is wanted as a button at any corpus size is a judgement §3.8's report will
   surface rather than settle.
 
-- **Deferred** ({issue}`66`) — **the developer section.** Its pages are expected to change,
-  and tagging a set about to be rewritten files the wrong set. *Premise expired 2026-09-11:*
-  the rewrite happened — `contributor spec` added four pages and `tour spec` a fifth, and
-  {issue}`66` is closed. The set is no longer about to move, so the question is live rather
-  than deferred; nothing here decides it, and the section carries no `:tags:` today.
+- **Closed** (2026-09-11, §3.1) — **the developer section.** Deferred here because its
+  pages were expected to change, and tagging a set about to be rewritten files the wrong
+  set. The rewrite happened — `contributor spec` added four pages and `tour spec` a fifth,
+  {issue}`66` closed — so the premise expired and the question was taken up rather than
+  re-deferred. The answer is that the section stays out, on a reason that cannot expire:
+  seven of its eight pages are described by no term in a vocabulary that is about the
+  diagram, the process terms they would need are unpromotable by §3.4's own rule, and
+  tagging only the `plotting` tour would put a contributor-facing page inside buttons built
+  for readers. §3.1 carries the measurement.
 
 - **Deferred** ({issue}`261`) — **Read the Docs search analytics.** The demand signal
   complementing §3.8's coverage matrix, and perishable at ninety days on the Community
