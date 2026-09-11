@@ -526,14 +526,17 @@ issue that owns it.
   quadrants.** Not for want of material but for sequence: §3.6 shows that every one of them
   teaches framing, and {issue}`184` changes what framing looks like.
 
-- **Open** ({issue}`189`) — **docstring `Examples` sections and a
+- **Closed** (2026-08-28, `narrative spec §3.8`) — **docstring `Examples` sections and a
   `--doctest-modules` gate over `src/`.** The one surface the docs spec §3.9 gate does not reach.
-  There is nothing unexecuted today, because there are no such sections; the question is
-  whether to write them. It waits on {issue}`184` for the same reason 7c does.
+  Decided on the merits rather than deferred again: most of the public surface returns
+  matplotlib artists or draws onto an `Axes`, so what a doctest would assert is often
+  nothing, and the worked sequences the snippet gate already runs are the better carrier.
+  The {issue}`184` collision this bullet waited on cleared with {pull}`194`.
 
-- **Deferred** ({issue}`77`) — **check-manifest.** §3.3 states its position in the packaging
-  guide and adopts nothing. The guide is where a reader would look for it, which is why the
-  position is worth stating there rather than left in a dependency declaration.
+- **Resolved** (2026-09-04, {issue}`77` via {pull}`272`) — **check-manifest.** §3.3 states
+  its position in the packaging guide and adopted nothing at the time. The guide is where a
+  reader would look for it, which is why the position was worth stating there rather than
+  left in a dependency declaration. It is adopted now, run by `ci-wheels` ahead of the build.
 
 - **Deferred** ({issue}`82`) — **a `tephpy[bufr]` extra.** §3.1 and §3.2 state the non-goal
   and point at the recipe; whether demand later justifies the extra is that issue's

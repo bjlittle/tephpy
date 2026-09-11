@@ -639,7 +639,8 @@ question.
   the generated API reference to the example set. Worth revisiting if the gallery grows
   past a screenful.
 
-- **Open** ({issue}`77`) — **the check-manifest CI gate.** It was deferred until "the wheel
-  carries domain code"; §3.7 now puts data files in it too, and `MANIFEST.in` has already
-  drifted once. Nothing here fixes it, and the case for it is stronger than when the
-  deferral was written.
+- **Resolved** (2026-09-04, {issue}`77` via {pull}`272`) — **the check-manifest CI gate.**
+  It was deferred until "the wheel carries domain code"; §3.7 put data files in it too, and
+  `MANIFEST.in` had already drifted once, so the case was stronger than when the deferral
+  was written. It is now adopted: `check-manifest` is a declared floor, `pixi run manifest`
+  runs it, and `ci-wheels` runs that task in front of the build.

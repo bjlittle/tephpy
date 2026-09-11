@@ -648,7 +648,10 @@ Tagged per docs spec §3.5.
   surface rather than settle.
 
 - **Deferred** ({issue}`66`) — **the developer section.** Its pages are expected to change,
-  and tagging a set about to be rewritten files the wrong set.
+  and tagging a set about to be rewritten files the wrong set. *Premise expired 2026-09-11:*
+  the rewrite happened — `contributor spec` added four pages and `tour spec` a fifth, and
+  {issue}`66` is closed. The set is no longer about to move, so the question is live rather
+  than deferred; nothing here decides it, and the section carries no `:tags:` today.
 
 - **Deferred** ({issue}`261`) — **Read the Docs search analytics.** The demand signal
   complementing §3.8's coverage matrix, and perishable at ninety days on the Community

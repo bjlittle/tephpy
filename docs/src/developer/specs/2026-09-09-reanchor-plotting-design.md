@@ -293,14 +293,15 @@ Tagged per docs spec §3.5.
   existing depth — no theme option changes. The banner reads **107 minutes** and is computed
   rather than literal; the branch added 137 words to a 16,072-word document, which at the
   extension's 150 wpm is at most one minute. Not material.
-- **Open** — `src/tephpy/plotting/axes.py:602` makes a claim no section states. Its
-  docstring says the side panels are the diagram's to remove on a direct `ax.clear()` and
-  the figure's on a figure clear, so the teardown stands down. No §3.2 subsection carries
-  that rule, and the nearest statement is `spec §10` item 16, where it is an aside about why
-  `root=` is load-bearing rather than a specification of the ownership. It stays on the
-  container here, because re-pointing it at `spec §10` would trade one misdirection for
-  another; the fix is to state the rule in `spec §3.2.7`, which is parent-specification
-  authorship this work deliberately does not do (§6).
+- **Resolved** (2026-09-10, {issue}`294` via {pull}`298`) — `plotting/axes.py` made a claim
+  no section stated. Its docstring said the side panels are the diagram's to remove on a
+  direct `ax.clear()` and the figure's on a figure clear, so the teardown stands down. No
+  §3.2 subsection carried that rule, and the nearest statement was `spec §10` item 16, where
+  it was an aside about why `root=` is load-bearing rather than a specification of the
+  ownership. The fix named here — state the rule in `spec §3.2.7` — is what happened, as
+  parent-specification authorship taken up as its own change rather than smuggled into this
+  one (§6). The citations that resolved without meaning now name the subsection that states
+  the rule, and the four tests asserting it cite it too.
 - **Resolved** (2026-09-10, :pull:`297`) — whether §3.2's *container* citations should
   eventually be discouraged. Once the subsections exist, a bare `spec §3.2` is sometimes right
   and sometimes laziness, and **no gate can tell them apart**, so none tries. What this

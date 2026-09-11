@@ -10,7 +10,7 @@
 > Read it as current.
 
 - **Date:** 2026-08-12 (originated; maintained since)
-- **Status:** living design specification; the work it specifies is {issue}`116`
+- **Status:** living design specification, implemented in {pull}`126` ({issue}`116`)
 - **Citation prefix:** `domain spec §…` — not `config spec` or `validation spec`, either of
   which would read as a near-duplicate of configfile spec §5.2, the type check this sits
   behind

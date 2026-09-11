@@ -416,11 +416,19 @@ Tagged per docs spec §3.5.
   rather than hypothetical.
 - **Open** (§3.9) — whether the reference quadrant's landing page takes the table of §3.9
   too. Its entries are reached by name rather than chosen between, so the argument §3.9
-  makes does not carry over unexamined. Decided when {issue}`66`'s developer half is taken
-  up, which is the change that will be reading these pages anyway.
-- **Open** ({issue}`66`) — the developer and contributor guide. This plan closes the user
-  half of that issue and leaves the developer half open, which is the honest split: the two
-  share an issue and not an audience.
+  makes does not carry over unexamined. *Trigger fired 2026-09-08 without settling it:*
+  {issue}`66`'s developer half was taken up, and `contributor spec §7` deferred the matching
+  question for `developer/` deliberately — the section's content was still maturing, and a
+  table fixes a one-line description of each page before the page has settled. That bullet
+  and this one are one decision about which sections the shape governs, and it is still
+  unmade.
+- **Closed** (2026-09-11, {issue}`66`) — the developer and contributor guide. This plan
+  closed the user half of that issue and left the developer half open, which was the honest
+  split: the two share an issue and not an audience. The developer half followed as
+  `contributor spec` and `tour spec`, and the issue's last item — the explanation-level
+  account of where the diagram's scales live — landed as a section of
+  *Why the Axes Are Rotated* rather than a third page, because decision 1 above pairs each
+  explanation page with the tutorial that raises its question and none raises this one.
 
 (narrative-spec-8)=
 ## 8. References
