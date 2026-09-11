@@ -1,0 +1,21 @@
+The plotting tour is specified: a developer page that maps ``tephpy.plotting``
+for someone about to change it, between the explanation quadrant written for a
+reader who has never opened the source and the docstrings, which are already
+strong (:issue:`66`).
+
+The package is documented at both extremes and not in the middle. Its 124
+docstrings each describe their own step and cite the section deciding it, and
+``spec §3.2`` specifies the design at 462 lines; what no file owns is the order
+things happen in and who owns what. Edge ownership reaches ``_sync_edge_labels``
+from two sites and ``_relayout_side_panels`` from three, and no single docstring
+is the place to say so.
+
+The specification maps rather than accounts — every mechanism stays stated once
+in the tree and is cited, so ``spec §3.2`` keeps every word and every anchor
+three days after :issue:`293` re-pointed 164 citations onto them. Relocating its
+living half is filed as :issue:`299`, to be decided on evidence the page itself
+will produce. Citations run out only and name leaves rather than the container,
+which the census from :issue:`293` enforces without anyone having to remember,
+and two gates hold names rather than prose: whether a paragraph is still true is
+not gateable, and the specification records that rather than implying otherwise.
+(:user:`claude`)
