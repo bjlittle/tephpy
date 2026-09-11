@@ -453,7 +453,7 @@ def _literals(text: str) -> set[str]:
 
 
 def _module_rows(text: str) -> set[str]:
-    """The module names the map has a row for."""
+    """Return the module names the map has a row for."""
     return {lit for lit in _literals(text) if lit.endswith(".py")}
 
 
