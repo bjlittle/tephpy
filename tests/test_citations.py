@@ -291,8 +291,14 @@ def _container_citations() -> list[str]:
 #: Keyed by file rather than by line, so ordinary edits above a citation do not
 #: churn it, and counted per file rather than in total, so a citation removed
 #: from one file cannot pay for one arriving in another.
+#:
+#: Moved 2026-09-11 (:pull:`300`): `changelog/300.documentation.rst` adds two on
+#: `spec-3-2`, both spanning claims that belong on the container — the section's
+#: own length, and that it keeps every word and every anchor. Neither is about a
+#: paragraph, so neither has a subsection to name instead.
 CONTAINER_CITATIONS = {
     ("changelog/201.enhancement.rst", "spec-3-2"): 1,
+    ("changelog/300.documentation.rst", "spec-3-2"): 2,
     ("changelog/90.documentation.rst", "spec-3-2"): 1,
     ("docs/src/_ext/tephpy_citation_xrefs.py", "spec-3-2"): 1,
     ("docs/src/_ext/tephpy_citations.py", "spec-3-2"): 2,
