@@ -1,0 +1,21 @@
+The developer guide's landing page gains the shape the user sections already
+carry — an introduction, a two-column table, and a hidden toctree — and the set
+of sections that shape governs is now decided rather than deferred. The
+reference quadrant stays as it is.
+
+Two design specifications each held half of this question open, and each said
+the two halves were one decision about which sections the shape governs. The
+argument for the shape extends to neither section: it is about a prose list
+drifting against a directory, and the developer guide carried no prose at all
+while the reference quadrant's introduction guides rather than enumerates. What
+decides it is the job a row does — letting a reader tell a page from its
+siblings. In the developer guide nothing was doing it, ``changelog`` there being
+how to write a news fragment and ``changelog`` in the reference quadrant the
+release history; in the reference quadrant the entries are reached by name, so
+there is no choice for a row to inform.
+
+The gate's constant is renamed to say what it governs, two others of the same
+name meaning different things and all three having agreed until now. A
+subsection's own landing page now counts as one entry of its parent, so the
+specification collection is a single destination in this table however many
+documents it holds. (:user:`claude`)
