@@ -23,11 +23,11 @@ CI_PAGE = DEVELOPER / "ci.rst"
 CONTRIBUTING = DEVELOPER / "contributing.rst"
 CHANGELOG_PAGE = DEVELOPER / "changelog.rst"
 
-#: The pages contributor spec §3.1 adds, in the order contributor spec §4 gives
-#: the toctree.
+#: The developer section's hand-written pages, in the order their specifications
+#: give the toctree -- contributor spec §3.1's four, then tour spec §3.1's tour.
 #: Each page task appends its own as it lands, so every commit is green and
 #: each keeps its own red-to-green.
-PAGES = ("contributing", "testing", "changelog", "ci")
+PAGES = ("contributing", "testing", "changelog", "ci", "plotting")
 
 
 @pytest.mark.parametrize("page", PAGES)
