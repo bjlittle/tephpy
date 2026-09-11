@@ -16,19 +16,19 @@ DOCS = REPO / "docs" / "src"
 
 #: The sections whose landing page carries a table (narrative spec §3.9).
 #:
-#: **Not the same set as the two other ``TABLE_SECTIONS`` constants**, which is why
-#: this one is not called that. ``check_glossary_links.py`` names the sections the
-#: glossary serves and ``tests/test_docs_snippets.py`` those whose python is
-#: executed; both are audience questions and neither governs `developer`, whose
-#: pages are written for a contributor and whose code blocks are illustrative
-#: (:issue:`302`). The three held the same four values until 2026-09-11, and a
-#: later edit harmonising them on that appearance would put the developer guide
-#: inside two gates that deliberately exclude it.
+#: **Not the same set as the two constants named ``USER_SECTIONS``**, which is why this
+#: one is not called that either. ``check_glossary_links.py`` names the sections the
+#: glossary serves and ``tests/test_docs_snippets.py`` those whose python is executed;
+#: both are audience questions and neither governs `developer`, whose pages are written
+#: for a contributor and whose code blocks are illustrative (:issue:`302`). The three
+#: held the same four values until 2026-09-11, and a later edit harmonising them on that
+#: appearance would put the developer guide inside two gates that deliberately exclude
+#: it.
 #:
-#: The reference quadrant is out, decided rather than deferred: its entries are
-#: reached by name rather than chosen between, its introduction already guides a
-#: reader to the two pages that need it, and it carries no prose list tracking a
-#: directory -- which is the defect narrative spec §3.9 exists to close.
+#: The reference quadrant is out, decided rather than deferred: its entries are reached
+#: by name rather than chosen between, its introduction already guides a reader to the
+#: two pages that need it, and it carries no prose list tracking a directory -- which is
+#: the defect narrative spec §3.9 exists to close.
 TABLE_SECTIONS = ("start", "tutorials", "howtos", "explanation", "developer")
 
 #: A ``:doc:`` role, with the explicit target that wins over the display text when
@@ -109,6 +109,42 @@ def toctree_options(source: str) -> list[str]:
     ]
 
 
+def _entries(directory: Path) -> list[Path]:
+    """Return the documents one section offers, one path per destination.
+
+    A subdirectory carrying its own ``index.rst`` is a subsection: it
+    contributes that landing page and **nothing beneath it**, because from the
+    parent's table it is a single destination however many documents sit inside
+    it -- the specification collection is one row, not twenty. A subdirectory
+    without one is a plain grouping, and its documents belong to the parent.
+    Recursion stops at a landing page rather than pruning by name, so a
+    subsection nested two deep behaves the same as one nested one deep
+    (narrative spec §3.9).
+
+    Parameters
+    ----------
+    directory : Path
+        The section directory to read.
+
+    Returns
+    -------
+    list of Path
+        One path per destination: a document, or a subsection's landing page.
+
+    """
+    found: list[Path] = []
+    for path in directory.iterdir():
+        if path.is_dir():
+            landing_page = path / "index.rst"
+            if landing_page.is_file():
+                found.append(landing_page)
+            else:
+                found.extend(_entries(path))
+        elif path.suffix == ".rst" and path.name != "index.rst":
+            found.append(path)
+    return found
+
+
 def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
     """Return every page in a quadrant, as a landing table would name it.
 
@@ -131,21 +167,9 @@ def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
 
     """
     root = docs / quadrant
-    own = (
-        path.relative_to(root).with_suffix("").as_posix()
-        for path in root.rglob("*.rst")
-        if path.name != "index.rst"
+    return sorted(
+        path.relative_to(root).with_suffix("").as_posix() for path in _entries(root)
     )
-    # A subsection's own landing page is one entry in its parent's list: from
-    # `developer/` the specification collection is a single destination, however
-    # many documents sit inside it. Excluded only as the landing page of the
-    # section it heads (narrative spec §3.9).
-    nested = (
-        f"{sub.name}/index"
-        for sub in root.iterdir()
-        if sub.is_dir() and (sub / "index.rst").is_file()
-    )
-    return sorted([*own, *nested])
 
 
 def table_targets(source: str) -> list[str | None]:
@@ -259,6 +283,31 @@ def test_a_second_toctree_fails_rather_than_being_half_read():
     source = ".. toctree::\n\n    one\n\n.. toctree::\n\n    two\n"
     with pytest.raises(AssertionError, match="expected one"):
         toctree_entries(source)
+
+
+def test_a_subsection_is_one_entry_and_its_documents_are_not(tmp_path):
+    """A directory with its own landing page contributes that page alone.
+
+    The live tree cannot exercise this: `developer/specs/` holds one `.rst`, its
+    own index, so a walk that failed to prune would produce the same answer
+    (found in review, :pull:`306`).
+    """
+    section = tmp_path / "developer"
+    (section / "specs").mkdir(parents=True)
+    (section / "index.rst").touch()
+    (section / "contributing.rst").touch()
+    (section / "specs" / "index.rst").touch()
+    (section / "specs" / "2026-01-01-a-design.rst").touch()
+    assert pages("developer", docs=tmp_path) == ["contributing", "specs/index"]
+
+
+def test_a_subdirectory_without_a_landing_page_gives_up_its_documents(tmp_path):
+    """A plain grouping is not a subsection, so its documents are the parent's."""
+    section = tmp_path / "howtos"
+    (section / "advanced").mkdir(parents=True)
+    (section / "index.rst").touch()
+    (section / "advanced" / "tuning.rst").touch()
+    assert pages("howtos", docs=tmp_path) == ["advanced/tuning"]
 
 
 def test_every_section_this_gate_governs_is_on_disk():
