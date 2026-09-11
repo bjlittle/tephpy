@@ -257,15 +257,30 @@ above.
 
 | gate | what it holds |
 |---|---|
-| module map completeness | every `src/tephpy/plotting/*.py` is named in the map, and every module the map names exists |
-| symbol liveness | every `plotting` symbol the page names in literals — `clear`, `_check_label_edges`, `_sync_edge_labels`, `_claim_edge`, `_release_edge`, `_relayout_side_panels`, `_figure_is_clearing`, `IsoplethFamily` — resolves by import and `getattr` |
+| module map completeness | every `src/tephpy/plotting/*.py` has a row **in the map's own table**, and every module that table names exists |
+| symbol liveness | every `plotting` symbol the page names — the private helpers `_check_label_edges`, `_sync_edge_labels`, `_claim_edge`, `_release_edge`, `_relayout_side_panels`, `_figure_is_clearing`, found by pattern, and the declared public names `TephigramAxes`, `add_logo`, `IsoplethFamily`, `clear`, `configure`, `edge_axis`, `format_coord`, `plot_barbs`, `annotate_indices` — resolves by import and `getattr` |
 
-**Both gates assert a floor before they assert the property**: at least seven module
-rows, and at least eight spine symbols. A parser that silently matches nothing otherwise
-passes green — the failure mode `contributor spec §3.8` records, and the one that has
-cost this repository the most: a check whose own machinery is absent reports success.
-Each floor is exercised by a test that feeds the parser a page with the rows removed and
-requires a failure.
+**The map gate reads the table, not the page.** Corrected 2026-09-11 after review of
+:pull:`303` found the first form green against a deleted row: a module name appears in the
+prose beneath the table and again in the *Where to Look* table, so a page-wide scan cannot
+tell a row that is present from a name that is merely mentioned. The parser takes the
+`list-table` whose header names `Module`, and a page whose table it cannot find yields
+nothing rather than everything.
+
+**Each gate asserts a floor before it asserts its property, and the two floors do
+different jobs.** A parser that silently matches nothing otherwise passes green — the
+failure mode `contributor spec §3.8` records, and the one that has cost this repository
+the most: a check whose own machinery is absent reports success.
+
+- The module map **has ground truth on disk**, so the set comparison names exactly which
+  module lost its row, and the floor need only catch the parser finding *nothing*. A
+  count-based floor was tried first and rejected in the same review: at six rows of seven
+  it front-ran the comparison and blamed the table's markup for what was a deleted row.
+- The private helpers **have no ground truth** — nothing enumerates the names a page ought
+  to mention — so there the floor is the whole defence, and it is a count.
+
+Each floor is exercised by a test that feeds the parser input it must find nothing in, and
+both failure directions of the map gate were run and seen to fail before the page landed.
 
 **What these gates do not hold**, recorded rather than implied:
 

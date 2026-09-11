@@ -1,0 +1,22 @@
+The developer guide gains a tour of the plotting package: a map of
+``tephpy.plotting`` for someone about to change it (:issue:`66`).
+
+The package was documented at both extremes and not in the middle. Its
+docstrings each describe their own step and cite the section deciding it, and
+the design specification specifies the design at length; what no file owned was
+the order things happen in and who owns what. Edge ownership reaches
+``_sync_edge_labels`` from two sites and ``_relayout_side_panels`` from three,
+and no single docstring was the place to say so.
+
+The page maps rather than accounts. Every mechanism stays stated once in the
+tree and is cited rather than restated, so the specification keeps every word
+and the page stays free to follow the code; where the two disagree the
+specification is right and the page is the defect, which the page itself says.
+Citations name subsections rather than the section containing them, and run
+outward only — nothing cites the page.
+
+Two gates hold its names to the package: the module map must be complete in both
+directions, and every symbol the page names must resolve by import. Each asserts
+a floor on what its parser found first, because a parser matching nothing would
+otherwise pass green. Whether a paragraph is still true is not gated, and
+``tour spec §5`` records that rather than leaving it implied. (:user:`claude`)

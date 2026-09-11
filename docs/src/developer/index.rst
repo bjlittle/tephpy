@@ -6,6 +6,7 @@ Developer Guide
 
     contributing
     testing
+    plotting
     changelog
     docs-style
     packaging
