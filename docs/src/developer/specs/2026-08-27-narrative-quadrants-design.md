@@ -285,6 +285,32 @@ getting-started section takes it too, so `tests/test_docs_landing_pages.py` gove
 sections rather than three — which is why its constant names the audience rather than
 Diátaxis.
 
+*Amended 2026-09-11.* **Five sections, and the set is now decided rather than deferred.**
+`developer/` takes the shape; the reference quadrant does not. Both were held open — here
+for the reference quadrant, and in `contributor spec §7` for the developer guide — on the
+question of whether the argument above extends to them. Examined, it extends to neither,
+because **the drift this section was written about is absent from both**: the developer
+guide's landing page carried no prose at all, a title over a bare toctree, and the
+reference quadrant's introduction names two of its six pages as editorial guidance rather
+than enumerating them.
+
+What decides it is instead the job a row does — letting a reader tell a page from its
+siblings. In the developer guide that job is real and was being done by nothing:
+`changelog` there is how to write a news fragment while `changelog` in the reference
+quadrant is the release history, and a bare toctree of eight filenames distinguishes
+neither. In the reference quadrant the entries are reached by name, so there is nothing to
+choose between, and six contrastive sentences would be written for a decision no reader
+makes. The introduction it already carries does the guiding that is genuinely wanted.
+
+Two consequences follow for the gate. Its constant is **`TABLE_SECTIONS`**, not
+`USER_SECTIONS`: the developer guide is not a user section, and two other constants of that
+name — the glossary sweep's and the snippet gate's — deliberately exclude it, so three
+identical-looking tuples that had agreed until now would otherwise invite an edit
+harmonising them into two gates this section never asked for. And a **subsection's own
+landing page counts as one entry of its parent**: from `developer/` the specification
+collection is a single destination, however many documents sit in it. That rule was written
+for flat quadrants, where it never arose.
+
 The **introduction** says what the quadrant is for, who it assumes the reader is, what it
 guarantees of every page in it, and where to go if this is the wrong quadrant. It says
 nothing about an individual page. It keeps the job {pull}`210` gave it rather than taking a
@@ -414,14 +440,13 @@ Tagged per docs spec §3.5.
   paragraph rather than a redesign. *Shipped 2026-08-29* ({pull}`210`): the sample is in
   `tephpy.samples` and in the wheel, with its attribution, so the question is now live
   rather than hypothetical.
-- **Open** (§3.9) — whether the reference quadrant's landing page takes the table of §3.9
-  too. Its entries are reached by name rather than chosen between, so the argument §3.9
-  makes does not carry over unexamined. *Trigger fired 2026-09-08 without settling it:*
-  {issue}`66`'s developer half was taken up, and `contributor spec §7` deferred the matching
-  question for `developer/` deliberately — the section's content was still maturing, and a
-  table fixes a one-line description of each page before the page has settled. That bullet
-  and this one are one decision about which sections the shape governs, and it is still
-  unmade.
+- **Closed** (2026-09-11, §3.9) — whether the reference quadrant's landing page takes the
+  table of §3.9 too. It does not, and `developer/` does, which settles this bullet and
+  `contributor spec §7`'s together as the one decision they always were. Its entries are
+  reached by name rather than chosen between, so a table would carry six contrastive
+  sentences for a choice no reader makes; and the drift §3.9 was written about is absent
+  here, the introduction naming two of the six pages as guidance rather than enumerating
+  them. §3.9 carries the reasoning and the two consequences for the gate.
 - **Closed** (2026-09-11, {issue}`66`) — the developer and contributor guide. This plan
   closed the user half of that issue and left the developer half open, which was the honest
   split: the two share an issue and not an audience. The developer half followed as

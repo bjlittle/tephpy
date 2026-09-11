@@ -402,15 +402,17 @@ Tagged per docs spec §3.5.
 - **Open** — whether `packaging.rst` should cross-reference §3.7's task graph now that the
   two pages sit beside each other. It names `pixi run manifest` today without saying where
   the task table is documented.
-- **Deferred 2026-09-08, deliberately** — whether `developer/` takes a landing table in
-  `narrative spec §3.9`'s shape. Declined for now because the section's content is still
-  maturing and a table fixes a one-line description of each page before the page has
-  settled: the bias while a section grows is toward simple and clean. Revisit once the
-  section has stopped moving, alongside `narrative spec §7`'s open question about the
-  reference quadrant — the two are one decision about which sections the shape governs,
-  and answering them separately is how a rule ends up stated over a set nobody chose.
-  *Still moving as of 2026-09-11:* `tour spec` added a fifth page, so the four this bullet
-  was written about are now five.
+- **Closed** (2026-09-11, `narrative spec §3.9`) — whether `developer/` takes a landing
+  table in that section's shape. It does. Declined here on 2026-09-08 because the section's
+  content was still maturing and a table fixes a one-line description of each page before
+  the page has settled; taken up with `narrative spec §7`'s question about the reference
+  quadrant, as this bullet asked, since the two were one decision about which sections the
+  shape governs. What changed is not that the section stopped moving — `tour spec` added a
+  fifth page after this was written, and `codecraft` above may add a sixth — but that the
+  maturing argument turned out to be the weaker one: a description of `testing.rst` is no
+  worse for `codecraft` arriving later, the gate makes the row mandatory when it does, and
+  in the meantime a reader met eight filenames and no sentence. The reference quadrant does
+  not take the shape; `narrative spec §3.9` carries both halves.
 
 (contributor-spec-8)=
 ## 8. References

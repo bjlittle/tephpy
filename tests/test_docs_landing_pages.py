@@ -14,12 +14,22 @@ import pytest
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
 
-#: The sections whose landing page carries a table. The reference quadrant is out:
-#: its entries are reached by name rather than chosen between, and narrative spec §7
-#: records the question rather than answering it here. Named for the audience
-#: rather than for Diátaxis, because the getting-started section takes the same
-#: landing shape without being a quadrant (start spec §3.1).
-USER_SECTIONS = ("start", "tutorials", "howtos", "explanation")
+#: The sections whose landing page carries a table (narrative spec §3.9).
+#:
+#: **Not the same set as the two other ``TABLE_SECTIONS`` constants**, which is why
+#: this one is not called that. ``check_glossary_links.py`` names the sections the
+#: glossary serves and ``tests/test_docs_snippets.py`` those whose python is
+#: executed; both are audience questions and neither governs `developer`, whose
+#: pages are written for a contributor and whose code blocks are illustrative
+#: (:issue:`302`). The three held the same four values until 2026-09-11, and a
+#: later edit harmonising them on that appearance would put the developer guide
+#: inside two gates that deliberately exclude it.
+#:
+#: The reference quadrant is out, decided rather than deferred: its entries are
+#: reached by name rather than chosen between, its introduction already guides a
+#: reader to the two pages that need it, and it carries no prose list tracking a
+#: directory -- which is the defect narrative spec §3.9 exists to close.
+TABLE_SECTIONS = ("start", "tutorials", "howtos", "explanation", "developer")
 
 #: A ``:doc:`` role, with the explicit target that wins over the display text when
 #: one is written -- the same two-part shape ``check_glossary_links.py`` reads a
@@ -103,8 +113,9 @@ def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
     """Return every page in a quadrant, as a landing table would name it.
 
     A `:doc:` target on a landing page is relative to the quadrant, so that is
-    what these are made relative to. An ``index.rst`` at any depth is a landing
-    page rather than an entry in one, and is left out.
+    what these are made relative to. The section's own ``index.rst`` is a landing
+    page rather than an entry in one and is left out; a subsection's is both, and
+    counts as one entry of its parent.
 
     Parameters
     ----------
@@ -120,11 +131,21 @@ def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
 
     """
     root = docs / quadrant
-    return sorted(
+    own = (
         path.relative_to(root).with_suffix("").as_posix()
         for path in root.rglob("*.rst")
         if path.name != "index.rst"
     )
+    # A subsection's own landing page is one entry in its parent's list: from
+    # `developer/` the specification collection is a single destination, however
+    # many documents sit inside it. Excluded only as the landing page of the
+    # section it heads (narrative spec §3.9).
+    nested = (
+        f"{sub.name}/index"
+        for sub in root.iterdir()
+        if sub.is_dir() and (sub / "index.rst").is_file()
+    )
+    return sorted([*own, *nested])
 
 
 def table_targets(source: str) -> list[str | None]:
@@ -242,11 +263,11 @@ def test_a_second_toctree_fails_rather_than_being_half_read():
 
 def test_every_section_this_gate_governs_is_on_disk():
     """A gate that finds nothing passes by never having looked."""
-    for quadrant in USER_SECTIONS:
+    for quadrant in TABLE_SECTIONS:
         assert (DOCS / quadrant).is_dir(), f"{quadrant} is missing"
 
 
-@pytest.mark.parametrize("quadrant", USER_SECTIONS)
+@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
 def test_the_table_and_the_toctree_are_one_ordered_list(quadrant):
     """Narrative spec §3.9: the visible index and the navigation are one list.
 
@@ -259,7 +280,7 @@ def test_the_table_and_the_toctree_are_one_ordered_list(quadrant):
     assert table_targets(source) == toctree_entries(source)
 
 
-@pytest.mark.parametrize("quadrant", USER_SECTIONS)
+@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
 def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
     for target in table_targets(landing(quadrant)):
         assert target is not None, (
@@ -270,7 +291,7 @@ def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
         )
 
 
-@pytest.mark.parametrize("quadrant", USER_SECTIONS)
+@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
 def test_the_table_lists_every_page_in_the_quadrant(quadrant):
     """The table is the quadrant's index, so it indexes the quadrant.
 
@@ -285,7 +306,7 @@ def test_the_table_lists_every_page_in_the_quadrant(quadrant):
     assert listed == pages(quadrant)
 
 
-@pytest.mark.parametrize("quadrant", USER_SECTIONS)
+@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
 def test_the_toctree_is_hidden(quadrant):
     """Narrative spec §3.9: the table is the visible index, and it is the only one.
 
