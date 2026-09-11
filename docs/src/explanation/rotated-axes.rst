@@ -1,4 +1,4 @@
-:tags: diagram, isopleths, projection
+:tags: diagram, isopleths, labels, projection
 
 .. _explanation-rotated-axes:
 
@@ -128,6 +128,69 @@ It is also why a tephigram cannot be read like a graph with two rulers. The
 diagram's own extent is stated in pressure and temperature, because those are what
 a user thinks in, and :meth:`ax.set_extent(...)
 <tephpy.plotting.axes.TephigramAxes.set_extent>` converts.
+
+Where the Scales Live
+---------------------
+
+A fresh tephigram has no scales around its edges. Every family labels its own
+lines, inline, where there is room for a number — so the values are on the
+diagram rather than around it, and nothing has claimed an edge. Naming an edge
+*moves* a family's labels there, which is what turns that edge into a scale.
+
+Four edges, five families, so they cannot all have one. But the binding
+constraint is not that arithmetic. **A family can only label an edge its members
+actually reach**, and how many reach is a property of the geometry this page has
+been describing. Measured at the default view:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 34 22 44
+
+    * - Family
+      - Members in view
+      - Reaching an edge
+    * - isotherms
+      - 19
+      - all 19
+    * - isobars
+      - 19
+      - all 19
+    * - dry adiabats
+      - 35
+      - 22
+    * - moist adiabats
+      - 21
+      - 10, and never more than 4 on any one edge
+    * - humidity mixing-ratio lines
+      - 8
+      - all 8
+
+Three things follow, and each explains something that would otherwise look
+arbitrary.
+
+**Some families make a complete scale and others cannot.** All eight
+:term:`humidity mixing-ratio <humidity mixing ratio>` lines cross the top edge,
+so that one edge carries the whole family — a scale with nothing missing.
+:term:`Moist adiabats <moist adiabat>` are the opposite case: they are
+truncated curves that mostly begin and end inside the view, so no edge sees more
+than a handful, and no edge can be made to carry them. That is not a policy about
+moist adiabats. It is what a curve that stops in mid-air does to an axis.
+
+**A family usually needs two edges rather than one.** The isotherms reach an edge
+19 times out of 19, but not the *same* edge: the warm ones leave through the
+bottom and the cold ones through the left. A placement is therefore a pair of
+edges more often than a single one, and members that reach neither keep their
+inline label rather than being dropped. A scale that silently omitted its
+outliers would be worse than no scale.
+
+**The counts belong to the view, not to the family.** Zoom in and a curve that
+crossed an edge no longer reaches it; pan, and one that did not now does. Every
+number in the table above changes with the extent, which is why the crossings are
+worked out afresh as you move around the diagram rather than fixed once when it
+is drawn. The counts and the pairings they recommend are recorded in
+spec §3.2.7.
+
+:ref:`howto-label-and-compose` is the page that claims an edge and retitles it.
 
 What the Printed Chart Adds
 ---------------------------
