@@ -1,0 +1,19 @@
+*Why the Axes Are Rotated* gains a section on where a tephigram's scales live,
+closing the last item of :issue:`66`.
+
+A fresh diagram carries no scales around its edges: every family labels its own
+lines inline, and naming an edge is what turns that edge into a scale. Which
+family can do that for which edge is a property of the geometry rather than a
+preference — a family can only label an edge its members actually reach, and the
+measured crossings make three otherwise-arbitrary things follow. Some families
+carry a whole scale from one edge while moist adiabats can carry none, being
+truncated curves that begin and end inside the view; a family usually needs two
+edges, since the isotherms reaching an edge do not all reach the same one; and
+every count belongs to the view rather than the family, which is why the
+crossings are worked out afresh as the reader moves around the diagram.
+
+A section rather than a third page: the narrative quadrants design pairs each
+explanation page with the tutorial raising its question, and no tutorial raises
+this one. The content is continuous with the page it joins, moist adiabats being
+unable to carry an edge for exactly the reason the preceding sections give.
+(:user:`claude`)
