@@ -107,6 +107,10 @@ geovista does not document and which tephpy's schedule-driven machinery makes un
 | `packaging.rst` | *(exists)* what tephpy runs on and what it ships |
 | `specs/index.rst` | *(exists)* the design record |
 
+*Eight since 2026-09-11:* `tour spec §3.1` adds `plotting.rst`, a map of the `plotting`
+package, third in the toctree. The table above is what this specification's own change
+added and is left as that record.
+
 **No landing table, deliberately and for now.** `narrative spec §3.9`'s two-column table
 plus hidden toctree governs the four `USER_SECTIONS` — measured: `start`, `tutorials`,
 `howtos`, `explanation` in `tests/test_docs_landing_pages.py`, and the same four in
@@ -402,9 +406,11 @@ Tagged per docs spec §3.5.
   `narrative spec §3.9`'s shape. Declined for now because the section's content is still
   maturing and a table fixes a one-line description of each page before the page has
   settled: the bias while a section grows is toward simple and clean. Revisit once the
-  four pages have stopped moving, alongside `narrative spec §7`'s open question about the
+  section has stopped moving, alongside `narrative spec §7`'s open question about the
   reference quadrant — the two are one decision about which sections the shape governs,
   and answering them separately is how a rule ends up stated over a set nobody chose.
+  *Still moving as of 2026-09-11:* `tour spec` added a fifth page, so the four this bullet
+  was written about are now five.
 
 (contributor-spec-8)=
 ## 8. References

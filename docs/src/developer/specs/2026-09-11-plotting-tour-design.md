@@ -301,7 +301,7 @@ Out, each with its thread:
 | not doing | where it lives |
 |---|---|
 | relocating `spec §3.2`'s "how it works now" prose | §7, filed as {issue}`299` |
-| the explanation-quadrant page — what a tephigram *is* | {issue}`66`'s high layer |
+| the explanation-quadrant account — what a tephigram *is* | {issue}`66`'s high layer, closed 2026-09-11 by a section of *Why the Axes Are Rotated* |
 | any diagram of the spine | {issue}`291` — the mermaid read-time network cost is undecided |
 | a `developer/` landing table | `contributor spec §7` |
 | docstring changes | none needed; the low layer is in good repair (§1) |
@@ -327,7 +327,7 @@ Out, each with its thread:
 ## 8. References
 
 - {issue}`66` — populate the Diátaxis quadrants and build out a developer guide; this is
-  its mid layer
+  its mid layer, and the issue closed on 2026-09-11 once its high layer landed
 - {issue}`291` — mermaid, and the read-time network cost that defers any diagram here
 - {issue}`299` — the relocation this specification declined, and what to measure first
 - `spec §3.2.1`–`spec §3.2.7` — the package's specification, and this page's citation targets

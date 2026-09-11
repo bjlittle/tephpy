@@ -1,0 +1,18 @@
+The design specifications are swept for open items that have since resolved.
+
+Ten items across seven specifications described work that has landed, and one
+status line described its implementation as pending. Each is corrected in place,
+the specifications being living documents: the status word changes, the original
+reasoning stays, and a dated note records what actually happened. Among them,
+``check-manifest`` was carried as open in one specification and deferred in
+another when it had been adopted in :issue:`77`; the review question
+:issue:`206` asked for exists as the fourth of docs-style's *Reviewing Claims*;
+and the panel-teardown rule one specification recorded as stated nowhere is
+stated in ``spec §3.2.7``, by the very fix that bullet named.
+
+Every closed reference was checked against the tree rather than against the
+issue state alone, an issue being able to close without the thing it asked for
+existing. Two triggers had fired without being read and are recorded rather than
+decided — the landing-table question two specifications hold jointly, and the
+tagging of a developer section whose rewrite has now happened — and two stale
+counts of that section's pages are corrected. (:user:`claude`)

@@ -349,11 +349,13 @@ work might have argued for is not warranted.
 (visibility-spec-8)=
 ## 8. Open items
 
-- **Open** ({issue}`66`) — the developer and contributor guide. This specification closes
-  the user-facing half of the how-to quadrant's coverage gap and leaves that untouched.
-- **Open** ({issue}`206`) — prose that names a function makes an unchecked claim about it.
-  Every page here names functions heavily, so the review question that issue asks for would
-  apply to them; it is not a gate on this work.
+- **Closed** (2026-09-11, {issue}`66`) — the developer and contributor guide. This
+  specification closed the user-facing half of the how-to quadrant's coverage gap and left
+  that untouched; it was taken up separately as `contributor spec` and `tour spec`.
+- **Closed** (2026-09-01, {issue}`206`) — prose that names a function makes an unchecked
+  claim about it. Every page here names functions heavily, and the review question that
+  issue asked for now exists: *Does it say how, and did you read that?*, the fourth of
+  `docs-style.rst`'s *Reviewing Claims*. It remains a review question rather than a gate.
 
 (visibility-spec-9)=
 ## 9. References
