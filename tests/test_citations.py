@@ -282,7 +282,8 @@ def _container_citations() -> list[str]:
 #: Citations naming a section that another anchor subdivides, by file and
 #: anchor (`anchor spec §7`). Recorded 2026-09-10 over six of the twenty-three
 #: container anchors: `spec-3-2`, the plotting section subdivided by
-#: :pull:`295`, 14; `configfile-spec-5`, two subsections, 14 (:issue:`296`);
+#: :pull:`295`, 13 — 14 until :issue:`294` gave the side-panel teardown rule a
+#: subsection to name; `configfile-spec-5`, two subsections, 14 (:issue:`296`);
 #: `configfile-spec-3`, six subsections, 5; and one each on `spec-3`,
 #: `logo-spec-3` and `topics-spec-6`, all three grammar specimens in the tests
 #: and the extensions rather than references to those sections.
@@ -303,7 +304,7 @@ CONTAINER_CITATIONS = {
     ("src/tephpy/_configfile.py", "configfile-spec-5"): 8,
     ("src/tephpy/_constants.py", "configfile-spec-3"): 2,
     ("src/tephpy/exceptions.py", "configfile-spec-5"): 3,
-    ("src/tephpy/plotting/axes.py", "spec-3-2"): 3,
+    ("src/tephpy/plotting/axes.py", "spec-3-2"): 2,
     ("src/tephpy/plotting/isopleths.py", "configfile-spec-3"): 1,
     ("tests/plotting/test_axes.py", "spec-3-2"): 1,
     ("tests/plotting/test_isopleths.py", "spec-3-2"): 1,

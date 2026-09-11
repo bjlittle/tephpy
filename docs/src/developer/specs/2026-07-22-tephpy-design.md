@@ -572,6 +572,18 @@ combination or document a collision, the relayout helper substitutes a wider
 `_constants` pad when the right edge carries labels — one lookup in a helper that
 already rebuilds the stack on every panel call, and no rule for the user to remember.
 
+**Who removes the panels depends on who called `clear`.** They are the diagram's to
+remove on a direct `ax.clear()`, and the figure's on a figure clear — where the
+diagram's teardown stands down rather than racing it. The reason is matplotlib's:
+`Figure.clear` clears and deletes each entry of a *snapshot* of `figure.axes`, so an
+axes that removes a sibling from inside its own `clear` orphans an entry the figure is
+still about to visit, and the panel is cleared and deleted with no figure — raising deep
+in matplotlib rather than anywhere the caller can read. The two cases are told apart by
+the calling frame, because nothing else distinguishes them: the figure's state is
+identical either way. The figure that matters is the *enclosing* one and not the root of
+the tree, which is what makes `get_figure(root=...)` load-bearing here rather than
+merely current — §10 item 16 records the matplotlib floor that keyword forced.
+
 (spec-3-3)=
 ### 3.3 `calc`
 

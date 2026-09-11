@@ -309,7 +309,7 @@ def test_clear_removes_the_gutter_and_restores_the_slot(tephigram_axes):
 
 
 def test_figure_clear_with_the_gutter_and_a_panel(tephigram_axes):
-    """Both panels go with the figure's own teardown, in either order."""
+    """Both panels go with the figure's own teardown, either order (spec §3.2.7)."""
     fig = tephigram_axes.figure
     tephigram_axes.plot_barbs(_sounding())
     tephigram_axes.annotate_indices(_indices())

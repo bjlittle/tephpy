@@ -1136,7 +1136,7 @@ def test_clear_removes_the_indices_panel(tephigram_axes):
 
 
 def test_figure_clear_with_a_side_panel(tephigram_axes):
-    """The figure deletes the panel itself: the diagram must not race it."""
+    """The figure deletes the panel; the diagram must not race it (spec §3.2.7)."""
     fig = tephigram_axes.figure
     tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
     fig.canvas.draw()
@@ -1147,7 +1147,7 @@ def test_figure_clear_with_a_side_panel(tephigram_axes):
 
 
 def test_figure_clear_is_reusable_after_a_side_panel(tephigram_axes):
-    """A cleared figure takes a fresh diagram and panel, and draws."""
+    """A cleared figure takes a fresh diagram and panel, and draws (spec §3.2.7)."""
     fig = tephigram_axes.figure
     tephigram_axes.annotate_indices(calc.indices(_capped_sounding()))
     fig.canvas.draw()
@@ -1160,7 +1160,7 @@ def test_figure_clear_is_reusable_after_a_side_panel(tephigram_axes):
 
 
 def test_subfigure_clear_with_a_side_panel():
-    """The clearing figure is the *enclosing* one, not the root of the tree."""
+    """The clearing figure is the *enclosing* one, not the root (spec §3.2.7)."""
     fig = plt.figure()
     subfig = fig.subfigures()
     axes = subfig.add_subplot(projection="tephigram")

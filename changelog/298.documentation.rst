@@ -1,0 +1,15 @@
+The design specification now states who removes the side panels when a diagram
+is cleared, and the code that implements the rule cites it. The panels are the
+diagram's to remove on a direct ``ax.clear()`` and the figure's on a figure
+clear, where the diagram's teardown stands down rather than racing it —
+``Figure.clear`` deletes each entry of a *snapshot* of ``figure.axes``, so an
+axes removing a sibling from inside its own ``clear`` orphans an entry the
+figure is still about to visit.
+
+The rule was implemented, tested four ways, and written down nowhere
+(:issue:`294`). Its one reference pointed at the whole ``plotting`` section,
+which does not state it — a citation that resolves without meaning, and the kind
+the section's own re-anchoring (:issue:`293`) was unable to fix, since it moved
+citations rather than writing specification. The four tests that assert the rule
+now cite it too, an absence being how it went missing in the first place.
+(:user:`claude`)
