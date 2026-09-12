@@ -1,0 +1,22 @@
+Added :ref:`Cutting a Release <developer-release>`, the sequence a release
+happens in — what to check between the steps, the two actions that cannot be
+taken back, and the one-time setup the first ``v*`` tag needs. The steps existed
+only as a single prose bullet in spec §10, which says what release execution
+*covers* rather than what order to do it in; a first release is a run of one-shot
+actions, and one of them consumes a PyPI version number forever.
+
+``pixi run changelog`` assembles the news fragments, taking the version the tag
+will carry. It was the one thing the release sequence needed that was not a task,
+and a raw command in a runbook is the line no gate holds to anything — it is now
+covered by the existing task gates like every other.
+
+The page's task table is read by the same gate that reads ``contributing.rst``'s,
+generalised over both: a runbook naming a task that has since been renamed fails
+at the moment its reader can least afford it.
+
+The sequence names the ``skip-changelog`` label the release pull request needs
+(:pull:`315` review). That pull request deletes every news fragment into
+``CHANGELOG.rst``, so ``ci-changelog`` finds none named for it and, because
+``dorny/paths-filter`` reports deletions like any other change, fails on the
+deleted paths rather than reporting a missing fragment. Nothing applies the label
+for a human's pull request. (:user:`claude`)
