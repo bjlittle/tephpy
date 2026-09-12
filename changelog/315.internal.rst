@@ -12,4 +12,11 @@ covered by the existing task gates like every other.
 
 The page's task table is read by the same gate that reads ``contributing.rst``'s,
 generalised over both: a runbook naming a task that has since been renamed fails
-at the moment its reader can least afford it. (:user:`claude`)
+at the moment its reader can least afford it.
+
+The sequence names the ``skip-changelog`` label the release pull request needs
+(:pull:`315` review). That pull request deletes every news fragment into
+``CHANGELOG.rst``, so ``ci-changelog`` finds none named for it and, because
+``dorny/paths-filter`` reports deletions like any other change, fails on the
+deleted paths rather than reporting a missing fragment. Nothing applies the label
+for a human's pull request. (:user:`claude`)

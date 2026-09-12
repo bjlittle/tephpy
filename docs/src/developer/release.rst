@@ -59,8 +59,21 @@ The Sequence
    it runs only when that file changes — so this step is the only thing that
    will ever check it.
 
-3. **Open a pull request with both**, and let it go green. This is the last
-   point at which anything is reversible for free.
+3. **Open a pull request with both, and label it** ``skip-changelog``. Then let
+   it go green — this is the last point at which anything is reversible for
+   free.
+
+   The label is not optional here, and this is the one pull request where it is
+   not a shortcut. ``ci-changelog`` asks every pull request for a fragment named
+   after its own number, and this one has *deleted* every fragment there was:
+   they are not missing, they have been consumed into ``CHANGELOG.rst`` in the
+   same diff. Writing a fragment first does not help, because the gate reads the
+   pull request's net change and step 1 removes it again.
+
+   Nothing applies the label for you — ``ci-label`` adds it only for
+   ``dependabot`` and ``pre-commit.ci`` — and without it the gate fails on the
+   deleted paths rather than reporting a missing fragment, so the error will not
+   tell you any of this.
 
 4. **Merge it, and wait for ``main``.** ``ci-wheels`` runs again on the merge
    commit: ``manifest`` gates ``MANIFEST.in`` against what the sdist carries,
