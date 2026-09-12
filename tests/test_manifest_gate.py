@@ -36,7 +36,7 @@ PUBLISHER = "pypa/gh-action-pypi-publish"
 
 # `MANIFEST.in` prunes `.github`, so the workflow this module reads is absent
 # wherever the repository is not checked out. The guard asks after the workflow's
-# directory rather than the index: nothing here reads history.
+# directory rather than the repository: nothing here reads history.
 pytestmark = pytest.mark.skipif(
     not WORKFLOW.parent.is_dir(), reason="not a checkout of the repository"
 )

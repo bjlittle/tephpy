@@ -18,7 +18,7 @@ it report confidently on something no job runs.
 
 So this is one implementation with one set of tests -- `tests/test_pixi_tasks.py`
 -- rather than a copy per workflow. Nothing here skips and nothing here reads the
-index: the callers guard themselves, which is what keeps the detector of
+repository: the callers guard themselves, which is what keeps the detector of
 `tests/test_floors.py` reading every guard in the module it is looking at.
 """
 
