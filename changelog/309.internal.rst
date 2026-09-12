@@ -1,0 +1,14 @@
+Replaced the detector behind floors spec §3.4's quoted count of index-guarded
+tests with a live one (:issue:`273`). The old gate walked the test sources for
+four spellings of a guard and said in its own docstring that a guard reached
+through a helper imported from another module was a fifth it could not see —
+which is precisely the shape the consolidation of :issue:`273` creates, and it
+fails *open*: the guarded test still skips, the count silently drops, and the
+prose gets edited down to match a suite it no longer describes. The gate now
+runs the candidate modules in two copies of the committed tree, one carrying a
+repository and one not, and takes the difference of what pytest reports
+skipped, so neither a new spelling of the guard nor a new wording of the skip
+reason escapes it. Measured against a test reached through an imported helper:
+the old detector does not see it, the new gate counts it. The figure is
+unchanged at thirty-seven, and ``_needs_the_index`` and its four-spelling
+machinery are gone. (:user:`claude`)

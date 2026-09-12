@@ -526,6 +526,20 @@ waiting a week for the tier to ({pull}`164`). It separates a build of the path f
 of it — a test naming `pyproject.toml` in a message or a comment is not reading it — since a
 gate that cannot tell those apart earns a relaxation the first time it is wrong.
 
+The figure §3.4 quotes is held the other way about — by running the suite rather than by
+reading it. An earlier gate walked the test sources for the spellings a guard is written in,
+and recorded in its own docstring that one reached through a helper imported from another
+module was a spelling it could not see. Consolidating the readers this suite shares
+({issue}`273`) is that spelling exactly, so the count would have dropped in silence and the
+prose been edited down to match a suite it no longer described — a skip not being a failure,
+the same way the figure first went stale ({pull}`167`). The gate now runs the candidate
+modules in two copies of the committed tree, one carrying a repository and one not, and takes
+the difference of what pytest reports skipped. That difference is the set the repository
+decides, whatever each skip gives as its reason, so neither a new spelling of the guard nor a
+new wording of the reason escapes it. Candidates are the modules whose source names the index,
+which is what keeps the pair to seconds rather than to minutes, and is the one route left by
+which a guard could still go uncounted.
+
 The route of §3.4 is named in both scripts — the diagnosis records it, the issue composer
 branches its prose on it — and the two lists are held together by a gate, because a route added
 to one and unhandled by the other does not go missing from the issue body. It takes whichever
