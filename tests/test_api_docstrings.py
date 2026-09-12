@@ -115,6 +115,26 @@ def test_target_version_refuses_a_shallow_checkout(gate, monkeypatch):
     assert gate.target_version() is None
 
 
+def test_target_version_refuses_a_version_that_was_never_derived(gate, monkeypatch):
+    """``0.0`` is not a version; it is the report that there was none to find.
+
+    ``vcs_versioning`` returns it where it has a commit and no tag to measure
+    that commit from -- a tree exported by ``git archive`` from a repository
+    carrying no tag, whose ``.git_archival.txt`` then holds a ``node`` and an
+    empty ``describe-name``. Taken as an answer it is a wrong-low target, and
+    the gate tells a contributor to stamp every published object
+    ``.. versionadded:: 0.0`` (:issue:`310`).
+
+    Not caught by the shallow guard above, deliberately: a shallow *clone* is a
+    repository and answers `git rev-parse`, while a tree with no repository at
+    all makes that command fail, and a failed command reads there as "not
+    shallow". What is actually being asked is whether a version was derived, so
+    that is what is asked.
+    """
+    monkeypatch.setattr(gate, "_scm_version", lambda: "0.0")
+    assert gate.target_version() is None
+
+
 def test_target_version_uses_the_project_version_scheme(gate):
     """The schemes come from ``pyproject.toml``, not from a copy of them.
 
@@ -123,7 +143,21 @@ def test_target_version_uses_the_project_version_scheme(gate):
     ``semver-pep440-release-branch`` in the gate would work until someone
     changed it
     in one place, so the gate reads the file the build reads.
+
+    Guarded on a version having been derived rather than on a repository being
+    there, which are not the same condition and part company in the case
+    :issue:`310` is about. A tree exported by ``git archive`` before the first
+    tag carries neither, and skips. One exported *after* a tag carries no
+    repository and derives ``0.1.0`` correctly from ``.git_archival.txt`` --
+    measured both ways -- so a guard naming the repository would stand this
+    assertion down in the one tree that could still make it.
+
+    The two other tests over the real corpus need no guard at all: they go on
+    checking that every published object carries a directive, which is what the
+    gate falls back to wherever the target is unknown.
     """
+    if gate.target_version() is None:
+        pytest.skip("no version could be derived to check the scheme against")
     assert gate.target_version() == "0.1.0"
 
 
