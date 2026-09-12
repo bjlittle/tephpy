@@ -843,6 +843,59 @@ def _skipped(root: Path, modules: list[str], report: Path) -> set[str]:
     }
 
 
+#: The tests that stand down even where there is a repository, and so cannot be
+#: read by the difference below: whatever a guard on the index would do to them,
+#: they were skipped already. That is the blind spot of comparing two runs
+#: (:pull:`309` review), and naming its members is what stops it growing in
+#: silence -- a test arriving here fails the equality below until someone has
+#: said why, and `_carries_no_guard` then holds it to carrying no index guard for
+#: the difference to have missed.
+#:
+#: One member, and it is nothing to do with the index: the enumerated API surface
+#: is compared against a real documentation build, which neither copy has.
+MASKED = frozenset(
+    {
+        "tests.test_docs_api_inventory::test_the_enumerated_surface_is_the_published_surface",
+    }
+)
+
+
+def _carries_no_guard(node: str) -> None:
+    """Fail if the test named by ``node`` mentions the index at all.
+
+    Read textually and over the decorators as well as the body, so it errs
+    toward saying yes: what it protects is a test the difference cannot see, and
+    a false positive there costs a sentence of explanation while a false negative
+    costs the count. It asks only whether the index is *named*, the four-spelling
+    reader this module used to carry having been retired for being a syntax that
+    a new spelling escapes.
+
+    Parameters
+    ----------
+    node : str
+        ``<dotted module>::<test>``, as pytest reports it.
+
+    """
+    classname, _, name = node.partition("::")
+    path = REPO / (classname.replace(".", "/") + ".py")
+    assert path.is_file(), f"{node} names no module at {path}"
+    source = path.read_text(encoding="utf-8")
+    (found,) = [
+        each
+        for each in ast.walk(ast.parse(source))
+        if isinstance(each, ast.FunctionDef) and each.name == name
+    ]
+    written = "\n".join(
+        ast.get_source_segment(source, part) or ""
+        for part in [*found.decorator_list, *found.body]
+    )
+    assert ".git" not in written, (
+        f"{node} stands down whatever the index does, and names it anyway -- "
+        f"so a guard on it would go uncounted. Reachable in a run that has what "
+        f"it is missing, or the number below is wrong."
+    )
+
+
 def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # Spec §3.3 says how many of this tier's tests stand down without an index,
     # to say what a probe copied without one stops running. The number is prose
@@ -862,8 +915,16 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # repository also stands tests down for having no documentation build and no
     # `docs` feature installed, and telling those apart by their wording would be
     # a vocabulary to maintain in place of the syntax just retired. Subtracting
-    # the run that has a repository leaves exactly the tests the repository is
-    # what decides, whatever their reasons say.
+    # the run that has a repository leaves the tests the repository is what
+    # decides, whatever their reasons say.
+    #
+    # A difference reads a change of status, though, and not a guard: a test
+    # already standing down in the indexed run for some reason of its own stays
+    # skipped in both, so an index guard added to *it* moves nothing here and the
+    # number stays green (:pull:`309` review). That set is `MASKED`, it is
+    # asserted by equality so it cannot grow unremarked, and every member is held
+    # to naming no index -- which is what leaves the difference counting guards
+    # and not merely statuses.
     if os.environ.get(ORACLE):
         pytest.skip("this gate is what made the run, and does not make another")
     indexed, exported = _copies(tmp_path)
@@ -876,13 +937,29 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # terminates, each copy carrying the guard, but only after a pair of runs per
     # level and long after anyone reads the number.
     mine = inspect.currentframe().f_code.co_name
-    assert any(node.endswith(f"::{mine}") for node in within), (
+    ours = {node for node in within if node.endswith(f"::{mine}")}
+    assert ours, (
         f"{mine} did not stand down in the indexed run, so {ORACLE} did not reach it"
     )
     surprising = within - without
     assert not surprising, f"stands down only where there is a repository: {surprising}"
 
-    guarded = without - within
+    # Equality, so that a test joining the blind spot has to be accounted for
+    # rather than quietly widening it.
+    assert within - ours == MASKED, (
+        f"stands down whatever the index does: {sorted(within - ours)}; "
+        f"MASKED names {sorted(MASKED)}"
+    )
+    for node in sorted(MASKED):
+        _carries_no_guard(node)
+
+    # This gate is in `MASKED`'s position and not in `MASKED`: it stands down in
+    # the indexed run on `ORACLE`, above, so the difference cannot see it either
+    # -- and unlike the rest of that set it *does* guard on the index, `_copies`
+    # skipping where there is no repository to copy. A probe carries no `ORACLE`,
+    # reaches that guard, and stands down on it, so it is one of the tests this
+    # number is about and is added back by name.
+    guarded = (without - within) | ours
     assert guarded, (
         "nothing stands down without a repository, so this gate proves nothing"
     )

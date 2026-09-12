@@ -9,6 +9,14 @@ runs the candidate modules in two copies of the committed tree, one carrying a
 repository and one not, and takes the difference of what pytest reports
 skipped, so neither a new spelling of the guard nor a new wording of the skip
 reason escapes it. Measured against a test reached through an imported helper:
-the old detector does not see it, the new gate counts it. The figure is
-unchanged at thirty-seven, and ``_needs_the_index`` and its four-spelling
-machinery are gone. (:user:`claude`)
+the old detector does not see it, the new gate counts it.
+
+A difference reads a change of status rather than a guard, though, and the two
+part company over a test standing down in *both* runs for a reason of its own —
+a guard on the index added to that test moves nothing, and the count stays
+green (:pull:`309` review). Those tests are now named rather than inferred: the
+set is asserted by equality, so one joining it fails until someone has said why,
+and each member is held to naming no index. Correcting that raised the quoted
+figure from thirty-seven to thirty-eight, the gate itself being an
+index-guarded test that the earlier difference could not see.
+``_needs_the_index`` and its four-spelling machinery are gone. (:user:`claude`)
