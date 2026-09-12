@@ -27,7 +27,7 @@ CHANGELOG_PAGE = DEVELOPER / "changelog.rst"
 #: give the toctree -- contributor spec §3.1's four, then tour spec §3.1's tour.
 #: Each page task appends its own as it lands, so every commit is green and
 #: each keeps its own red-to-green.
-PAGES = ("contributing", "testing", "changelog", "ci", "plotting")
+PAGES = ("contributing", "testing", "changelog", "ci", "plotting", "release")
 
 
 @pytest.mark.parametrize("page", PAGES)
@@ -177,21 +177,28 @@ def test_a_named_tasks_dependency_is_excused_without_being_named_itself():
     assert not orphans, f"closure() failed to excuse {orphans} through depends-on"
 
 
-def test_the_contributing_page_names_no_task_that_does_not_exist():
-    # The Task Graph table is the one place the page asserts "this is a pixi
-    # task": each row is a literal ``    * - ``name``  `` line. Reading every
-    # double-backtick literal on the page instead over-claims: a bare-word
-    # pattern also matches ``tephpy`` with nothing to exempt it, and
+#: The pages carrying a table whose first cell claims "this is a pixi task".
+#: `release.rst` joined `contributing.rst` because a runbook naming a task that
+#: has since been renamed fails at the moment its reader can least afford it.
+TASK_TABLES = ("contributing", "release")
+
+
+@pytest.mark.parametrize("page", TASK_TABLES)
+def test_a_page_with_a_task_table_names_no_task_that_does_not_exist(page):
+    # A task table is the one place a page asserts "this is a pixi task": each
+    # row is a literal ``    * - ``name``  `` line. Reading every double-backtick
+    # literal on the page instead over-claims: a bare-word pattern also matches
+    # ``tephpy`` with nothing to exempt it, and
     # ``pixi run -e docs playwright install --with-deps chromium`` names a
     # real external command, not a task, so "``pixi run <token>``" cannot be
     # read as a claim of task existence either -- the module docstring of
     # `tests/pixi_tasks.py` makes the same point about workflow steps. The
     # table has neither problem, so this reads only it (contributor spec §3.8).
-    text = CONTRIBUTING.read_text(encoding="utf-8")
+    text = (DEVELOPER / f"{page}.rst").read_text(encoding="utf-8")
     claimed = re.findall(r"^    \* - ``([a-z][\w-]*)``$", text, flags=re.MULTILINE)
-    assert claimed, "contributing.rst's task table names no task at all"
+    assert claimed, f"{page}.rst's task table names no task at all"
     unknown = sorted(set(claimed) - set(pixi_tasks()))
-    assert not unknown, f"contributing.rst names {unknown}, which are not pixi tasks"
+    assert not unknown, f"{page}.rst names {unknown}, which are not pixi tasks"
 
 
 def changelog_types_on_page() -> set[str]:

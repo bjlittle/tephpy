@@ -530,6 +530,14 @@ description = "Build the HTML documentation and check its output"
 depends-on = ["docs", "docs-browser-test"]
 description = "Build the HTML documentation and run every gate ci-docs runs"
 
+[tool.pixi.feature.docs.tasks.changelog]
+# The version is the argument every release supplies and no task can carry, so
+# the task carries everything else: `pixi run changelog --version 0.1.0`. Here
+# rather than in `devs` because towncrier is a `docs` dependency, and the
+# assembled `CHANGELOG.rst` is a documentation page.
+cmd = "towncrier build"
+description = "Assemble the news fragments into CHANGELOG.rst (--version required)"
+
 [tool.pixi.feature.docs.tasks.docs-clean]
 cmd = "make clean"
 cwd = "docs"
