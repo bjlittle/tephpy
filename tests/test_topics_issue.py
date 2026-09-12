@@ -245,10 +245,21 @@ def test_the_workflow_parses_as_yaml_and_the_schedule_is_monthly():
     assert month == "*", "pinned to one month, rather than run every month"
 
 
-def test_the_report_job_is_scoped_to_issues_write_and_nothing_more_at_top():
+def test_the_report_job_is_scoped_to_what_it_needs_and_nothing_more_at_top():
+    # Equality, so that a scope arriving here is a widening someone has to
+    # argue for -- which is what this assertion made of `contents: read`
+    # (:issue:`286`). It stays equality for the next one.
+    #
+    # `contents` is the read `actions/checkout` performs, written out rather
+    # than left to this repository being public;
+    # `tests/test_workflow_permissions.py` holds every job that checks out to
+    # naming it, and is where the reasoning lives.
     doc = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     assert doc["permissions"] == {}
-    assert doc["jobs"]["report"]["permissions"] == {"issues": "write"}
+    assert doc["jobs"]["report"]["permissions"] == {
+        "contents": "read",
+        "issues": "write",
+    }
 
 
 def test_the_run_step_names_the_script_this_module_tests():

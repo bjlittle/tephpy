@@ -22,6 +22,11 @@ jobs:
   report:
     runs-on: ubuntu-latest
     permissions:
+      # `contents` written out rather than inherited: declaring any permission
+      # sets every other to `none`, as does the `permissions: {}` above, so a
+      # checkout reading without a grant depends on this repository staying
+      # public (:issue:`286`).
+      contents: read
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
