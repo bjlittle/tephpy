@@ -1,0 +1,19 @@
+Stopped the API docstring gate trusting a version it never derived
+(:issue:`310`). ``vcs_versioning`` reports ``0.0`` where it has a commit and no
+tag to measure it from — the state of a tree exported by ``git archive`` from a
+repository carrying no tag, whose substituted ``.git_archival.txt`` then holds a
+``node`` and an empty ``describe-name``. Taken as a target it told a contributor
+to stamp all 94 published objects ``.. versionadded:: 0.0``, and failed three
+tests on a condition that says nothing about the code.
+
+``target_version`` already promised ``None`` "where the derivation cannot be
+trusted" and asked only whether the checkout was shallow — a proxy, and one
+whose own command *fails* in a tree with no repository, where a failed command
+read as "not shallow". It now asks the question it documents.
+
+Refusing every tree without a repository would have been the same mistake once
+more: measured, a tree exported *after* a tag carries no repository and derives
+``0.1.0`` correctly from that same file. So the one test asserting the exact
+derived version is guarded on a version having been derived, not on ``.git``
+being present, and it still runs in a tagged export. Floors spec §3.4 moves from
+thirty-eight to thirty-nine with it. (:user:`claude`)

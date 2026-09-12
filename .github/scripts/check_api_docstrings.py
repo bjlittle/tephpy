@@ -57,6 +57,15 @@ if TYPE_CHECKING:
 REPO = Path(__file__).parents[2]
 PACKAGE = REPO / "src"
 
+#: What ``vcs_versioning`` reports where it has a commit and no tag to measure
+#: that commit from, rather than a version it derived. A tree exported by ``git
+#: archive`` from a repository carrying no tag is the case that reaches it: the
+#: substituted ``.git_archival.txt`` then holds a ``node`` and an empty
+#: ``describe-name``, and the parser falls through to this. Trusted as a target
+#: it tells a contributor to stamp every published object ``.. versionadded::
+#: 0.0`` (:issue:`310`).
+UNDERIVED = "0.0"
+
 #: Roles that own a docstring of their own, and so can carry a directive.
 STAMPED_ROLES = ("module", "class", "exception", "function", "method", "property")
 
@@ -105,6 +114,14 @@ def _import_package() -> types.ModuleType:
 def _is_shallow() -> bool:
     """Report whether this checkout is shallow.
 
+    A tree carrying no repository at all makes this command fail, and the
+    answer here is then ``False`` -- which is true as far as it goes, a tree
+    with no repository being no shallow clone. What such a tree cannot do is
+    *derive a version*, and that is asked where it is used rather than inferred
+    from this: a tagged ``git archive`` export has no repository and derives
+    correctly from ``.git_archival.txt``, so refusing every tree without one
+    would give up an exact target the gate can have (:issue:`310`).
+
     Returns
     -------
     bool
@@ -150,17 +167,22 @@ def _scm_version() -> str:
 def target_version() -> str | None:
     """Return the base version the next tag will carry.
 
+    Two ways the derivation cannot be trusted, and both answer ``None`` rather
+    than guess: a shallow clone, which resolves to the first release whatever
+    the real distance is, and a tree in which no version was derived at all.
+
     Returns
     -------
     str or None
-        The base version, e.g. ``"0.1.0"``; ``None`` when the checkout is
-        shallow, where the derivation cannot be trusted.
+        The base version, e.g. ``"0.1.0"``; ``None`` where no trustworthy
+        version could be derived.
     """
     if _is_shallow():
         return None
     from packaging.version import Version  # noqa: PLC0415
 
-    return Version(_scm_version()).base_version
+    version = Version(_scm_version()).base_version
+    return None if version == UNDERIVED else version
 
 
 def public_modules() -> list[str]:
