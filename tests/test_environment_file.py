@@ -19,10 +19,10 @@ and compared. A second reader of a format is a thing that can disagree with the
 first -- `tests/test_lock.py` shipped exactly that defect, its two readers having
 diverged over environment markers -- and regenerating leaves nothing to diverge.
 
-Both sides are read from the index. The conda half of `ci-floors` runs this suite
-in a checkout whose `pyproject.toml` the floors generator has rewritten, and an
-export from that manifest is a rendering of something this repository never
-committed (:issue:`155`).
+Both sides are read as this repository committed them. The conda half of
+`ci-floors` runs this suite in a checkout whose `pyproject.toml` the floors
+generator has rewritten, and an export from that manifest is a rendering of
+something this repository never committed (:issue:`155`).
 
 Recorded rather than guarded: the export's formatting belongs to pixi, so a pixi
 upgrade that changes it fails here. That is a true finding -- the committed file
@@ -39,6 +39,8 @@ import tempfile
 
 import pytest
 
+from tests.committed import committed
+
 REPO = Path(__file__).parents[1]
 
 #: The published rendering, and the environment it renders. `default` carries the
@@ -49,44 +51,6 @@ REPO = Path(__file__).parents[1]
 RENDERED = "requirements/tephpy.yml"
 ENVIRONMENT = "default"
 NAME = "tephpy"
-
-
-def committed(path: str) -> str:
-    """Return ``path`` as the repository has it committed, not as it is on disk.
-
-    Parameters
-    ----------
-    path : str
-        A repository-relative path.
-
-    Returns
-    -------
-    str
-        The file's contents at ``HEAD``.
-
-    Notes
-    -----
-    Carries its own index guard, as `tests/test_lock.py` does and for the reason
-    `tests/test_floors.py::test_every_test_that_shells_out_to_git_is_guarded_on_
-    the_index` gives: an export of the committed tree carries this suite and no
-    repository, where `git` does not skip but raises.
-
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed files from")
-    found = subprocess.run(  # noqa: S603
-        ["git", "show", f"HEAD:{path}"],  # noqa: S607
-        check=False,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    )
-    if found.returncode:
-        # The likeliest cause by far, and worth saying rather than surfacing
-        # git's exit status: the file was written and not yet committed, which is
-        # the state anyone adding or regenerating it passes through.
-        pytest.fail(f"{path} is not committed at HEAD: {found.stderr.strip()}")
-    return found.stdout
 
 
 def exported() -> str:

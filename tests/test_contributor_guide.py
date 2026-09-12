@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import subprocess
 import tomllib
 
 import pytest
 
+from tests.committed import committed_manifest
 from tests.pixi_tasks import closure
 
 REPO = Path(__file__).parents[1]
@@ -85,40 +85,12 @@ def workflow_names(directory: Path = WORKFLOWS) -> set[str]:
     return found
 
 
-def _committed_manifest() -> str:
-    """Return the manifest this repository declares, not the one it was given.
-
-    Read from the committed tree via ``git show HEAD:pyproject.toml`` -- not
-    the working tree, and not the index either (``git show :pyproject.toml``
-    would be that) -- for the reason `tests/test_floors.py` reads it the same
-    way: the conda half of `ci-floors` runs this suite in a checkout whose
-    `pyproject.toml` the floors generator has rewritten, down to one
-    environment with every feature that tier cannot reach dropped outright
-    (:issue:`155`). A working-tree read would find some of the task table
-    below missing, or none of it at all -- failing weekly, hours after the
-    push, in a job that would then file an issue about a floor. The distinction
-    from the index is live too: a contributor who stages a new task and runs
-    this suite before committing would otherwise get a pass from a manifest
-    that does not yet have it.
-
-    Guarded here rather than on the module, because history is not what the
-    rest of this module needs: the four pages are, and they are on disk
-    whether or not `.git` is.
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed manifest from")
-    return subprocess.run(
-        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    ).stdout
-
-
 def pixi_tasks() -> dict:
     """Every pixi task, keyed by name, as `pixi_tasks` helpers expect."""
-    data = tomllib.loads(_committed_manifest())
+    # Committed rather than staged: a contributor who stages a new task
+    # and runs this suite before committing would otherwise take a pass
+    # from a manifest that does not have it.
+    data = tomllib.loads(committed_manifest())
     tasks = {
         name: task
         for feature in data["tool"]["pixi"]["feature"].values()
@@ -232,7 +204,7 @@ def changelog_types_on_page() -> set[str]:
 
 def towncrier_types() -> set[str]:
     """Every towncrier fragment type the manifest configures, by directory."""
-    data = tomllib.loads(_committed_manifest())
+    data = tomllib.loads(committed_manifest())
     types = {entry["directory"] for entry in data["tool"]["towncrier"]["type"]}
     assert types, "no towncrier types found, so this gate proves nothing"
     return types

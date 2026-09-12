@@ -15,12 +15,12 @@ then leaves files the manifest no longer accounts for.
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 import tomllib
 
 import pytest
 import yaml
 
+from tests.committed import committed_manifest
 from tests.pixi_tasks import invocations
 
 REPO = Path(__file__).parents[1]
@@ -42,35 +42,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _committed_manifest():
-    """Return the manifest this repository declares, not the one it was given.
-
-    Read from the index for the reason `tests/test_floors.py` reads it there:
-    the conda half of `ci-floors` runs this suite in a checkout whose
-    `pyproject.toml` the floors generator has rewritten, down to one environment
-    with every feature that tier cannot reach dropped outright (:issue:`155`).
-    `devs` is one of the dropped ones, so a working-tree read would find no task
-    table here at all -- failing weekly, hours after the push, in a job that
-    would then file an issue about a floor.
-
-    Guarded here rather than on the module, because history is not what the rest
-    of this module needs: the workflow is, and it is on disk or the module has
-    already skipped.
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed manifest from")
-    return subprocess.run(
-        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    ).stdout
-
-
 def _tasks():
     """Return the `devs` feature's pixi tasks, by name."""
-    manifest = tomllib.loads(_committed_manifest())
+    # `devs` is one of the features the floors generator drops outright,
+    # so a working-tree read would find no task table here at all --
+    # failing weekly, in a job that would then file an issue about a floor.
+    manifest = tomllib.loads(committed_manifest())
     return manifest["tool"]["pixi"]["feature"]["devs"]["tasks"]
 
 

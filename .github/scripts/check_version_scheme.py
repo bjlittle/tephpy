@@ -71,7 +71,16 @@ def committed_manifest() -> str:
 
     The conda half of ``ci-floors`` rewrites ``pyproject.toml`` in the checkout
     it runs from, so anything asserting about the declared floors has to read
-    them from the index (:issue:`155`).
+    them as committed (:issue:`155`). ``git show HEAD:`` and not the index, which
+    would be ``git show :pyproject.toml`` and would answer out of what someone
+    had staged.
+
+    The ninth copy of this, and the one that stays (:issue:`273`). The other
+    eight became ``tests/committed.py``, which this cannot import: this directory
+    is not an importable package and an exported tree does not carry it at all,
+    so a gate here reaching into ``tests/`` would fail where that module merely
+    skips. No guard, either, for the same reason the rest of this script has
+    none -- it runs from a checkout or it does not run.
 
     Returns
     -------

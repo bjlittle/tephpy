@@ -49,7 +49,8 @@ def test_master_matches_the_bundle(name):
 
 
 @pytest.mark.skipif(
-    not (REPO / ".git").exists(), reason="no index to export the committed tree from"
+    not (REPO / ".git").exists(),
+    reason="no repository to export the committed tree from",
 )
 def test_masters_ship_in_the_wheel(tmp_path):
     """A source-tree copy nobody packaged is the failure tests cannot see.
