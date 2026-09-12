@@ -39,7 +39,7 @@ SCRIPT = REPO / ".github" / "scripts" / "floors.py"
 # *collection* there, taking the rest of the suite with it (floors spec §5).
 # The script, not `.git`, is what the guard asks after,
 # because the script is what this module needs: it reads `.github` on every test
-# and history on four, and a guard naming the index would stand the module down
+# and history on four, and a guard naming the repository would stand it down
 # wherever history is absent and the generator is right there.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
@@ -550,14 +550,14 @@ GUARDED = (
 
 
 @pytest.mark.parametrize("name", GUARDED)
-def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
-    # A module-level `skipif` keyed on the index stands the whole module down
+def test_no_module_a_probe_runs_is_guarded_on_the_repository(name):
+    # A module-level `skipif` keyed on the repository stands the whole module down
     # wherever history is absent -- silently, a skip being not a failure -- and
     # history is not what any of these modules is missing. It is `.github` that
     # an sdist prunes, so that is what the guard asks after. The narrower
     # condition still has a use: the two citation modules enumerate their corpus
     # with `git ls-files`, and mark the tests that do.
-    # The floors probes carry an index now (:issue:`154`), so this no longer
+    # The floors probes carry a repository now (:issue:`154`), so this no longer
     # holds a module up in one; it holds each guard to naming what it needs.
     source = (REPO / "tests" / name).read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -571,9 +571,9 @@ def test_no_module_a_probe_runs_is_guarded_on_the_index(name):
         )
     ]
     assert len(guards) == 1, "the module must stay guarded"
-    # `.github` starts with `.git`, so the index is matched as a whole word: a
+    # `.github` starts with `.git`, so `.git` is matched as a whole word: a
     # guard written out inline rather than through `SCRIPT` names the directory
-    # this test wants to see, and a substring test would read it as the index.
+    # this test wants to see, and a substring test would read it as the repository.
     assert not re.search(r"\.git\b", guards[0])
 
 
@@ -690,7 +690,7 @@ def _spelled(word: str) -> int:
 #: and not ``--deselect``: pytest passes over a node id it cannot resolve without
 #: saying so, so a rename would turn the deselect into two runs that never
 #: return, while a variable a rename cannot reach simply keeps working.
-ORACLE = "TEPHPY_INDEX_ORACLE"
+ORACLE = "TEPHPY_REPOSITORY_ORACLE"
 
 #: Where the number below is written down.
 SPECIFICATION = (
@@ -711,7 +711,7 @@ def _candidates() -> list[str]:
 
     The import is read for as well as ``.git`` because :issue:`273` is what makes
     the second route exist: a module that used to carry its own guard now calls
-    ``tests/committed.py`` and need never name the index again. Three do --
+    ``tests/committed.py`` and need never name ``.git`` again. Three do --
     ``test_api_docstrings``, ``test_environment_file`` and ``test_lock`` -- and a
     filter reading only ``.git`` would have dropped all three from the pair,
     taking their eight guarded tests down with them and the specification's
@@ -756,9 +756,9 @@ def _copies(tmp_path: Path) -> tuple[Path, Path]:
     """
     if not (REPO / ".git").exists():
         pytest.skip("no repository to copy the committed tree from")
-    indexed = tmp_path / "indexed"
+    cloned = tmp_path / "cloned"
     subprocess.run(  # noqa: S603
-        ["git", "clone", "--local", "--quiet", str(REPO), str(indexed)],  # noqa: S607
+        ["git", "clone", "--local", "--quiet", str(REPO), str(cloned)],  # noqa: S607
         check=True,
         capture_output=True,
         cwd=REPO,
@@ -777,9 +777,9 @@ def _copies(tmp_path: Path) -> tuple[Path, Path]:
     # The pair is the whole method, so it is asserted rather than assumed: two
     # copies that both carried a repository would report no difference at all,
     # which reads here exactly like a suite that guards on nothing.
-    assert (indexed / ".git").is_dir(), "the clone carries no repository"
+    assert (cloned / ".git").is_dir(), "the clone carries no repository"
     assert not (exported / ".git").exists(), "the export carries a repository"
-    return indexed, exported
+    return cloned, exported
 
 
 def _skipped(root: Path, modules: list[str], report: Path) -> set[str]:
@@ -846,15 +846,15 @@ def _skipped(root: Path, modules: list[str], report: Path) -> set[str]:
 
 
 #: The tests that stand down even where there is a repository, and so cannot be
-#: read by the difference below: whatever a guard on the index would do to them,
-#: they were skipped already. That is the blind spot of comparing two runs
+#: read by the difference below: whatever a guard on the repository would do to
+#: them, they were skipped already. That is the blind spot of comparing two runs
 #: (:pull:`309` review), and naming its members is what stops it growing in
 #: silence -- a test arriving here fails the equality below until someone has
-#: said why, and `_carries_no_guard` then holds it to carrying no index guard for
-#: the difference to have missed.
+#: said why, and `_carries_no_guard` then holds it to carrying no guard for the
+#: difference to have missed.
 #:
-#: One member, and it is nothing to do with the index: the enumerated API surface
-#: is compared against a real documentation build, which neither copy has.
+#: One member, and it is nothing to do with the repository: the enumerated API
+#: surface is compared against a real documentation build, which neither copy has.
 MASKED = frozenset(
     {
         "tests.test_docs_api_inventory::test_the_enumerated_surface_is_the_published_surface",
@@ -863,12 +863,12 @@ MASKED = frozenset(
 
 
 def _carries_no_guard(node: str) -> None:
-    """Fail if the test named by ``node`` mentions the index at all.
+    """Fail if the test named by ``node`` mentions ``.git`` at all.
 
     Read textually and over the decorators as well as the body, so it errs
     toward saying yes: what it protects is a test the difference cannot see, and
     a false positive there costs a sentence of explanation while a false negative
-    costs the count. It asks only whether the index is *named*, the four-spelling
+    costs the count. It asks only whether ``.git`` is *named*, the four-spelling
     reader this module used to carry having been retired for being a syntax that
     a new spelling escapes.
 
@@ -892,14 +892,14 @@ def _carries_no_guard(node: str) -> None:
         for part in [*found.decorator_list, *found.body]
     )
     assert ".git" not in written, (
-        f"{node} stands down whatever the index does, and names it anyway -- "
+        f"{node} stands down whatever the repository does, and names it anyway -- "
         f"so a guard on it would go uncounted. Reachable in a run that has what "
         f"it is missing, or the number below is wrong."
     )
 
 
-def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
-    # Spec §3.3 says how many of this tier's tests stand down without an index,
+def test_the_specification_quotes_the_number_of_repository_guarded_tests(tmp_path):
+    # Spec §3.3 says how many of this tier's tests stand down without a repository,
     # to say what a probe copied without one stops running. The number is prose
     # in one directory about test bodies in another, and it went stale the day
     # :pull:`164` routed one more test through the committed-manifest reader --
@@ -922,18 +922,18 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # decides, whatever their reasons say.
     #
     # A difference reads a change of status, though, and not a guard: a test
-    # already standing down in the indexed run for some reason of its own stays
-    # skipped in both, so an index guard added to *it* moves nothing here and the
+    # already standing down in the cloned run for some reason of its own stays
+    # skipped in both, so a guard added to *it* moves nothing here and the
     # number stays green (:pull:`309` review). That set is `MASKED`, it is
     # asserted by equality so it cannot grow unremarked, and every member is held
-    # to naming no index -- which is what leaves the difference counting guards
+    # to naming no `.git` -- which is what leaves the difference counting guards
     # and not merely statuses.
     if os.environ.get(ORACLE):
         pytest.skip("this gate is what made the run, and does not make another")
-    indexed, exported = _copies(tmp_path)
+    cloned, exported = _copies(tmp_path)
     modules = _candidates()
     without = _skipped(exported, modules, tmp_path / "exported.xml")
-    within = _skipped(indexed, modules, tmp_path / "indexed.xml")
+    within = _skipped(cloned, modules, tmp_path / "cloned.xml")
 
     # That the recursion guard fired, asked positively. Its absence would
     # otherwise show up as this gate running inside its own runs -- which
@@ -942,7 +942,7 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     mine = inspect.currentframe().f_code.co_name
     ours = {node for node in within if node.endswith(f"::{mine}")}
     assert ours, (
-        f"{mine} did not stand down in the indexed run, so {ORACLE} did not reach it"
+        f"{mine} did not stand down in the cloned run, so {ORACLE} did not reach it"
     )
     surprising = within - without
     assert not surprising, f"stands down only where there is a repository: {surprising}"
@@ -950,15 +950,16 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # Equality, so that a test joining the blind spot has to be accounted for
     # rather than quietly widening it.
     assert within - ours == MASKED, (
-        f"stands down whatever the index does: {sorted(within - ours)}; "
+        f"stands down whatever the repository does: {sorted(within - ours)}; "
         f"MASKED names {sorted(MASKED)}"
     )
     for node in sorted(MASKED):
         _carries_no_guard(node)
 
     # This gate is in `MASKED`'s position and not in `MASKED`: it stands down in
-    # the indexed run on `ORACLE`, above, so the difference cannot see it either
-    # -- and unlike the rest of that set it *does* guard on the index, `_copies`
+    # the cloned run on `ORACLE`, above, so the difference cannot see it either
+    # -- and unlike the rest of that set it *does* guard on the repository,
+    # `_copies`
     # skipping where there is no repository to copy. A probe carries no `ORACLE`,
     # reaches that guard, and stands down on it, so it is one of the tests this
     # number is about and is added back by name.
@@ -1006,7 +1007,7 @@ def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
     assert not (root / "docs" / "_build").exists()
 
 
-def test_a_probe_copy_carries_the_index_the_exercise_reads(tmp_path):
+def test_a_probe_copy_carries_the_repository_the_exercise_reads(tmp_path):
     # Fourteen of the `test` tier's tests guard on a repository being there,
     # among them the one that builds a wheel from `git archive HEAD` -- and that
     # is the test the `conda (test)` leg failed on in run 31848921992, on

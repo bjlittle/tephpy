@@ -23,8 +23,8 @@ SCRIPT = REPO / ".github" / "scripts" / "floors_issue.py"
 # exercise. Guarding the module rather than the test is deliberate: an
 # unguarded import fails *collection* there, taking the rest of the suite with
 # it (floors spec §5). As in `test_floors.py`, the guard asks after the
-# script and not `.git`: nothing here reads history, and a guard naming the index
-# would stand the module down wherever history is absent.
+# script and not `.git`: nothing here reads history, and a guard naming the
+# repository would stand the module down wherever history is absent.
 pytestmark = pytest.mark.skipif(
     not SCRIPT.is_file(), reason="not a checkout of the repository"
 )

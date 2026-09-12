@@ -336,7 +336,7 @@ floor whose relaxation lets the tier solve is the culprit. These are solve-only 
 cost minutes.
 
 A probe is the failing leg run again, so what the leg had it has: the tree is copied whole,
-index included. Thirty-eight of the `test` tier's tests guard on a repository being there —
+repository included. Thirty-eight of the `test` tier's tests guard on a repository being there —
 the one that builds a wheel from `git archive HEAD` among them — and a probe without one runs
 a thinner suite than the leg it is diagnosing, then reports the failure as a step it does not
 reproduce when the failing step is a test it skipped ({issue}`154`). What the leg *left
@@ -541,13 +541,13 @@ decides, whatever each skip gives as its reason, so neither a new spelling of th
 new wording of the reason escapes it.
 
 A difference reads a change of status rather than a guard, though, and the two part company
-over a test that stands down in *both* runs for some reason of its own: a guard on the index
-added to that test moves nothing, and the count stays green over a suite it has stopped
-describing ({pull}`309` review). Those tests are named rather than left to be inferred — the
-set is asserted by equality, so one joining it fails until someone has said why, and each
-member is held to naming no index, which is what leaves the difference counting guards and not
-merely statuses. Candidates are the modules whose source names the index, which is what keeps
-the pair to seconds rather than to minutes.
+over a test that stands down in *both* runs for some reason of its own: a guard on the
+repository added to that test moves nothing, and the count stays green over a suite it has
+stopped describing ({pull}`309` review). Those tests are named rather than left to be inferred
+— the set is asserted by equality, so one joining it fails until someone has said why, and
+each member is held to naming no `.git`, which is what leaves the difference counting guards
+and not merely statuses. Candidates are the modules that name `.git` or take a guard from the
+shared reader of §3.2, which is what keeps the pair to seconds rather than to minutes.
 
 The route of §3.4 is named in both scripts — the diagnosis records it, the issue composer
 branches its prose on it — and the two lists are held together by a gate, because a route added

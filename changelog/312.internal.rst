@@ -1,0 +1,13 @@
+Said "repository" where the suite meant a repository (:issue:`273` follow-up).
+:pull:`311` corrected the places that described ``git show HEAD:`` as reading
+"the index"; the word was also standing in for *a repository being present* in
+five modules and in floors spec §3.4 — a guard on ``(REPO / ".git").exists()``
+asks whether the directory is there, and says nothing about the staging area.
+Renamed with it: three tests, and the environment variable that stops the count
+gate re-entering itself.
+
+Where the word was right it is left alone, checked one site at a time rather
+than swept. ``tests/test_citations.py`` and ``tests/test_github_references.py``
+enumerate their corpus through ``check_citations.py``, which runs
+``git ls-files`` — that really is the index — and every reference to a package
+index or to a conda channel is untouched. (:user:`claude`)
