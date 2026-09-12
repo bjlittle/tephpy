@@ -27,6 +27,7 @@ import pytest
 import yaml
 
 from tests.by_path import load_script
+from tests.committed import committed_manifest
 from tests.pixi_tasks import invocations, runs, unsatisfied
 
 REPO = Path(__file__).parents[1]
@@ -66,28 +67,6 @@ def _manifest(tmp_path, text=MANIFEST):
     path = tmp_path / "pyproject.toml"
     path.write_text(text, encoding="utf-8")
     return path
-
-
-def _committed_manifest():
-    """Return the manifest this repository declares, not the one it was given.
-
-    A test that asserts against the real `pyproject.toml` has to read it from
-    the index: the conda half of `ci-floors` runs this suite in a checkout
-    whose manifest this very generator has rewritten, where every floor is an
-    `==` pin and every feature but one is gone (:issue:`155`). The guard is
-    here rather than on each caller because this is where the index is needed
-    -- an export of the committed tree has none, and there the tests that call
-    this skip.
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed manifest from")
-    return subprocess.run(
-        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    ).stdout
 
 
 def _lookup(package, specifier, python):  # noqa: ARG001
@@ -358,7 +337,7 @@ def test_every_floor_the_manifest_declares_in_a_pypi_table_is_resolved(tmp_path)
     # never tested (:issue:`151`). Asserted against the real manifest, so a table
     # added to `pyproject.toml` tomorrow is covered by the same rule.
     floors = load_script("floors")
-    text = _committed_manifest()
+    text = committed_manifest()
     document = tomllib.loads(text)
     manifest = _manifest(tmp_path, text)
     resolved = floors.pins(manifest, Version("3.12.0"), lookup=_lookup, pypi=_pypi)
@@ -637,7 +616,7 @@ def _guard(node: ast.FunctionDef) -> str:
     return "\n".join(ast.unparse(part) for part in [*node.decorator_list, *statements])
 
 
-def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
+def test_every_call_that_shells_out_to_git_is_guarded():
     # An export of the committed tree carries this suite and no repository, so a
     # `git` call there does not skip -- it raises, and with `check=True` it fails, on a
     # condition that says nothing about the release under test. The literal form
@@ -646,15 +625,27 @@ def test_every_test_that_shells_out_to_git_is_guarded_on_the_index():
     # The guard may be a `skipif` on the test or a `pytest.skip` in the function
     # itself, a helper carrying its own being the only way one shared by several
     # tests is guarded once.
+    #
+    # Every module under `tests/`, not the `test_*.py` among them. :issue:`273`
+    # moved the reader nine sites had copied into `tests/committed.py`, which is
+    # not a test module -- so a scan globbing `test_*.py` would have watched the
+    # suite's `git` calls right up until there was one left to watch, then passed
+    # over it in silence while every caller that used to carry one went quiet too.
     unguarded = []
-    for path in sorted((REPO / "tests").rglob("test_*.py")):
+    for path in sorted((REPO / "tests").rglob("*.py")):
         source = path.read_text(encoding="utf-8")
         unguarded += [
             f"{path.name}::{node.name}"
             for node in _shells_out_to_git(source)
             if ".git" not in _guard(node)
         ]
-    assert not unguarded
+    assert unguarded == []
+    # The scan globs for its own corpus, and an empty one would pass having read
+    # nothing at all.
+    assert any(
+        _shells_out_to_git(path.read_text(encoding="utf-8"))
+        for path in (REPO / "tests").rglob("*.py")
+    ), "no module under tests/ shells out to git, so this gate proves nothing"
 
 
 #: Enough of the spelling the specifications use to read a figure back out of
@@ -710,13 +701,21 @@ SPECIFICATION = (
 def _candidates() -> list[str]:
     """Return the test modules that could stand down without a repository.
 
-    Textual, and deliberately over-inclusive: every guard in this suite spells
-    the index as ``.git``, so reading the sources for that costs nothing and
-    admits a handful of modules that merely mention it. What it buys is the cost
-    of the pair below -- the whole tree is seventy seconds a run and these are
-    seven -- and what it costs is the one way this gate can still fail *open*, a
-    module standing down by some route that never writes ``.git`` being one the
-    pair never runs and so never counts.
+    Textual, and deliberately over-inclusive: a guard either writes ``.git``
+    itself or takes one from the shared reader, and reading the sources for
+    either costs nothing while admitting a handful of modules that merely
+    mention one. What it buys is the cost of the pair below -- the whole tree is
+    seventy seconds a run and these are seven -- and what it costs is the one way
+    this gate can still fail *open*, a module standing down by some third route
+    being one the pair never runs and so never counts.
+
+    The import is read for as well as ``.git`` because :issue:`273` is what makes
+    the second route exist: a module that used to carry its own guard now calls
+    ``tests/committed.py`` and need never name the index again. Three do --
+    ``test_api_docstrings``, ``test_environment_file`` and ``test_lock`` -- and a
+    filter reading only ``.git`` would have dropped all three from the pair,
+    taking their eight guarded tests down with them and the specification's
+    figure after that.
 
     Returns
     -------
@@ -727,9 +726,12 @@ def _candidates() -> list[str]:
     found = [
         str(path.relative_to(REPO))
         for path in sorted((REPO / "tests").rglob("test_*.py"))
-        if ".git" in path.read_text(encoding="utf-8")
+        if any(
+            marker in path.read_text(encoding="utf-8")
+            for marker in (".git", "from tests.committed import")
+        )
     ]
-    assert found, "no test module names the index, so this gate proves nothing"
+    assert found, "no test module could stand down, so this gate proves nothing"
     return found
 
 
@@ -900,7 +902,8 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # Spec §3.3 says how many of this tier's tests stand down without an index,
     # to say what a probe copied without one stops running. The number is prose
     # in one directory about test bodies in another, and it went stale the day
-    # :pull:`164` routed one more test through `_committed_manifest` -- reported
+    # :pull:`164` routed one more test through the committed-manifest reader --
+    # reported
     # by nothing, a skip not being a failure (:pull:`167`).
     #
     # Asked of pytest rather than of the sources. The reader this replaces walked
@@ -1042,7 +1045,7 @@ def _docs_steps():
 
 def _docs_tasks():
     """Return the `docs` feature's pixi tasks, as this repository declares them."""
-    manifest = tomllib.loads(_committed_manifest())
+    manifest = tomllib.loads(committed_manifest())
     return manifest["tool"]["pixi"]["feature"]["docs"]["tasks"]
 
 
@@ -1362,7 +1365,7 @@ def test_the_generated_manifest_defines_no_feature_it_does_not_use(tier):
     # tomorrow is dropped by the same rule, and one the generated environment
     # does reference is never dropped by it.
     floors = load_script("floors")
-    text = _committed_manifest()
+    text = committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     used = {
@@ -1382,7 +1385,7 @@ def test_the_generated_manifest_leaves_no_task_naming_a_dropped_one(tier):
     # Every `depends-on` in `pyproject.toml` names a task of its own feature
     # today; this is what notices the day one does not.
     floors = load_script("floors")
-    text = _committed_manifest()
+    text = committed_manifest()
     out = floors.features(floors.environments(text, tier, "3.12"), tier, "3.12")
     pixi = tomllib.loads(out)["tool"]["pixi"]
     tasks = dict(pixi.get("tasks", {}))
@@ -1584,7 +1587,7 @@ def test_every_package_the_two_sites_spell_differently_is_reconciled(tmp_path):
     # `ci-floors` runs this suite in a checkout the generator has rewritten,
     # where every feature but the tier's own is gone and half these
     # declarations with it (:issue:`155`).
-    manifest = diagnose.floors.declarations(_manifest(tmp_path, _committed_manifest()))
+    manifest = diagnose.floors.declarations(_manifest(tmp_path, committed_manifest()))
     for tier, path in diagnose.REQUIREMENTS.items():
         names = {**manifest["core"], **manifest.get(tier, {})}
         unmatched = [
@@ -1918,7 +1921,7 @@ def test_no_test_reads_the_manifest_the_floors_job_rewrites():
     # tier's whole verdict down with it -- the job then files an issue about a
     # failure that is not a floor. That has now happened twice (:issue:`155`),
     # the second time to the test that reconciles the two sites' names above.
-    # `_committed_manifest` reads it from the index instead.
+    # `tests/committed.py` reads the committed file instead (:issue:`273`).
     scanned = sorted((REPO / "tests").rglob("*.py"))
     offenders = [
         f"{path.name}:{line}"
@@ -1955,7 +1958,7 @@ def test_no_test_reads_the_manifest_the_floors_job_rewrites():
         ('assert (REPO / "pyproject.toml").read_text() == expected', True),
         # The two shapes that are already right, and have to stay unflagged or
         # the fix for an offender is itself an offence.
-        ("floors.declarations(_manifest(tmp_path, _committed_manifest()))", False),
+        ("floors.declarations(_manifest(tmp_path, committed_manifest()))", False),
         ('floors.declarations(tmp_path / "pyproject.toml")', False),
         ('(tmp_path / "pyproject.toml").write_text(text)', False),
         # And it is this file that is rewritten, not everything beside it.

@@ -36,12 +36,13 @@ import re
 import subprocess
 import tomllib
 
-import pytest
+from tests.committed import committed
 
 REPO = Path(__file__).parents[1]
 
-# Everything here is read from the index rather than the working tree, and the
-# whole module stands down without one. The conda half of `ci-floors` runs this
+# Everything here is read as this repository committed it rather than from the
+# working tree, and the whole module stands down where there is no repository to
+# read it from. The conda half of `ci-floors` runs this
 # suite in a checkout whose `pyproject.toml` the floors generator has rewritten
 # and whose lock it has re-solved from that rewrite, so a working-tree read
 # compares two files neither of which this repository committed -- passing
@@ -54,40 +55,6 @@ REPO = Path(__file__).parents[1]
 # working tree and not yet committed is not reported until it is. That is the
 # right side to err on -- the lock is published from what is committed, and this
 # asserts a property of the commit.
-
-
-def committed(path: str) -> str:
-    """Return ``path`` as the repository has it committed, not as it is on disk.
-
-    Parameters
-    ----------
-    path : str
-        A repository-relative path.
-
-    Returns
-    -------
-    str
-        The file's contents at ``HEAD``.
-
-    Notes
-    -----
-    Carries its own index guard rather than leaving one to each caller: an
-    export of the committed tree carries this suite and no repository, where
-    `git` does not skip but raises.
-    `tests/test_floors.py::test_every_test_that_shells_out_to_git_is_guarded_on_
-    the_index` names a helper guarding itself as the way a call shared by several
-    tests is guarded once, and holds this module to it.
-
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed files from")
-    return subprocess.run(  # noqa: S603
-        ["git", "show", f"HEAD:{path}"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    ).stdout
 
 
 #: A requirement, split into the name and everything after it. The specifier is

@@ -222,9 +222,11 @@ literal specifier from the working tree therefore fails that tier on every run �
 — and no floor is at fault. It is not only the specifiers: generation also replaces the
 environment table and drops every feature the surviving environment cannot reach (§3.3), so
 the tests of those two rules met the same end the week after they were written. Any test
-reading `pyproject.toml` for what this repository declares reads it from the index, as the
-tests that enumerate the committed corpus already do (docs spec §3.6): the declaration is a
-property of the repository, not of the tree this job leaves behind.
+reading `pyproject.toml` for what this repository declares reads it as committed — `git show
+HEAD:`, and not the index, which would be `git show :pyproject.toml` and would hand a
+contributor a pass out of a manifest they had staged but not committed. One reader, in
+`tests/committed.py`, for the reason the corpus enumerators share one ({issue}`273`): the
+declaration is a property of the repository, not of the tree this job leaves behind.
 
 (floors-spec-3-3)=
 ### 3.3 What runs at the floors

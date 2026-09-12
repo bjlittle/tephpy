@@ -19,41 +19,15 @@ from __future__ import annotations
 import ast
 from importlib.metadata import entry_points
 from pathlib import Path
-import subprocess
 import textwrap
 import tomllib
 
 import pytest
 
 import tephpy
+from tests.committed import committed_manifest
 
 REPO = Path(__file__).parents[1]
-
-
-def _committed_manifest():
-    """Return the manifest this repository declares, not the one it was given.
-
-    The conda half of ``ci-floors`` runs this suite in a checkout whose
-    ``pyproject.toml`` the floors generator has rewritten, so a test reading it
-    from the working tree passes everywhere but there -- where it fails weekly,
-    hours after the push, and takes the tier's whole verdict down with it
-    (:issue:`155`). ``tests/test_floors.py`` holds every test in the tree to
-    this, which is how it caught the version added here.
-
-    Returns
-    -------
-    str
-        The committed ``pyproject.toml``.
-    """
-    if not (REPO / ".git").exists():
-        pytest.skip("no index to read the committed manifest from")
-    return subprocess.run(
-        ["git", "show", "HEAD:pyproject.toml"],  # noqa: S607
-        check=True,
-        capture_output=True,
-        cwd=REPO,
-        text=True,
-    ).stdout
 
 
 def test_published_objects_covers_the_documented_modules(gate):
@@ -673,7 +647,7 @@ def test_the_configured_version_scheme_is_registered():
     }
     assert registered, "no version schemes registered; setuptools_scm is missing"
 
-    configured = tomllib.loads(_committed_manifest())["tool"]["setuptools_scm"][
+    configured = tomllib.loads(committed_manifest())["tool"]["setuptools_scm"][
         "version_scheme"
     ]
     assert configured in registered, (

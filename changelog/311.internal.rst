@@ -1,0 +1,27 @@
+Consolidated the nine copies of the committed-file reader into
+``tests/committed.py`` (:issue:`273`). Eight sites under ``tests/`` now share one
+``committed()`` and one ``committed_manifest()``;
+``.github/scripts/check_version_scheme.py`` keeps a copy of its own, since that
+directory is not an importable package and an exported tree does not carry it at
+all, so a gate there importing from ``tests/`` would fail where the shared
+module merely skips.
+
+The drift this was filed to prevent had already happened, in the wording. Every
+copy said it read the file "from the index". None did — ``git show HEAD:`` reads
+the committed tree, and the index would be ``git show :pyproject.toml``. The
+distinction is live: a contributor who stages a new pixi task and runs the suite
+before committing would take a pass from a manifest that does not have it. The
+same sentence is corrected in ``tests/test_lock.py``,
+``tests/test_environment_file.py``, ``tests/plotting/test_logo.py``, the version
+scheme gate, and floors spec §3.2. Where the word was *right* it is left alone:
+the corpus enumerators reach ``git ls-files``, which really does read the index.
+
+Two gates would have gone quiet on the move, and both are widened rather than
+left to be noticed.
+``tests/test_floors.py::test_every_call_that_shells_out_to_git_is_guarded``
+globbed ``test_*.py``, so the suite's one remaining ``git`` call — now in a
+module that is not a test — would have been the first thing it stopped
+watching; it reads every module under ``tests/`` and asserts it found a call.
+And the candidate filter behind floors spec §3.4's quoted figure read sources
+for ``.git``, which three modules no longer name; measured, that filter alone
+takes the count from thirty-eight to thirty. (:user:`claude`)
