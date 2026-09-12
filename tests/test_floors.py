@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import inspect
 import io
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tarfile
 import textwrap
 import tomllib
+import xml.etree.ElementTree as ET
 
 from packaging.version import Version
 import pytest
@@ -690,159 +694,275 @@ def _spelled(word: str) -> int:
     return _UNITS.index(tens)
 
 
-def _names_the_index(node: ast.AST) -> bool:
-    """Whether anything under ``node`` builds the path to the index.
+#: Set on the two runs below so that this gate stands itself down inside them,
+#: rather than each one making a fresh pair from within. An environment variable
+#: and not ``--deselect``: pytest passes over a node id it cannot resolve without
+#: saying so, so a rename would turn the deselect into two runs that never
+#: return, while a variable a rename cannot reach simply keeps working.
+ORACLE = "TEPHPY_INDEX_ORACLE"
 
-    The constant is compared rather than searched for. This very module holds
-    ``.git`` inside a regular expression and ``pytest.skip`` inside a string,
-    and a detector matching either as text reads itself as guarded -- the same
-    distinction between building a path and mentioning one that the manifest
-    gate above draws, and for the same reason.
+#: Where the number below is written down.
+SPECIFICATION = (
+    REPO / "docs" / "src" / "developer" / "specs"
+) / "2026-08-13-dependency-floors-design.md"
+
+
+def _candidates() -> list[str]:
+    """Return the test modules that could stand down without a repository.
+
+    Textual, and deliberately over-inclusive: every guard in this suite spells
+    the index as ``.git``, so reading the sources for that costs nothing and
+    admits a handful of modules that merely mention it. What it buys is the cost
+    of the pair below -- the whole tree is seventy seconds a run and these are
+    seven -- and what it costs is the one way this gate can still fail *open*, a
+    module standing down by some route that never writes ``.git`` being one the
+    pair never runs and so never counts.
+
+    Returns
+    -------
+    list of str
+        Repository-relative paths, which name the same module in either copy.
+
     """
-    return any(
-        isinstance(each, ast.Constant) and each.value == ".git"
-        for each in ast.walk(node)
-    )
-
-
-def _skips(node: ast.AST) -> bool:
-    """Whether anything under ``node`` calls ``pytest.skip``, rather than naming it."""
-    return any(
-        isinstance(each, ast.Call) and ast.unparse(each.func) == "pytest.skip"
-        for each in ast.walk(node)
-    )
-
-
-def _calls(node: ast.AST) -> set[str]:
-    """Return the name of everything under ``node`` that is called by plain name."""
-    return {
-        call.func.id
-        for call in ast.walk(node)
-        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-    }
-
-
-def _guards_itself(node: ast.FunctionDef) -> bool:
-    """Whether a test's own body skips on the index, no helper between them.
-
-    Read over the body and not the whole function, a ``skipif`` naming the
-    index being a different spelling recognised already -- and over the whole of
-    the body rather than statement by statement, because the condition and the
-    skip it leads to are as readily written apart as together.
-    """
-    return any(_skips(each) for each in node.body) and any(
-        _names_the_index(each) for each in node.body
-    )
-
-
-def _needs_the_index(path: Path) -> set[str]:
-    """Return the tests in one module that stand down without a repository.
-
-    Four spellings, because the guard is written wherever it reads best: a
-    ``skipif`` naming the index on the test, the same through a module-level
-    alias -- which unparses to the alias, not to what it holds, so the
-    assignment is what has to be read -- a call to a helper that skips on its
-    own, that being how a condition shared by several tests is written once,
-    and the same condition inline in the test that needs it.
-
-    That third spelling is followed as far as it goes. A helper calling a
-    helper that skips skips too, so the set of them is closed under calling
-    before the tests are read against it: stopping at the direct callers would
-    fail *open*, pytest skipping a test one wrapper away from the guard while
-    the count here omits it and the prose it holds stays believed.
-
-    Two spellings are *not* recognised, neither of them written in this suite:
-    a helper imported from another module, and a fixture that skips, which
-    arrives as a parameter name rather than as a call and lives in a
-    ``conftest`` this reads nothing of. Both fail open the same silent way, so
-    the appearance of either is the signal to stop widening this and ask the
-    only oracle that cannot miss a spelling -- the five guarded modules run in
-    a copy with no index, counting what pytest reports skipped. That costs
-    about nine seconds against a suite of seventy, and retires this function
-    whole rather than growing a fifth branch onto it.
-    """
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    aliases: set[str] = set()
-    helpers: dict[str, ast.FunctionDef] = {}
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            if "skipif" in ast.unparse(node.value) and _names_the_index(node.value):
-                aliases |= {
-                    target.id for target in node.targets if isinstance(target, ast.Name)
-                }
-        elif isinstance(node, ast.FunctionDef) and not node.name.startswith("test_"):
-            helpers[node.name] = node
-    skippers = {
-        name
-        for name, node in helpers.items()
-        if _skips(node) and _names_the_index(node)
-    }
-    while reached := {
-        name
-        for name, node in helpers.items()
-        if name not in skippers and _calls(node) & skippers
-    }:
-        skippers |= reached
-    found = set()
-    for node in tree.body:
-        if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
-            continue
-        called = _calls(node)
-        worn = {each.id for each in node.decorator_list if isinstance(each, ast.Name)}
-        if (
-            any(_names_the_index(each) for each in node.decorator_list)
-            or worn & aliases
-            or called & skippers
-            or _guards_itself(node)
-        ):
-            found.add(node.name)
+    found = [
+        str(path.relative_to(REPO))
+        for path in sorted((REPO / "tests").rglob("test_*.py"))
+        if ".git" in path.read_text(encoding="utf-8")
+    ]
+    assert found, "no test module names the index, so this gate proves nothing"
     return found
 
 
-def test_the_specification_quotes_the_number_of_index_guarded_tests():
+def _copies(tmp_path: Path) -> tuple[Path, Path]:
+    """Return two copies of the committed tree, one with a repository and one without.
+
+    Both are the committed tree rather than this one, so the pair differs in the
+    repository and in nothing else -- a working-tree copy would differ by
+    whatever is uncommitted, and the difference below would then count tests
+    standing down over that instead.
+
+    Parameters
+    ----------
+    tmp_path : Path
+        Where to build them.
+
+    Returns
+    -------
+    tuple of Path
+        The copy carrying a repository, then the copy carrying none.
+
+    """
+    if not (REPO / ".git").exists():
+        pytest.skip("no repository to copy the committed tree from")
+    indexed = tmp_path / "indexed"
+    subprocess.run(  # noqa: S603
+        ["git", "clone", "--local", "--quiet", str(REPO), str(indexed)],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+        text=True,
+    )
+    exported = tmp_path / "exported"
+    exported.mkdir()
+    archive = subprocess.run(
+        ["git", "archive", "HEAD"],  # noqa: S607
+        check=True,
+        capture_output=True,
+        cwd=REPO,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(exported, filter="data")
+    # The pair is the whole method, so it is asserted rather than assumed: two
+    # copies that both carried a repository would report no difference at all,
+    # which reads here exactly like a suite that guards on nothing.
+    assert (indexed / ".git").is_dir(), "the clone carries no repository"
+    assert not (exported / ".git").exists(), "the export carries a repository"
+    return indexed, exported
+
+
+def _skipped(root: Path, modules: list[str], report: Path) -> set[str]:
+    """Return the node ids pytest reported skipped, running ``modules`` under ``root``.
+
+    Parameters
+    ----------
+    root : Path
+        The copy to run in.
+    modules : list of str
+        Repository-relative module paths.
+    report : Path
+        Where to write the JUnit report this reads back.
+
+    Returns
+    -------
+    set of str
+        ``<dotted module>::<test>`` for each test pytest skipped.
+
+    """
+    result = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            *(str(root / name) for name in modules),
+            "-q",
+            # Order and cache are the run's own state rather than the tree's,
+            # and a difference in either is a difference this gate would read as
+            # a guard.
+            "-p",
+            "no:randomly",
+            "-p",
+            "no:cacheprovider",
+            "--no-cov",
+            f"--junit-xml={report}",
+        ],
+        check=False,
+        capture_output=True,
+        cwd=root,
+        env={**os.environ, ORACLE: "1"},
+        text=True,
+    )
+    # `0` is a clean run and `1` is a run with failures, which the export is: the
+    # version this project reports is resolved from the repository, so three
+    # tests of it fail where there is none. Anything else is pytest not having
+    # run the tests at all -- a usage error, an internal error, nothing
+    # collected -- and every one of those hands back an empty set, which reads
+    # here exactly like a suite in which nothing stands down.
+    assert result.returncode in {0, 1}, (
+        f"pytest exited {result.returncode} under {root}:\n{result.stdout[-2000:]}"
+    )
+    assert report.is_file(), f"pytest wrote no report to {report}"
+    # The report is one this call has just produced, and is read for two
+    # attributes of it.
+    document = ET.parse(report).getroot()  # noqa: S314
+    cases = list(document.iter("testcase"))
+    assert cases, f"pytest collected nothing under {root}"
+    return {
+        f"{case.get('classname')}::{case.get('name')}"
+        for case in cases
+        if case.find("skipped") is not None
+    }
+
+
+#: The tests that stand down even where there is a repository, and so cannot be
+#: read by the difference below: whatever a guard on the index would do to them,
+#: they were skipped already. That is the blind spot of comparing two runs
+#: (:pull:`309` review), and naming its members is what stops it growing in
+#: silence -- a test arriving here fails the equality below until someone has
+#: said why, and `_carries_no_guard` then holds it to carrying no index guard for
+#: the difference to have missed.
+#:
+#: One member, and it is nothing to do with the index: the enumerated API surface
+#: is compared against a real documentation build, which neither copy has.
+MASKED = frozenset(
+    {
+        "tests.test_docs_api_inventory::test_the_enumerated_surface_is_the_published_surface",
+    }
+)
+
+
+def _carries_no_guard(node: str) -> None:
+    """Fail if the test named by ``node`` mentions the index at all.
+
+    Read textually and over the decorators as well as the body, so it errs
+    toward saying yes: what it protects is a test the difference cannot see, and
+    a false positive there costs a sentence of explanation while a false negative
+    costs the count. It asks only whether the index is *named*, the four-spelling
+    reader this module used to carry having been retired for being a syntax that
+    a new spelling escapes.
+
+    Parameters
+    ----------
+    node : str
+        ``<dotted module>::<test>``, as pytest reports it.
+
+    """
+    classname, _, name = node.partition("::")
+    path = REPO / (classname.replace(".", "/") + ".py")
+    assert path.is_file(), f"{node} names no module at {path}"
+    source = path.read_text(encoding="utf-8")
+    (found,) = [
+        each
+        for each in ast.walk(ast.parse(source))
+        if isinstance(each, ast.FunctionDef) and each.name == name
+    ]
+    written = "\n".join(
+        ast.get_source_segment(source, part) or ""
+        for part in [*found.decorator_list, *found.body]
+    )
+    assert ".git" not in written, (
+        f"{node} stands down whatever the index does, and names it anyway -- "
+        f"so a guard on it would go uncounted. Reachable in a run that has what "
+        f"it is missing, or the number below is wrong."
+    )
+
+
+def test_the_specification_quotes_the_number_of_index_guarded_tests(tmp_path):
     # Spec §3.3 says how many of this tier's tests stand down without an index,
     # to say what a probe copied without one stops running. The number is prose
     # in one directory about test bodies in another, and it went stale the day
     # :pull:`164` routed one more test through `_committed_manifest` -- reported
     # by nothing, a skip not being a failure (:pull:`167`).
     #
-    # Counted as *tests*, which is what the sentence says and not what the
-    # source shows: four of the ten functions below are parametrised, and
-    # reading the count off the definitions would say ten. So the count comes
-    # from pytest, the only thing that knows what a module collects.
-    guarded = {
-        path: names
-        for path in sorted((REPO / "tests").rglob("test_*.py"))
-        if (names := _needs_the_index(path))
-    }
-    assert guarded, "no test in the suite guards on the index"
-    listing = subprocess.run(  # noqa: S603
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "--collect-only",
-            "-q",
-            "-p",
-            "no:randomly",
-            "-p",
-            "no:cacheprovider",
-            *(str(path) for path in guarded),
-        ],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        check=True,
-    ).stdout
-    collected = 0
-    for line in listing.splitlines():
-        item = re.match(r"(\S+\.py)::(\w+)", line)
-        if item and item[2] in guarded.get(REPO / item[1], ()):
-            collected += 1
-    assert collected, "pytest collected none of the guarded tests"
-    prose = (
-        REPO / "docs" / "src" / "developer" / "specs"
-    ) / "2026-08-13-dependency-floors-design.md"
+    # Asked of pytest rather than of the sources. The reader this replaces walked
+    # the syntax for four spellings of a guard and said in its own docstring that
+    # a helper imported from another module was a fifth it could not see, failing
+    # open -- the guarded test still skipping, the count quietly dropping, and the
+    # prose edited down to match a suite it no longer describes. :issue:`273`
+    # moves the readers this suite shares into one module, which is that spelling
+    # exactly, so the detector is retired here rather than grown a branch.
+    #
+    # The difference of two runs, rather than the skips of one: a copy without a
+    # repository also stands tests down for having no documentation build and no
+    # `docs` feature installed, and telling those apart by their wording would be
+    # a vocabulary to maintain in place of the syntax just retired. Subtracting
+    # the run that has a repository leaves the tests the repository is what
+    # decides, whatever their reasons say.
+    #
+    # A difference reads a change of status, though, and not a guard: a test
+    # already standing down in the indexed run for some reason of its own stays
+    # skipped in both, so an index guard added to *it* moves nothing here and the
+    # number stays green (:pull:`309` review). That set is `MASKED`, it is
+    # asserted by equality so it cannot grow unremarked, and every member is held
+    # to naming no index -- which is what leaves the difference counting guards
+    # and not merely statuses.
+    if os.environ.get(ORACLE):
+        pytest.skip("this gate is what made the run, and does not make another")
+    indexed, exported = _copies(tmp_path)
+    modules = _candidates()
+    without = _skipped(exported, modules, tmp_path / "exported.xml")
+    within = _skipped(indexed, modules, tmp_path / "indexed.xml")
+
+    # That the recursion guard fired, asked positively. Its absence would
+    # otherwise show up as this gate running inside its own runs -- which
+    # terminates, each copy carrying the guard, but only after a pair of runs per
+    # level and long after anyone reads the number.
+    mine = inspect.currentframe().f_code.co_name
+    ours = {node for node in within if node.endswith(f"::{mine}")}
+    assert ours, (
+        f"{mine} did not stand down in the indexed run, so {ORACLE} did not reach it"
+    )
+    surprising = within - without
+    assert not surprising, f"stands down only where there is a repository: {surprising}"
+
+    # Equality, so that a test joining the blind spot has to be accounted for
+    # rather than quietly widening it.
+    assert within - ours == MASKED, (
+        f"stands down whatever the index does: {sorted(within - ours)}; "
+        f"MASKED names {sorted(MASKED)}"
+    )
+    for node in sorted(MASKED):
+        _carries_no_guard(node)
+
+    # This gate is in `MASKED`'s position and not in `MASKED`: it stands down in
+    # the indexed run on `ORACLE`, above, so the difference cannot see it either
+    # -- and unlike the rest of that set it *does* guard on the index, `_copies`
+    # skipping where there is no repository to copy. A probe carries no `ORACLE`,
+    # reaches that guard, and stands down on it, so it is one of the tests this
+    # number is about and is added back by name.
+    guarded = (without - within) | ours
+    assert guarded, (
+        "nothing stands down without a repository, so this gate proves nothing"
+    )
     # `[\w-]` rather than `\w`: `_spelled` reads a hyphenated number and says so,
     # but this could not hand it one -- `\w` stops at the hyphen, so `twenty-one`
     # arrived as `one` and the gate reported the count as off by twenty. Every
@@ -850,128 +970,12 @@ def test_the_specification_quotes_the_number_of_index_guarded_tests():
     # the finder was narrower than the reader for as long as nothing tested it.
     (quoted,) = re.findall(
         r"([\w-]+) of the `test` tier's tests guard on a repository",
-        prose.read_text(encoding="utf-8"),
+        SPECIFICATION.read_text(encoding="utf-8"),
     )
-    assert _spelled(quoted) == collected
-
-
-@pytest.mark.parametrize(
-    ("source", "guarded"),
-    [
-        # The three spellings the suite actually uses, which the count above
-        # exercises end to end -- it reaches fourteen only if all three are read.
-        (
-            """
-            @pytest.mark.skipif(not (REPO / ".git").exists(), reason="no index")
-            def test_x():
-                pass
-            """,
-            True,
-        ),
-        (
-            """
-            needs = pytest.mark.skipif(not (REPO / ".git").exists(), reason="no")
-
-            @needs
-            def test_x():
-                pass
-            """,
-            True,
-        ),
-        (
-            """
-            def _read():
-                if not (REPO / ".git").exists():
-                    pytest.skip("no index")
-
-            def test_x():
-                _read()
-            """,
-            True,
-        ),
-        # The two the count cannot exercise, nothing in the suite being written
-        # either way -- so this table is the only thing holding them up. A
-        # wrapper between the test and the helper that skips, which the count
-        # read as unguarded until the closure went in, and the condition inline
-        # in the test, which it read as unguarded until `_guards_itself` did.
-        (
-            """
-            def _read():
-                if not (REPO / ".git").exists():
-                    pytest.skip("no index")
-
-            def _wrapped():
-                return _read()
-
-            def test_x():
-                _wrapped()
-            """,
-            True,
-        ),
-        (
-            """
-            def test_x():
-                if not (REPO / ".git").exists():
-                    pytest.skip("no index")
-            """,
-            True,
-        ),
-        # Inline, but with the condition bound first. Read statement by
-        # statement the skip and the index it turns on are in different ones,
-        # and the guard would go unseen for being written the way most of this
-        # suite's conditions are.
-        (
-            """
-            def test_x():
-                index = REPO / ".git"
-                if not index.exists():
-                    pytest.skip("no index")
-            """,
-            True,
-        ),
-        # A test that guards on nothing, without which every case above passes
-        # for a detector that simply says yes.
-        (
-            """
-            def test_x():
-                assert True
-            """,
-            False,
-        ),
-        # Naming the index is not standing down on it. This is the shape of
-        # `test_a_probe_copy_carries_the_index_the_exercise_reads`, which builds
-        # a `.git` in a copy it makes: counted here, the number would exceed the
-        # prose and the gate would go red over a test that never skips.
-        (
-            """
-            def test_x(tmp_path):
-                (tmp_path / ".git").mkdir()
-                assert (tmp_path / ".git").is_dir()
-            """,
-            False,
-        ),
-        # Standing down is not standing down on the *index*, and the sentence
-        # this count holds up is about a probe copied without one.
-        (
-            """
-            def test_x():
-                if not shutil.which("pixi"):
-                    pytest.skip("no pixi")
-            """,
-            False,
-        ),
-    ],
-)
-def test_the_detector_reads_a_guard_however_it_is_spelled(tmp_path, source, guarded):
-    # `_needs_the_index` is read by one caller, which turns what it finds into a
-    # single number. A spelling it cannot see therefore lowers that number in
-    # silence -- the guarded test still skips, the prose still says fourteen,
-    # and the two agree about a suite neither of them describes. Only the three
-    # spellings in use are exercised by that caller, so the two added since are
-    # held up here or nowhere.
-    path = tmp_path / "test_probe.py"
-    path.write_text(textwrap.dedent(source), encoding="utf-8")
-    assert _needs_the_index(path) == ({"test_x"} if guarded else set())
+    listing = "\n".join(f"  {node}" for node in sorted(guarded))
+    assert _spelled(quoted) == len(guarded), (
+        f"the specification says {quoted}; {len(guarded)} stand down:\n{listing}"
+    )
 
 
 def test_a_probe_copy_drops_what_the_failing_leg_left_behind(tmp_path):
