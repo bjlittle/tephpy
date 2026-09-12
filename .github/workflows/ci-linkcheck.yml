@@ -47,13 +47,15 @@ jobs:
   links:
     runs-on: ubuntu-latest
     permissions:
-      # Declaring any permission sets every other to `none`, so `contents: read`
-      # is written out rather than inherited. It is not what makes `checkout`
-      # work today -- this repository is public, and `ci-topics` runs the same
-      # shape without it -- but that is a dependency on the repository's
-      # visibility which nothing in this file states, and which would surface as
-      # a scheduled run failing at step one. Read, not write: the job clones and
-      # reads, and writes only issues.
+      # Declaring any permission sets every other to `none`, as does the
+      # `permissions: {}` above, so `contents: read` is written out rather than
+      # inherited. It is not what makes `checkout` work today -- this repository
+      # is public, and a public repository is readable without any grant at all
+      # -- but that is a dependency on the repository's visibility which nothing
+      # in this file states, and which would surface as a scheduled run failing
+      # at step one. Read, not write: the job clones and reads, and writes only
+      # issues. Every job that checks out now says the same, and
+      # `tests/test_workflow_permissions.py` holds them to it (:issue:`286`).
       contents: read
       issues: write
     steps:

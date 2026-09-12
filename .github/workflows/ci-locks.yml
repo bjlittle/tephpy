@@ -46,6 +46,11 @@ jobs:
     # Declared so the job can read `TEPHPY_BOT_TOKEN`, and so that nothing which
     # does not declare it can.
     environment: development
+    permissions:
+      # Written out rather than inherited: `permissions: {}` above sets every
+      # scope to `none`, and a checkout reading without a grant depends on this
+      # repository staying public (:issue:`286`).
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

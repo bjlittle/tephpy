@@ -1,0 +1,11 @@
+Granted ``contents: read`` to every workflow job that runs ``actions/checkout``
+(:issue:`286`). These workflows open with ``permissions: {}``, which sets every
+scope to ``none`` for every job in the file, so twelve jobs were cloning the
+repository holding no grant to read it — working only because tephpy is public,
+and depending on that in no file that says so. The issue named the three jobs
+whose omission was visible, those being the three that declare a ``permissions``
+block naming something else; the other nine declare no block at all and were
+short by the same mechanism. ``tests/test_workflow_permissions.py`` derives the
+rule rather than listing the jobs, and resolves each grant the way GitHub
+resolves it — a job's block replaces the workflow's rather than merging into it,
+which is the reading that would have cleared all nine. (:user:`claude`)
