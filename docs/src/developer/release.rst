@@ -166,11 +166,18 @@ The Sequence
    the next minor line while the release branch stays on the patch line:
    ``0.2.0.dev…`` and ``0.1.1.dev…`` respectively, measured both ways.
 
-   So the reviewer enables merge commits in the repository settings, merges with
-   *Create a merge commit*, and turns the setting off again. ``main`` also
-   requires linear history, which a merge commit is not; whether that needs
-   relaxing for the same merge, or whether it is waived for administrators, is
-   one of the things the rehearsal below is for.
+   Two settings have to be relaxed for it, and both are put back afterwards:
+
+   - **Allow merge commits**, in the repository's pull-request settings. The
+     repository is configured for squash merges only.
+   - **Require linear history**, in ``main``'s branch protection, turned *off*.
+     A merge commit is not linear history, and the merge is refused while it
+     stands.
+
+   Then merge with *Create a merge commit* — not the default button — and
+   restore both immediately. While they are relaxed any pull request can land a
+   merge commit on ``main``, so the window is a reason to do this promptly
+   rather than leave it open.
 
    **Do not delete the release branch** when the pull request merges. The next
    patch release for this minor version is prepared on it.
@@ -228,12 +235,11 @@ default, and turns every step above from something never done into something
 done once. The alternative is finding out whether the trusted publisher matches
 on the release itself, where `What Cannot Be Undone`_ applies.
 
-Rehearse the merge-back with it. That is the step with a setting to change and a
-merge method to pick by hand, and it is the one whose failure is quiet: a squash
-lands, everything looks merged, and ``main`` goes on deriving a version below the
-release. Doing it once on a release candidate settles what the branch protection
-actually permits, which is written above as an open question because nothing has
-tried it.
+Rehearse the merge-back with it. That is the step with two settings to relax by
+hand, a merge method to pick that is not the default button, and two settings to
+put back, and it is the one whose failure is quiet: a squash lands, everything
+looks merged, and ``main`` goes on deriving a version below the release. Better
+to find the sequence of clicks on a release candidate than on the release.
 
 **Two gates will move at the first tag**, and neither is a defect:
 

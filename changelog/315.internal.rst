@@ -36,7 +36,10 @@ request is merged with a **merge commit**, not the squash ``main`` is configured
 for. A squash lands the branch's content while leaving the tag off ``main``,
 after which ``setuptools_scm`` derives a version below the one just released — a
 merge commit makes the tag an ancestor and moves ``main`` to the next minor line
-(``0.2.0.dev…`` against the branch's ``0.1.1.dev…``, measured both ways).
+(``0.2.0.dev…`` against the branch's ``0.1.1.dev…``, measured both ways). Two
+settings are relaxed for that merge and restored after it — merge commits
+enabled, and ``main``'s *Require linear history* turned off — and the page says
+which, in which order, and why the window is worth keeping short.
 
 The sequence names the ``skip-changelog`` label the release pull request needs
 (:pull:`315` review). That pull request deletes every news fragment into
