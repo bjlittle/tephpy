@@ -14,6 +14,17 @@ The page's task table is read by the same gate that reads ``contributing.rst``'s
 generalised over both: a runbook naming a task that has since been renamed fails
 at the moment its reader can least afford it.
 
+Every release is tagged from a dedicated ``vA.B.x`` release branch, never from
+``main``, and the branch is merged back once the tag is out. That is not
+ceremony: measured, one commit past ``v0.1.0`` derives ``0.1.1.dev1`` on
+``v0.1.x`` and ``0.2.0.dev1`` on ``main``, so the branch is what tells
+``setuptools_scm`` that the patch line and the next minor line are different
+lines — and ``main`` derives the wrong one until the merge-back lands. The
+branch is also where a fix for a released version is prepared. ``ci-tests``,
+``ci-docs``, ``ci-wheels``, ``ci-citation`` and ``codeql`` now run on it as they
+do on ``main``, and ``publish-testpypi`` with them, since a branch nothing checks
+would put the least-tested commit in the repository on PyPI.
+
 The sequence names the ``skip-changelog`` label the release pull request needs
 (:pull:`315` review). That pull request deletes every news fragment into
 ``CHANGELOG.rst``, so ``ci-changelog`` finds none named for it and, because

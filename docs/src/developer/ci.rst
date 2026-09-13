@@ -46,8 +46,13 @@ On Your Pull Request
 
 Every one of these runs on every pull request except two. ``ci-citation`` is scoped to
 a path, so it stays quiet unless ``CITATION.cff`` itself changes. ``codeql`` is scoped
-to pull requests targeting ``main``, so a pull request opened against another base does
-not run it.
+to pull requests targeting ``main`` or a ``vA.B.x`` release branch, so a pull request
+opened against any other base does not run it.
+
+Those same workflows run on a push to ``main`` and to a release branch, and nowhere
+else. The release branch is in that list deliberately: a release is tagged from one
+(:ref:`developer-release`), and a branch nothing checks would put the least-tested
+commit in the repository on PyPI.
 
 On a Schedule
 --------------

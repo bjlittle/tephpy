@@ -13,6 +13,21 @@ that, and the workflow files hold the mechanics. The split is the
 one :doc:`ci` makes: a page that restated how ``ci-wheels`` publishes would drift
 from the workflow, while the order you do things in is written down nowhere else.
 
+The Release Branch
+-------------------
+
+Every release is tagged from a dedicated branch named ``vA.B.x`` — a literal
+``x``, with the major and minor version in place of ``A`` and ``B``, so
+``v0.1.x`` carries ``v0.1.0`` and every patch release after it. ``main`` is
+never tagged.
+
+The branch is not ceremony. ``semver-pep440-release-branch``, the version scheme
+:file:`pyproject.toml` configures, reads it: one commit past ``v0.1.0`` derives
+``0.1.1.dev1`` on ``v0.1.x`` and ``0.2.0.dev1`` on ``main``. The branch is what
+tells ``setuptools_scm`` that a patch line and the next minor line are different
+lines, and it is where a fix for a released version is prepared without waiting
+for whatever ``main`` has accumulated since.
+
 Before You Tag
 ---------------
 
@@ -38,9 +53,9 @@ failure costs a minute rather than a tagged commit.
 
 And three things that must be true:
 
-- **``main`` is green.** Not "was green" — ``ci-wheels`` builds and publishes to
-  Test PyPI on every push to ``main``, so a red one means the path the tag takes
-  is already broken.
+- **The release branch is green.** Not "was green" — ``ci-wheels`` builds and
+  publishes to Test PyPI on every push to it, so a red one means the path the
+  tag takes is already broken.
 - **Every merged pull request left a fragment.** ``pixi run changelog --draft``
   renders what the release will say; a pull request missing from it is a
   fragment that was never written, and ``ci-changelog`` should have caught it.
@@ -50,59 +65,85 @@ And three things that must be true:
 The Sequence
 -------------
 
-1. **Assemble the changelog.** ``pixi run changelog --version X.Y.Z``. This
+1. **Get on the release branch.** For a new minor version, cut it from ``main``:
+
+   .. code-block:: console
+
+      $ git switch main && git pull
+      $ git switch -c vA.B.x && git push -u origin vA.B.x
+
+   For a patch release the branch already exists and carries its own history —
+   check it out and put the fix on it, rather than branching again.
+
+2. **Assemble the changelog.** ``pixi run changelog --version X.Y.Z``. This
    writes ``CHANGELOG.rst`` and **deletes the fragments it consumed**, so it is
    a commit of its own and the diff is worth reading before you make it.
 
-2. **Fill in the release metadata.** ``CITATION.cff`` takes ``version`` and
+3. **Fill in the release metadata.** ``CITATION.cff`` takes ``version`` and
    ``date-released`` (``YYYY-MM-DD``). ``ci-citation`` validates the file, and
    it runs only when that file changes — so this step is the only thing that
    will ever check it.
 
-3. **Open a pull request with both, and label it** ``skip-changelog``. Then let
-   it go green — this is the last point at which anything is reversible for
-   free.
+4. **Open a pull request into the release branch, and label it**
+   ``skip-changelog``. Then let it go green — this is the last point at which
+   anything is reversible for free.
 
    The label is not optional here, and this is the one pull request where it is
    not a shortcut. ``ci-changelog`` asks every pull request for a fragment named
    after its own number, and this one has *deleted* every fragment there was:
    they are not missing, they have been consumed into ``CHANGELOG.rst`` in the
    same diff. Writing a fragment first does not help, because the gate reads the
-   pull request's net change and step 1 removes it again.
+   pull request's net change and step 2 removes it again.
 
    Nothing applies the label for you — ``ci-label`` adds it only for
    ``dependabot`` and ``pre-commit.ci`` — and without it the gate fails on the
    deleted paths rather than reporting a missing fragment, so the error will not
    tell you any of this.
 
-4. **Merge it, and wait for ``main``.** ``ci-wheels`` runs again on the merge
-   commit: ``manifest`` gates ``MANIFEST.in`` against what the sdist carries,
-   ``build`` builds and smoke-tests both distributions, and ``publish-testpypi``
-   publishes them to Test PyPI. That is the whole production path except its
-   last step, exercised on the exact commit you are about to tag.
+5. **Merge it, and wait for the release branch.** ``ci-wheels`` runs again on
+   the merge commit: ``manifest`` gates ``MANIFEST.in`` against what the sdist
+   carries, ``build`` builds and smoke-tests both distributions, and
+   ``publish-testpypi`` publishes them to Test PyPI. That is the whole
+   production path except its last step, exercised on the exact commit you are
+   about to tag.
 
-5. **Tag it, and push the tag.**
+6. **Tag it, and push the tag.**
 
    .. code-block:: console
 
+      $ git switch vA.B.x && git pull
       $ git tag -a vX.Y.Z -m "vX.Y.Z"
       $ git push origin vX.Y.Z
 
    The tag is what derives the version: ``setuptools_scm`` reads it, and no file
    in the repository carries a version number to bump.
 
-6. **Watch ``ci-wheels``.** The tag push runs it again, and this time
-   ``publish-pypi`` runs instead of ``publish-testpypi``. It is gated on
-   ``build`` succeeding, so a failure before that point publishes nothing.
+   `The releases page <https://github.com/bjlittle/tephpy/releases>`__ does the
+   same thing through the browser, and will also draft the release notes and
+   publish a GitHub release alongside the tag. Either way, make sure the target
+   is the release branch and not ``main``.
 
-7. **Check what arrived.** The project page on PyPI, and an install from it into
+7. **Watch the wheels workflow.** The tag push runs ``ci-wheels`` again, and
+   this time ``publish-pypi`` runs instead of ``publish-testpypi``. It is gated
+   on ``build`` succeeding, so a failure before that point publishes nothing.
+
+8. **Check what arrived.** The project page on PyPI, and an install from it into
    a throwaway environment — ``ci-wheels`` smoke-tests the wheel it built, not
    the wheel PyPI served.
 
-8. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
-   ``vX.Y``) exists only once a tag does, so this step is possible only now.
+9. **Merge the release branch back into main.** Through a pull request like
+   any other change, and it carries ``CHANGELOG.rst``, the citation metadata,
+   and any fix the release was made for.
 
-9. **Announce it**, if it is a release worth announcing.
+   This is required rather than tidy. Until the merge lands, ``main`` does not
+   contain the tag, so the version it derives is not the one after the release.
+   With it, ``main`` moves to the next minor line — ``0.2.0.dev…`` — while
+   ``vA.B.x`` stays on the patch line, which is the whole point of having both.
+
+10. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
+    ``vX.Y``) exists only once a tag does, so this step is possible only now.
+
+11. **Announce it**, if it is a release worth announcing.
 
 What Cannot Be Undone
 ----------------------
@@ -124,7 +165,7 @@ What Cannot Be Undone
       - Free before the merge, since the fragments are still in git history.
         After it, restoring one means a new fragment
 
-This is why the rehearsal below exists, and why steps 1 to 3 are a pull request
+This is why the rehearsal below exists, and why steps 2 to 4 are a pull request
 rather than a push.
 
 The First Release
@@ -145,12 +186,12 @@ in this order:
    already exists on PyPI, it is configured against the project rather than as a
    *pending* publisher.
 
-**Rehearse with a release candidate.** Tag ``vX.Y.Zrc1`` first and let it
-publish. It exercises the whole production path for real, is throwaway in the
-sense that nobody installs it by default, and turns every step above from
-something never done into something done once. The alternative is finding out
-whether the trusted publisher matches on the release itself, where
-`What Cannot Be Undone`_ applies.
+**Rehearse with a release candidate.** Cut the release branch, then tag
+``vX.Y.Zrc1`` on it and let it publish. It exercises the whole production path
+for real, is throwaway in the sense that no resolver installs a pre-release by
+default, and turns every step above from something never done into something
+done once. The alternative is finding out whether the trusted publisher matches
+on the release itself, where `What Cannot Be Undone`_ applies.
 
 **Two gates will move at the first tag**, and neither is a defect:
 

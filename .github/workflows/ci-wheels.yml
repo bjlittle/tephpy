@@ -2,7 +2,11 @@ name: ci-wheels
 
 on:
   push:
-    branches: [main]
+    # `v*.*.x` is the release branch a release is tagged from, and any patch
+    # release for that minor version is prepared on (developer/release.rst).
+    # Without it a release branch runs no checks at all on push, and the commit
+    # about to be tagged would be the least-tested on the repository.
+    branches: [main, "v*.*.x"]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -97,7 +101,16 @@ jobs:
 
   publish-testpypi:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # The release branch as well as `main`, so that the commit about to be
+    # tagged reaches Test PyPI before the tag reaches PyPI -- which is the whole
+    # production path bar its last step, run on the exact commit
+    # (developer/release.rst). `skip-existing` makes a version already there a
+    # no-op rather than a failure, which is what a second push to the branch
+    # would otherwise be.
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/v'))
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
