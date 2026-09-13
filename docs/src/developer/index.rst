@@ -36,6 +36,9 @@ If you are using ``tephpy`` rather than changing it, none of this is needed. The
     * - :doc:`ci`
       - What runs on a pull request and on a schedule, and what it means when one
         of them fails at you unbidden.
+    * - :doc:`release`
+      - The order a release happens in, what to check between the steps, and the
+        two of them that cannot be taken back.
     * - :doc:`specs/index`
       - The design record: why each decision was made, cited by section from the
         source.
@@ -50,4 +53,5 @@ If you are using ``tephpy`` rather than changing it, none of this is needed. The
     docs-style
     packaging
     ci
+    release
     specs/index

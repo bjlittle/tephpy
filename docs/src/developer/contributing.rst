@@ -36,7 +36,7 @@ test of the :doc:`browser demo </tutorials/browser-demo>` in
 The Task Graph
 ---------------
 
-Seventeen tasks are declared; about nine are worth knowing. The rest are steps these run
+Eighteen tasks are declared; about nine are worth knowing. The rest are steps these run
 on your behalf:
 
 .. code:: text
