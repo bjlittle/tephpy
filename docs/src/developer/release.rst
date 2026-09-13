@@ -145,25 +145,35 @@ The Sequence
       $ /tmp/release-check/bin/python -c "import tephpy; print(tephpy.__version__)"
       $ /tmp/release-check/bin/tephpy examples list
 
-9. **Merge the release branch back into main.** Through a pull request like
-   any other change, carrying ``CHANGELOG.rst``, the citation metadata, and any
-   fix the release was made for.
+9. **Merge the release branch back into main** — with a **merge commit**, not
+   a squash. The pull request carries ``CHANGELOG.rst``, the citation metadata,
+   and any fix the release was made for.
 
    .. code-block:: console
 
       $ git fetch origin
-      $ git switch -c merge-back-vX.Y.Z origin/vA.B.x
-      $ git merge origin/main
-      $ git push -u origin merge-back-vX.Y.Z
-      $ gh pr create --base main --head merge-back-vX.Y.Z
+      $ gh pr create --base main --head vA.B.x \
+            --title "Merge back vA.B.x" --label skip-changelog
 
-   ``git merge origin/main`` is there so that any conflict is resolved on your
-   own branch rather than in the pull request. If it reports *Already up to
-   date* the branch has nothing of ``main`` to catch up on, which is the usual
-   case straight after a release.
+   ``skip-changelog`` for the reason step 4 needed it: this pull request carries
+   the fragment deletions as well, and ``ci-changelog`` reads them the same way.
 
-   Do this rather than leave it: the release notes and the citation metadata
-   are on the release branch and nowhere else until it lands.
+   **The merge method is the whole point of this step, and it is not the
+   default.** ``main`` is configured for squash merges, and a squash would put
+   the branch's *content* on ``main`` while leaving the tag off it — after which
+   ``setuptools_scm`` goes on deriving a version *below* the one just released.
+   A merge commit makes the tag an ancestor of ``main``, which moves ``main`` to
+   the next minor line while the release branch stays on the patch line:
+   ``0.2.0.dev…`` and ``0.1.1.dev…`` respectively, measured both ways.
+
+   So the reviewer enables merge commits in the repository settings, merges with
+   *Create a merge commit*, and turns the setting off again. ``main`` also
+   requires linear history, which a merge commit is not; whether that needs
+   relaxing for the same merge, or whether it is waived for administrators, is
+   one of the things the rehearsal below is for.
+
+   **Do not delete the release branch** when the pull request merges. The next
+   patch release for this minor version is prepared on it.
 
 10. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
     ``vX.Y``) exists only once a tag does, so this step is possible only now.
@@ -217,6 +227,13 @@ for real, is throwaway in the sense that no resolver installs a pre-release by
 default, and turns every step above from something never done into something
 done once. The alternative is finding out whether the trusted publisher matches
 on the release itself, where `What Cannot Be Undone`_ applies.
+
+Rehearse the merge-back with it. That is the step with a setting to change and a
+merge method to pick by hand, and it is the one whose failure is quiet: a squash
+lands, everything looks merged, and ``main`` goes on deriving a version below the
+release. Doing it once on a release candidate settles what the branch protection
+actually permits, which is written above as an open question because nothing has
+tried it.
 
 **Two gates will move at the first tag**, and neither is a defect:
 
