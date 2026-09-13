@@ -22,8 +22,13 @@ ceremony: measured, one commit past ``v0.1.0`` derives ``0.1.1.dev1`` on
 lines — and ``main`` derives the wrong one until the merge-back lands. The
 branch is also where a fix for a released version is prepared. ``ci-tests``,
 ``ci-docs``, ``ci-wheels``, ``ci-citation`` and ``codeql`` now run on it as they
-do on ``main``, and ``publish-testpypi`` with them, since a branch nothing checks
-would put the least-tested commit in the repository on PyPI.
+do on ``main``, since a branch nothing checks would put the least-tested commit
+in the repository on PyPI; ``ci-tests`` and ``ci-docs`` run on the ``v*`` tag
+too, so the released commit carries checks of its own. Cross-referenced against
+``bjlittle/geovista``, which has released this way several times: ``publish-testpypi``
+stays scoped to ``main`` as geovista scopes it, and the two places tephpy is
+deliberately stricter — ``codeql`` on release-branch pull requests, and a
+``v*.*.x`` branch pattern rather than ``v*x`` — are stricter on purpose.
 
 The sequence names the ``skip-changelog`` label the release pull request needs
 (:pull:`315` review). That pull request deletes every news fragment into

@@ -7,6 +7,7 @@ on:
     # Without it a release branch runs no checks at all on push, and the commit
     # about to be tagged would be the least-tested on the repository.
     branches: [main, "v*.*.x"]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 

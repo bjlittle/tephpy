@@ -101,16 +101,12 @@ jobs:
 
   publish-testpypi:
     needs: build
-    # The release branch as well as `main`, so that the commit about to be
-    # tagged reaches Test PyPI before the tag reaches PyPI -- which is the whole
-    # production path bar its last step, run on the exact commit
-    # (developer/release.rst). `skip-existing` makes a version already there a
-    # no-op rather than a failure, which is what a second push to the branch
-    # would otherwise be.
-    if: >-
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/v'))
+    # `main` and not the release branch, which is geovista's rule and the one
+    # release practice has actually been run against. A release branch differs
+    # from `main` by its assembled changelog and release metadata, so the *code*
+    # Test PyPI has seen is the code about to be tagged; publishing from the
+    # branch as well would consume Test PyPI versions to re-upload it.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:

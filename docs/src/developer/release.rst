@@ -53,9 +53,9 @@ failure costs a minute rather than a tagged commit.
 
 And three things that must be true:
 
-- **The release branch is green.** Not "was green" — ``ci-wheels`` builds and
-  publishes to Test PyPI on every push to it, so a red one means the path the
-  tag takes is already broken.
+- **The release branch is green.** Not "was green" — ``ci-tests``, ``ci-docs``
+  and ``ci-wheels`` all run on a push to it, so a red one means the path the tag
+  takes is already broken.
 - **Every merged pull request left a fragment.** ``pixi run changelog --draft``
   renders what the release will say; a pull request missing from it is a
   fragment that was never written, and ``ci-changelog`` should have caught it.
@@ -102,10 +102,16 @@ The Sequence
 
 5. **Merge it, and wait for the release branch.** ``ci-wheels`` runs again on
    the merge commit: ``manifest`` gates ``MANIFEST.in`` against what the sdist
-   carries, ``build`` builds and smoke-tests both distributions, and
-   ``publish-testpypi`` publishes them to Test PyPI. That is the whole
-   production path except its last step, exercised on the exact commit you are
+   carries, and ``build`` builds and smoke-tests both distributions. Everything
+   the tag will do except the upload itself, run on the exact commit you are
    about to tag.
+
+   ``publish-testpypi`` does *not* run here — it is scoped to ``main``, which is
+   where the code reached Test PyPI before the branch was cut. A patch release
+   is the exception worth knowing: its fix is prepared on the release branch and
+   never passes through ``main`` first, so nothing of it reaches Test PyPI ahead
+   of PyPI. Dispatch ``ci-wheels`` by hand from the branch if you want that
+   rehearsal for a patch.
 
 6. **Tag it, and push the tag.**
 

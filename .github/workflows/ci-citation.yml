@@ -2,14 +2,14 @@ name: ci-citation
 
 on:
   pull_request:
-    paths: ["CITATION.cff"]
+    paths: ["CITATION.cff", ".github/workflows/ci-citation.yml"]
   push:
     # `v*.*.x` is the release branch a release is tagged from, and any patch
     # release for that minor version is prepared on (developer/release.rst).
     # Without it a release branch runs no checks at all on push, and the commit
     # about to be tagged would be the least-tested on the repository.
     branches: [main, "v*.*.x"]
-    paths: ["CITATION.cff"]
+    paths: ["CITATION.cff", ".github/workflows/ci-citation.yml"]
   workflow_dispatch:
 
 permissions: {}
