@@ -30,6 +30,9 @@ stays scoped to ``main`` as geovista scopes it, and the two places tephpy is
 deliberately stricter — ``codeql`` on release-branch pull requests, and a
 ``v*.*.x`` branch pattern rather than ``v*x`` — are stricter on purpose.
 
+Step 5 says where a patch release loses the Test PyPI rehearsal, and gives the
+``dist`` artifact as the way to get the same confidence.
+
 Step 8 links the PyPI project page and gives the throwaway-install check. Step 9
 gives the merge-back commands and the part that is not the default: the pull
 request is merged with a **merge commit**, not the squash ``main`` is configured

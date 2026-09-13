@@ -107,11 +107,23 @@ The Sequence
    about to tag.
 
    ``publish-testpypi`` does *not* run here — it is scoped to ``main``, which is
-   where the code reached Test PyPI before the branch was cut. A patch release
-   is the exception worth knowing: its fix is prepared on the release branch and
-   never passes through ``main`` first, so nothing of it reaches Test PyPI ahead
-   of PyPI. Dispatch ``ci-wheels`` by hand from the branch if you want that
-   rehearsal for a patch.
+   where the code reached Test PyPI before the branch was cut, and a
+   ``workflow_dispatch`` run does not reach it either: the job asks for a
+   ``push`` event on ``main``, and a dispatch is neither.
+
+   A patch release is the case worth knowing, since its fix is prepared on the
+   release branch and never passes through ``main``, so nothing of it reaches
+   Test PyPI ahead of PyPI. What the branch run does give you is the ``dist``
+   artifact, built and smoke-tested by the same job that will build what ships.
+   Download it from the run and install it to get the same confidence without an
+   upload:
+
+   .. code-block:: console
+
+      $ gh run download --branch vA.B.x --name dist --dir /tmp/dist
+      $ python -m venv /tmp/patch-check
+      $ /tmp/patch-check/bin/pip install /tmp/dist/*.whl
+      $ /tmp/patch-check/bin/python -c "import tephpy; print(tephpy.__version__)"
 
 6. **Tag it, and push the tag.**
 
