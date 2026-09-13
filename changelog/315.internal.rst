@@ -30,6 +30,10 @@ stays scoped to ``main`` as geovista scopes it, and the two places tephpy is
 deliberately stricter — ``codeql`` on release-branch pull requests, and a
 ``v*.*.x`` branch pattern rather than ``v*x`` — are stricter on purpose.
 
+Step 8 links the PyPI project page and gives the throwaway-install check; step 9
+gives the merge-back commands, which resolve any conflict on your own branch
+rather than in the pull request.
+
 The sequence names the ``skip-changelog`` label the release pull request needs
 (:pull:`315` review). That pull request deletes every news fragment into
 ``CHANGELOG.rst``, so ``ci-changelog`` finds none named for it and, because

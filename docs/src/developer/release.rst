@@ -133,18 +133,37 @@ The Sequence
    this time ``publish-pypi`` runs instead of ``publish-testpypi``. It is gated
    on ``build`` succeeding, so a failure before that point publishes nothing.
 
-8. **Check what arrived.** The project page on PyPI, and an install from it into
-   a throwaway environment — ``ci-wheels`` smoke-tests the wheel it built, not
-   the wheel PyPI served.
+8. **Check what arrived.** `The project page on PyPI
+   <https://pypi.org/project/tephpy/>`__ should show the new version, and an
+   install from it into a throwaway environment should work — ``ci-wheels``
+   smoke-tests the wheel it *built*, not the wheel PyPI served.
+
+   .. code-block:: console
+
+      $ python -m venv /tmp/release-check
+      $ /tmp/release-check/bin/pip install tephpy==X.Y.Z
+      $ /tmp/release-check/bin/python -c "import tephpy; print(tephpy.__version__)"
+      $ /tmp/release-check/bin/tephpy examples list
 
 9. **Merge the release branch back into main.** Through a pull request like
-   any other change, and it carries ``CHANGELOG.rst``, the citation metadata,
-   and any fix the release was made for.
+   any other change, carrying ``CHANGELOG.rst``, the citation metadata, and any
+   fix the release was made for.
 
-   This is required rather than tidy. Until the merge lands, ``main`` does not
-   contain the tag, so the version it derives is not the one after the release.
-   With it, ``main`` moves to the next minor line — ``0.2.0.dev…`` — while
-   ``vA.B.x`` stays on the patch line, which is the whole point of having both.
+   .. code-block:: console
+
+      $ git fetch origin
+      $ git switch -c merge-back-vX.Y.Z origin/vA.B.x
+      $ git merge origin/main
+      $ git push -u origin merge-back-vX.Y.Z
+      $ gh pr create --base main --head merge-back-vX.Y.Z
+
+   ``git merge origin/main`` is there so that any conflict is resolved on your
+   own branch rather than in the pull request. If it reports *Already up to
+   date* the branch has nothing of ``main`` to catch up on, which is the usual
+   case straight after a release.
+
+   Do this rather than leave it: the release notes and the citation metadata
+   are on the release branch and nowhere else until it lands.
 
 10. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
     ``vX.Y``) exists only once a tag does, so this step is possible only now.
