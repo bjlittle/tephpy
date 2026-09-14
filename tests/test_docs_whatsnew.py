@@ -54,13 +54,30 @@ def test_the_template_anchors_each_release_by_version():
     assert ".. _changelog-v9.9.9:" in _rendered()
 
 
+def test_the_release_title_nests_under_the_changelog_page():
+    """A release is a section *of* the changelog, not a second page title.
+
+    docutils reads a document's heading levels from the order the underline
+    styles first appear. `docs/src/reference/changelog.rst` opens with ``=``, so
+    a release title underlined the same way is a *sibling* top-level section
+    rather than a subsection -- the page then has two top-level sections, and
+    `reference/index.rst`'s toctree lists the newest release beside *Changelog*
+    as though it were a page of its own. Observed in the built site
+    (:pull:`322`); towncrier's `top_underline` is ``=`` by default, which is why
+    this template does not use it.
+    """
+    rendered = _rendered()
+    title = "v9.9.9 (2099-01-01)"
+    assert f"{title}\n{'-' * len(title)}" in rendered
+    assert f"{title}\n{'=' * len(title)}" not in rendered
+
+
 def test_the_template_titles_each_release():
     # Without this the assembled changelog has no version headings at all --
     # one release hides it, and from the second the file is an undivided run
     # of entries (`whatsnew spec §3.3`).
-    rendered = _rendered()
-    assert "v9.9.9 (2099-01-01)" in rendered
-    assert "=" * len("v9.9.9 (2099-01-01)") in rendered
+    # The underline is the sibling test's subject, not this one's.
+    assert "v9.9.9 (2099-01-01)" in _rendered()
 
 
 CONF = REPO / "docs" / "src" / "conf.py"
