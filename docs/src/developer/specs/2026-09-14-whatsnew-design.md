@@ -45,11 +45,13 @@ departs from it and why.
 1. **Per minor version, not per release.** `0.1.rst` covers `v0.1.0` and every patch
    after it. A patch release appends to §3.1's *Patches* section rather than opening a
    page of its own, because a reader asking what is new in 0.1 wants one page.
-2. **The anchor a whatsnew page links is keyed on version, not date.** geovista's
-   towncrier template emits `…-{{ versiondata.date }}`. tephpy emits
-   `…-v{{ versiondata.version }}` (§3.3), so a page can carry its forward reference
-   before the release date exists rather than needing it filled in on the very commit
-   that gets tagged.
+2. **The per-release changelog anchor is keyed on version, not date.** geovista's
+   towncrier template emits `…-{{ versiondata.date }}`; tephpy emits
+   `…-v{{ versiondata.version }}` (§3.3). Both are written by towncrier and both are
+   known on release day, so this buys no ordering — it buys legibility. A frozen page
+   links `changelog-v0.1.0`, which a reader can guess and a reviewer can check against
+   the release it sits on; `changelog-2026-09-14` can only be looked up. The date is
+   still in the rendered title either way.
 3. **No icon roles.** geovista's pages use font-awesome (`:fa:`, `:fab:`). tephpy's
    idiom is `sphinx-iconify`, and `start spec §3.4` records a read-time network cost for
    it, so these pages carry emoji-free plain headings and no icon roles at all.
