@@ -186,6 +186,12 @@ Four steps, which `developer/release.rst` carries in its sequence:
    gets tagged, built, and published. The `include` moves for the reason decision 5
    of §2 gives: the newest frozen page is now this one.
 
+   The repoint leaves `changelog-vX.Y.Z` undefined until step 3 assembles the changelog
+   that defines it; a documentation build taken in between fails on the label. That is
+   acceptable because nothing publishes from the intermediate state — by the time the
+   release pull request is built or merged, its head carries both the repoint and the
+   assembly.
+
 2. **Tag, publish, merge back** — `developer/release.rst`'s existing steps, unchanged.
    Through this window the section has no `latest.rst` at all, and that is the correct
    state: there is no next release being accumulated toward yet.
@@ -246,8 +252,10 @@ for the same kind of reason. But `start spec §3.7`'s note makes one transition 
 retired; this state is cyclic, not one-way. §3.5 step 3 reseeds `latest.rst` from the
 template — placeholder and all — after every release, so a rule keyed to the release
 signal read a freshly reseeded file as a defect for the whole of the next cycle, and read
-nothing at all through the frozen window between a release's tag and its merge-back, where
-`latest.rst` does not exist (§3.5 step 2). The rule belongs to the page that is actually
+`latest.rst` unconditionally through the frozen window between a release's tag and its
+merge-back, where the file does not exist (§3.5 step 2) — raising `FileNotFoundError`, a
+hard error on the tagged commit, on the merge-back pull request, and on every push to a
+`v*.*.x` branch. The rule belongs to the page that is actually
 wrong to carry the placeholder: the one just frozen, which needs no comparison against the
 installed version to be wrong, and is vacuous before the first release because nothing is
 frozen yet. Shipping `TBD` as the highlights of a release is still the one failure here
