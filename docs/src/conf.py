@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from importlib.metadata import version as _dist_version
 from pathlib import Path
 import sys
@@ -21,6 +22,17 @@ author = "tephpy Contributors"
 copyright = "2026, tephpy Contributors"
 release = _dist_version("tephpy")
 version = ".".join(release.split(".")[:2])
+
+# The what's new section reads both (whatsnew spec §3.2). `release` is the
+# installed version, so `latest.rst` states what this build is of without a
+# file to edit. A *frozen* page must not use them -- it would then announce
+# whatever version the next build happens to be -- and Task 5's gate holds it.
+_built = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+
+rst_epilog = f"""
+.. |tp_version| replace:: v{release}
+.. |build_date| replace:: ({_built})
+"""
 
 extensions = [
     "tephpy_citation_xrefs",

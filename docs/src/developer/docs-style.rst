@@ -429,8 +429,9 @@ A page carries exactly one banner. Two is a copy-paste, not a decision, and
 
 A page that is *navigated* rather than read carries no banner: the four Diátaxis
 landing pages, the developer and specification indexes, the site root, the
-glossary, the topic index, and the four reference pages whose body a directive
-generates. These are named in ``EXEMPT`` in ``tests/test_docs_readingtime.py``, with the reason
+glossary, the topic index, the four reference pages whose body a directive
+generates, and a reference page whose body includes another page that already
+carries the banner. These are named in ``EXEMPT`` in ``tests/test_docs_readingtime.py``, with the reason
 beside each, and ``test_every_page_a_reader_reads_carries_a_reading_time``
 fails for any other page that omits one. Adding a page means adding the banner
 or adding the reason.

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Every source file carries the BSD copyright header (ruff `CPY001`), exactly as `.pre-commit-config.yaml`'s `notice-rgx` spells it.
+- Every source file carries the BSD copyright header (ruff `CPY001`), exactly as `pyproject.toml`'s `[tool.ruff.lint.flake8-copyright]` `notice-rgx` spells it.
 - Every pull request adds `changelog/<PR>.<type>.rst` ending with ``(:user:`claude`)``.
 - Page titles follow CMOS headline style (`docs/src/developer/docs-style.rst`).
 - A GitHub reference is written ``:issue:`N``` or ``:pull:`N``` in reStructuredText and ``{issue}`N``` in Markdown — never a bare `#N`, never a hand-written URL.

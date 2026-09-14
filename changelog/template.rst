@@ -1,3 +1,9 @@
+.. _changelog-v{{ versiondata.version }}:
+
+{% if render_title %}
+v{{ versiondata.version }} ({{ versiondata.date }})
+{{ top_underline * ((versiondata.version + versiondata.date)|length + 4) }}
+{% endif %}
 {% for section, _ in sections.items() %}
 {% for category, val in definitions.items() if category in sections[section] %}
 {{ definitions[category]['name'] }}
