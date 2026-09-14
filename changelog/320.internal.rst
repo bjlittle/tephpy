@@ -1,0 +1,4 @@
+Added the implementation plan for the what's new section
+(``docs/src/developer/plans/2026-09-14-tephpy-whatsnew.md``), derived from
+``whatsnew spec §1`` and frozen once its pull request merges, per docs spec §3.4.
+Six tasks, each with its failing test written out. (:user:`claude`)
