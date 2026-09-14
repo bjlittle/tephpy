@@ -251,10 +251,24 @@ is there. It reads the version of the installed package, which in every environm
 runs the suite is this checkout. `packaging` is already a member of the `test` extra, so
 the comparison adds no dependency.
 
-The failure it produces on the release commit is the intended behaviour and not a
-side effect: the tag is cut, the test fails, the note comes out, and the page is true
-again. A comment in the test says so, because a future reader meeting a red test on a
-release day should not have to infer it.
+*Corrected 2026-09-14, preparing v0.1.0.* The rule above is now **one-sided**: a
+released tephpy must not carry the note, and an unreleased one is not required to. The
+two-sided form deadlocked the release it was written for, one turn past the `.dev`
+deadlock corrected above. The signal changes when the repository is *tagged*; the note
+is removed when a file is *edited*; those are different commits over the same tree. So
+requiring the note while unreleased forbade removing it from the commit that gets
+tagged — and that commit is the one that is built, with `README.md` as the
+distribution's long description ({pull}`315` preparation). Published `0.1.0` would have
+told every reader of its PyPI page and of the `stable` documentation that tephpy had
+never been released, with the correction landing in `0.1.1`. A release candidate does
+not lift it either: `packaging` sorts `0.1.0rc1` below `0.1.0`, so the rehearsal runs
+with the note still demanded.
+
+What the earlier paragraph describes as intended — the tag is cut, the test fails, the
+note comes out — is therefore the defect, not the design. The direction that protects a
+reader is kept; the direction that deadlocked is dropped. Removing the note early is a
+deliberate edit in a reviewed pull request, and the two carriers are still held to
+agreeing with each other, which is what the second carrier was added for.
 
 (start-spec-3-8)=
 ### 3.8 Navigation, and why the header decides the shape
