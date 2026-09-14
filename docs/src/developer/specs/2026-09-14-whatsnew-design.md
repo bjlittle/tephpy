@@ -74,7 +74,7 @@ Three files:
 
 | file | what it is |
 |---|---|
-| `index.rst` | the section landing page: an introduction, an `include` of the newest page, and a hidden toctree |
+| `index.rst` | the *What's New* page itself: an introduction, an `include` of the newest page, and a hidden toctree |
 | `latest.rst` | the release being accumulated toward, and a real page in its own right |
 | `latest.rst.template` | the seed §3.5 copies into place after a release |
 
@@ -87,8 +87,8 @@ second click, and the page still has a URL of its own to link.
 Each page carries the three headings geovista uses, without its icons:
 **Announcements**, **Highlights**, **Patches**.
 
-`index.rst` joins `reading spec §3.6`'s `EXEMPT` list, with the section landing pages it
-already holds. The banner belongs on the pages a reader reads, and an index whose body is
+`index.rst` joins `reading spec §3.6`'s `EXEMPT` list, alongside the section and quadrant
+index pages it already holds. The banner belongs on the pages a reader reads, and an index whose body is
 an include and a toctree is not one — and were it to carry a banner of its own it would
 render two, its own and `latest.rst`'s, which the reading-time gate refuses. `latest.rst`
 and every frozen page carry theirs.
@@ -193,7 +193,7 @@ A patch release re-enters at step 1 against the existing `A.B.rst`, appending to
 *Patches* section. It skips steps 3 and 4: `latest.rst` on `main` is already accumulating
 for the next minor version and is not what a patch describes.
 
-**What the landing page shows, therefore, changes across the cycle** — the frozen release
+**What the *What's New* page shows, therefore, changes across the cycle** — the frozen release
 between steps 1 and 4, and the accumulating `latest.rst` after step 4, which opens with
 its template's placeholders until someone writes into it. That is the cost of step 4 as
 specified, and it is deliberate: a section called *What's New* whose landing body is the
@@ -209,7 +209,10 @@ already covers a broken reference, so none of these repeats it.
 **The index lists every page in its directory.** The same rule
 `narrative spec §3.9` gives the quadrant landing pages, for the same reason: a page in
 neither the include nor the toctree builds clean and is unreachable from the section it
-belongs to. `latest.rst.template` is not a page and is excluded by name.
+belongs to. Only the rule is borrowed — the *What's New* page is **not** a landing page in
+that specification's sense, since `narrative spec §7` keeps the reference quadrant out of
+the table-and-toctree shape those pages carry, and `tests/test_docs_landing_pages.py`
+governs `TABLE_SECTIONS` alone. `latest.rst.template` is not a page and is excluded by name.
 
 **No page but `latest.rst` carries the substitutions.** §3.2's freezing step is a manual
 edit made once per release, and forgetting it produces a page that is wrong only from the
