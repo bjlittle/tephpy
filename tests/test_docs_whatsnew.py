@@ -11,7 +11,10 @@ import re
 from types import SimpleNamespace
 
 from jinja2 import Template
+from packaging.version import Version
+import pytest
 
+import tephpy
 from tests.by_path import load_path
 
 REPO = Path(__file__).parents[1]
@@ -141,3 +144,42 @@ def test_the_seed_is_not_a_page():
     # itself published; `.glob("*.rst")` must not collect it.
     assert TEMPLATE_PAGE.is_file()
     assert "latest.rst" not in _pages()
+
+
+#: The first release. The placeholder gate below is one-sided against this for
+#: the reason `start spec §3.7` records having to become one-sided: the release
+#: signal moves when the repository is tagged, and the page is edited on a
+#: different commit over the same tree.
+FIRST_RELEASE = Version("0.1.0")
+
+#: What the seed carries until a release manager writes over it.
+PLACEHOLDER = "``TBD`` prior to release."
+
+
+def _frozen() -> list[Path]:
+    """Return the frozen release pages -- every page but `latest.rst`."""
+    return sorted(p for p in WHATSNEW.glob("*.rst") if p.name != "latest.rst")
+
+
+def test_no_frozen_page_carries_the_substitutions():
+    # A frozen page stays in the toctree for the life of the project. Left
+    # substituted it would render with whatever version the *next* build is --
+    # a page about 0.1 announcing 0.2 (`whatsnew spec §3.2`). Freezing replaces
+    # them with literal text, and forgetting that is invisible until the next
+    # release, which is why this reads the pages rather than trusting the step.
+    offenders = {
+        path.name: name
+        for path in _frozen()
+        for name in SUBSTITUTIONS
+        if f"|{name}|" in path.read_text(encoding="utf-8")
+    }
+    assert offenders == {}
+
+
+def test_the_accumulating_page_is_written_before_a_release():
+    # One-sided: released forbids the placeholder, unreleased does not require
+    # its absence. Shipping `TBD` as the highlights of a release is the one
+    # failure here that reaches every reader.
+    if Version(tephpy.__version__) < FIRST_RELEASE:
+        pytest.skip(f"{tephpy.__version__} predates the first release")
+    assert PLACEHOLDER not in LATEST.read_text(encoding="utf-8")
