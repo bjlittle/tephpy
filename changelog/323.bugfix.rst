@@ -1,0 +1,7 @@
+Made each release a section *of* the changelog rather than a second page title.
+The towncrier template underlined a release with towncrier's ``top_underline``,
+which is ``=`` — the same style the changelog page uses for its own title — so
+docutils read it as a sibling top-level section and the reference quadrant's
+toctree listed the newest release beside *Changelog* as though it were a page of
+its own (:pull:`322`). It now underlines with ``-``, which nests correctly and
+leaves the category headings a level below it again. (:user:`claude`)
