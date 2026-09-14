@@ -75,16 +75,33 @@ The Sequence
    For a patch release the branch already exists and carries its own history —
    check it out and put the fix on it, rather than branching again.
 
-2. **Assemble the changelog.** ``pixi run changelog --version X.Y.Z``. This
+2. **Freeze the what's new page.** Write the release's Announcements and
+   Highlights into ``docs/src/reference/whatsnew/latest.rst``, then:
+
+   - replace ``|tp_version|`` and ``|build_date|`` with the literal version and
+     release date — a frozen page that keeps them announces whatever version the
+     next documentation build happens to be;
+   - repoint its changelog link from ``changelog-latest`` to
+     ``changelog-vX.Y.Z``;
+   - rename the file to ``A.B.rst`` — the major and minor only, since a patch
+     release appends to this same page;
+   - in ``whatsnew/index.rst``, point the ``include`` at ``A.B.rst`` and replace
+     ``latest`` with ``A.B`` in the toctree.
+
+   Both index edits are obligatory. The rename takes ``latest.rst`` out of
+   existence, so a toctree entry still naming it names nothing — on the one
+   commit that gets tagged, built and published.
+
+3. **Assemble the changelog.** ``pixi run changelog --version X.Y.Z``. This
    writes ``CHANGELOG.rst`` and **deletes the fragments it consumed**, so it is
    a commit of its own and the diff is worth reading before you make it.
 
-3. **Fill in the release metadata.** ``CITATION.cff`` takes ``version`` and
+4. **Fill in the release metadata.** ``CITATION.cff`` takes ``version`` and
    ``date-released`` (``YYYY-MM-DD``). ``ci-citation`` validates the file, and
    it runs only when that file changes — so this step is the only thing that
    will ever check it.
 
-4. **Open a pull request into the release branch, and label it**
+5. **Open a pull request into the release branch, and label it**
    ``skip-changelog``. Then let it go green — this is the last point at which
    anything is reversible for free.
 
@@ -93,14 +110,14 @@ The Sequence
    after its own number, and this one has *deleted* every fragment there was:
    they are not missing, they have been consumed into ``CHANGELOG.rst`` in the
    same diff. Writing a fragment first does not help, because the gate reads the
-   pull request's net change and step 2 removes it again.
+   pull request's net change and step 3 removes it again.
 
    Nothing applies the label for you — ``ci-label`` adds it only for
    ``dependabot`` and ``pre-commit.ci`` — and without it the gate fails on the
    deleted paths rather than reporting a missing fragment, so the error will not
    tell you any of this.
 
-5. **Merge it, and wait for the release branch.** ``ci-wheels`` runs again on
+6. **Merge it, and wait for the release branch.** ``ci-wheels`` runs again on
    the merge commit: ``manifest`` gates ``MANIFEST.in`` against what the sdist
    carries, and ``build`` builds and smoke-tests both distributions. Everything
    the tag will do except the upload itself, run on the exact commit you are
@@ -125,7 +142,7 @@ The Sequence
       $ /tmp/patch-check/bin/pip install /tmp/dist/*.whl
       $ /tmp/patch-check/bin/python -c "import tephpy; print(tephpy.__version__)"
 
-6. **Tag it, and push the tag.**
+7. **Tag it, and push the tag.**
 
    .. code-block:: console
 
@@ -141,11 +158,11 @@ The Sequence
    publish a GitHub release alongside the tag. Either way, make sure the target
    is the release branch and not ``main``.
 
-7. **Watch the wheels workflow.** The tag push runs ``ci-wheels`` again, and
+8. **Watch the wheels workflow.** The tag push runs ``ci-wheels`` again, and
    this time ``publish-pypi`` runs instead of ``publish-testpypi``. It is gated
    on ``build`` succeeding, so a failure before that point publishes nothing.
 
-8. **Check what arrived.** `The project page on PyPI
+9. **Check what arrived.** `The project page on PyPI
    <https://pypi.org/project/tephpy/>`__ should show the new version, and an
    install from it into a throwaway environment should work — ``ci-wheels``
    smoke-tests the wheel it *built*, not the wheel PyPI served.
@@ -157,47 +174,73 @@ The Sequence
       $ /tmp/release-check/bin/python -c "import tephpy; print(tephpy.__version__)"
       $ /tmp/release-check/bin/tephpy examples list
 
-9. **Merge the release branch back into main** — with a **merge commit**, not
-   a squash. The pull request carries ``CHANGELOG.rst``, the citation metadata,
-   and any fix the release was made for.
+10. **Merge the release branch back into main** — with a **merge commit**, not
+    a squash. The pull request carries ``CHANGELOG.rst``, the citation metadata,
+    and any fix the release was made for.
 
-   .. code-block:: console
+    .. code-block:: console
 
-      $ git fetch origin
-      $ gh pr create --base main --head vA.B.x \
-            --title "Merge back vA.B.x" --label skip-changelog
+       $ git fetch origin
+       $ gh pr create --base main --head vA.B.x \
+             --title "Merge back vA.B.x" --label skip-changelog
 
-   ``skip-changelog`` for the reason step 4 needed it: this pull request carries
-   the fragment deletions as well, and ``ci-changelog`` reads them the same way.
+    ``skip-changelog`` for the reason step 5 needed it: this pull request
+    carries the fragment deletions as well, and ``ci-changelog`` reads them the
+    same way.
 
-   **The merge method is the whole point of this step, and it is not the
-   default.** ``main`` is configured for squash merges, and a squash would put
-   the branch's *content* on ``main`` while leaving the tag off it — after which
-   ``setuptools_scm`` goes on deriving a version *below* the one just released.
-   A merge commit makes the tag an ancestor of ``main``, which moves ``main`` to
-   the next minor line while the release branch stays on the patch line:
-   ``0.2.0.dev…`` and ``0.1.1.dev…`` respectively, measured both ways.
+    **The merge method is the whole point of this step, and it is not the
+    default.** ``main`` is configured for squash merges, and a squash would put
+    the branch's *content* on ``main`` while leaving the tag off it — after
+    which ``setuptools_scm`` goes on deriving a version *below* the one just
+    released. A merge commit makes the tag an ancestor of ``main``, which moves
+    ``main`` to the next minor line while the release branch stays on the patch
+    line: ``0.2.0.dev…`` and ``0.1.1.dev…`` respectively, measured both ways.
 
-   Two settings have to be relaxed for it, and both are put back afterwards:
+    Two settings have to be relaxed for it, and both are put back afterwards:
 
-   - **Allow merge commits**, in the repository's pull-request settings. The
-     repository is configured for squash merges only.
-   - **Require linear history**, in ``main``'s branch protection, turned *off*.
-     A merge commit is not linear history, and the merge is refused while it
-     stands.
+    - **Allow merge commits**, in the repository's pull-request settings. The
+      repository is configured for squash merges only.
+    - **Require linear history**, in ``main``'s branch protection, turned
+      *off*. A merge commit is not linear history, and the merge is refused
+      while it stands.
 
-   Then merge with *Create a merge commit* — not the default button — and
-   restore both immediately. While they are relaxed any pull request can land a
-   merge commit on ``main``, so the window is a reason to do this promptly
-   rather than leave it open.
+    Then merge with *Create a merge commit* — not the default button — and
+    restore both immediately. While they are relaxed any pull request can land
+    a merge commit on ``main``, so the window is a reason to do this promptly
+    rather than leave it open.
 
-   **Do not delete the release branch** when the pull request merges. The next
-   patch release for this minor version is prepared on it.
+    **Do not delete the release branch** when the pull request merges. The next
+    patch release for this minor version is prepared on it.
 
-10. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
+11. **Reseed the what's new page**, on ``main``, and only now.
+
+    .. code-block:: console
+
+       $ cp docs/src/reference/whatsnew/latest.rst.template \
+            docs/src/reference/whatsnew/latest.rst
+
+    In the same commit, put ``latest`` back at the head of
+    ``whatsnew/index.rst``'s toctree. The freeze removed it and nothing else
+    puts it back, and a page the toctree does not name is unreachable from the
+    section it belongs to.
+
+    Leave the ``include`` alone: it stays on the release just frozen, so the
+    page a reader meets is the newest release they can install rather than a
+    placeholder for the next one.
+
+    Seeding earlier does not work. On the release branch it would travel back
+    through the merge-back as a second empty page; on ``main`` before the
+    merge-back it would leave two pages both claiming to be newest.
+
+12. **Activate the version on Read the Docs.** Versioned hosting (``stable`` and
     ``vX.Y``) exists only once a tag does, so this step is possible only now.
 
-11. **Announce it**, if it is a release worth announcing.
+13. **Announce it**, if it is a release worth announcing.
+
+A patch release re-enters at the freeze step against the existing ``A.B.rst``,
+appending to its *Patches* section, and skips the reseed: ``latest.rst`` on
+``main`` is already accumulating for the next minor version and is not what a
+patch describes.
 
 What Cannot Be Undone
 ----------------------
@@ -219,7 +262,7 @@ What Cannot Be Undone
       - Free before the merge, since the fragments are still in git history.
         After it, restoring one means a new fragment
 
-This is why the rehearsal below exists, and why steps 2 to 4 are a pull request
+This is why the rehearsal below exists, and why steps 3 to 5 are a pull request
 rather than a push.
 
 The First Release
