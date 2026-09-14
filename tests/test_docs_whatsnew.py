@@ -8,31 +8,39 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from types import SimpleNamespace
 
 from jinja2 import Template
-from packaging.version import Version
-import pytest
 
-import tephpy
 from tests.by_path import load_path
+from tests.test_docs_landing_pages import toctree_entries
 
 REPO = Path(__file__).parents[1]
 TEMPLATE = REPO / "changelog" / "template.rst"
 
 
 def _rendered(version: str = "9.9.9", date: str = "2099-01-01") -> str:
-    """Render the towncrier template with a context towncrier would give it.
+    """Render the towncrier template with the context towncrier actually gives it.
 
     In memory rather than through `towncrier build`: the assembly writes
     `CHANGELOG.rst`, deletes every fragment, and fails the container census
     (:issue:`318`). Rendering the template is what this is about anyway.
+
+    `versiondata` is a plain dict, built by `towncrier/build.py` as
+    `{"name": ..., "version": ..., "date": ...}`, not an object -- so this
+    builds one too rather than a `SimpleNamespace`. `underlines` is
+    `["-", "~"]` here, the two underlines left after towncrier's default
+    `("=", "-", "~")` gives its first to `top_underline`. Neither would have
+    been caught by the template if wrong: jinja falls back to `__getitem__`
+    for attribute lookups on a dict, and `changelog/template.rst` hardcodes
+    `"^"` for category underlines rather than reading `underlines` at all --
+    but a context that is wrong for reasons the template happens not to
+    exercise is still a context this function should not claim to be right.
     """
     return Template(TEMPLATE.read_text(encoding="utf-8")).render(
-        versiondata=SimpleNamespace(version=version, date=date),
+        versiondata={"name": "Tephpy", "version": version, "date": date},
         render_title=True,
         top_underline="=",
-        underlines=["^", "-"],
+        underlines=["-", "~"],
         sections={"": {}},
         definitions={},
     )
@@ -74,6 +82,15 @@ def _defined_substitutions() -> set[str]:
     written a different way (indented, or joined together from parts instead
     of a triple-quoted literal). Reading the value checks what Sphinx would
     actually substitute.
+
+    Executing it is not free of side effects: it creates
+    `docs/_build/plot-scratch/` on disk if the directory is not there already,
+    prepends `docs/src/_ext` to `sys.path`, and leaves the module registered in
+    `sys.modules` under the name `load_path` is given below. All harmless for a
+    test process -- the directory is git-ignored and idempotent to recreate,
+    the `sys.path` entry only adds an extension Sphinx would add anyway, and
+    nothing else claims that module name -- but real, and worth knowing before
+    debugging a test that runs after this one.
     """
     conf = load_path("tephpy_docs_conf", CONF)
     return set(re.findall(r"^\.\. \|(\w+)\| replace::", conf.rst_epilog, re.MULTILINE))
@@ -111,23 +128,19 @@ def _pages() -> set[str]:
     return {path.stem for path in WHATSNEW.glob("*.rst")} - {INDEX.stem}
 
 
-def _toctree_entries() -> list[str]:
-    """Return the section index's toctree entries, in order."""
-    body = INDEX.read_text(encoding="utf-8").split(".. toctree::", 1)[1]
-    return [
-        line.strip()
-        for line in body.splitlines()
-        if line.startswith("    ") and line.strip() and not line.strip().startswith(":")
-    ]
-
-
 def test_the_toctree_lists_every_page_in_the_section():
     # A page the toctree does not name builds clean and is unreachable from the
     # section it belongs to -- the rule `narrative spec §3.9` gives the quadrant
     # landing pages, borrowed here (`whatsnew spec §4`). The include is a
     # convenience that always duplicates one entry and is never a page's only
     # route, so the toctree alone is what this reads.
-    assert set(_toctree_entries()) == _pages()
+    #
+    # `toctree_entries` is `tests/test_docs_landing_pages.py`'s, not a local
+    # copy: it stops at the toctree's first unindented line and asserts there
+    # is exactly one, rather than taking everything after the directive
+    # unbounded.
+    source = INDEX.read_text(encoding="utf-8")
+    assert set(toctree_entries(source)) == _pages()
 
 
 def test_the_section_index_includes_a_page_the_toctree_names():
@@ -145,12 +158,6 @@ def test_the_seed_is_not_a_page():
     assert TEMPLATE_PAGE.is_file()
     assert "latest.rst" not in _pages()
 
-
-#: The first release. The placeholder gate below is one-sided against this for
-#: the reason `start spec §3.7` records having to become one-sided: the release
-#: signal moves when the repository is tagged, and the page is edited on a
-#: different commit over the same tree.
-FIRST_RELEASE = Version("0.1.0")
 
 #: What the seed carries until a release manager writes over it.
 PLACEHOLDER = "``TBD`` prior to release."
@@ -187,10 +194,22 @@ def test_no_frozen_page_carries_the_substitutions():
     assert offenders == set()
 
 
-def test_the_accumulating_page_is_written_before_a_release():
-    # One-sided: released forbids the placeholder, unreleased does not require
-    # its absence. Shipping `TBD` as the highlights of a release is the one
-    # failure here that reaches every reader.
-    if Version(tephpy.__version__) < FIRST_RELEASE:
-        pytest.skip(f"{tephpy.__version__} predates the first release")
-    assert PLACEHOLDER not in LATEST.read_text(encoding="utf-8")
+def test_no_frozen_page_carries_the_placeholder():
+    # A frozen release page carrying `TBD` is always wrong (whatsnew spec §4):
+    # it needs no comparison against the installed version to be wrong, it is
+    # vacuous before the first release since nothing is frozen yet, and it
+    # fires on the release pull request that does the freezing rather than at
+    # the tag it produces. `latest.rst` is not part of `_frozen()` and carries
+    # the placeholder for most of every cycle by design -- `whatsnew spec §3.5`
+    # step 3 reseeds it from the template, placeholder and all, after every
+    # release.
+    #
+    # A set of page names rather than a single assertion against one page, the
+    # same reporting shape as `test_no_frozen_page_carries_the_substitutions`
+    # above: more than one frozen page can carry it.
+    offenders = {
+        path.name
+        for path in _frozen()
+        if PLACEHOLDER in path.read_text(encoding="utf-8")
+    }
+    assert offenders == set()
