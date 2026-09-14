@@ -40,35 +40,57 @@ PRERELEASE = "tephpy has not had its first release yet"
 FIRST_RELEASE = Version("0.1.0")
 
 
-@pytest.mark.parametrize("carrier", CARRIERS, ids=str)
-def test_the_prerelease_note_is_present_exactly_while_the_version_is_a_dev_version(
-    carrier,
-):
-    """The note is a claim about the world, so it is not left to memory.
+def _carries(carrier: Path) -> bool:
+    """Whether one carrier still states that tephpy has never been released."""
+    return PRERELEASE in (REPO / carrier).read_text(encoding="utf-8")
 
-    The question is whether tephpy has ever been released, not whether this
-    checkout sits exactly on a tag. Testing for a ``.dev`` suffix answers the
-    second, and deadlocks on the first: after ``v0.1.0`` the next commit reports
-    ``0.1.1.dev1``, which carries the suffix, so a suffix test would demand the
-    now-false note return -- and there is no commit at which it could be removed,
-    since removing it after tagging happens on a ``.dev`` commit too. Comparing
-    against the first release has neither problem: ``0.1.0.dev190`` sorts below
-    it, ``0.1.0`` and ``0.1.1.dev1`` above.
+
+@pytest.mark.parametrize("carrier", CARRIERS, ids=str)
+def test_the_prerelease_note_is_gone_once_tephpy_has_been_released(carrier):
+    """One-sided: released forbids the note, unreleased does not require it.
+
+    The two-sided rule this replaces deadlocked the release it was written for,
+    one turn further on than the ``.dev`` deadlock start spec §3.7 already
+    records. The signal changes when the repository is *tagged*; the note is
+    removed when a file is *edited*; and those are different commits over the
+    same tree. Requiring the note while unreleased therefore forbade removing it
+    from the commit that gets tagged -- and that commit is the one that is built,
+    with ``README.md`` as the distribution's long description. The published
+    ``0.1.0`` would have told every reader of its PyPI page that tephpy had never
+    been released, and the correction would have landed in ``0.1.1``.
+
+    A release candidate does not lift it either, which is what makes the window
+    unavoidable rather than merely awkward: ``packaging`` sorts ``0.1.0rc1``
+    *below* ``0.1.0``, so the whole rehearsal runs with the notes still demanded.
+
+    So the direction that protects a reader is kept and the one that deadlocked
+    is dropped. Removing the notes early is now a deliberate edit in a reviewed
+    pull request rather than something this refuses; what it still cannot be is
+    forgotten, because a released tephpy that claims otherwise fails here.
 
     Parametrised over the carriers rather than run over their concatenation, so a
-    failure names the file still to edit. On the release commit every carrier
-    fails at once, which is the intended behaviour: the tag is cut, the notes come
-    out, and both surfaces are true again.
+    failure names the file still to edit.
 
     Nothing here reaches the network -- spec §8.5 forbids it, and the installed
     version answers the question offline.
     """
-    released = Version(tephpy.__version__) >= FIRST_RELEASE
-    carries = PRERELEASE in (REPO / carrier).read_text(encoding="utf-8")
-    assert carries is not released, (
-        f"version {tephpy.__version__} is "
-        f"{'released' if released else 'a development version'}, so {carrier} "
-        f"{'must not' if released else 'must'} carry the pre-release note"
+    if Version(tephpy.__version__) < FIRST_RELEASE:
+        pytest.skip(f"{tephpy.__version__} predates the first release")
+    assert not _carries(carrier), (
+        f"tephpy {tephpy.__version__} is released, so {carrier} must not say it "
+        f"has never been"
+    )
+
+
+def test_the_carriers_agree_about_the_note():
+    # What survives of the two-sided rule, and the part :pull:`284` was actually
+    # about: one claim written on two surfaces, so the two must not disagree.
+    # Removing the note from the page and leaving it in the README is the shape
+    # that gate was written to catch, and it is caught here whether or not
+    # anything has been released.
+    carried = {str(carrier): _carries(carrier) for carrier in CARRIERS}
+    assert len(set(carried.values())) == 1, (
+        f"the carriers disagree about the pre-release note: {carried}"
     )
 
 

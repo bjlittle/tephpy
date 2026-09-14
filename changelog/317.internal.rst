@@ -1,0 +1,18 @@
+Made the pre-release-note gate one-sided (start spec §3.7): a released tephpy
+must not carry the note, and an unreleased one is no longer required to.
+
+The two-sided form deadlocked the release it was written for. The signal changes
+when the repository is *tagged*; the note is removed when a file is *edited*; and
+those are different commits over the same tree — so requiring the note while
+unreleased forbade removing it from the commit that gets tagged. That commit is
+the one that is built, with ``README.md`` as the distribution's long description,
+so published ``0.1.0`` would have told every reader of its PyPI page and of the
+``stable`` documentation that tephpy had never been released, with the correction
+landing in ``0.1.1``. A release candidate does not lift it either: ``packaging``
+sorts ``0.1.0rc1`` below ``0.1.0``, so the whole rehearsal would have run with
+the note still demanded.
+
+What survives is the direction that protects a reader, plus a new check that the
+two carriers agree with each other — which is what the second carrier was added
+for in :pull:`284`, and the only part of the old rule that was doing that work.
+Both directions verified by mutation. (:user:`claude`)
