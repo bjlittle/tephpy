@@ -12,6 +12,8 @@ from types import SimpleNamespace
 
 from jinja2 import Template
 
+from tests.by_path import load_path
+
 REPO = Path(__file__).parents[1]
 TEMPLATE = REPO / "changelog" / "template.rst"
 
@@ -59,12 +61,19 @@ SUBSTITUTIONS = ("tp_version", "build_date")
 
 
 def _defined_substitutions() -> set[str]:
-    """Return the substitution names `conf.py`'s ``rst_epilog`` declares."""
-    return set(
-        re.findall(
-            r"^\.\. \|(\w+)\| replace::", CONF.read_text(encoding="utf-8"), re.MULTILINE
-        )
-    )
+    """Return the substitution names `conf.py`'s ``rst_epilog`` actually defines.
+
+    Executes `conf.py` and reads the `rst_epilog` it builds, rather than
+    regex-scanning the file's text for the same pattern: a text scan matches
+    wherever the pattern sits -- a comment, a docstring, an unreachable branch
+    -- so it would pass on a substitution that is documented but never built,
+    and it would fail on a `rst_epilog` still correct at build time but
+    written a different way (indented, or joined together from parts instead
+    of a triple-quoted literal). Reading the value checks what Sphinx would
+    actually substitute.
+    """
+    conf = load_path("tephpy_docs_conf", CONF)
+    return set(re.findall(r"^\.\. \|(\w+)\| replace::", conf.rst_epilog, re.MULTILINE))
 
 
 def test_conf_declares_the_substitutions_the_pages_use():
