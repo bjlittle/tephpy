@@ -1,4 +1,4 @@
-Added a :ref:`What's New <whatsnew-spec-1>` section to the reference quadrant,
+Added a :doc:`/reference/whatsnew/index` section to the reference quadrant,
 carrying the highlights of each release in prose beside the changelog's record
 of every pull request. Each release's page links that release's changelog entry
 through a new per-release anchor, and the towncrier template now titles each
