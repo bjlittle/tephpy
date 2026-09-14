@@ -92,6 +92,11 @@ The Sequence
    existence, so a toctree entry still naming it names nothing — on the one
    commit that gets tagged, built and published.
 
+   ``changelog-vX.Y.Z`` does not exist yet — step 3 is what assembles the file
+   that defines it. A ``pixi run docs`` run between this step and that one hits
+   an undefined label on that link; that is expected, not a mistake, and
+   resolves once step 3 is done.
+
 3. **Assemble the changelog.** ``pixi run changelog --version X.Y.Z``. This
    writes ``CHANGELOG.rst`` and **deletes the fragments it consumed**, so it is
    a commit of its own and the diff is worth reading before you make it.
