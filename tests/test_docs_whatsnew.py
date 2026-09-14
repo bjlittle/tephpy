@@ -78,3 +78,15 @@ def _defined_substitutions() -> set[str]:
 
 def test_conf_declares_the_substitutions_the_pages_use():
     assert set(SUBSTITUTIONS) <= _defined_substitutions()
+
+
+CHANGELOG_PAGE = REPO / "docs" / "src" / "reference" / "changelog.rst"
+
+#: The label `latest.rst` links. It sits immediately above the directive, so it
+#: resolves to the top of the changelog -- the newest release -- whichever
+#: release that is (`whatsnew spec §3.4`).
+LATEST_ANCHOR = "changelog-latest"
+
+
+def test_the_changelog_page_anchors_its_newest_release():
+    assert f".. _{LATEST_ANCHOR}:" in CHANGELOG_PAGE.read_text(encoding="utf-8")
