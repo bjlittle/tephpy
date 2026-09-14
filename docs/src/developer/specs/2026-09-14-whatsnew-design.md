@@ -74,12 +74,13 @@ Three files:
 
 | file | what it is |
 |---|---|
-| `index.rst` | the section landing page: an introduction, `.. include:: latest.rst`, and a hidden toctree |
+| `index.rst` | the section landing page: an introduction, an `include` of the newest page, and a hidden toctree |
 | `latest.rst` | the release being accumulated toward, and a real page in its own right |
 | `latest.rst.template` | the seed §3.5 copies into place after a release |
 
 `latest.rst` is therefore both included into `index.rst` **and** a document in the
-toctree. Measured 2026-09-14: that builds clean under fail-on-warning — no duplicate
+toctree — outside the release window of §3.5, where the include names the frozen page
+instead. Measured 2026-09-14: that builds clean under fail-on-warning — no duplicate
 label, no orphan. A reader landing on the section sees the current highlights without a
 second click, and the page still has a URL of its own to link.
 
@@ -158,24 +159,46 @@ link for its own release's anchor at the same moment §3.2's substitutions becom
 (whatsnew-spec-3-5)=
 ### 3.5 The release-time workflow
 
-Three steps, which `developer/release.rst` carries in its sequence:
+Four steps, which `developer/release.rst` carries in its sequence:
 
 1. **Before tagging, on the release branch.** Populate `latest.rst`'s Announcements and
    Highlights, replace `|tp_version|`/`|build_date|` with the literal version and release
    date, repoint the changelog link at `changelog-vX.Y.Z`, and rename the file to
-   `A.B.rst`. Add it to `index.rst`'s toctree.
+   `A.B.rst`. Then edit `index.rst`: point its `include` at `A.B.rst`, and replace
+   `latest` with `A.B` in the toctree.
+
+   **Both index edits are obligatory, not tidying.** The rename takes `latest.rst` out of
+   existence, so an `include` still naming it names nothing — on the one commit that gets
+   tagged, built, and published. The toctree entry goes the same way for the same reason.
+
 2. **Tag, publish, merge back** — `developer/release.rst`'s existing steps, unchanged.
+   Through this window the section has no `latest.rst` at all, and that is the correct
+   state: there is no next release being accumulated toward yet.
+
 3. **After the merge-back lands on `main`**, and not before, copy `latest.rst.template`
    to `latest.rst`. It then accumulates highlights for the next minor version.
 
-The ordering of step 3 is the part worth stating. Seeding `latest.rst` on the release
-branch would send it back through the merge-back as a second empty page, and seeding it
-on `main` before the merge-back would put `main` in a state where `latest.rst` and the
-frozen page both claim to be the newest.
+   The ordering here is the part worth stating. Seeding on the release branch would send
+   the file back through the merge-back as a second empty page, and seeding on `main`
+   before the merge-back would put `main` in a state where `latest.rst` and the frozen
+   page both claim to be the newest.
+
+4. **Reintroduce it to `index.rst`**, in the same commit as step 3: the `include` returns
+   to `latest.rst`, and `latest` goes back at the head of the toctree, above the frozen
+   pages. Step 1 removed both, so nothing else puts them back, and a `latest.rst` in the
+   directory but in neither list is a page the section cannot reach — which is what §4's
+   first gate exists to catch.
 
 A patch release re-enters at step 1 against the existing `A.B.rst`, appending to its
-*Patches* section, and skips step 3 — `latest.rst` on `main` is already accumulating for
-the next minor version and is not what a patch describes.
+*Patches* section. It skips steps 3 and 4: `latest.rst` on `main` is already accumulating
+for the next minor version and is not what a patch describes.
+
+**What the landing page shows, therefore, changes across the cycle** — the frozen release
+between steps 1 and 4, and the accumulating `latest.rst` after step 4, which opens with
+its template's placeholders until someone writes into it. That is the cost of step 4 as
+specified, and it is deliberate: a section called *What's New* whose landing body is the
+release being worked toward matches what `latest` means, and the released highlights stay
+one click away in the toctree.
 
 (whatsnew-spec-4)=
 ## 4. Testing
