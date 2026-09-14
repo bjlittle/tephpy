@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from types import SimpleNamespace
 
 from jinja2 import Template
@@ -47,3 +48,24 @@ def test_the_template_titles_each_release():
     rendered = _rendered()
     assert "v9.9.9 (2099-01-01)" in rendered
     assert "=" * len("v9.9.9 (2099-01-01)") in rendered
+
+
+CONF = REPO / "docs" / "src" / "conf.py"
+
+#: What `conf.py` must define for the pages to use. Two names in one tuple, so
+#: renaming one and not the other fails here rather than rendering a raw
+#: `|tp_version|` into the published page (`whatsnew spec §3.2`).
+SUBSTITUTIONS = ("tp_version", "build_date")
+
+
+def _defined_substitutions() -> set[str]:
+    """Return the substitution names `conf.py`'s ``rst_epilog`` declares."""
+    return set(
+        re.findall(
+            r"^\.\. \|(\w+)\| replace::", CONF.read_text(encoding="utf-8"), re.MULTILINE
+        )
+    )
+
+
+def test_conf_declares_the_substitutions_the_pages_use():
+    assert set(SUBSTITUTIONS) <= _defined_substitutions()
