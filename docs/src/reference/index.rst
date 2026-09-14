@@ -29,4 +29,5 @@ data it involves, its units, and the API that carries it.
     config
     glossary
     references
+    whatsnew/index
     changelog

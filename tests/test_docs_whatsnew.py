@@ -90,3 +90,54 @@ LATEST_ANCHOR = "changelog-latest"
 
 def test_the_changelog_page_anchors_its_newest_release():
     assert f".. _{LATEST_ANCHOR}:" in CHANGELOG_PAGE.read_text(encoding="utf-8")
+
+
+WHATSNEW = REPO / "docs" / "src" / "reference" / "whatsnew"
+INDEX = WHATSNEW / "index.rst"
+LATEST = WHATSNEW / "latest.rst"
+TEMPLATE_PAGE = WHATSNEW / "latest.rst.template"
+
+
+def _pages() -> set[str]:
+    """Return every page in the section, by stem. The seed is not a page.
+
+    The section index is the toctree's host, not one of its entries -- the
+    same way a quadrant landing page's own table never names itself -- so it
+    is excluded here rather than by the glob.
+    """
+    return {path.stem for path in WHATSNEW.glob("*.rst")} - {INDEX.stem}
+
+
+def _toctree_entries() -> list[str]:
+    """Return the section index's toctree entries, in order."""
+    body = INDEX.read_text(encoding="utf-8").split(".. toctree::", 1)[1]
+    return [
+        line.strip()
+        for line in body.splitlines()
+        if line.startswith("    ") and line.strip() and not line.strip().startswith(":")
+    ]
+
+
+def test_the_toctree_lists_every_page_in_the_section():
+    # A page the toctree does not name builds clean and is unreachable from the
+    # section it belongs to -- the rule `narrative spec §3.9` gives the quadrant
+    # landing pages, borrowed here (`whatsnew spec §4`). The include is a
+    # convenience that always duplicates one entry and is never a page's only
+    # route, so the toctree alone is what this reads.
+    assert set(_toctree_entries()) == _pages()
+
+
+def test_the_section_index_includes_a_page_the_toctree_names():
+    # The body a reader meets is the newest *released* highlights -- decision 5
+    # of `whatsnew spec §2` -- so whatever it includes must be a real page.
+    (included,) = re.findall(
+        r"^\.\. include:: (\S+)$", INDEX.read_text(encoding="utf-8"), re.MULTILINE
+    )
+    assert included.removesuffix(".rst") in _pages()
+
+
+def test_the_seed_is_not_a_page():
+    # `latest.rst.template` is copied into place at release time and is not
+    # itself published; `.glob("*.rst")` must not collect it.
+    assert TEMPLATE_PAGE.is_file()
+    assert "latest.rst" not in _pages()
