@@ -239,11 +239,20 @@ edit made once per release, and forgetting it produces a page that is wrong only
 *next* release onward — long after anyone would connect the two. Reading the frozen pages
 for `|tp_version|` and `|build_date|` catches it on the release pull request.
 
-**Once tephpy is released, `latest.rst` must not still carry the placeholder.** One-sided,
-for the reason `start spec §3.7` records having to become one-sided: the release signal
-moves when the repository is tagged, and the page is edited on a different commit over the
-same tree, so a two-sided rule would forbid populating the page before the tag. Shipping
-`TBD` as the highlights of a release is the one failure here that reaches every reader.
+**No frozen page may carry the placeholder.** This was first written against `latest.rst`
+instead, gated on the installed version reaching the first release — modelled on
+`start spec §3.7`'s pre-release note, which earns exactly that shape by becoming one-sided
+for the same kind of reason. But `start spec §3.7`'s note makes one transition and stays
+retired; this state is cyclic, not one-way. §3.5 step 3 reseeds `latest.rst` from the
+template — placeholder and all — after every release, so a rule keyed to the release
+signal read a freshly reseeded file as a defect for the whole of the next cycle, and read
+nothing at all through the frozen window between a release's tag and its merge-back, where
+`latest.rst` does not exist (§3.5 step 2). The rule belongs to the page that is actually
+wrong to carry the placeholder: the one just frozen, which needs no comparison against the
+installed version to be wrong, and is vacuous before the first release because nothing is
+frozen yet. Shipping `TBD` as the highlights of a release is still the one failure here
+that reaches every reader; this catches it on the release pull request that does the
+freezing, the same commit the gate above already reads.
 
 (whatsnew-spec-5)=
 ## 5. Known defect, not caused here
@@ -266,6 +275,6 @@ fire at the first release with no whatsnew section at all.
   fewer words.
 - **A page per patch release.** §2 settled this. Revisit only if a patch ever carries
   more than its *Patches* bullets can hold.
-- **Announcing releases anywhere else.** `developer/release.rst` step 11 leaves announcing
+- **Announcing releases anywhere else.** `developer/release.rst` step 13 leaves announcing
   to a person; this section is the material they would draw on, not a channel.
 - **Backfilling releases before v0.1.0.** There are none.
