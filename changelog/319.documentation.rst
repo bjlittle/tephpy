@@ -1,0 +1,5 @@
+Added the :ref:`what's new design specification <whatsnew-spec-1>`, for a reference
+section carrying the highlights of each release in prose beside the changelog's
+record of every pull request. Modelled on ``geovista``, with four departures set
+out in ``whatsnew spec §2``, and validated by building a throwaway copy of the whole thing
+before writing it down. (:user:`claude`)
