@@ -57,6 +57,12 @@ departs from it and why.
    it, so these pages carry emoji-free plain headings and no icon roles at all.
 4. **A frozen page states its version literally.** §3.2 gives the reason; it is the one
    place this design cannot copy geovista, which has never frozen a page.
+5. **The page's body is the newest *released* highlights, not the ones being accumulated.**
+   geovista's index includes `latest.rst` always. Here the `include` follows the newest
+   frozen page, so a reader arriving after 0.1.0 ships reads 0.1's highlights rather than
+   `TBD prior to release` — which is what they would meet for most of a cycle otherwise,
+   on the page a release announcement links to. `latest.rst` stays one entry away in the
+   toctree.
 
 (whatsnew-spec-3)=
 ## 3. Architecture
@@ -74,15 +80,23 @@ Three files:
 
 | file | what it is |
 |---|---|
-| `index.rst` | the *What's New* page itself: an introduction, an `include` of the newest page, and a hidden toctree |
+| `index.rst` | the *What's New* page itself: an introduction, an `include` of the newest frozen page, and a hidden toctree |
 | `latest.rst` | the release being accumulated toward, and a real page in its own right |
+| `A.B.rst` | one frozen release per minor version, newest first in the toctree |
 | `latest.rst.template` | the seed §3.5 copies into place after a release |
 
-`latest.rst` is therefore both included into `index.rst` **and** a document in the
-toctree — outside the release window of §3.5, where the include names the frozen page
-instead. Measured 2026-09-14: that builds clean under fail-on-warning — no duplicate
-label, no orphan. A reader landing on the section sees the current highlights without a
-second click, and the page still has a URL of its own to link.
+**The `include` names the newest frozen page, and the toctree lists every page.** So the
+*What's New* page opens with the highlights of the release a reader can actually install,
+while `latest.rst` — the next one, still filling up — sits at the head of the toctree
+beside it. The include moves exactly once per release, at §3.5 step 1.
+
+Before the first release there is no frozen page, so the include names `latest.rst`; that
+is the state this section ships in, and `v0.1.0` is where it switches over for good.
+
+The included page is therefore both inlined into `index.rst` **and** a document of its
+own. Measured 2026-09-14: that builds clean under fail-on-warning — no duplicate label,
+no orphan. A reader sees the current highlights without a second click, and the page still
+has a URL to link.
 
 Each page carries the three headings geovista uses, without its icons:
 **Announcements**, **Highlights**, **Patches**.
@@ -90,8 +104,8 @@ Each page carries the three headings geovista uses, without its icons:
 `index.rst` joins `reading spec §3.6`'s `EXEMPT` list, alongside the section and quadrant
 index pages it already holds. The banner belongs on the pages a reader reads, and an index whose body is
 an include and a toctree is not one — and were it to carry a banner of its own it would
-render two, its own and `latest.rst`'s, which the reading-time gate refuses. `latest.rst`
-and every frozen page carry theirs.
+render two, its own and the included page's, which the reading-time gate refuses.
+`latest.rst` and every frozen page carry theirs.
 
 (whatsnew-spec-3-2)=
 ### 3.2 The version and date substitutions
@@ -168,8 +182,9 @@ Four steps, which `developer/release.rst` carries in its sequence:
    `latest` with `A.B` in the toctree.
 
    **Both index edits are obligatory, not tidying.** The rename takes `latest.rst` out of
-   existence, so an `include` still naming it names nothing — on the one commit that gets
-   tagged, built, and published. The toctree entry goes the same way for the same reason.
+   existence, so a toctree entry still naming it names nothing — on the one commit that
+   gets tagged, built, and published. The `include` moves for the reason decision 5
+   of §2 gives: the newest frozen page is now this one.
 
 2. **Tag, publish, merge back** — `developer/release.rst`'s existing steps, unchanged.
    Through this window the section has no `latest.rst` at all, and that is the correct
@@ -183,22 +198,26 @@ Four steps, which `developer/release.rst` carries in its sequence:
    before the merge-back would put `main` in a state where `latest.rst` and the frozen
    page both claim to be the newest.
 
-4. **Reintroduce it to `index.rst`**, in the same commit as step 3: the `include` returns
-   to `latest.rst`, and `latest` goes back at the head of the toctree, above the frozen
-   pages. Step 1 removed both, so nothing else puts them back, and a `latest.rst` in the
-   directory but in neither list is a page the section cannot reach — which is what §4's
-   first gate exists to catch.
+4. **Reintroduce it to `index.rst`'s toctree**, in the same commit as step 3: `latest`
+   goes back at the head, above the frozen pages. Step 1 removed it and nothing else puts
+   it back, and a `latest.rst` in the directory but in no list is a page the section
+   cannot reach — which is what §4's first gate exists to catch.
+
+   The `include` is **not** touched here. It stays on the release just frozen, which is
+   decision 5 of §2: the page a reader meets should be the newest release they can
+   install, not the placeholder for the next one. The include therefore moves once per release, in step 1,
+   and never in step 4.
 
 A patch release re-enters at step 1 against the existing `A.B.rst`, appending to its
 *Patches* section. It skips steps 3 and 4: `latest.rst` on `main` is already accumulating
 for the next minor version and is not what a patch describes.
 
-**What the *What's New* page shows, therefore, changes across the cycle** — the frozen release
-between steps 1 and 4, and the accumulating `latest.rst` after step 4, which opens with
-its template's placeholders until someone writes into it. That is the cost of step 4 as
-specified, and it is deliberate: a section called *What's New* whose landing body is the
-release being worked toward matches what `latest` means, and the released highlights stay
-one click away in the toctree.
+**What the *What's New* page shows is therefore stable across the cycle**: the newest
+released highlights, from step 1 until the next release's step 1. It never shows the
+template's placeholders, which is the whole of decision 5 in §2 — the alternative,
+following
+`latest.rst`, would put `TBD prior to release` in front of every reader for most of a
+cycle, on the page a release announcement links to.
 
 (whatsnew-spec-4)=
 ## 4. Testing
@@ -207,9 +226,10 @@ Three gates, each closing a way this goes wrong silently. The fail-on-warning bu
 already covers a broken reference, so none of these repeats it.
 
 **The index lists every page in its directory.** The same rule
-`narrative spec §3.9` gives the quadrant landing pages, for the same reason: a page in
-neither the include nor the toctree builds clean and is unreachable from the section it
-belongs to. Only the rule is borrowed — the *What's New* page is **not** a landing page in
+`narrative spec §3.9` gives the quadrant landing pages, for the same reason: a page the
+toctree does not name builds clean and is unreachable from the section it belongs to. The
+toctree is what the gate reads — the `include` is a convenience that always duplicates one
+entry of it, never the only route to a page. Only the rule is borrowed — the *What's New* page is **not** a landing page in
 that specification's sense, since `narrative spec §7` keeps the reference quadrant out of
 the table-and-toctree shape those pages carry, and `tests/test_docs_landing_pages.py`
 governs `TABLE_SECTIONS` alone. `latest.rst.template` is not a page and is excluded by name.
