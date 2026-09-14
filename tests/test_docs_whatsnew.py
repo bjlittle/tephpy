@@ -157,8 +157,15 @@ PLACEHOLDER = "``TBD`` prior to release."
 
 
 def _frozen() -> list[Path]:
-    """Return the frozen release pages -- every page but `latest.rst`."""
-    return sorted(p for p in WHATSNEW.glob("*.rst") if p.name != "latest.rst")
+    """Return the frozen release pages -- every page but `latest.rst`.
+
+    Excludes the section index by stem, the same way `_pages()` does above --
+    it hosts the toctree rather than being one of the pages in it, so it is
+    not a release page and does not belong in "frozen".
+    """
+    return sorted(
+        p for p in WHATSNEW.glob("*.rst") if p.stem not in {LATEST.stem, INDEX.stem}
+    )
 
 
 def test_no_frozen_page_carries_the_substitutions():
@@ -167,13 +174,17 @@ def test_no_frozen_page_carries_the_substitutions():
     # a page about 0.1 announcing 0.2 (`whatsnew spec §3.2`). Freezing replaces
     # them with literal text, and forgetting that is invisible until the next
     # release, which is why this reads the pages rather than trusting the step.
+    #
+    # A set of (page, substitution) pairs rather than a dict keyed on the page
+    # name: a page can carry both substitutions, and a dict keyed on the page
+    # alone would let the second overwrite the first, reporting only one.
     offenders = {
-        path.name: name
+        (path.name, name)
         for path in _frozen()
         for name in SUBSTITUTIONS
         if f"|{name}|" in path.read_text(encoding="utf-8")
     }
-    assert offenders == {}
+    assert offenders == set()
 
 
 def test_the_accumulating_page_is_written_before_a_release():
