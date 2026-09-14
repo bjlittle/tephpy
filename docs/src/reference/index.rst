@@ -5,8 +5,8 @@ The factual material, for looking things up rather than reading through.
 
 The API documentation is generated from the source, so it describes the package
 you have installed. Beside it sit the command line, every configuration option and
-its default, a glossary, the published sources this documentation cites, and the
-changelog.
+its default, a glossary, the published sources this documentation cites, what's new
+in each release, and the changelog.
 
 If you are deciding what to catch, read :mod:`tephpy.exceptions`. What
 ``tephpy`` raises about your data — its units, its physical consistency, the
