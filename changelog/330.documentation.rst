@@ -1,0 +1,7 @@
+The reference quadrant's landing page is now a grid of seven cards, each with an
+icon drawn in the root page's vocabulary, in place of an introduction that listed
+its pages by hand (narrative spec §3.9). ``tests/test_docs_landing_pages.py``
+holds the cards to the page's hidden toctree as it holds the other sections'
+tables, and now refuses an entry that reaches outside its section with ``..``.
+The root page's cards share the renamed ``teph-card`` classes, and its dark
+*Tutorials* icon no longer rings its accent on the dark ground. (:user:`claude`)
