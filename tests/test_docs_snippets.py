@@ -1170,12 +1170,11 @@ def test_a_page_naming_an_exception_points_at_the_hierarchy():
 
 
 def test_the_reference_index_sends_a_caller_to_the_hierarchy():
-    """The quadrant's own description otherwise omits the subject entirely.
+    """The quadrant's own landing page otherwise omits the subject entirely.
 
-    The index enumerates what the reference holds — the command line, the
-    configuration options, the glossary, the citations, the changelog — and
-    named no exception at all, so a reader deciding what to catch had nothing
-    to follow (:issue:`213`).
+    Its cards name what the reference holds, and none of them is the exception
+    hierarchy, so without this paragraph a reader deciding what to catch has
+    nothing to follow (:issue:`213`).
     """
     index = (DOCS / "reference" / "index.rst").read_text(encoding="utf-8")
     assert SIGNPOSTS in index, (
