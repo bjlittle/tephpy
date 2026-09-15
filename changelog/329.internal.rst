@@ -1,0 +1,6 @@
+Planned the reference quadrant's card landing page in six tasks, from the
+specification of :pull:`327`. Planning found that the landing-page gate lets an
+entry reach outside its section with ``..``, and the plan closes it. The plan's
+code was run from the plan's own text before it was proposed, which caught a
+line the linter rejects and a mutation predicted to fail fewer checks than it
+does. (:user:`claude`)
