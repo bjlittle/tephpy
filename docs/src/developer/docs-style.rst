@@ -439,16 +439,17 @@ or adding the reason.
 Landing Pages
 -------------
 
-A section landing page — each of the four Diátaxis quadrants, and
-:doc:`getting started <../start/index>` — is navigation rather than prose, which is
-the rule above read forwards: it carries no reading-time banner because nobody reads
-it through.
-It carries, in order, an introduction, one two-column ``list-table``, and a hidden
-``toctree``.
+A section landing page is navigation rather than prose, which is the rule above read
+forwards: it carries no reading-time banner because nobody reads it through. Six
+sections take one of two shapes, and both end in a hidden ``toctree``.
 
-The introduction says what the quadrant is for, who it assumes the reader is, what
-it guarantees of every page in it, and where to go if this is the wrong quadrant.
-It says nothing about an individual page. A paragraph that summarises the quadrant
+**A table**, in :doc:`getting started <../start/index>`, the tutorials, how-to and
+explanation quadrants, and this developer guide. The page carries, in order, an
+introduction, one two-column ``list-table``, and the ``toctree``.
+
+The introduction says what the section is for, who it assumes the reader is, what
+it guarantees of every page in it, and where to go if this is the wrong section.
+It says nothing about an individual page. A paragraph that summarises the section
 page by page is a list that has to track a directory, and the how-to page's grew
 from six clauses to nine by hand before this rule existed.
 
@@ -458,23 +459,36 @@ it is deliberately not the page's opening line, which a hover already shows. Wri
 ``:widths: auto`` and no header row, which is the shape the API reference's own
 summary tables already take.
 
-The rows and the toctree carry the same pages in the same order, and it is the
+**A grid of cards**, in the reference quadrant, whose pages are looked up by name
+rather than chosen between. The page carries, in order, a one-sentence
+introduction, a ``.. grid:: 1 2 2 2`` of cards, the guidance paragraphs, and the
+``toctree``. The API card comes first and spans the row with ``:columns: 12``. One
+column below 576px is not a matter of taste: two columns at that width split words
+mid-word, which narrative spec §3.9 records measuring.
+
+Each card takes its page's title — the API card excepted, because that page is
+titled by the package name — a light and a dark icon from
+``_static/cards/reference/``, and one sentence that tells it from the card beside
+it. A card raises no hover tooltip, so its sentence may say what the page opens
+with where that is clearest. Draw an icon in the root page's vocabulary; its dark
+file differs from the light one only in the navy, ``#8FB8E8`` for ``#1B3A6B``, and
+the knock-out halo, ``#14181e`` for ``#FFFFFF``.
+
+The index and the toctree carry the same pages in the same order, and it is the
 order a reader needs rather than the alphabet. Hiding a toctree hides it from the
 page body only: the sidebar, the breadcrumb and the previous and next footer all
 read its order. ``tests/test_docs_landing_pages.py`` fails when the two disagree,
-in membership or in order; when the table omits a page the quadrant holds, which
-an ``:orphan:`` page would otherwise do silently, since the build's own
-toctree check never sees one; and when the toctree is not hidden, which would
-publish the same list twice.
+in membership or in order; when an entry links outside its section; when the index
+omits a page the section holds, which an ``:orphan:`` page would otherwise do
+silently, since the build's own toctree check never sees one; and when the toctree
+is not hidden, which would publish the same list twice. It reads a row's first
+cell and a card's ``:link:``, and derives the API card's page from ``conf.py``,
+since that page exists only while a build runs.
 
-Glossary terms stay out of the cells. A table is a directive, and :ref:`the
-first-mention rule <glossary-rule>` already passes over a directive's body, so a
-``:term:`` in a cell neither satisfies that rule nor breaks it. Write first
-mentions in the introduction, and let a cell take the plain word.
-
-The reference quadrant is outside this rule for now: its entries are reached by
-name rather than chosen between, and ``narrative spec §3.9`` records the question
-rather than answering it.
+Glossary terms stay out of the cells and the cards. Both are directives, and
+:ref:`the first-mention rule <glossary-rule>` already passes over a directive's
+body, so a ``:term:`` in either neither satisfies that rule nor breaks it. Write
+first mentions in the prose, and let a cell or a card take the plain word.
 
 Topic Tags
 ----------

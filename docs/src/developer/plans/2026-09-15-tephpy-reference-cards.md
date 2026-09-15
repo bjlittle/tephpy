@@ -984,13 +984,22 @@ Expected: PASS.
 
 - [ ] **Step 5: Prove each check by mutation**
 
+*Corrected 2026-09-15, during implementation:* the restores below originally used ``git checkout --``, which restores the page this task replaces.
+
 Run each block from a clean tree, read the failure, and restore before the next.
+
+```bash
+# Step 3's page is not committed until Step 8, so `git checkout --` would restore
+# the page this task replaces. Restore from this copy instead.
+cp docs/src/reference/index.rst "${TMPDIR:-/tmp}/reference-index.rst"
+```
 
 ```bash
 # (a) order: swap What's New and Changelog in the toctree only
 sed -i -e 's|^    whatsnew/index$|    SWAP|' -e 's|^    changelog$|    whatsnew/index|' -e 's|^    SWAP$|    changelog|' docs/src/reference/index.rst
 pixi run -e test pytest tests/test_docs_landing_pages.py -q --no-cov -k reference
-git checkout -- docs/src/reference/index.rst
+cp "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst
+diff "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst && echo restored
 ```
 Expected: `test_the_index_and_the_toctree_are_one_ordered_list[reference]` FAILS.
 
@@ -998,7 +1007,8 @@ Expected: `test_the_index_and_the_toctree_are_one_ordered_list[reference]` FAILS
 # (b) reach outside the section
 sed -i 's|^        :link: cli$|        :link: ../howtos/units|' docs/src/reference/index.rst
 pixi run -e test pytest tests/test_docs_landing_pages.py -q --no-cov -k reference
-git checkout -- docs/src/reference/index.rst
+cp "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst
+diff "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst && echo restored
 ```
 Expected: three FAIL, all `[reference]`. `test_every_entry_links_to_a_page_in_its_own_section` fails with `reference's index links to ../howtos/units, outside the section` — the check this mutation is for. `test_the_index_and_the_toctree_are_one_ordered_list` fails because the card no longer matches the toctree's `cli`, and `test_the_index_lists_every_page_in_the_section` because `cli` is no longer listed.
 
@@ -1014,7 +1024,8 @@ Expected: `test_the_index_lists_every_page_in_the_section[reference]` FAILS, nam
 # (d) the toctree shown
 sed -i '/^    :hidden:$/d' docs/src/reference/index.rst
 pixi run -e test pytest tests/test_docs_landing_pages.py -q --no-cov -k reference
-git checkout -- docs/src/reference/index.rst
+cp "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst
+diff "${TMPDIR:-/tmp}/reference-index.rst" docs/src/reference/index.rst && echo restored
 ```
 Expected: `test_the_toctree_is_hidden[reference]` FAILS.
 
@@ -1026,7 +1037,7 @@ mv /tmp/api-light.svg docs/src/_static/cards/reference/api-light.svg
 ```
 Expected: the fail-on-warning build exits non-zero, naming `api-light.svg`. **If it exits 0, do not add a gate:** record in the pull request that a missing icon builds clean, per `narrative spec §3.9` (presentation is ungated).
 
-Finish with `git status --short` printing only this task's intended changes.
+Finish with the final `diff` printing `restored` and `git status --short` printing only this task's intended changes.
 
 - [ ] **Step 6: Update the stylesheet's comments**
 
