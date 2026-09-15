@@ -80,7 +80,7 @@
  * a white background to every `.bd-content img` on top of that -- two rules of
  * different reach, and the class is the opt-out named in both.
  */
-.teph-quadrant-icon {
+.teph-card-icon {
   display: block;
   margin: 0 0 0.6rem;
   width: 56px;
@@ -98,12 +98,12 @@
  * to it anyway, but nothing here has to know that.
  */
 @media (min-width: 576px) {
-  .teph-quadrant .sd-card-body {
+  .teph-card .sd-card-body {
     padding-left: 84px;
     position: relative;
   }
 
-  .teph-quadrant-icon {
+  .teph-card-icon {
     left: 16px;
     margin: 0;
     position: absolute;

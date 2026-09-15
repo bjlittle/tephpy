@@ -26,14 +26,14 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     .. grid-item-card:: Tutorials
         :link: tutorials/index
         :link-type: doc
-        :class-card: teph-quadrant sd-rounded-3
+        :class-card: teph-card sd-rounded-3
 
         .. image:: _static/cards/tutorials-light.svg
-            :class: only-light teph-quadrant-icon
+            :class: only-light teph-card-icon
             :alt: a path stepping up across the tephigram lattice to a marked end
 
         .. image:: _static/cards/tutorials-dark.svg
-            :class: only-dark teph-quadrant-icon
+            :class: only-dark teph-card-icon
             :alt: a path stepping up across the tephigram lattice to a marked end
 
         Learning-oriented lessons.
@@ -41,14 +41,14 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     .. grid-item-card:: How-To Guides
         :link: howtos/index
         :link-type: doc
-        :class-card: teph-quadrant sd-rounded-3
+        :class-card: teph-card sd-rounded-3
 
         .. image:: _static/cards/howtos-light.svg
-            :class: only-light teph-quadrant-icon
+            :class: only-light teph-card-icon
             :alt: one isopleth of a family drawn at a heavier weight
 
         .. image:: _static/cards/howtos-dark.svg
-            :class: only-dark teph-quadrant-icon
+            :class: only-dark teph-card-icon
             :alt: one isopleth of a family drawn at a heavier weight
 
         Goal-oriented recipes.
@@ -56,14 +56,14 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     .. grid-item-card:: Explanation
         :link: explanation/index
         :link-type: doc
-        :class-card: teph-quadrant sd-rounded-3
+        :class-card: teph-card sd-rounded-3
 
         .. image:: _static/cards/explanation-light.svg
-            :class: only-light teph-quadrant-icon
+            :class: only-light teph-card-icon
             :alt: a pair of axes turning through 45 degrees
 
         .. image:: _static/cards/explanation-dark.svg
-            :class: only-dark teph-quadrant-icon
+            :class: only-dark teph-card-icon
             :alt: a pair of axes turning through 45 degrees
 
         Understanding-oriented background.
@@ -71,14 +71,14 @@ Plot and analyse :term:`tephigrams <tephigram>`.
     .. grid-item-card:: Reference
         :link: reference/index
         :link-type: doc
-        :class-card: teph-quadrant sd-rounded-3
+        :class-card: teph-card sd-rounded-3
 
         .. image:: _static/cards/reference-light.svg
-            :class: only-light teph-quadrant-icon
+            :class: only-light teph-card-icon
             :alt: an index of entries, one of them marked
 
         .. image:: _static/cards/reference-dark.svg
-            :class: only-dark teph-quadrant-icon
+            :class: only-dark teph-card-icon
             :alt: an index of entries, one of them marked
 
         Information-oriented API and glossary.
