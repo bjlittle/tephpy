@@ -1,0 +1,5 @@
+Planned phase 2 of the API version stamps in five tasks, from the specification
+of :pull:`331`. The plan's code was run from the plan's own text before it was
+proposed, which caught three lint errors an executor would have met at the
+first commit, and five expectations that did not account for every test their
+filter selects. (:user:`claude`)
