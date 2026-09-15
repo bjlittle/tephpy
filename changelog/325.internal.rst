@@ -1,0 +1,9 @@
+Assembling the changelog no longer fails the container census. The census is
+keyed by file, and a release deletes every fragment and writes its text into
+``CHANGELOG.rst``, so four of its rows moved at once on the commit that gets
+tagged — and would have again at every release (:issue:`318`). It now leaves out
+what a release moves: ``CHANGELOG.rst``, and every fragment, recognised by
+towncrier's own rule rather than by directory, so the hand-written ``README.md``
+and template stay counted. Every citation in both still has to resolve. What is
+given up is the census noticing a new fragment that cites a subdivided section,
+which it had done once. (:user:`claude`)

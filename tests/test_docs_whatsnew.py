@@ -21,9 +21,9 @@ TEMPLATE = REPO / "changelog" / "template.rst"
 def _rendered(version: str = "9.9.9", date: str = "2099-01-01") -> str:
     """Render the towncrier template with the context towncrier actually gives it.
 
-    In memory rather than through `towncrier build`: the assembly writes
-    `CHANGELOG.rst`, deletes every fragment, and fails the container census
-    (:issue:`318`). Rendering the template is what this is about anyway.
+    In memory rather than through `towncrier build`, which writes
+    `CHANGELOG.rst` and deletes every fragment. Rendering the template is what
+    this is about anyway.
 
     `versiondata` is a plain dict, built by `towncrier/build.py` as
     `{"name": ..., "version": ..., "date": ...}`, not an object -- so this

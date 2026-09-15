@@ -9,10 +9,16 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+import tomllib
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.by_path import load_script
+from tests.committed import committed_manifest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 REPO = Path(__file__).parents[1]
 SCRIPT = REPO / ".github" / "scripts" / "check_citations.py"
@@ -242,16 +248,13 @@ def test_the_corpus_covers_every_tracked_text_file():
     assert not any(path.suffix == ".png" for path in paths), "images are not text"
 
 
-def _container_citations() -> list[str]:
-    """Census every citation of a container anchor, outside the specifications.
+def _on_containers(paths: Iterable[Path]) -> list[tuple[str, str]]:
+    """Find every citation of a container anchor in ``paths``.
 
-    The specifications are excluded because a specification naming another's
-    section as a topic is ordinary prose, and there is a great deal of it: 111
-    citations land on a container across the whole corpus and 36 outside this
-    collection, the difference being cross-references between specifications
-    and the anchor specification discussing the plotting section at length. What
-    the census is for is the other kind — a docstring or a page sending a reader
-    to a section that has since been subdivided.
+    Parameters
+    ----------
+    paths : iterable of Path
+        The files to scan.
 
     Returns
     -------
@@ -265,9 +268,7 @@ def _container_citations() -> list[str]:
     pattern = cc.citation_pattern(anchors)
     held = cc.containers(anchors)
     found = []
-    for path in cc.corpus():
-        if path.parent == cc.SPECS:
-            continue
+    for path in paths:
         own = owners.get(path)
         text = path.read_text(encoding="utf-8")
         for _, line in cc.citations.source_lines(path, text):
@@ -277,6 +278,69 @@ def _container_citations() -> list[str]:
                 if citation.slug in held
             ]
     return found
+
+
+def _assembled(paths: Iterable[Path]) -> set[Path]:
+    """Pick out the files a release's changelog assembly writes or deletes.
+
+    Towncrier writes its ``filename`` and deletes every fragment it consumed. A
+    fragment is recognised the way towncrier recognises one, by a configured type
+    among the dot-separated parts of its name after the first --
+    ``300.documentation.rst`` -- rather than by lying in ``directory``, whose
+    ``README.md`` and template are written by hand and left in place by a release.
+
+    Parameters
+    ----------
+    paths : iterable of Path
+        The files to choose from.
+
+    Returns
+    -------
+    set of Path
+        The assembled file and the fragments, among ``paths``.
+
+    """
+    towncrier = tomllib.loads(committed_manifest())["tool"]["towncrier"]
+    fragments = cc.REPO / towncrier["directory"]
+    types = {entry["directory"] for entry in towncrier["type"]}
+    return {
+        path
+        for path in paths
+        if path == cc.REPO / towncrier["filename"]
+        or (path.parent == fragments and types & set(path.name.split(".")[1:]))
+    }
+
+
+def _container_citations() -> list[tuple[str, str]]:
+    """Census every citation of a container anchor that a reader has to judge.
+
+    The specifications are excluded because a specification naming another's
+    section as a topic is ordinary prose, and there is a great deal of it: 111
+    citations land on a container across the whole corpus and 36 outside this
+    collection, the difference being cross-references between specifications
+    and the anchor specification discussing the plotting section at length. What
+    the census is for is the other kind — a docstring or a page sending a reader
+    to a section that has since been subdivided.
+
+    The changelog is excluded too, as much of it as a release moves
+    (:issue:`318`). Assembly deletes every fragment and writes its text into one
+    file, so the same citations change key at every release, on the commit that
+    gets tagged. Nor is there a judgement to make: an entry records what a pull
+    request did with the sections as they stood, and a section subdivided later
+    leaves that record true. The corpus keeps both, so every citation in them
+    still has to resolve (docs spec §3.6) — the published changelog links them.
+
+    Returns
+    -------
+    list of tuple
+        One ``(path, slug)`` per citation, as :func:`_on_containers` gives them.
+
+    """
+    corpus = cc.corpus()
+    moved = _assembled(corpus)
+    return _on_containers(
+        path for path in corpus if path.parent != cc.SPECS and path not in moved
+    )
 
 
 #: Citations naming a section that another anchor subdivides, by file and
@@ -296,10 +360,14 @@ def _container_citations() -> list[str]:
 #: `spec-3-2`, both spanning claims that belong on the container — the section's
 #: own length, and that it keeps every word and every anchor. Neither is about a
 #: paragraph, so neither has a subsection to name instead.
+#:
+#: Moved 2026-09-15 (:issue:`318`): the changelog left the census, as much of it
+#: as a release moves. Assembly deletes every fragment and writes its text into
+#: `CHANGELOG.rst`, so the fragments' rows would have changed key at every release,
+#: on the commit that gets tagged. Three rows went, four citations on `spec-3-2`,
+#: leaving it 11. What is given up is noticing a new fragment that cites a
+#: container, which the census had done once, for the two of :pull:`300` above.
 CONTAINER_CITATIONS = {
-    ("changelog/201.enhancement.rst", "spec-3-2"): 1,
-    ("changelog/300.documentation.rst", "spec-3-2"): 2,
-    ("changelog/90.documentation.rst", "spec-3-2"): 1,
     ("docs/src/_ext/tephpy_citation_xrefs.py", "spec-3-2"): 1,
     ("docs/src/_ext/tephpy_citations.py", "spec-3-2"): 2,
     ("docs/src/_ext/tephpy_topics_data.py", "spec-3-2"): 1,
@@ -347,6 +415,28 @@ def test_the_container_census_is_what_was_recorded():
         for key in moved
         for path, slug in [key]
     )
+
+
+@tracked
+def test_the_census_leaves_out_what_a_release_moves():
+    """A release moves citations between files, so a census by file cannot follow.
+
+    Assembling the changelog deletes every fragment and writes its text into
+    ``CHANGELOG.rst``. The citations are conserved and every key they sat under
+    changes, so a record of them would move at every release, on the commit that
+    gets tagged (:issue:`318`).
+    """
+    corpus = cc.corpus()
+    moved = _assembled(corpus)
+    # The fragments carry these before a release and `CHANGELOG.rst` after it, so
+    # this holds in both states rather than passing for want of anything to leave
+    # out.
+    assert _on_containers(moved), "nothing a release moves cites a container"
+    directory = {path.name for path in corpus if path.parent == cc.REPO / "changelog"}
+    kept = directory - {path.name for path in moved}
+    assert {"README.md", "template.rst"} <= kept, "a release leaves these in place"
+    counted = {path for path, _ in _container_citations()}
+    assert not counted & {cc.display(path) for path in moved}
 
 
 @tracked
