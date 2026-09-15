@@ -302,6 +302,16 @@ neither. In the reference quadrant the entries are reached by name, so there is 
 choose between, and six contrastive sentences would be written for a decision no reader
 makes. The introduction it already carries does the guiding that is genuinely wanted.
 
+*Corrected 2026-09-15.* The reference half of that amendment rested on a premise that was
+false when written. The introduction did not name two of its six pages rather than
+enumerating them: its opening paragraph had enumerated all six since {pull}`210` — "Beside
+it sit the command line, every configuration option and its default, a glossary, the
+published sources this documentation cites, and the changelog" — and the two pages it named
+as guidance were in the paragraphs after it. {pull}`322` then extended that list by hand to
+seven, in the same commit as the toctree line it describes: the drift this section was
+written about, on the page it had just been declared absent from. The amendment of
+2026-09-15 below takes the quadrant in.
+
 Two consequences follow for the gate. Its constant is **`TABLE_SECTIONS`**, not
 `USER_SECTIONS`: the developer guide is not a user section, and two other constants of that
 name — the glossary sweep's and the snippet gate's — deliberately exclude it, so three
@@ -344,19 +354,65 @@ first-mention rule: a `:term:` there is neither required nor able to satisfy tha
 the page, and a term first appearing in a cell without one loses its link with nothing
 reporting it. First mentions belong in the introduction, and a cell takes the plain word.
 
-**The gate.** `tests/test_docs_landing_pages.py` discovers the quadrant directories rather
-than listing them, as `tests/test_docs_topics.py` does, and asserts for each that the
-sequence of `toctree` entries is the sequence of `:doc:` targets in the table. A page added
-to one and not the other fails; a row pointing outside its own quadrant fails; the two
-orders drifting apart fails. What it holds is that a quadrant's visible index and its
-navigation are one list — which is the thing the prose sentence never was and could not have
-been.
+**The gate.** `tests/test_docs_landing_pages.py` names the sections it governs and discovers
+the pages inside each, so a page is governed from the day it lands, and asserts for each
+section that the sequence of `toctree` entries is the sequence of `:doc:` targets in the
+table. A page added to one and not the other fails; a row pointing outside its own quadrant
+fails; the two orders drifting apart fails. What it holds is that a quadrant's visible index
+and its navigation are one list — which is the thing the prose sentence never was and could
+not have been. *Corrected 2026-09-15:* this paragraph said the gate discovers the quadrant
+directories rather than listing them. It lists them, in the two constants this section
+names, and discovers the pages.
 
-**The reference quadrant is not covered.** Its landing page carries prose of the same shape,
-but its entries are not pages a reader chooses between: four have bodies a directive
-generates, the API is generated wholesale, and the glossary is a lookup table — which is
-reading spec §3.7's own grouping of them. The case for a chooser is not the case made here.
-§7 records it.
+*Amended 2026-09-15.* **Six sections, two shapes.** The reference quadrant takes a landing
+page of its own shape — a grid of cards, where the other five sections carry a table. Of the
+two premises that kept it out, the first was false when written (above). The second, that
+its entries are reached by name, is answered by a card rather than contradicted by one: a
+card is a named destination a reader recognises by its icon, which is how a lookup is found,
+and its sentence separates the pairs that do blur side by side — *What's New* against the
+*Changelog*, the *Command Line* against the *Configuration Options*. The root page already
+reaches its four quadrants the same way.
+
+In order, the page carries the title; an introduction saying what the quadrant is for; the
+card grid; two guidance paragraphs — where a caller deciding what to catch should look, and
+whom the glossary is written for; and the `toctree`, hidden. The guidance follows the grid
+rather than preceding it, because the cards are what the page is for and those paragraphs are
+advice for a particular need. `tests/test_docs_snippets.py` requires the first of them.
+
+- **The grid** is `.. grid:: 1 2 2 2`: one column below 576px and two above, with the API
+  card leading at full width (`:columns: 12`) and the other six paired in three rows.
+  Measured 2026-09-15 in Chromium at 360, 600 and 1280px. At 360px two columns — the root
+  page's `.. grid:: 2`, which is two columns at every breakpoint — broke words mid-word, as
+  "Configuratio / n" in a title and "documentatio / n" in a sentence, where one column broke
+  none. Seven cards in two columns also leave the last row half empty, which the full-width
+  lead removes.
+- **A card's title** is its page's title, except the API card's: that page is titled by the
+  package name, `tephpy`, which on a card tells a reader nothing.
+- **A card's sentence** is contrastive, as a row's is, but the rule against repeating the
+  page's opening does not carry over, because a card raises no tooltip. sphinx-design builds
+  a card from a zero-size anchor stretched over it, and tooltip spec §3.3 keeps
+  `sd-stretched-link` in `tippy_skip_anchor_classes` so that a hover buries nothing. The tip
+  is generated and never attached, so the generated data carries one and the page shows
+  none. Beside the title and the icon, the sentence is all a reader has before choosing.
+- **Each card carries an icon** in the root page's vocabulary: the 45° lattice at 20%
+  opacity, bold navy strokes, one orange accent on the thing pointed at, and no drawing used
+  twice. Light and dark are one drawing. The dark file swaps the navy for `#8FB8E8` and the
+  knock-out halo for `#14181e` — the ground measured behind a card, which sets no background
+  of its own. The root page's dark *Tutorials* icon used `#20242b`, which leaves a visible
+  ring on that ground, and is corrected with them.
+- **Glossary terms stay out of the cards**, for the reason they stay out of the cells: a card
+  is a directive, and `prose()` skips its body.
+
+**The gate holds the cards as it holds the tables.** `CARD_SECTIONS` sits beside
+`TABLE_SECTIONS`, and for each card section the same four things are asserted: the cards'
+targets are the toctree's entries, as a sequence; every card links to a page in its own
+section; the cards cover every page the section holds; and the toctree is hidden. A section
+belongs to one constant, and a page carries one index. The API card is the one entry
+discovery cannot see — `autoapi_keep_files = False` and a git-ignored directory mean
+`generated/api/tephpy/index` exists only while a build runs — so the gate derives it from the
+`autoapi_root` and `autoapi_dirs` that `conf.py` sets, read by executing the file as
+`tests/test_docs_whatsnew.py` does, and page discovery passes over the generated directory.
+Titles, sentences, icons and which card leads are presentation, and are not gated.
 
 (narrative-spec-4)=
 ## 4. Companion changes
@@ -385,6 +441,20 @@ reading spec §3.7's own grouping of them. The case for a chooser is not the cas
   which is where reading spec §3.7's "navigated rather than read" already stands, and where
   a page author looks.
 
+*Added 2026-09-15 (§3.9).*
+
+- `docs/src/reference/index.rst` takes the card shape, and `docs/src/_static/cards/reference/`
+  gains a light and a dark icon for each of its seven cards.
+- The root page's card classes become `teph-card` and `teph-card-icon`, since the cards are no
+  longer only quadrants and `teph-quadrant-button` already names the topic page's filter. Its
+  dark *Tutorials* icon takes the `#14181e` halo.
+- `tests/test_docs_landing_pages.py` gains `CARD_SECTIONS`. The docstring of
+  `tests/test_docs_snippets.py`'s signpost test stops describing the listing sentence, and
+  its assertion stands.
+- `docs/src/developer/docs-style.rst`'s *Landing Pages* rule gains the card shape, and loses
+  two stale claims: that §3.9 leaves the reference quadrant's question open, and a list of the
+  sections it governs that omits `developer/`.
+
 (narrative-spec-5)=
 ## 5. Testing
 
@@ -398,7 +468,7 @@ reading spec §3.7's own grouping of them. The case for a chooser is not the cas
 | every `narrative spec §…` citation | the pre-commit anchor check and `check_rendered_citations.py` |
 | the shipped Wyoming sample | `tests/test_samples.py` — it reads through a public reader and yields a `Sounding`, like every other sample |
 | the prose | review, against docs-style's *Reviewing Claims* ({pull}`195`) |
-| a quadrant's landing table against its toctree (§3.9) | `tests/test_docs_landing_pages.py` — the two are one ordered list, or neither is |
+| a section's landing table or card grid against its toctree (§3.9) | `tests/test_docs_landing_pages.py` — the two are one ordered list, or neither is |
 
 The five pages of §3.2–§3.6 needed no new gate. The machinery that holds them was built by
 the four plans before it, and needing none is the evidence that those plans were the right
@@ -440,13 +510,15 @@ Tagged per docs spec §3.5.
   paragraph rather than a redesign. *Shipped 2026-08-29* ({pull}`210`): the sample is in
   `tephpy.samples` and in the wheel, with its attribution, so the question is now live
   rather than hypothetical.
-- **Closed** (2026-09-11, §3.9) — whether the reference quadrant's landing page takes the
-  table of §3.9 too. It does not, and `developer/` does, which settles this bullet and
-  `contributor spec §7`'s together as the one decision they always were. Its entries are
-  reached by name rather than chosen between, so a table would carry six contrastive
-  sentences for a choice no reader makes; and the drift §3.9 was written about is absent
-  here, the introduction naming two of the six pages as guidance rather than enumerating
-  them. §3.9 carries the reasoning and the two consequences for the gate.
+- **Refined** (2026-09-15, §3.9) — whether the reference quadrant's landing page takes the
+  table of §3.9 too. Closed on 2026-09-11 as no, while `developer/` took the table, settling
+  this bullet and `contributor spec §7`'s together as the one decision they always were. It
+  rested on two premises: that the quadrant's entries are reached by name rather than chosen
+  between, and that its introduction named two of the six pages as guidance rather than
+  enumerating them. The second was false when written — the opening paragraph had listed all
+  six since {pull}`210` — and {pull}`322` extended that list to seven. Refined on 2026-09-15
+  to a shape of its own: a grid of cards held by the same gate, which answers the first
+  premise rather than contradicting it. §3.9 carries the correction, the shape and the gate.
 - **Closed** (2026-09-11, {issue}`66`) — the developer and contributor guide. This plan
   closed the user half of that issue and left the developer half open, which was the honest
   split: the two share an issue and not an audience. The developer half followed as

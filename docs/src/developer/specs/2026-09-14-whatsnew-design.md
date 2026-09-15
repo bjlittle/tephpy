@@ -235,10 +235,12 @@ already covers a broken reference, so none of these repeats it.
 `narrative spec §3.9` gives the quadrant landing pages, for the same reason: a page the
 toctree does not name builds clean and is unreachable from the section it belongs to. The
 toctree is what the gate reads — the `include` is a convenience that always duplicates one
-entry of it, never the only route to a page. Only the rule is borrowed — the *What's New* page is **not** a landing page in
-that specification's sense, since `narrative spec §7` keeps the reference quadrant out of
-the table-and-toctree shape those pages carry, and `tests/test_docs_landing_pages.py`
-governs `TABLE_SECTIONS` alone. `latest.rst.template` is not a page and is excluded by name.
+entry of it, never the only route to a page. Only the rule is borrowed — the *What's New*
+page is **not** a landing page in that specification's sense. It is a subsection of the
+reference quadrant, one entry of that quadrant's landing page, and its own index is a plain
+toctree. *Amended 2026-09-15:* this said the reference quadrant was kept out of the
+landing-page shapes altogether; `narrative spec §3.9` now gives it a grid of cards.
+`latest.rst.template` is not a page and is excluded by name.
 
 **No page but `latest.rst` carries the substitutions.** §3.2's freezing step is a manual
 edit made once per release, and forgetting it produces a page that is wrong only from the

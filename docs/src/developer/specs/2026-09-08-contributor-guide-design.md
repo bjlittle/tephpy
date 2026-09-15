@@ -411,8 +411,9 @@ Tagged per docs spec §3.5.
   fifth page after this was written, and `codecraft` above may add a sixth — but that the
   maturing argument turned out to be the weaker one: a description of `testing.rst` is no
   worse for `codecraft` arriving later, the gate makes the row mandatory when it does, and
-  in the meantime a reader met eight filenames and no sentence. The reference quadrant does
-  not take the shape; `narrative spec §3.9` carries both halves.
+  in the meantime a reader met eight filenames and no sentence. The reference quadrant did
+  not take the shape then; *amended 2026-09-15*, it takes a grid of cards under the same
+  gate, and `narrative spec §3.9` carries both halves.
 
 (contributor-spec-8)=
 ## 8. References
