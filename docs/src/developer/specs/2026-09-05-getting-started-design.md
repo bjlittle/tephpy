@@ -415,7 +415,8 @@ item was closed by answering it rather than by dropping it.
 **Out of scope.** {issue}`66`'s other two halves: the developer and contributor guide, and
 the split of the parent specification's §3.2 into a `plotting` tour. Both are separately
 scoped and neither is a prerequisite of this one. The reference quadrant's landing page,
-which narrative spec §7 holds open. Any change to the non-goals themselves, which are
+which narrative spec §7 held open — settled there on 2026-09-11, and refined to a grid of
+cards on 2026-09-15. Any change to the non-goals themselves, which are
 scope spec §3.1's.
 
 **Tranches.** *Corrected 2026-09-05 from the implementation.* The **rename** goes first

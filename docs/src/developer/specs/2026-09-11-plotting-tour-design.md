@@ -115,6 +115,9 @@ map; the process pages follow because they are consulted rather than read throug
 section on the grounds that the content was maturing and a table commits to a
 description of each page before there is a settled page to describe. Adding an eighth
 page is not the event that changes that; `contributor spec §7` carries the question.
+*Corrected 2026-09-15:* superseded the day this was written. `contributor spec §7` took the
+question up on 2026-09-11, and `developer/` has carried a landing table since {pull}`306`,
+with a row for this page.
 
 The page is read through, so it carries a reading-time banner — `reading spec`'s corpus
 is derived over the whole tree and exempts only the two index pages by name, so the
@@ -303,7 +306,7 @@ Out, each with its thread:
 | relocating `spec §3.2`'s "how it works now" prose | §7, filed as {issue}`299` |
 | the explanation-quadrant account — what a tephigram *is* | {issue}`66`'s high layer, closed 2026-09-11 by a section of *Why the Axes Are Rotated* |
 | any diagram of the spine | {issue}`291` — the mermaid read-time network cost is undecided |
-| a `developer/` landing table | `contributor spec §7` |
+| a `developer/` landing table | `contributor spec §7`, which took it up on 2026-09-11 — the table landed in {pull}`306` |
 | docstring changes | none needed; the low layer is in good repair (§1) |
 
 (tour-spec-7)=
