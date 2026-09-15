@@ -1,0 +1,9 @@
+Specified a grid of cards for the reference quadrant's landing page. The decision
+of :pull:`306` to leave that page without a landing index rested on its
+introduction naming two of its pages rather than enumerating them, which was
+false when written: the opening paragraph had listed every page since
+:pull:`210`, and :pull:`322` extended that list by hand. The specification now
+records the correction and gives the page seven cards, each with an icon in the
+root page's vocabulary, held to its hidden toctree by the landing-page gate.
+Four other specifications that carried the old decision are brought into line
+with it. (:user:`claude`)
