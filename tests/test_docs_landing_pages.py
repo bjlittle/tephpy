@@ -2,17 +2,21 @@
 #
 # This file is part of tephpy and is distributed under the 3-Clause BSD license.
 # See the LICENSE file in the package root directory for licensing details.
-"""A landing page's table and its toctree are one list (narrative spec §3.9)."""
+"""A landing page's index and its toctree are one list (narrative spec §3.9)."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from functools import cache
+from pathlib import Path, PurePosixPath
 import re
 
 import pytest
 
+from tests.by_path import load_path
+
 REPO = Path(__file__).parents[1]
 DOCS = REPO / "docs" / "src"
+CONF = DOCS / "conf.py"
 
 #: The sections whose landing page carries a table (narrative spec §3.9).
 #:
@@ -25,11 +29,19 @@ DOCS = REPO / "docs" / "src"
 #: appearance would put the developer guide inside two gates that deliberately exclude
 #: it.
 #:
-#: The reference quadrant is out, decided rather than deferred: its entries are reached
-#: by name rather than chosen between, its introduction already guides a reader to the
-#: two pages that need it, and it carries no prose list tracking a directory -- which is
-#: the defect narrative spec §3.9 exists to close.
+#: The reference quadrant takes cards instead (`CARD_SECTIONS`): its pages are
+#: looked up by name, and a card answers that with an icon where a row would offer a
+#: choice nobody makes (narrative spec §3.9).
 TABLE_SECTIONS = ("start", "tutorials", "howtos", "explanation", "developer")
+
+#: The sections whose landing page carries a grid of cards (narrative spec §3.9).
+#: Empty until the reference page takes the shape: every check below reads the live
+#: page, so a section joins in the commit that gives it the cards.
+CARD_SECTIONS: tuple[str, ...] = ()
+
+#: The directive a card is written with. A card's own options are the ``:name:``
+#: lines directly under it, and the first line that is not one ends them.
+CARD = ".. grid-item-card::"
 
 #: A ``:doc:`` role, with the explicit target that wins over the display text when
 #: one is written -- the same two-part shape ``check_glossary_links.py`` reads a
@@ -109,22 +121,73 @@ def toctree_options(source: str) -> list[str]:
     ]
 
 
-def _entries(directory: Path) -> list[Path]:
+@cache
+def _autoapi() -> tuple[PurePosixPath, str]:
+    """Return where autoapi writes the API pages, and the package it documents.
+
+    Read by executing `conf.py`, as `tests/test_docs_whatsnew.py` reads
+    ``rst_epilog``: a text scan would pass on a value sitting in a comment. Cached,
+    because every section's discovery asks and the answer cannot change in a run.
+
+    Returns
+    -------
+    tuple of (PurePosixPath, str)
+        ``autoapi_root``, relative to the documentation source, and the name of the
+        package directory ``autoapi_dirs`` names.
+
+    """
+    conf = load_path("tephpy_docs_conf", CONF)
+    return PurePosixPath(conf.autoapi_root), PurePosixPath(conf.autoapi_dirs[0]).name
+
+
+def generated_pages(section: str) -> list[str]:
+    """Return the pages a section offers that exist only while a build runs.
+
+    autoapi writes the API reference under ``autoapi_root`` during a build and, with
+    ``autoapi_keep_files = False``, removes it afterwards; the directory is
+    git-ignored besides. Discovery cannot see a page that is not on disk, so the one
+    entry a section's index gives the API is derived instead (narrative spec §3.9).
+
+    Parameters
+    ----------
+    section : str
+        The section's directory name under the documentation source.
+
+    Returns
+    -------
+    list of str
+        ``["generated/api/tephpy/index"]`` for the section ``autoapi_root`` sits in,
+        and nothing for any other.
+
+    """
+    root, package = _autoapi()
+    if root.parts[0] != section:
+        return []
+    return [str(PurePosixPath(*root.parts[1:], package, "index"))]
+
+
+def _entries(directory: Path, skip: Path) -> list[Path]:
     """Return the documents one section offers, one path per destination.
 
     A subdirectory carrying its own ``index.rst`` is a subsection: it
     contributes that landing page and **nothing beneath it**, because from the
-    parent's table it is a single destination however many documents sit inside
+    parent's index it is a single destination however many documents sit inside
     it -- the specification collection is one row, not twenty. A subdirectory
     without one is a plain grouping, and its documents belong to the parent.
     Recursion stops at a landing page rather than pruning by name, so a
     subsection nested two deep behaves the same as one nested one deep
     (narrative spec §3.9).
 
+    ``skip`` is autoapi's output directory, passed over wherever a build left it:
+    its one page is counted by `generated_pages` instead, and a stale tree would
+    otherwise add entries no index names.
+
     Parameters
     ----------
     directory : Path
         The section directory to read.
+    skip : Path
+        The directory autoapi writes into.
 
     Returns
     -------
@@ -134,41 +197,46 @@ def _entries(directory: Path) -> list[Path]:
     """
     found: list[Path] = []
     for path in directory.iterdir():
+        if path == skip:
+            continue
         if path.is_dir():
             landing_page = path / "index.rst"
             if landing_page.is_file():
                 found.append(landing_page)
             else:
-                found.extend(_entries(path))
+                found.extend(_entries(path, skip))
         elif path.suffix == ".rst" and path.name != "index.rst":
             found.append(path)
     return found
 
 
 def pages(quadrant: str, docs: Path = DOCS) -> list[str]:
-    """Return every page in a quadrant, as a landing table would name it.
+    """Return every page on disk in a section, as its landing index would name it.
 
-    A `:doc:` target on a landing page is relative to the quadrant, so that is
+    A `:doc:` target on a landing page is relative to the section, so that is
     what these are made relative to. The section's own ``index.rst`` is a landing
     page rather than an entry in one and is left out; a subsection's is both, and
-    counts as one entry of its parent.
+    counts as one entry of its parent. A page only a build writes is not on disk,
+    and `generated_pages` supplies it.
 
     Parameters
     ----------
     quadrant : str
-        The quadrant's directory name under ``docs``.
+        The section's directory name under ``docs``.
     docs : Path, optional
         The documentation source root.
 
     Returns
     -------
     list of str
-        The quadrant's pages, sorted.
+        The section's pages, sorted.
 
     """
     root = docs / quadrant
+    skip = docs / _autoapi()[0]
     return sorted(
-        path.relative_to(root).with_suffix("").as_posix() for path in _entries(root)
+        path.relative_to(root).with_suffix("").as_posix()
+        for path in _entries(root, skip)
     )
 
 
@@ -200,6 +268,62 @@ def table_targets(source: str) -> list[str | None]:
         match = DOC.search(stripped)
         found.append((match.group(2) or match.group(1)) if match else None)
     return found
+
+
+def card_targets(source: str) -> list[str | None]:
+    """Return the documents a page's landing cards link to, in card order.
+
+    Only a card's own option block is read -- the ``:name: value`` lines directly
+    under ``.. grid-item-card::`` -- so an option of an image nested in the card, or
+    a field in its body, is not mistaken for the card's link.
+
+    Parameters
+    ----------
+    source : str
+        The reStructuredText source of one page.
+
+    Returns
+    -------
+    list of str or None
+        Each card's ``:link:``, or ``None`` for a card carrying none -- reported
+        rather than skipped, so a card that links nowhere fails the page instead of
+        shrinking the list silently.
+
+    """
+    lines = source.splitlines()
+    found: list[str | None] = []
+    for index, line in enumerate(lines):
+        if not line.strip().startswith(CARD):
+            continue
+        link = None
+        for option in lines[index + 1 :]:
+            stripped = option.strip()
+            if not stripped.startswith(":"):
+                break
+            name, _, value = stripped[1:].partition(":")
+            if name == "link":
+                link = value.strip()
+        found.append(link)
+    return found
+
+
+def index_targets(section: str, source: str) -> list[str | None]:
+    """Return a landing page's index, read in the shape its section takes.
+
+    Parameters
+    ----------
+    section : str
+        The section's directory name.
+    source : str
+        The reStructuredText source of its landing page.
+
+    Returns
+    -------
+    list of str or None
+        What `card_targets` reads for a card section, and `table_targets` otherwise.
+
+    """
+    return card_targets(source) if section in CARD_SECTIONS else table_targets(source)
 
 
 def landing(quadrant: str, docs: Path = DOCS) -> str:
@@ -310,56 +434,131 @@ def test_a_subdirectory_without_a_landing_page_gives_up_its_documents(tmp_path):
     assert pages("howtos", docs=tmp_path) == ["advanced/tuning"]
 
 
+def test_card_targets_reads_each_cards_link_in_order():
+    source = (
+        "    .. grid-item-card:: API\n"
+        "        :link: generated/api/tephpy/index\n"
+        "        :link-type: doc\n"
+        "        :columns: 12\n\n"
+        "        Generated.\n\n"
+        "    .. grid-item-card:: Command Line\n"
+        "        :link-type: doc\n"
+        "        :link: cli\n\n"
+        "        What to type.\n"
+    )
+    assert card_targets(source) == ["generated/api/tephpy/index", "cli"]
+
+
+def test_card_targets_reports_a_card_that_links_nowhere():
+    """Reported rather than skipped, as a table row is."""
+    source = (
+        "    .. grid-item-card:: Glossary\n"
+        "        :class-card: teph-card sd-rounded-3\n\n"
+        "        .. image:: glossary-light.svg\n"
+        "            :class: only-light teph-card-icon\n"
+    )
+    assert card_targets(source) == [None]
+
+
+def test_card_targets_reads_only_the_cards_own_options():
+    """A ``:link:`` after the option block is body text, not the card's link."""
+    source = (
+        "    .. grid-item-card:: Command Line\n"
+        "        :link-type: doc\n\n"
+        "        :link: cli\n"
+    )
+    assert card_targets(source) == [None]
+
+
+def test_the_api_page_is_derived_for_the_section_autoapi_writes_into():
+    """It exists only while a build runs, so discovery cannot find it."""
+    assert generated_pages("reference") == ["generated/api/tephpy/index"]
+    assert generated_pages("howtos") == []
+
+
+def test_discovery_passes_over_a_generated_tree_a_build_left_behind(tmp_path):
+    """A stale autoapi tree must not add pages the index is then asked to list."""
+    section = tmp_path / "reference"
+    (section / "generated" / "api" / "tephpy").mkdir(parents=True)
+    (section / "index.rst").touch()
+    (section / "cli.rst").touch()
+    (section / "generated" / "api" / "index.rst").touch()
+    (section / "generated" / "api" / "tephpy" / "index.rst").touch()
+    assert pages("reference", docs=tmp_path) == ["cli"]
+
+
 def test_every_section_this_gate_governs_is_on_disk():
     """A gate that finds nothing passes by never having looked."""
-    for quadrant in TABLE_SECTIONS:
-        assert (DOCS / quadrant).is_dir(), f"{quadrant} is missing"
+    for section in TABLE_SECTIONS + CARD_SECTIONS:
+        assert (DOCS / section).is_dir(), f"{section} is missing"
 
 
-@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
-def test_the_table_and_the_toctree_are_one_ordered_list(quadrant):
+def test_a_section_takes_one_shape():
+    """Two constants naming one section would put two indexes on its page."""
+    assert not set(TABLE_SECTIONS) & set(CARD_SECTIONS)
+
+
+@pytest.mark.parametrize("section", TABLE_SECTIONS + CARD_SECTIONS)
+def test_a_landing_page_carries_one_index(section):
+    """A table page carries no cards, and a card page no table (narrative spec §3.9)."""
+    other = ".. list-table::" if section in CARD_SECTIONS else CARD
+    assert other not in landing(section)
+
+
+@pytest.mark.parametrize("section", TABLE_SECTIONS + CARD_SECTIONS)
+def test_the_index_and_the_toctree_are_one_ordered_list(section):
     """Narrative spec §3.9: the visible index and the navigation are one list.
 
     Sequence and not set. The toctree is hidden, which hides it from the page body
     and from nothing else: the sidebar, the breadcrumb and the previous/next footer
-    all read its order, so a table ordered differently would disagree with the
+    all read its order, so an index ordered differently would disagree with the
     navigation drawn around it.
     """
-    source = landing(quadrant)
-    assert table_targets(source) == toctree_entries(source)
+    source = landing(section)
+    assert index_targets(section, source) == toctree_entries(source)
 
 
-@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
-def test_every_row_links_to_a_page_in_its_own_quadrant(quadrant):
-    for target in table_targets(landing(quadrant)):
-        assert target is not None, (
-            f"{quadrant} has a row whose first cell links nowhere"
+@pytest.mark.parametrize("section", TABLE_SECTIONS + CARD_SECTIONS)
+def test_every_entry_links_to_a_page_in_its_own_section(section):
+    """A target is a page of the section, or the one page a build generates there.
+
+    ``..`` is refused outright: ``DOCS / section / "../howtos/units.rst"`` names a
+    file that exists, so without it an entry pointing into another section would
+    pass as a page of this one.
+    """
+    generated = generated_pages(section)
+    for target in index_targets(section, landing(section)):
+        assert target is not None, f"{section} has an entry that links nowhere"
+        assert ".." not in PurePosixPath(target).parts, (
+            f"{section}'s index links to {target}, outside the section"
         )
-        assert (DOCS / quadrant / f"{target}.rst").is_file(), (
-            f"{quadrant}'s table links to {target}, which is not a page in it"
+        assert target in generated or (DOCS / section / f"{target}.rst").is_file(), (
+            f"{section}'s index links to {target}, which is not a page in it"
         )
 
 
-@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
-def test_the_table_lists_every_page_in_the_quadrant(quadrant):
-    """The table is the quadrant's index, so it indexes the quadrant.
+@pytest.mark.parametrize("section", TABLE_SECTIONS + CARD_SECTIONS)
+def test_the_index_lists_every_page_in_the_section(section):
+    """The index is the section's index, so it indexes the section.
 
-    The ordered comparison above holds the table and the toctree to each other and
+    The ordered comparison above holds the index and the toctree to each other and
     would not notice a page missing from both, which is how a page goes unlisted:
     one commit that adds a page and neither list. The fail-on-warning build catches
     the ordinary case -- Sphinx reports a document in no toctree -- but not an
-    `:orphan:` page, which builds clean and would sit in the quadrant unreachable
+    `:orphan:` page, which builds clean and would sit in the section unreachable
     from its own landing page.
     """
-    listed = sorted(target for target in table_targets(landing(quadrant)) if target)
-    assert listed == pages(quadrant)
+    listed = sorted(
+        target for target in index_targets(section, landing(section)) if target
+    )
+    assert listed == sorted(pages(section) + generated_pages(section))
 
 
-@pytest.mark.parametrize("quadrant", TABLE_SECTIONS)
-def test_the_toctree_is_hidden(quadrant):
-    """Narrative spec §3.9: the table is the visible index, and it is the only one.
+@pytest.mark.parametrize("section", TABLE_SECTIONS + CARD_SECTIONS)
+def test_the_toctree_is_hidden(section):
+    """Narrative spec §3.9: the index is the visible one, and it is the only one.
 
-    Without this the page renders the same list twice, the table and the toctree
+    Without this the page renders the same list twice, the index and the toctree
     under it, which is the duplication the shape exists to remove.
     """
-    assert ":hidden:" in toctree_options(landing(quadrant))
+    assert ":hidden:" in toctree_options(landing(section))
