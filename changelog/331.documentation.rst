@@ -1,0 +1,10 @@
+Specified phase 2 of the API version stamps in a new specification, ``stamps
+spec``, before the first release candidate needs it. Measured in a throwaway
+clone, the gate's rule — every published object cites the version the next tag
+will carry — turns ``main`` red at the first merge-back of any tag, a release
+candidate included, over 94 correct stamps. The specification records a
+committed snapshot of the published API, written at the release freeze, that
+keeps released objects on their recorded version; and a merge-back through a
+branch named without a version, the only route by which a new object on
+``main`` can be re-stamped without turning ``main`` red (:issue:`227`).
+(:user:`claude`)
