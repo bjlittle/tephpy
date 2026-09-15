@@ -35,9 +35,7 @@ CONF = DOCS / "conf.py"
 TABLE_SECTIONS = ("start", "tutorials", "howtos", "explanation", "developer")
 
 #: The sections whose landing page carries a grid of cards (narrative spec §3.9).
-#: Empty until the reference page takes the shape: every check below reads the live
-#: page, so a section joins in the commit that gives it the cards.
-CARD_SECTIONS: tuple[str, ...] = ()
+CARD_SECTIONS: tuple[str, ...] = ("reference",)
 
 #: The directive a card is written with. A card's own options are the ``:name:``
 #: lines directly under it, and the first line that is not one ends them.
