@@ -302,22 +302,33 @@ Tagged per docs spec §3.5.
   parent-specification authorship taken up as its own change rather than smuggled into this
   one (§6). The citations that resolved without meaning now name the subsection that states
   the rule, and the four tests asserting it cite it too.
-- **Resolved** (2026-09-10, :pull:`297`) — whether §3.2's *container* citations should
+- **Refined** (2026-09-15, {pull}`325`) — whether §3.2's *container* citations should
   eventually be discouraged. Once the subsections exist, a bare `spec §3.2` is sometimes right
   and sometimes laziness, and **no gate can tell them apart**, so none tries. What this
   section asked for instead — a way to notice the container accumulating citations again — is
-  now a **census**: `containers()` in `check_citations.py` finds every anchor another anchor's
-  slug extends, and `tests/test_citations.py` records which citations land on one, outside the
-  specifications themselves. The record is keyed by file and anchor, not by a total — a total
-  lets a citation removed from one file pay for one arriving in another, and neither gets
-  read (:pull:`297` review) — and by file rather than by line, so an edit above a citation
-  does not churn it. A change fails the test and the message names the file and both counts,
-  so the judgement is made once, by a reader, at the moment it arrives.
+  a **census**, since 2026-09-10 and {pull}`297`: `containers()` in `check_citations.py` finds
+  every anchor another anchor's slug extends, and `tests/test_citations.py` records which
+  citations land on one, outside the specifications themselves. The record is keyed by file
+  and anchor, not by a total — a total lets a citation removed from one file pay for one
+  arriving in another, and neither gets read ({pull}`297` review) — and by file rather than
+  by line, so an edit above a citation does not churn it. A change fails the test and the
+  message names the file and both counts, so the judgement is made once, by a reader, at the
+  moment it arrives.
 
   Measuring it corrected this section's premise. §3.2 is **not** the only subdivided section:
   **23 anchors have children**, and 36 citations outside this collection land on one. §3.2
   takes 14 of them, and so does `configfile spec §5` over two subsections — recorded as
   {issue}`296` rather than assumed to want the same answer.
+
+  **What a release moves is outside it** ({issue}`318`): `CHANGELOG.rst`, and every fragment
+  towncrier consumes into it. Assembly deletes each fragment and writes its text into the one
+  file, so the citations are conserved while every key they sat under changes — four rows at
+  once, on the commit that gets tagged, and again at every release. Nor is there a judgement
+  left to make: an entry records what a pull request did with the sections as they stood, and
+  a section subdivided later leaves that record true. The corpus keeps both files, so every
+  citation in them must still resolve under docs spec §3.6; only the census stops counting
+  them. What that gives up is noticing a *new* fragment that cites a container, which the
+  census had done once, for the two in {pull}`300` — and both were upheld.
 - **Deferred** — whether the other heavily-cited sections deserve the same treatment. `spec §6`
   takes 47 citations and `spec §3.4` takes 31; neither approaches §3.2's 170, and the same
   measurement should be made before assuming the same answer.

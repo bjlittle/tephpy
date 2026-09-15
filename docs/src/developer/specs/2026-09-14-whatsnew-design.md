@@ -263,17 +263,19 @@ that reaches every reader; this catches it on the release pull request that does
 freezing, the same commit the gate above already reads.
 
 (whatsnew-spec-5)=
-## 5. Known defect, not caused here
+## 5. Defect found, fixed elsewhere
 
-Assembling `CHANGELOG.rst` fails `tests/test_citations.py::test_the_container_census_is_what_was_recorded`
-({issue}`318`). The citation corpus is every tracked text file, so a non-empty
-`CHANGELOG.rst` brings its fragments' container citations under a new key that the census
-recorded by {pull}`297` does not have — and the count changes at every release, so
-recording it is a treadmill.
+Assembling `CHANGELOG.rst` failed `tests/test_citations.py::test_the_container_census_is_what_was_recorded`
+({issue}`318`). The census recorded by {pull}`297` is keyed by file, and assembly deletes
+every fragment and writes its text into `CHANGELOG.rst`, so four of its rows moved at once —
+and would have moved again at every release, on the commit that gets tagged.
 
-It is stated here because building this section is what found it, and because it fires on
-the same runbook step this design adds to. It is **not** this design's to fix: it would
-fire at the first release with no whatsnew section at all.
+It is stated here because building this section is what found it, and because it fired on
+the same runbook step this design adds to. It was **not** this design's to fix: it would
+have fired at the first release with no whatsnew section at all.
+
+**Resolved** (2026-09-15, {pull}`325`) — the census now leaves out what a release moves
+rather than recording it. `anchor spec §7` carries the reasoning.
 
 (whatsnew-spec-6)=
 ## 6. Non-goals
