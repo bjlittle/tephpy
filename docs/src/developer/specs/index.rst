@@ -58,6 +58,8 @@ counterpart in the parent specification.
       - :doc:`2026-09-11-plotting-tour-design`
     * - ``whatsnew spec §…``
       - :doc:`2026-09-14-whatsnew-design`
+    * - ``stamps spec §…``
+      - :doc:`2026-09-15-api-stamps-design`
 
 A new specification chooses a prefix unique across this collection and declares it in its
 own header banner.
@@ -93,3 +95,4 @@ own header banner.
     2026-09-09-reanchor-plotting-design
     2026-09-11-plotting-tour-design
     2026-09-14-whatsnew-design
+    2026-09-15-api-stamps-design
