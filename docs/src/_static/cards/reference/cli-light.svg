@@ -1,0 +1,15 @@
+<!--
+  Copyright (c) 2026, tephpy Contributors.
+
+  This file is part of tephpy and is distributed under the 3-Clause BSD license.
+  See the LICENSE file in the package root directory for licensing details.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="a shell prompt, its cursor marked">
+  <title>a shell prompt, its cursor marked</title>
+  <g stroke="#1B3A6B" stroke-width="1.6" stroke-linecap="round" opacity="0.20">
+    <path d="M-2 14 L50 66"/><path d="M12 0 L64 52"/><path d="M26 -14 L78 38"/>
+    <path d="M66 14 L14 66"/><path d="M52 0 L0 52"/><path d="M38 -14 L-14 38"/>
+  </g>
+  <path d="M13 20 L25 32 L13 44" fill="none" stroke="#1B3A6B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 44 L51 44" fill="none" stroke="#E4572E" stroke-width="5" stroke-linecap="round"/>
+</svg>
