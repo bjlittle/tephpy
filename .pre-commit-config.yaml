@@ -35,7 +35,7 @@ repos:
         additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.7
+    rev: v0.16.10
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
@@ -61,7 +61,7 @@ repos:
         types_or: [python, markdown, rst]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.1
+    rev: v2.4.0
     hooks:
       - id: mypy
         pass_filenames: false
@@ -74,7 +74,7 @@ repos:
           - "types-docutils"
 
   - repo: https://github.com/numpy/numpydoc
-    rev: v1.11.0rc0
+    rev: v1.11.0
     hooks:
       - id: numpydoc-validation
         files: '^src/'
@@ -101,7 +101,7 @@ repos:
       - id: text-unicode-replacement-char
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.0
+    rev: 0.38.2
     hooks:
       - id: check-dependabot
       - id: check-github-workflows
